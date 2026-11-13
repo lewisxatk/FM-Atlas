@@ -30,7 +30,7 @@ Build FM Atlas into a premium Windows Football Manager intelligence and modding 
 - A MONOLITH theme service supports Obsidian and Warm Light. The latest branch changes now update token brushes and tracked legacy brushes in place, bind the main window to theme tokens and migrate the Player Intelligence report XAML to DynamicResource tokens; older screens still contain hard-coded values and shared-control migration is incomplete.
 - Diagnostics already has health checks, copy/export actions, a support ZIP preview/confirmation screen, a SHA-256 manifest, and local-only export. The existing support archive excludes career saves, the SQLite database, FM installation files and arbitrary files by default.
 - A source audit found over-escaped credential patterns and incomplete handling of Windows paths containing spaces. These are now corrected in AtlasLog.cs. A Diagnostics self-check covers bearer tokens, API keys, passwords, user paths, spaced drive paths, UNC paths and standalone save filenames.
-- Equivalent regex regression cases passed locally. A Windows .NET 8 MSTest project now covers the cases and is included in the solution/CI workflow; neither the tests nor the current branch build have yet been run on Windows.
+- A GitHub Actions Windows run at commit `5aa82c2` completed .NET 8 restore, WPF Release build and the automated test suite. The TRX report confirms 10 tests executed, 10 passed, 0 failed. This proves the application and test project compiled at that checkpoint; it does not prove runtime UI or game integration.
 - Live Apply and Undo remain blocked by LiveWriteCertification.IsCertified = false. Do not enable them without independent field witnesses and disposable offline save acceptance.
 - Game Pass profile records and a configurable graphics resolver exist in source; neither the user's exact installed build nor their real graphics folders have been validated.
 
@@ -91,3 +91,14 @@ The authoritative integrated feature scope and acceptance gates are in [OVERHAUL
 - MainWindow background/foreground use central Canvas/TextPrimary resources.
 - PlayerIntelligenceReportWindow uses DynamicResource for theme-aware surfaces, buttons, text boxes, data grids and report accent/muted text.
 - This avoids destroying a page or losing its local filter state just to switch themes. It remains a source-level implementation until Windows runtime/theme/DPI acceptance is recorded.
+
+## Windows build/test evidence
+
+- Successful Actions run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43465739690
+- Tested commit: `5aa82c27117b4badf63e19d88681b12eb0c4db30`.
+- Windows job completed all steps: checkout, .NET 8 install, environment capture, restore, Release build, automated tests, TRX upload, executable metadata and Release artifact upload.
+- TRX counters: total 10, executed 10, passed 10, failed 0, error 0.
+- Test artifact SHA-256: `6d09bb448e6dafbdab87e49cda69141c0629de9440eec41c8be15d79d343c40b`.
+- Release artifact size: 14,591,556 bytes.
+- This is the first automated Windows build/test acceptance for this source branch. Later source commits need their own workflow result. App launch, route coverage, actual support ZIP content, theme switching at different DPI and Game Pass/FM runtime integration remain untested.
+- Latest source change after that successful run adds Ctrl+K and global-search canvas token at `830cedc`; its separate Actions run was still in progress at the time of this update.
