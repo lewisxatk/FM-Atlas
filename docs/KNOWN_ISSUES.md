@@ -69,3 +69,15 @@ The following supersedes older build/privacy notes above where they conflict:
 - The earlier pending status for run `43475788525` is superseded. That run failed on missing System.IO imports and test API/signature issues; these were fixed before `43476085012`.
 - Automated tests cover support bundle archive allowlisting, hash/size manifest, redaction, path-traversal rejection, saved search profile persistence and SQLite live-evidence isolation.
 - Manual WPF route smoke tests, actual support ZIP inspection, save-copy import acceptance, theme/DPI visuals, Game Pass build confirmation and graphics-root validation remain open.
+## Integrated Stage 3–7 and Moneyball continuation — 2026-11-13
+
+- The 81-test Windows pass at commit 4c588147 verifies compilation and the automated test suite only; it does not establish WPF runtime acceptance or actual Football Manager/Game Pass compatibility.
+- Moneyball is an initial single-metric cohort screen. It does not yet provide defensible position/age/league segmentation, multi-metric profiles, cross-league strength adjustment, or a recruitment-grade value model. Percentiles describe the rows actually returned, not SI ratings.
+- Raw seasonal totals and per-90 queries have received further fixes for minutes floors, duplicate player-period observations and FM View CSV fallback. The added SQLite tests are awaiting Windows CI on current branch head 8c698593; do not mark them verified until that run passes.
+- The metric catalogue may contain fields from different providers. The UI must continue to disclose provider/period/sample basis and must not merge incompatible rows or treat absent minutes as a qualified sample.
+- Player DNA, Scouting Matrix, Tactical Studio, Match Lab and Development are early integrated views. Their presence in navigation is not evidence of complete workflows or real-save correctness.
+- Tactical Studio's score is an Atlas weighted attribute estimate. It is not Football Manager's internal role score or Tactical Effectiveness calculation.
+- Match Lab currently exposes stored aggregate performance facts. It must not display invented event timelines, shot locations or match ratings.
+- Game Pass build/profile recognition remains unconfirmed for the user's installed executable. A module fingerprint is not field-level certification.
+- Live memory Apply/Undo remains deliberately disabled. Do not weaken the write certification gate.
+- Manual WPF startup, all-route smoke tests, theme/high-DPI/accessibility checks, imported copied-save acceptance, graphics pack validation, clean-machine installer tests and release rollback remain open.
