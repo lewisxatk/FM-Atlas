@@ -1325,7 +1325,7 @@ public partial class MainWindow : Window
             insight.Children.Add(Txt("Imported from the save's human-manager planner; this section is independent of the club filter above.", 9, false, Muted, wrap: true));
             if (plannerRows.Count == 0)
             {
-                insight.Children.Add(Txt("No squad-planner rows were included in the latest imported save. Import a supported save with the squad_planner reader available to show the game's stored slots here.", 9, false, Muted, wrap: true));
+                insight.Children.Add(Txt("No supported squad-planner rows were included. fmsave 0.12.3 documents this reader for FM27 build 27.0.0+2486695 with a single human manager; other builds remain unclassified here.", 9, false, Muted, wrap: true));
             }
             else
             {
