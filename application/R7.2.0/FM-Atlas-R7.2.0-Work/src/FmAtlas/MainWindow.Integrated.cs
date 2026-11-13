@@ -136,6 +136,7 @@ public partial class MainWindow
         profileRow.Children.Add(shortlistPicker); profileRow.Children.Add(newName); profileRow.Children.Add(create);
         root.Children.Add(Card(profileRow, 13, new Thickness(0, 0, 0, 10)));
 
+        TextBox notesInput = null!;
         var candidateRow = new WrapPanel();
         var candidateSearch = Input("Find candidate by name or club"); candidateSearch.Width = 280;
         var searchButton = PrimaryButton("Search candidates", async (_, _) => await SearchCandidatesAsync());
@@ -160,7 +161,7 @@ public partial class MainWindow
         root.Children.Add(Card(saved, 14, new Thickness(0, 0, 0, 10)));
 
         var notesRow = new WrapPanel();
-        var notesInput = Input("Recruitment notes for selected player"); notesInput.Width = 360;
+        notesInput = Input("Recruitment notes for selected player"); notesInput.Width = 360;
         var saveNotesButton = SoftButton("Save notes", async (_, _) => await SaveNotesAsync());
         notesRow.Children.Add(notesInput);
         notesRow.Children.Add(saveNotesButton);
