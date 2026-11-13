@@ -384,3 +384,11 @@ Superseded: latest code-level Windows verification is source commit `4fdd17c344a
 - Atlas composite formula is documented in UI and service code; it is not represented as FM's internal calculation.
 - Latest registered snapshot is required for position eligibility. If the newest import is unregistered, no old position data is silently substituted.
 - WPF runtime, copied-save, Game Pass and visual acceptance remain outstanding. Live Apply/Undo remains disabled.
+
+
+## Repository safety correction — 2026-11-13 21:39 UTC
+
+- A test-only commit was accidentally sent to the default `main` branch while creating integration-test files. It added three files only: two test files and `docs/MASTER_PROGRESS.md`; no application source was merged.
+- All three additions were deleted from `main` in sequential revert commits. Current `main` ref: `05a0928e82cb3b3e99f58a5ae4ebe19479c9bb35`.
+- Verified with GitHub compare: `2051bbee042fb8e7203b7855e833e391ccee9ecb...main` returns **zero changed files**. The current `main` content tree is therefore identical to the original baseline, although its commit history contains the add/revert commits.
+- The integrated application work remains on `overhaul/monolith-full-platform`; no application code or feature merge is present on `main`.
