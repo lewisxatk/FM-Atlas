@@ -329,3 +329,22 @@ The published FMLibreEditor recon note for Game Pass package 0.9.2435.0 (observe
 This is a strong cross-reference for the **module fingerprint and those discovery anchors on that exact Store package**. It does not certify every player/staff/club field, any write offset, or the user's currently installed binary. The FMLibreEditor notes also document that nearby Game Pass versions move statics and may change date discovery, so do not generalise the 0.9.2435.0 RVAs to 0.9.2409.0 or later builds.
 
 The same FMLibreEditor investigation records 10,812 players, 9,359 staff and 19,775 clubs in its test save. These are characteristics of that test save, not fixed FM limits or guaranteed Atlas import counts.
+
+
+## fmsave 0.12.3 — position ratings, player identity and squad planner (13 November 2026)
+
+Reference: https://rhiever.github.io/fmsave/reference/records.html
+
+The current records reference documents the following useful save fields and boundaries:
+
+- `Player.positions` contains 15 named player-position ratings in this order: `gk, sw, dl, dc, dr, dm, ml, mc, mr, aml, amc, amr, stc, wbl, wbr`. The docs explicitly warn this is not the tactic/per-match position-mask order.
+- `natural_positions` lists position codes rated at least 18, best first. `accomplished_positions` lists codes rated 15–17, best first; fmsave states this is its classifier label, not text Football Manager itself shows.
+- The reference does not define the lower position-rating colour labels as official FM categories. Atlas therefore mirrors only the natural/accomplished thresholds and labels its lower three colour bands as Atlas visual groupings. It does not claim to reconstruct the game's hidden suitability calculation.
+- `Player.unique_id` is documented as stable across new games from the same database, but fmsave warns the game can assign a deleted person's ID to a newly created person. Development history therefore checks DOB and name continuity and starts a new segment when evidence changes. If DOB is missing and the same name is reused, identity cannot be proven from these fields alone.
+- `squad_planner()` exposes 27 numbered slots for the current season and the next two seasons. The documented reader support is FM27 build `27.0.0+2486695` with a single human manager. `season_offset` 0/1/2 means current/next/following season; `slot` is 1–27; `player_uids` are in depth order and unresolved references are null. The field meanings are explicitly unconfirmed.
+- Atlas reads these slots only when the latest import is registered as FM27 build `27.0.0+2486695`; it resolves UIDs within the same snapshot, preserves unresolved placeholders, and does not label the slots as positions, starters, reserves or youth teams.
+
+Implementation and test evidence:
+- `PositionSuitabilityService`, `CohortPercentileService.CalculateByGroup`, `ScoutDatabase.GetPlayerDevelopmentHistoryAsync`, and `ScoutDatabase.GetLatestSquadPlannerSlotsAsync`.
+- Windows run `43509771993`, source commit `4fdd17c344a00c64754218a4770e97c33a19f5eb`: 0 warnings, 0 errors, 95/95 tests passed.
+- External parser documentation is research evidence, not a substitute for validating the user's actual FM27 Game Pass build and imported values against the in-game UI.
