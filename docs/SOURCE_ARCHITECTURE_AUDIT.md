@@ -172,3 +172,13 @@ Remaining Diagnostics work:
 - `RoleFitService.CalculateEstimate` centralizes the transparent weighted calculation and is used by `SearchRoleFitCandidatesAsync`; six tests cover weighting, coverage, normalized names, missing/out-of-range/nonfinite values and malformed profile weights.
 - RoleFit remains an Atlas estimate, not FM's internal role rating. User interface acceptance, position familiarity, tactical context and attribute contribution explainability remain outstanding.
 - The separate maximum-weight SquadSelectionOptimizer has unit tests but is not integrated into Squad Architect because validated player/slot eligibility mapping remains incomplete.
+
+
+## Longitudinal data, position ratings and squad planner integration — 2026-11-13
+
+- `PositionSuitabilityService` maps the fmsave `Positions` record's 15 named ratings into the profile pitch. It normalises dotted/legacy field keys and retains missing ratings as unavailable. Natural (18+) and Accomplished (15–17) follow fmsave's documented classifier; the lower three colour bands are Atlas-only display groupings.
+- `CohortPercentileService.CalculateByGroup` calculates independent tie-aware percentile distributions by imported primary-position label. Unknown labels are excluded from position-specific cohorts. `ScoutDatabase.SearchSeasonMetricAsync` and per-90 queries retain the player primary-position label from save snapshots; FM View raw rows are parsed for common position headings.
+- `GetPlayerDevelopmentHistoryAsync` reads dated raw player snapshots by PlayerSourceId and calculates deltas only between consecutive observations. It distinguishes parser-verified attributes from fmsave-unconfirmed CA/PA/age fields. A reused unique_id with a changed DOB, or changed name when DOB is missing, begins a new identity segment; this is a guard, not proof of identity.
+- `GetLatestSquadPlannerSlotsAsync` reads only the latest snapshot's `squad_planner` extra-table rows, resolves UIDs against that same snapshot, retains unresolved/null entries in order and validates season offsets 0–2 and slot numbers 1–27. It requires registered FM27 build `27.0.0+2486695` because fmsave 0.12.3 documents that exact reader boundary. Slot semantics are not inferred.
+- Windows run `43509771993` at exact commit `4fdd17c344a00c64754218a4770e97c33a19f5eb`: Release build 0 warnings / 0 errors; 95/95 tests passed.
+- Automated tests do not substitute for actual FM27 Game Pass runtime, save-import, UI/DPI, or graphics-root acceptance.
