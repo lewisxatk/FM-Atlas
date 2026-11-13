@@ -43,7 +43,7 @@ public sealed class AtlasLogRedactionTests
 
         var longMessage = AtlasLog.RedactForSupport(new string('x', 5_000));
         Assert.AreEqual(4_001, longMessage.Length);
-        Assert.EndsWith("…", longMessage);
+        Assert.IsTrue(longMessage.EndsWith("…", StringComparison.Ordinal));
     }
 
     [TestMethod]
