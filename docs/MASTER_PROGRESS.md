@@ -4,7 +4,7 @@ Last updated: 2026-11-13
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
 Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`  
-Latest successful test checkpoint: `4fdd17c344a00c64754218a4770e97c33a19f5eb`  
+Latest successful test checkpoint: `5ff275d534245880242a7280f95837f6ee3a3b0d`  
 Current source head at documentation update: `4fdd17c344a00c64754218a4770e97c33a19f5eb`
 
 ## Verified progress
@@ -361,4 +361,20 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Still outstanding: age-band and league-normalised Moneyball cohorts; a verified competition-strength mapping; a formation/role-aware best-XI optimiser connected to validated player-slot eligibility; SI tactical effectiveness/player buy-in reconstruction; full graphics provider/cache/install/restore workflows; wider mod management; full shared MONOLITH control migration; final installer/publish/release process.
 - [ ] User-PC acceptance remains outstanding. When the user is ready, test only with a copy of the FM27 Game Pass career; compare player values/positions to the in-game UI, inspect the pitch map and planner slots, test Moneyball group results/CSV and multi-snapshot history, smoke-test every route/theme/DPI, verify graphics roots and review diagnostics/support exports.
 - [ ] Do not test against the user's only career save. Live Apply/Undo remains disabled; unknown or unregistered builds remain read-only.
+- Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+
+
+## Squad Architect best-XI integration and verified-build data gate — 2026-11-13 21:37 UTC
+
+- [x] Exact tested application source: `5ff275d534245880242a7280f95837f6ee3a3b0d` on `overhaul/monolith-full-platform`.
+- [x] Windows Actions run [`43511883115`](https://github.com/lewisxatk/FM-Atlas/actions/runs/43511883115): .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; **103/103 MSTest tests passed**, 0 failed, 0 skipped.
+- [x] Release artifact `14079346029`, 14,718,438 bytes, SHA-256 `71de192d2fb6bb3e001920f95d809a9a39cfe5ef5fdf6e23f119543c31ce0ca3`; test-results artifact `14077554786`, SHA-256 `85b4b87eaeaa966f3cf60105b0bd836c7db0b19422ca65aa090161fe5bb176d4`. Both expire 27 November 2026.
+- [x] Squad Architect now has four supported formation templates (4-2-3-1, 4-3-3, 4-4-2 and 3-4-2-1) and a global one-player-per-slot assignment. The optimiser combines existing weighted role-fit estimates with source position ratings using the explicit Atlas composite: `roleFit × positionRating / 20`.
+- [x] Best-XI candidate queries are restricted to one selected club and the latest save snapshot. They use registered-build position facts only; unknown/unregistered builds yield no position eligibility rather than stale values.
+- [x] The result grid shows slot, player, position rating, role-fit estimate and Atlas composite score. Missing eligibility leaves a slot unfilled; a player cannot be assigned twice. Fitness, injuries, suspensions, tactical familiarity, role duties and FM's hidden selection logic are not modelled.
+- [x] Role-fit search now supports club filters and configurable result caps; batch position-rating queries provide the same-snapshot eligibility data. Tests cover club isolation, latest registered snapshot, unknown-build rejection, global assignment and duplicate-player prevention.
+- [x] Position facts shown in the player profile and Moneyball position cohorts are also gated on registered save builds. This prevents unverified position fields from entering the pitch, cohort grouping or best-XI calculation.
+- [ ] Still outstanding: age-band and league-normalised Moneyball cohorts; validated competition-strength mapping; tactical effectiveness/player buy-in reconstruction; match-event timeline integration; full graphics provider/cache/install/restore workflows; wider mod management; full shared MONOLITH control migration; final installer/publish/release process.
+- [ ] User-PC acceptance remains deferred until the user is on PC and more implementation is complete. Then test only with a copy of the FM27 Game Pass career; compare player values/positions to the in-game UI, inspect all four formations, best-XI eligibility and planner slots, test Moneyball group results/CSV and multi-snapshot history, smoke-test routes/themes/DPI, verify graphics roots and review diagnostics/support exports.
+- [ ] Do not test against the user's only career save. Live Apply/Undo remains disabled; unknown/unregistered builds remain read-only.
 - Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
