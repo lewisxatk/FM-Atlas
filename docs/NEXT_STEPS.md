@@ -24,3 +24,15 @@ Resume the latest reported task: multi-condition player search / analytics and c
 - relevant tests and result;
 - known limitations;
 - checkpoint commit SHA.
+
+## Recovery import bundle prepared — 2026-11-13
+
+A local import bundle has been prepared from both uploaded archives. It contains:
+- the R7.1.0 package extracted intact under `application/R7.1.0/`;
+- the R7.0.2 package extracted intact under `recovery/source-baselines/R7.0.2/`;
+- byte-for-byte copies of both original ZIPs under `recovery/packages/`;
+- a PowerShell script that clones this repository, creates a new recovery branch, copies only `application/` and `recovery/`, commits and pushes without changing `main`.
+
+The user must run the import script on their Windows PC because the current GitHub connector can manage repository files/commits but cannot transfer a multi-file binary ZIP attachment directly from the chat runtime into a Git commit. After the branch is pushed, inspect it before merging.
+
+The import bundle is delivered in the current conversation as `FM-Atlas-GitHub-Recovery-Import.zip`.
