@@ -604,13 +604,16 @@ public partial class MainWindow
             IsTextSearchEnabled = true
         };
         if (phaseClubs.Length > 0) phaseClubPicker.SelectedIndex = 0;
-        var compareShapesButton = PrimaryButton("Compare both shapes", async (_, _) => await CompareShapesAsync());
+        Button compareShapesButton = null!;
+        DataGrid phaseGrid = null!;
+        TextBlock phaseStatus = null!;
+        compareShapesButton = PrimaryButton("Compare both shapes", async (_, _) => await CompareShapesAsync());
         var phaseControls = new WrapPanel();
         phaseControls.Children.Add(phaseClubPicker);
         phaseControls.Children.Add(compareShapesButton);
         phasePlanStack.Children.Add(phaseControls);
 
-        var phaseGrid = CreateGrid();
+        phaseGrid = CreateGrid();
         phaseGrid.Columns.Add(Column("PHASE", nameof(TacticalShapeCandidateRow.Phase), .8));
         phaseGrid.Columns.Add(Column("SLOT", nameof(TacticalShapeCandidateRow.Slot), 1));
         phaseGrid.Columns.Add(Column("PLAYER", nameof(TacticalShapeCandidateRow.Player), 1.2));
@@ -618,7 +621,7 @@ public partial class MainWindow
         phaseGrid.Columns.Add(Column("POSITION", nameof(TacticalShapeCandidateRow.PositionRating), .6));
         phaseGrid.Columns.Add(Column("ATLAS SCORE", nameof(TacticalShapeCandidateRow.AtlasScore), .7));
         phasePlanStack.Children.Add(phaseGrid);
-        var phaseStatus = Txt("Choose a club and compare the two sample tactical shapes. The latest registered snapshot is required for position eligibility.", 9, false, Muted, wrap: true);
+        phaseStatus = Txt("Choose a club and compare the two sample tactical shapes. The latest registered snapshot is required for position eligibility.", 9, false, Muted, wrap: true);
         phasePlanStack.Children.Add(phaseStatus);
         root.Children.Add(Card(phasePlanStack, 15, new Thickness(0, 14, 0, 0)));
 
