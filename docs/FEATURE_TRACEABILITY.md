@@ -86,7 +86,7 @@
 
 | Requirement | Source locations | Current evidence | Status | Remaining work |
 |---|---|---|---|---|
-| IP/OOP role profiles | `Services/RoleFitService.cs`, `MainWindow.RoleLab.cs` | 23 transparent weighted profiles; score coverage based on available attributes | Source present — narrow | Validate role inputs, position constraints, missing-field behaviour and weights |
+| IP/OOP role profiles | `Services/RoleFitService.cs`, `MainWindow.RoleLab.cs`, `Data/ScoutDatabase.cs`, `tests/FmAtlas.Tests/RoleFitServiceTests.cs` | 23 transparent weighted profiles; shared CalculateEstimate uses only finite 1–20 attributes, excludes missing/invalid values, reports coverage and withholds low-coverage scores; six tests pass in Windows CI | Source present — partially integrated and unit-verified | Windows Role Lab UI acceptance; incorporate position familiarity only when source-backed; show attribute contributions and confidence in UI |
 | Explainable role estimates | `Services/RoleFitService.cs` | Source comments explicitly state estimates are not SI hidden formula/stars | Source present — narrow | Display weights, attribute contribution, confidence/coverage and uncertainty in UI |
 | Team-specific role requirement fit | — | No complete team-role calibration found | Not present — planned | Add editable tactical-role templates and candidate comparison after data validation |
 
@@ -138,7 +138,7 @@
 |---|---|---|---|---|
 | Process/build discovery | `Services/GameProcessDetector.cs`, `Services/GameModuleDiagnostics.cs`, `Services/Fm27BuildProfiles.cs` | Separate Game Pass and Steam PE fingerprint records | Source present — narrow | Exact user's installed Game Pass build verification; new-build rejection tests |
 | Read-only scan/import | `Services/LiveDataImporter.cs` | Profile-matched player/club identity reader and field survey methods | Code-only — unverified | Independent witnesses, bounded read tests, cancellation and identity/coverage acceptance |
-| Field registry policy | `Services/FieldEvidencePolicy.cs`, `Data/ScoutDatabase.cs`, `MainWindow.xaml.cs`, `MainWindow.R7.cs` | Exact canonical verified-status allowlist; all nine live-fact SQL filters exclude unverified/provisional statuses; player detail and role-position map use the shared policy | Source present — hardened, runtime pending | Add query-level integration tests and migrate any remaining downstream consumers; preserve global write gate |
+| Field registry policy | `Services/FieldEvidencePolicy.cs`, `Data/ScoutDatabase.cs`, `MainWindow.xaml.cs`, `MainWindow.R7.cs`, `tests/FmAtlas.Tests/ScoutDatabaseEvidenceIntegrationTests.cs` | Exact canonical status allowlist; all nine SQL filters and two UI consumers use strict policy; disposable SQLite test proves actual player/CA/PA/attribute/club queries exclude unverified, provisional and mixed statuses; passed Windows CI | Source present — hardened and integration-tested | Audit all remaining consumers and migrate remaining data sources; preserve global write gate; extend multi-run/stale-evidence fixtures |
 | Apply/read-back/Undo | `Services/LiveMemoryEditService.cs`, `Services/LiveWriteCertification.cs` | Preflight, identity check, career-session invalidation, read-back and undo pathways exist; global certification switch is false | Blocked by safety gate | Keep disabled until exact build, field witnesses and disposable offline-save acceptance pass |
 
 ## 15. Graphics and Skin Studio
@@ -265,3 +265,10 @@ These services are domain foundations, not fully delivered screens. Squad Archit
 - Windows build/test pass is not a substitute for app-launch, visual, Game Pass or save-data acceptance.
 
 - 2026-11-13: Windows run `43469077009` at `1022078` passed 40/40 tests, 0 build warnings and 0 errors. A new disposable SQLite integration test now exercises actual live CA/PA and attribute queries with mixed evidence statuses; a missing `System.IO` import was corrected in `e109eab`, awaiting another Windows run.
+
+## Latest Windows acceptance record
+
+- Source commit `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`; Windows Actions run `43470501984`: 47/47 tests passed, 0 warnings, 0 errors.
+- Includes actual disposable SQLite evidence-consumer integration test and the six RoleFitService calculation tests.
+- RoleFit scoring engine is integrated into existing Role Lab database scoring, but no new XI/slot optimizer UI integration is claimed. Squad optimizer remains a separately tested service with explicit eligibility requirements.
+- No full WPF UI launch, visual/DPI or in-game Game Pass acceptance has been performed.
