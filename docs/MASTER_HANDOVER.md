@@ -180,3 +180,14 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - Remaining Stage 1 acceptance: pass CI on the exact privacy-copy/manifest commit, run the app, create default and opt-in ZIPs, independently inspect entries/hashes and verify exclusions.
 - Remaining Stage 2 acceptance: Windows launch and smoke-test all 21 routes; validate real Game Pass process/build, imported save copy and graphics root. These require the user's Windows environment.
 - Stage 3–7 are explicitly on hold until the user reviews the findings and approves the next combined implementation.
+
+## Latest Stage 1 implementation handover — SupportBundleComposer
+
+- The previous inline ZIP assembly was extracted into `Services/SupportBundleComposer.cs`. `MainWindow.Diagnostics.cs` now uses the same composed package for preview and ZIP output.
+- The composer only accepts a report and named application log text. Its filename allowlist rejects arbitrary entries and path traversal; report/log text is redacted; the manifest hashes and sizes the payload entries; archive bytes are round-trip tested.
+- Five new tests live in `tests/FmAtlas.Tests/SupportBundleComposerTests.cs`. They cover exact entry allowlisting, ZIP round-trip, manifest integrity, privacy redaction and invalid filename rejection.
+- Latest test run at the time of this handover: Actions run `43475232418`, exact source commit `a3efdb57115475c6d7693a26f85928910664fdee`, still in progress. The last completed baseline before these changes remains `43473487285` with 53/53 tests and zero warnings/errors.
+- A preceding CI run `43474815591` failed at compile because the initial privacy-copy edit malformed two report string literals. The lines were repaired in `d60206a`; the later `a3efdb5` run includes the repaired code. Do not describe the failed intermediate commit as the active source state.
+- Current source inventory: 41 application source files and 11 test-project files including the csproj.
+- Stage 2 route audit is documented in `docs/STAGE1_STAGE2_AUDIT.md`; Stats Search and Attribute Search also now contain a local saved-profile UI backed by `SavedSearchProfileStore`, with persistence tests. Saved profiles persist criteria only, not player/save data.
+- Stage 3–7 remain paused. Wait for current CI, then Windows app/ZIP/route acceptance and the user's review.
