@@ -679,7 +679,7 @@ public partial class MainWindow
         var compositePanel = new StackPanel();
         compositePanel.Children.Add(Txt("MULTI-METRIC MONEYBALL", 9, true, Teal));
         compositePanel.Children.Add(Txt("Composite performance ranking", 18, true, Ink));
-        compositePanel.Children.Add(Txt("Select at least two seasonal metrics. Each is ranked with the same cohort, minutes, per-90 and higher/lower direction settings above; the composite averages their valid within-cohort percentiles. Use metrics with the same desirability direction. This is an Atlas composite, not FM's internal player rating or a league-strength adjustment.", 9, false, Muted, wrap: true));
+        compositePanel.Children.Add(Txt("Select 2–12 seasonal metrics. Each is ranked with the same cohort, minutes, per-90 and higher/lower direction settings above; the composite averages their valid within-cohort percentiles. Use metrics with the same desirability direction. This is an Atlas composite, not FM's internal player rating or a league-strength adjustment.", 9, false, Muted, wrap: true));
 
         compositeMetrics = new ListBox
         {
@@ -864,6 +864,11 @@ public partial class MainWindow
                 compositeStatus.Text = "Select at least two different seasonal metrics.";
                 return;
             }
+            if (selectedMetrics.Length > 12)
+            {
+                compositeStatus.Text = "Select no more than 12 metrics per composite. This keeps each ranking pass bounded and responsive.";
+                return;
+            }
 
             if (per90.IsChecked == true && selectedMetrics.Any(x => !x.SupportsPer90))
             {
@@ -949,6 +954,7 @@ public partial class MainWindow
                         };
                         return new CohortMetricObservation(x.Id, row.Name + " · " + row.Season, row.Value, groupKey);
                     }).ToArray();
+                    var groupKeyById = metricObservations.ToDictionary(x => x.Id, x => x.GroupKey, StringComparer.OrdinalIgnoreCase);
 
                     var grouped = cohortMode != "All players";
                     var ranked = grouped
@@ -966,7 +972,7 @@ public partial class MainWindow
                             row.Season,
                             metric.Key,
                             result.Percentile,
-                            metricObservations.First(x => x.Id.Equals(result.Id, StringComparison.OrdinalIgnoreCase)).GroupKey));
+                            groupKeyById[result.Id]));
                     }
                 }
 
