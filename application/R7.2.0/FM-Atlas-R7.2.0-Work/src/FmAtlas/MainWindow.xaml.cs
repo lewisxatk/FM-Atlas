@@ -20,12 +20,12 @@ namespace FmAtlas;
 
 public partial class MainWindow : Window
 {
-    private static readonly Brush Ink = new SolidColorBrush(Color.FromRgb(232, 238, 244));
-    private static readonly Brush Teal = new SolidColorBrush(Color.FromRgb(198, 243, 107));
-    private static readonly Brush TealDark = new SolidColorBrush(Color.FromRgb(213, 229, 195));
-    private static readonly Brush Muted = new SolidColorBrush(Color.FromRgb(158, 170, 182));
-    private static readonly Brush Line = new SolidColorBrush(Color.FromRgb(49, 59, 70));
-    private static readonly Brush Canvas = new SolidColorBrush(Color.FromRgb(13, 17, 23));
+    private static Brush Ink => MonolithTheme.GetBrush("TextPrimary");
+    private static Brush Teal => MonolithTheme.GetBrush("Accent");
+    private static Brush TealDark => MonolithTheme.GetBrush("AccentSoft");
+    private static Brush Muted => MonolithTheme.GetBrush("TextMuted");
+    private static Brush Line => MonolithTheme.GetBrush("Border");
+    private static Brush Canvas => MonolithTheme.GetBrush("Canvas");
     private readonly ScoutDatabase _database = new();
     private readonly ObservableCollection<PlayerRecord> _players = new();
     private readonly ObservableCollection<AtlasClubRecord> _clubs = new();
@@ -92,7 +92,7 @@ public partial class MainWindow : Window
         AtlasLog.Initialise();
         AtlasLog.Info("Main window construction started.");
         InitializeComponent();
-        FontFamily = new FontFamily("Segoe UI");
+        FontFamily = new FontFamily(MonolithTheme.FontFamilyName);
         Loaded += WindowLoaded;
         Closed += (_, _) => AtlasLog.Info("Main window closed.");
         PreviewKeyDown += (_, e) =>
@@ -139,7 +139,7 @@ public partial class MainWindow : Window
         _shell = new Grid();
         _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(224) });
         _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _shell.Background = new LinearGradientBrush(Color.FromRgb(11, 15, 20), Color.FromRgb(17, 24, 32), 35);
+        _shell.Background = Canvas;
         RootGrid.Children.Add(_shell);
 
         var sidebar = BuildSidebar();
@@ -1657,6 +1657,33 @@ public partial class MainWindow : Window
     private async Task<UIElement> SettingsPageAsync()
     {
         var root = new StackPanel();
+
+        var themeCard = Card(new StackPanel(), 16);
+        var themeStack = (StackPanel)themeCard.Child;
+        themeStack.Children.Add(Txt("MONOLITH DESIGN SYSTEM", 9, true, Teal));
+        themeStack.Children.Add(Txt("Appearance", 20, true, Ink));
+        themeStack.Children.Add(Txt("Choose the Obsidian dark workspace or Warm Light. Both use the same Atlas orange accent, typography and shared layout tokens.", 10, false, Muted, wrap: true));
+        var themePicker = new ComboBox
+        {
+            Width = 220,
+            Height = 34,
+            Margin = new Thickness(0, 8, 0, 4),
+            Padding = new Thickness(8, 5, 8, 5),
+            Background = Brush("#F8FCFA"),
+            Foreground = Ink,
+            BorderBrush = Line,
+            ItemsSource = new[] { "Obsidian", "Warm Light" },
+            SelectedItem = MonolithTheme.CurrentMode == AtlasThemeMode.WarmLight ? "Warm Light" : "Obsidian"
+        };
+        themePicker.SelectionChanged += async (_, _) =>
+        {
+            if (themePicker.SelectedItem is not string selected) return;
+            MonolithTheme.SetMode(selected == "Warm Light" ? AtlasThemeMode.WarmLight : AtlasThemeMode.Obsidian);
+            await NavigateAsync(_activePage);
+        };
+        themeStack.Children.Add(themePicker);
+        root.Children.Add(themeCard);
+
         var bridge = Card(new StackPanel(), 16); var b = (StackPanel)bridge.Child; b.Children.Add(Txt("SAVE READER", 9, true, Teal)); b.Children.Add(Txt("FM27 save snapshot bridge", 20, true, Ink));
         var available = await FmsaveBridgeService.IsAvailableAsync();
         b.Children.Add(Txt(available ? "fmsave is available under Python 3.12." : "fmsave is not currently available. Install Python 3.12+ and the local fmsave package to enable save-file imports.", 11, false, available ? Brush("#237C62") : Muted, wrap: true));
@@ -1669,7 +1696,7 @@ public partial class MainWindow : Window
         d.Children.Add(SoftButton("Open FM Atlas data folder", (_, _) => { var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas"); Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true }); })); root.Children.Add(db);
         var design = Card(new StackPanel(), 16); var ds = (StackPanel)design.Child; ds.Children.Add(Txt("OFFICIAL BRANDING", 9, true, Teal));
         ds.Children.Add(new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Logo.png", UriKind.Absolute)), Height = 150, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 12) });
-        ds.Children.Add(Txt("Obsidian + Swiss Editorial · FM Atlas 27", 20, true, Ink)); ds.Children.Add(Txt("Charcoal surfaces, warm off-white typography, electric-lime focus states, restrained borders, precise spacing and dense editorial layouts.", 10, false, Muted, wrap: true)); root.Children.Add(design);
+        ds.Children.Add(Txt("MONOLITH · Swiss Sport editorial", 20, true, Ink)); ds.Children.Add(Txt("Obsidian / Warm Light surfaces, Atlas orange focus states, Inter typography where installed, restrained motion, consistent borders and dense football-intelligence layouts.", 10, false, Muted, wrap: true)); root.Children.Add(design);
         var graphics = Card(new StackPanel(), 16); var gs = (StackPanel)graphics.Child;
         gs.Children.Add(Txt("INSTALLED GRAPHICS", 9, true, Teal));
         gs.Children.Add(Txt("Reuse the faces, club logos, competition badges and flags already installed in your Football Manager 27 graphics folder. Atlas reads config.xml mappings and does not bundle or duplicate graphics packs.", 10, false, Muted, wrap: true));
@@ -1894,7 +1921,7 @@ public partial class MainWindow : Window
 
     private static DataGrid CreateGrid()
     {
-        var grid = new DataGrid { AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false, CanUserSortColumns = true, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, HorizontalGridLinesBrush = Brush("#E1E9EF"), Background = Brush("#171F28"), RowBackground = Brush("#171F28"), AlternatingRowBackground = Brush("#202A35"), BorderThickness = new Thickness(0), RowHeight = 38, FontSize = 11, Foreground = Brush("#25435E"), SelectionMode = DataGridSelectionMode.Single, SelectionUnit = DataGridSelectionUnit.FullRow, EnableRowVirtualization = true, EnableColumnVirtualization = true, FontFamily = new FontFamily("Segoe UI") };
+        var grid = new DataGrid { AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false, CanUserSortColumns = true, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, HorizontalGridLinesBrush = Brush("#E1E9EF"), Background = Brush("#171F28"), RowBackground = Brush("#171F28"), AlternatingRowBackground = Brush("#202A35"), BorderThickness = new Thickness(0), RowHeight = 38, FontSize = 11, Foreground = Brush("#25435E"), SelectionMode = DataGridSelectionMode.Single, SelectionUnit = DataGridSelectionUnit.FullRow, EnableRowVirtualization = true, EnableColumnVirtualization = true, FontFamily = new FontFamily(MonolithTheme.FontFamilyName) };
         VirtualizingPanel.SetIsVirtualizing(grid, true); VirtualizingPanel.SetVirtualizationMode(grid, VirtualizationMode.Recycling); ScrollViewer.SetCanContentScroll(grid, true);
         grid.ColumnHeaderHeight = 36; grid.Margin = new Thickness(0, 2, 0, 0);
         ScrollViewer.SetIsDeferredScrollingEnabled(grid, true);
@@ -1923,7 +1950,7 @@ public partial class MainWindow : Window
 
     private static Button PrimaryButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#2D75B6"), Foreground = Brush("#0D1117"), BorderBrush = Brush("#C6F36B"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = MonolithTheme.GetBrush("Accent"), Foreground = new SolidColorBrush(Color.FromRgb(16, 18, 22)), BorderBrush = MonolithTheme.GetBrush("Accent"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
         button.Click += click; return button;
     }
 
@@ -1941,29 +1968,8 @@ public partial class MainWindow : Window
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center); presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center); border.AppendChild(presenter); template.VisualTree = border; return template;
     }
 
-    private static Brush Brush(string hex)
-    {
-        // Central compatibility map: legacy page tokens are rendered in the Obsidian palette.
-        var mapped = hex.ToUpperInvariant() switch
-        {
-            "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" => "#E8EEF4",
-            "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#C6F36B",
-            "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9EADB9",
-            "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#303943",
-            "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#171F28",
-            "#EEF4F8" or "#EEF4F9" or "#EAF1F5" => "#0D1117",
-            "#151B22" => "#111820",
-            "#1C242E" or "#EFF5FA" or "#EAF2F9" => "#202A35",
-            "#D9E7F1" or "#DCE5ED" or "#DCE8F2" or "#B7E5E0" => "#35424E",
-            "#F8E8E9" or "#EBD5A7" or "#EED8AA" or "#FFF4DE" or "#FFF5E4" or "#F8F0DF" => "#30291D",
-            "#A54E55" or "#B44B52" or "#B94A48" or "#D77B7E" => "#F08C96",
-            "#176B46" or "#2F825D" or "#37875A" or "#4F9B70" => "#8BCFA6",
-            "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24" or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A" => "#E6C477",
-            "#B45B2F" => "#E6A06E",
-            _ => hex
-        };
-        return new SolidColorBrush((Color)ColorConverter.ConvertFromString(mapped));
-    }
+    private static Brush Brush(string hex) => MonolithTheme.ResolveLegacy(hex);
+
     private static string Initials(string name)
     {
         var bits = name.Split(' ', StringSplitOptions.RemoveEmptyEntries); return bits.Length switch { 0 => "?", 1 => bits[0][..Math.Min(2, bits[0].Length)].ToUpperInvariant(), _ => (bits[0][0].ToString() + bits[^1][0]).ToUpperInvariant() };
