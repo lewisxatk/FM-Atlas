@@ -422,3 +422,15 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Added project metadata input/save/load controls to Scouting Matrix and regression tests for project persistence/validation.
 - [ ] Verify the full continuation pass with Windows Release build and automated tests.
 - [ ] Manual WPF visual acceptance and a copied FM27 Game Pass save remain separate PC gates.
+
+
+## Verified full continuation checkpoint — 2026-11-13 22:44 UTC
+
+- [x] Moneyball Scout carries imported age, league and data-origin metadata through save/FM View statistical results and CSV; supports position, five-year age, exact league and position+age cohorts.
+- [x] Recruitment project board renders Planning, Active, Monitoring and Closed lanes with candidate counts, owner, tags, transfer and weekly wage budgets; legacy shortlist rows are backfilled without replacing candidates or notes.
+- [x] Player DNA adds transparent nearest-player ranking over common valid 1–20 attributes with overlap and coverage thresholds.
+- [x] MONOLITH keyed styles feed shared Card, Input, CreateGrid, primary/secondary button factories and implicit common WPF controls.
+- [x] Squad Architect adds source-backed positional succession, U23/U21 and home-grown flag summaries; registration legality is not inferred.
+- [x] Current branch head 5d71aa242b9731a83f5f9ff411a798fc332549c4 passed Windows Actions run [43521406194](https://github.com/lewisxatk/FM-Atlas/actions/runs/43521406194): 0 build warnings, 0 errors; 126/126 tests passed; Release and test-results artifacts uploaded.
+- [ ] User-PC WPF launch/visual/theme/DPI acceptance, import of a copied FM27 Game Pass save, comparison against in-game squad/tactics/attributes and diagnostic export review.
+- Live Apply/Undo remains blocked. Do not test against the original career save. Main remains untouched.

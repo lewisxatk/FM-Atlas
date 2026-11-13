@@ -31,7 +31,7 @@
 |---|---|---|---|---|
 | Obsidian / Warm Light palettes | `Services/MonolithTheme.cs`, `MainWindow.xaml.cs`, `PlayerIntelligenceReportWindow.xaml` | Palette tokens and saved mode; token brushes now update in place, legacy page brushes are tracked/remapped, main window uses token surfaces and report XAML uses DynamicResource | Source present — partial | Windows theme-switch test, accessibility contrast, migrate remaining views and XAML styles |
 | Legacy colour bridge | `Services/MonolithTheme.cs`, `MainWindow.xaml.cs` | Legacy hex colours are mapped by semantic families and existing mutable brushes are repainted in place when mode changes | Source present — partial | Audit unmapped colours and semantic contrast; add test coverage and migrate to token resources |
-| Shared WPF component library | — | UI helper factories exist in MainWindow for cards, text, inputs and buttons, but there is no cohesive shared component library | Not present — planned | Buttons, inputs, menus, tabs, chips, dialogs, drawers, tables, pitch, charts and focus states |
+| Shared WPF component library | src/FmAtlas/Themes/MonolithControls.xaml, MainWindow.xaml.cs | Dynamic Obsidian/Warm Light keyed styles plus implicit Button/TextBox/ComboBox/DataGrid styles; shared Card/Input/CreateGrid/button factories now use theme styles | Source present — partial | Full audit of legacy hard-coded colours, pitch/chart/dialog/menu components, accessibility, contrast and DPI visual acceptance |
 | Full page migration | Feature partials and `MainWindow.xaml.cs` | Theme-aware helpers are used in places; older palette declarations and per-page styling remain | Source present — partial | Migrate every feature page and test both themes/high-DPI |
 | Motion, iconography, responsive shell | `MainWindow.xaml.cs` | Basic glyph navigation and loading pane | Source present — narrow | Consistent icon set, active state, restrained motion, layout scaling and accessibility |
 
@@ -60,7 +60,7 @@
 |---|---|---|---|---|
 | Player profile | `MainWindow.xaml.cs`, `PlayerIntelligenceReportWindow.xaml.cs`, `Data/ScoutDatabase.cs` | Identity, attribute sections, facts and performance facts surfaced in player views | Source present — partial | Unified DNA profile with provenance/freshness and complete coverage report |
 | History and development | `Data/ScoutDatabase.cs` | History/fact queries exist | Source present — narrow | Snapshot deltas, development timeline, reliable stable identity and age curves with known inputs |
-| Compare/similar-player finder | — | No complete comparison/replacement workflow identified | Not present — planned | Side-by-side comparison, nearest-neighbour model and transparent feature weighting |
+| Compare/similar-player finder | Services/PlayerSimilarityService.cs, Data/ScoutDatabase.cs, MainWindow.Integrated.cs | Player DNA ranks current search results using common finite 1–20 attributes, mean absolute difference, minimum overlap and target/candidate coverage; source IDs remain provider-specific | Source present — partial | Side-by-side attribute deltas, candidate pools beyond current search results, optional position/age filters, broader parser provenance and copied-save acceptance |
 | Personality/current-potential evidence | `Models/PlayerRecord.cs`, database fact stores | Some attributes/facts can be stored; source/visibility is not universally enforced | Source present — partial | Expose only source-backed values; no estimates disguised as observations |
 
 ## 6. Performance & Moneyball Scout
@@ -71,7 +71,7 @@
 | Per-90 calculation and minutes floor | `Data/ScoutDatabase.cs`, `MainWindow.AdvancedSearch.cs`, `MainWindow.R7.cs` | Optional derived per-90 query and sample-minutes threshold | Source present — narrow | Known-answer tests, zero-minute/partial season handling and duplicate joins |
 | Value Finder | `MainWindow.ValueFinder.cs`, `Data/ScoutDatabase.cs`, `Models/ValueFinderModels.cs` | Relative CA/PA percentile vs value percentile, filters and CSV export | Source present — narrow | Explain cohort/sample size; distinguish value from asking price, wages and fees |
 | Position/league/age percentiles | `Data/ScoutDatabase.cs` | Value percentiles exist; broad defensible cohort normalization not proven | Source present — partial | Cohort definitions, sample thresholds, ties, season and league separation |
-| Moneyball ranking/profiles/radar | — | No complete Wyscout-style multi-profile recruitment workspace identified | Not present — planned | Build from verified stats registry and transparent calculations; no fabricated league-strength calibration |
+| Moneyball ranking/profiles/radar | MainWindow.Integrated.cs, Data/ScoutDatabase.cs, Services/CohortPercentileService.cs | Metric ranking, higher/lower direction, per-90, sample minutes, minimum cohort size, primary-position, five-year age-band, exact imported-league and position+age cohorts; age/league/data-origin metadata is retained and exported | Source present — partial | Saved named Moneyball profiles, radar/multi-metric report, richer competition mapping and league-strength calibration only when a validated source exists |
 
 ## 7. Scouting Matrix and Recruitment Intelligence
 
@@ -79,8 +79,8 @@
 |---|---|---|---|---|
 | Recruitment workspace | `MainWindow.xaml.cs` | Recruitment route uses player workspace mode | Source present — narrow | Role/team need and recruitment-project-specific filters |
 | Shortlists | `MainWindow.xaml.cs`, `Data/ScoutDatabase.cs` | Create, add, remove, list, notes and CSV export paths | Source present — partial | Priority, tags, status, owner, multiple recruitment projects and reports |
-| Squad Architect | `MainWindow.xaml.cs` | Dedicated page route and page builder exist | Source present — narrow | Position gaps, succession, age/home-grown/wage balance, constrained best XI and upgrade planning |
-| Recruitment board/radar | — | No complete matrix/kanban/radar workflow identified | Not present — planned | Board views, candidate comparison and position/role gap visualisations |
+| Squad Architect | MainWindow.xaml.cs, Services/SquadSuccessionService.cs, Services/SquadSelectionOptimizer.cs | Four formation templates, global one-player-per-slot best XI, transparent role-fit × registered position-rating score, source-backed age/position succession, U23/U21 and imported home-grown flag summaries | Source present — partial | Copied FM27 save comparison, confirmed home-grown registration rules, wage/contract fields, fitness/availability and upgrade-path planning |
+| Recruitment board/radar | MainWindow.Integrated.cs, Data/ScoutDatabase.cs, Models/RecruitmentProjectRecord.cs | Four project lanes (Planning/Active/Monitoring/Closed), project owner/tags/budgets, candidate counts, shortlist notes, role-profile ranking and add/remove flows; legacy shortlists are backfilled in place | Source present — partial | Project-specific saved role profile, stage automation, candidate comparison, field-backed fee/wage affordability, richer radar and copied-save acceptance |
 
 ## 8. Role Lab / Player Fit
 
@@ -88,7 +88,7 @@
 |---|---|---|---|---|
 | IP/OOP role profiles | `Services/RoleFitService.cs`, `MainWindow.RoleLab.cs`, `Data/ScoutDatabase.cs`, `tests/FmAtlas.Tests/RoleFitServiceTests.cs` | 23 transparent weighted profiles; shared CalculateEstimate uses only finite 1–20 attributes, excludes missing/invalid values, reports coverage and withholds low-coverage scores; six tests pass in Windows CI | Source present — partially integrated and unit-verified | Windows Role Lab UI acceptance; incorporate position familiarity only when source-backed; show attribute contributions and confidence in UI |
 | Explainable role estimates | `Services/RoleFitService.cs`, `MainWindow.RoleLab.cs`, `Data/ScoutDatabase.cs`, `tests/FmAtlas.Tests/RoleFitServiceTests.cs`, `tests/FmAtlas.Tests/ScoutDatabaseRoleFitIntegrationTests.cs` | Role Lab exposes named role inputs and exact Atlas weights, valid 1–20 range, missing-value rule and 50% minimum attribute-count coverage. Selected-player detail shows each available input's readable label, value, weight and additive score points; contributions sum to the displayed score and export to CSV. Extreme finite weights are scaled safely. Isolated SQLite integration test proves the database candidate query transports contributions, score and missing-data coverage. Latest Windows run `43473487285` at `8cfe5b3`: 53/53 tests, 0 warnings/errors. | Source present — calculation, database integration and compile/test verified; runtime UI acceptance pending | Visually validate the rendered panel and CSV on Windows with an imported FM27 save copy; clarify count-based coverage (not a probability); position familiarity remains unavailable until source-backed. Scores remain Atlas estimates, not SI hidden-role weights. |
-| Team-specific role requirement fit | — | No complete team-role calibration found | Not present — planned | Add editable tactical-role templates and candidate comparison after data validation |
+| Team-specific role requirement fit | Services/RoleFitService.cs, MainWindow.Integrated.cs | User-selected Atlas role profile ranks candidates from imported attributes; Tactical Studio supports phase-compatible roles and Squad Architect uses role fit with registered position ratings | Source present — partial | Persist per-project role requirements, editable team-specific weights, validated tactical familiarity and in-game acceptance |
 
 ## 9. Tactical Intelligence Studio
 
@@ -162,7 +162,7 @@
 | Requirement | Source locations | Current evidence | Status | Remaining work |
 |---|---|---|---|---|
 | Value & Upside Finder | `MainWindow.ValueFinder.cs`, database models | Relative CA/PA and market-value percentile score, filters, export and caveats | Source present — narrow | Known-answer percentile tests, cohort thresholds, tie handling, data units |
-| Squad tools | `MainWindow.xaml.cs` | Squad Architect route and page code | Source present — narrow | Tactical slots, home-grown registration, wage/age balance and upgrade paths |
+| Squad tools | MainWindow.xaml.cs, Services/SquadSuccessionService.cs | Squad Architect roster, positional coverage, age bands, succession grid, U23/U21 counts and imported home-grown flag counts; unknown values remain unavailable | Source present — partial | Legal competition-specific home-grown eligibility mapping, wages/contract balance and player availability data |
 
 ## 18. Quality, release engineering and support
 
@@ -449,3 +449,14 @@ Superseded: latest code-level Windows verification is source commit `4fdd17c344a
 - **Moneyball Scout:** metric results now retain the imported player age, league label and data-origin metadata alongside the statistical observation. The workspace supports independent five-year age-band groups, exact imported-league groups and combined primary-position/age groups. Rows without the required metadata are excluded from that grouped comparison; minimum sample size and higher/lower direction still apply. This is not season-date age reconstruction or competition-strength adjustment.
 - **Recruitment projects:** shortlist groups are extended in place with project status, owner, tags, transfer budget and weekly wage budget. Existing shortlist names/candidates remain intact and default to Active. Values are stored separately; missing asking prices and wages remain unavailable. Candidate count is derived from saved shortlist rows.
 - **Verification:** new database and cohort regression coverage is included in this source pass. The next Windows Actions run is the acceptance gate; no new build/test result is assumed by this register update.
+
+
+## Combined continuation verification — 2026-11-13 22:44 UTC
+
+- Source/fix commit: 5d71aa242b9731a83f5f9ff411a798fc332549c4.
+- Windows Actions run [43521406194](https://github.com/lewisxatk/FM-Atlas/actions/runs/43521406194): **success**.
+- .NET 8 WPF Release build: **0 warnings / 0 errors**.
+- MSTest: **126 passed, 0 failed, 0 skipped**.
+- FM-Atlas-Windows-Release and FM-Atlas-Test-Results uploaded successfully.
+- Work included the recruitment project-board control-initialisation correction and nullable age checks for source-backed succession totals.
+- Manual WPF visual/theme/DPI checks and a copied FM27 Game Pass save session remain outstanding. Live Apply/Undo stays disabled; do not test against the original career save.

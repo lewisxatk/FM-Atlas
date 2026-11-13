@@ -109,3 +109,15 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Added five-year age-band grouping, exact imported-league grouping and combined position/age grouping. Missing values are excluded and sample-size gating remains active; no league strength or historical season age is inferred.
 - Shortlist groups gain project status, owner, tags, transfer budget and weekly wage budget, with a non-destructive migration and UI load/save controls.
 - Added cohort, shortlist persistence and project validation tests. Windows CI verification pending.
+
+
+## 2026-11-13 — Recruitment board, Player DNA similarity and Squad Architect succession
+
+- Added a four-stage recruitment project board backed by the existing SQLite shortlist store. Existing shortlist rows are backfilled into Active projects; notes and candidate identities are preserved.
+- Recruitment projects store owner, tags, transfer budget and weekly wage planning limits, and display saved candidate counts. Financial values are independent; no asking price or wage is inferred.
+- Added source-backed Player DNA nearest-neighbour search using common valid 1–20 attributes, mean absolute difference and explicit attribute-coverage requirements.
+- Migrated shared WPF control factories and common implicit controls onto MONOLITH theme styles.
+- Added Squad Architect succession and imported home-grown flag summaries by position. These flags are not presented as a legal registration decision.
+- Fixed recruitment board callback initialisation and nullable age handling.
+- Windows Actions run [43521406194](https://github.com/lewisxatk/FM-Atlas/actions/runs/43521406194) passed: Release build 0 warnings / 0 errors; MSTest 126/126 passed; Release and test-results artifacts uploaded.
+- User-PC WPF visual and copied FM27 Game Pass save acceptance remains outstanding; live Apply/Undo remains disabled.
