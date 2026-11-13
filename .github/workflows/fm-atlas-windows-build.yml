@@ -1,0 +1,63 @@
+name: FM Atlas Windows Release Build
+run-name: FM Atlas Windows build · ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - overhaul/monolith-full-platform
+    paths:
+      - 'application/R7.2.0/FM-Atlas-R7.2.0-Work/**'
+      - '.github/workflows/fm-atlas-windows-build.yml'
+  pull_request:
+    branches:
+      - overhaul/monolith-full-platform
+    paths:
+      - 'application/R7.2.0/FM-Atlas-R7.2.0-Work/**'
+      - '.github/workflows/fm-atlas-windows-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Restore and build WPF application
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Record build environment
+        shell: pwsh
+        run: dotnet --info
+
+      - name: Restore solution
+        run: dotnet restore "application/R7.2.0/FM-Atlas-R7.2.0-Work/FmAtlas.sln"
+
+      - name: Build Release
+        run: dotnet build "application/R7.2.0/FM-Atlas-R7.2.0-Work/FmAtlas.sln" --configuration Release --no-restore --verbosity minimal
+
+      - name: Record artifact metadata
+        if: success()
+        shell: pwsh
+        run: |
+          $output = "application/R7.2.0/FM-Atlas-R7.2.0-Work/src/FmAtlas/bin/Release/net8.0-windows"
+          if (-not (Test-Path "$output/FmAtlas.exe")) { throw "Expected FM Atlas executable was not produced." }
+          dotnet --version | Out-File "$output/build-environment.txt" -Encoding utf8
+          "Commit: $env:GITHUB_SHA" | Out-File "$output/build-environment.txt" -Append -Encoding utf8
+          Get-Item "$output/FmAtlas.exe" | Select-Object Name,Length,LastWriteTimeUtc | Format-List | Out-File "$output/build-environment.txt" -Append -Encoding utf8
+
+      - name: Upload Windows Release output
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FM-Atlas-Windows-Release
+          path: application/R7.2.0/FM-Atlas-R7.2.0-Work/src/FmAtlas/bin/Release/net8.0-windows/
+          if-no-files-found: error
+          retention-days: 14
