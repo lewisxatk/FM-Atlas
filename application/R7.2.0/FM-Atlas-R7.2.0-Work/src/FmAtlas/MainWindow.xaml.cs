@@ -1229,6 +1229,7 @@ public partial class MainWindow : Window
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
+        var plannerRows = await RunDatabaseAsync(() => _database.GetLatestSquadPlannerSlotsAsync());
         var (allPlayers, sourceLabel) = await Task.Run(async () =>
         {
             // Merge both sources: a partial save snapshot must not hide the much larger
@@ -1319,6 +1320,44 @@ public partial class MainWindow : Window
             foreach (var position in snapshot.Positions) AddDetailRow(insight, position.Position, position.Count.ToString("N0") + " players");
             insight.Children.Add(Txt("AGE PROFILE", 9, true, Teal) is var ageTitle ? Configure(ageTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
             foreach (var band in snapshot.AgeBands) AddDetailRow(insight, band.Label, band.Count.ToString("N0"));
+
+            insight.Children.Add(Txt("IN-GAME SQUAD PLANNER", 9, true, Teal) is var plannerTitle ? Configure(plannerTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
+            if (plannerRows.Count == 0)
+            {
+                insight.Children.Add(Txt("No squad-planner rows were included in the latest imported save. Import a supported save with the squad_planner reader available to show the game's stored slots here.", 9, false, Muted, wrap: true));
+            }
+            else
+            {
+                foreach (var season in plannerRows.GroupBy(x => x.SeasonOffset).OrderBy(x => x.Key))
+                {
+                    var seasonLabel = season.Key switch
+                    {
+                        0 => "Current season",
+                        1 => "Next season",
+                        2 => "Following season",
+                        _ => $"Season offset {season.Key}"
+                    };
+                    var expander = new Expander
+                    {
+                        Header = $"{seasonLabel} · {season.Count():N0} stored slots",
+                        IsExpanded = season.Key == 0,
+                        Margin = new Thickness(0, 2, 0, 4),
+                        Foreground = Ink
+                    };
+                    var slotPanel = new StackPanel { Margin = new Thickness(8, 4, 4, 4) };
+                    foreach (var slot in season.OrderBy(x => x.Slot))
+                    {
+                        var names = slot.PlayerNames;
+                        if (slot.UnresolvedPlayers > 0)
+                            names += $" · {slot.UnresolvedPlayers} unresolved UID(s)";
+                        AddDetailRow(slotPanel, $"Stored slot {slot.Slot}", names);
+                    }
+                    expander.Content = slotPanel;
+                    insight.Children.Add(expander);
+                }
+                insight.Children.Add(Txt("These are the numbered slots stored by Football Manager. Their tactical or squad-category meaning is not established, so Atlas does not relabel them as positions, starters, reserves or youth slots.", 9, false, Muted, wrap: true));
+            }
+
             insight.Children.Add(Txt("SOURCE & LIMITS", 9, true, Teal) is var limits ? Configure(limits, new Thickness(0, 16, 0, 5)) : new TextBlock());
             insight.Children.Add(Txt("This view merges the live identity index and save/local player rows. Live-only records can lack positions, abilities, contracts and other fields. Team slot labels (Senior, B-team, Reserve or U21) are not guessed unless the source mapping is validated.", 9, false, Muted, wrap: true));
             if (snapshot.Squad.Count == 0) insight.Children.Add(Txt("No players are linked to this club in the current imported sources.", 10, false, Muted));
