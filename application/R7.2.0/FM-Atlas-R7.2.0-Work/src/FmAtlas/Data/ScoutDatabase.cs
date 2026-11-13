@@ -2396,7 +2396,7 @@ public sealed class ScoutDatabase
         if (minimumMinutes < 0 || minimumMinutes > 10000)
             throw new ArgumentOutOfRangeException(nameof(minimumMinutes));
 
-        var safeLimit = Math.Clamp(limit, 1, 5000);
+        var safeLimit = Math.Clamp(limit, 1, 50000);
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
 
@@ -2567,7 +2567,7 @@ public sealed class ScoutDatabase
         if (minimum.HasValue && maximum.HasValue && minimum.Value > maximum.Value)
             throw new ArgumentException("The minimum cannot exceed the maximum.");
 
-        var safeLimit = Math.Clamp(limit, 1, 5000);
+        var safeLimit = Math.Clamp(limit, 1, 50000);
         var minMinutes = Math.Clamp(minimumMinutes, 1, 10000);
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
@@ -2782,7 +2782,7 @@ public sealed class ScoutDatabase
         return results
             .OrderByDescending(x => x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(Math.Clamp(limit, 1, 5000))
+            .Take(Math.Clamp(limit, 1, 50000))
             .ToList();
     }
 
