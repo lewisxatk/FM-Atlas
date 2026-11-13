@@ -152,3 +152,12 @@ The current tested application checkpoint is 6c18e36fdc706fc49ad74ce15fe1ee73c43
 - Attribute Search now supports ALL/AND and ANY/OR, defaults to ALL, saves/restores the mode in Attribute Search profiles, and retains free-text filtering as an outer AND. The SQLite integration test covers both modes and text filtering.
 - Continue the full integrated roadmap: nested query groups/includes/excludes/reorder; player intelligence and recruitment; Moneyball per-90/cohorts/percentiles; tactics and Match Lab; development assistant; Save Inspector and local editor; Game Pass read-only adapter; Graphics/Skin/Mod Workbench; full QA and packaging.
 - Outstanding from the user PC: launch the app, test real imported Game Pass save results, profile persistence, 21-route smoke check, themes/DPI, graphics path and support ZIP inspection. Live Apply/Undo remains disabled until exact field-level certification and disposable-save rollback pass.
+
+## Latest tested Advanced Search source — 2026-11-13 18:09 UTC
+
+- Tested commit: `eb5d8f2228310459df34713222f6257fc85b171c`.
+- Windows run `43479401387`: Release 0 warnings / 0 errors; 68/68 tests passed. Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43479401387.
+- Artifacts: Release `14064023817`, TRX `14064766061`. Release contains EXE, main DLL, SQLite, save-bridge tools; TRX confirms 68/68.
+- New source: both Stats and Attribute Search can move condition rows up/down and duplicate a condition while keeping visual order and backing filter-list order aligned.
+- Next search work: nested logical groups, include/exclude semantics, clearer missing-field handling and profile round-trip of complete group structures. Then continue player intelligence, recruitment, Moneyball, Tactical Intelligence, Match Lab, Save Inspector/editor, Game Pass adapter, Graphics/Skin and mod workbench.
+- Manual Windows acceptance remains open, including actual imported FM27 Game Pass save use and theme/DPI. Live Apply/Undo remains disabled until field-level certification and disposable-save rollback.
