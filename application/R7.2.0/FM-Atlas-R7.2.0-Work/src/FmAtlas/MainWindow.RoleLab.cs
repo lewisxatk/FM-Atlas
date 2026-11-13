@@ -32,6 +32,15 @@ public partial class MainWindow
         controls.Children.Add(role); controls.Children.Add(find); controls.Children.Add(export);
         hs.Children.Add(controls);
         var description = Txt("", 9, false, Muted, wrap: true); hs.Children.Add(description);
+        var weightHeading = Txt("WEIGHTED ATTRIBUTES", 8, true, Teal);
+        weightHeading.Margin = new Thickness(0, 10, 0, 3);
+        hs.Children.Add(weightHeading);
+        var weightsPanel = new WrapPanel { Margin = new Thickness(0, 0, 0, 2) };
+        hs.Children.Add(weightsPanel);
+        var methodNote = Txt(
+            "Method: weighted mean of available FM attributes (valid range 1–20). At least 50% of the role's requested attributes must be present; missing values are excluded, not treated as zero. This is an Atlas estimate, not FM's internal role score.",
+            9, false, Muted, wrap: true);
+        hs.Children.Add(methodNote);
         status = Txt("Choose a role and search the latest imported player snapshot.", 10, false, Muted); status.Margin = new Thickness(0, 8, 0, 0); hs.Children.Add(status);
         Grid.SetRow(header, 0); root.Children.Add(header);
 
@@ -49,8 +58,27 @@ public partial class MainWindow
 
         void UpdateDescription()
         {
-            if (role.SelectedItem is RoleFitProfile selected)
-                description.Text = $"{selected.Phase} · {selected.PositionGroup} · {selected.Description}  |  Weight coverage: {selected.Weights.Count} requested attributes.";
+            if (role.SelectedItem is not RoleFitProfile selected) return;
+
+            description.Text = $"{selected.Phase} · {selected.PositionGroup} · {selected.Description}";
+            weightsPanel.Children.Clear();
+
+            foreach (var weight in selected.Weights.OrderByDescending(x => x.Value).ThenBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var chipText = Txt($"{weight.Key}  ×  {weight.Value:0.##}", 9, true, Ink);
+                var chip = new Border
+                {
+                    Background = TealDark,
+                    BorderBrush = Line,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(7),
+                    Padding = new Thickness(8, 4, 8, 4),
+                    Margin = new Thickness(0, 0, 5, 5),
+                    Child = chipText,
+                    ToolTip = $"{weight.Key}: Atlas weighting factor {weight.Value:0.##}. This is a transparent model input, not an FM hidden-role weight."
+                };
+                weightsPanel.Children.Add(chip);
+            }
         }
         role.SelectionChanged += (_, _) => UpdateDescription();
         UpdateDescription();
