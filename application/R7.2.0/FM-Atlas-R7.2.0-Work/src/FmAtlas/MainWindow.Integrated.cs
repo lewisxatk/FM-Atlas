@@ -252,9 +252,15 @@ public partial class MainWindow
                 var rows = per90.IsChecked == true
                     ? await RunDatabaseAsync(() => _database.SearchSeasonMetricPer90Async(selected.Key, null, null, mins, 5000))
                     : await RunDatabaseAsync(() => _database.SearchSeasonMetricAsync(selected.Key, null, null, 5000));
-                var observations = rows.Select(x => new MetricObservation(x.SourceId + "|" + x.Season, x.Name + " · " + x.Season, x.Value)).ToArray();
+                var indexedRows = rows.Select((row, index) => new
+                {
+                    Key = row.SourceId + "|" + row.Season + "|" + index.ToString(CultureInfo.InvariantCulture),
+                    Row = row
+                }).ToArray();
+                var observations = indexedRows.Select(x => new MetricObservation(
+                    x.Key, x.Row.Name + " · " + x.Row.Season, x.Row.Value)).ToArray();
                 var ranked = CohortPercentileService.Calculate(observations, sample);
-                var byId = rows.ToDictionary(x => x.SourceId + "|" + x.Season, StringComparer.OrdinalIgnoreCase);
+                var byId = indexedRows.ToDictionary(x => x.Key, x => x.Row, StringComparer.OrdinalIgnoreCase);
                 var displayRows = ranked.Select(x =>
                 {
                     var row = byId[x.Id];
