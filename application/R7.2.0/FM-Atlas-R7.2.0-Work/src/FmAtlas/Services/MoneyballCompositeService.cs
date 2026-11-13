@@ -88,7 +88,7 @@ public static class MoneyballCompositeService
             var groupKey = groups.Length == 1 && rows.All(x => !string.IsNullOrWhiteSpace(x.GroupKey))
                 ? groups[0]
                 : null;
-            var coverage = $"{used.Count}/{Math.Max(used.Count, minimumMetrics)} minimum metrics";
+            var coverage = $"{used.Count} metrics contributed; minimum required {minimumMetrics}";
             output.Add(new MoneyballCompositeResult(
                 first.SourceId,
                 first.PlayerName,
