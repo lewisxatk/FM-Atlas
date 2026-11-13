@@ -297,3 +297,9 @@ These services are domain foundations, not fully delivered screens. Squad Archit
 - Exact tested application source: `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`; Windows Actions run [43476085012](https://github.com/lewisxatk/FM-Atlas/actions/runs/43476085012).
 - .NET 8 WPF Release build: 0 warnings / 0 errors. MSTest: **64/64 passed**, 0 failed/skipped. Windows Release artifact `14062557163`; TRX artifact `14062892033`.
 - This checkpoint verifies the code, compile and automated regression suite, not the user's live WPF UI, manual support ZIP review or actual FM27 Game Pass build. Those remain explicit runtime acceptance items.
+
+## Attribute Search ALL/ANY implementation — Windows verified
+
+| Requirement | Source locations | Evidence | Status | Remaining work |
+|---|---|---|---|---|
+| Attribute Search ALL/AND and ANY/OR | `Data/ScoutDatabase.cs`, `MainWindow.AdvancedSearch.cs`, `Services/SavedSearchProfileStore.cs`, `SavedSearchProfileStoreTests.cs`, `ScoutDatabaseAttributeSearchIntegrationTests.cs` | UI offers both modes; ALL is the default; SQL joins the grouped attribute predicates with AND or OR while text search remains an outer AND; selected mode is saved/restored. A seeded SQLite test checks BOTH / first-only / second-only / neither and text-filter interaction. Windows run `43478483715` at `0fbd5fa`: 68/68 tests, 0 warnings/errors. | Source, build and integration tests verified | Launch on Windows with a copied FM27 save; check visible result correctness, saved-profile persistence and missing-field semantics. Continue to nested groups, includes/excludes, condition reordering and reusable query templates. |
