@@ -142,3 +142,12 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - Prior dedicated SQLite checkpoint: Actions run `43470026732`, exact commit `e109eab`, 41/41 passed, 0 warnings/errors.
 - Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`; integrated overhaul is 163 commits ahead, 0 behind at this checkpoint.
 - These checks establish build/unit/integration-test evidence only. WPF runtime, visual/DPI, all route smoke tests, support ZIP manual inspection, actual Game Pass and save integration remain to be performed.
+
+## Current continuation point — Role Lab transparency
+
+- Latest fully verified application checkpoint: `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`, Windows Actions run `43470501984`: WPF Release build 0 warnings/0 errors; 47/47 MSTest passed; Release and TRX artifacts uploaded.
+- Follow-on source change `4b4ddfcb7299a0fad5dc2ea60658d895a48127df` updates `MainWindow.RoleLab.cs` so selecting a role shows every weighted attribute as a labelled chip, along with the model's input range, missing-value rule and minimum-coverage method note.
+- The new UI change is not yet runtime-accepted. Its Windows workflow is recorded at https://github.com/lewisxatk/FM-Atlas/actions/runs/43471187844; inspect the completed run before claiming that source revision is build-verified.
+- The Role Lab scores remain Atlas weighted estimates, not Sports Interactive's internal role formula or star rating. Position familiarity and player-by-player contribution explanations remain future work.
+- Do not integrate the squad optimizer into a Best XI screen until player-to-slot eligibility is backed by validated position suitability data and duplicate LIVE/FMSAVE identities are handled with a verified crosswalk.
+- All changes remain on `overhaul/monolith-full-platform`; `main` is preserved. Continue from the current branch head and exact file history, not from this text alone.
