@@ -124,7 +124,7 @@ public sealed class ScoutDatabaseEvidenceIntegrationTests
             Assert.AreEqual(0, await database.CountLocalPlayersAsync(),
                 "Live identities must not inflate the save/local player count.");
             Assert.AreEqual(0, (await database.SearchPlayerAttributeCriteriaAsync(
-                null, new[] { new FmAtlas.Models.AttributeSearchCriterion("Passing", 19, null, "Passing") })).Count,
+                null, new[] { new FmAtlas.Models.AttributeSearchCriterion("Passing", "Passing", 19, null) })).Count,
                 "Attribute Search must not rank provisional live PlayerAttributes mirrors.");
             var roleProfile = new FmAtlas.Services.RoleFitProfile(
                 "Live safety fixture", "Both", "Any", "Provisional live facts are not role-fit inputs.",
