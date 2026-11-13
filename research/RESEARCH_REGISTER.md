@@ -348,3 +348,17 @@ Implementation and test evidence:
 - `PositionSuitabilityService`, `CohortPercentileService.CalculateByGroup`, `ScoutDatabase.GetPlayerDevelopmentHistoryAsync`, and `ScoutDatabase.GetLatestSquadPlannerSlotsAsync`.
 - Windows run `43509771993`, source commit `4fdd17c344a00c64754218a4770e97c33a19f5eb`: 0 warnings, 0 errors, 95/95 tests passed.
 - External parser documentation is research evidence, not a substitute for validating the user's actual FM27 Game Pass build and imported values against the in-game UI.
+
+
+## Atlas-estimated XI: source-backed eligibility and explicit composite — 13 November 2026
+
+The best-XI builder connects the existing `RoleFitService`, `PositionSuitabilityService` and `SquadSelectionOptimizer` without claiming to reproduce Sports Interactive's internal calculations.
+
+- Formation templates: 4-2-3-1, 4-3-3, 4-4-2 and 3-4-2-1.
+- Candidate role scores come from the existing weighted Atlas role-fit profiles. Candidate position eligibility comes from the latest imported save's 15 position ratings.
+- Explicit composite: `roleFit × positionRating / 20`. The denominator and composite are Atlas normalisation choices; the service and UI disclose this.
+- A global one-to-one assignment prevents duplicate player selection. Missing role evidence or missing/zero position rating produces no eligible edge and leaves the slot unfilled.
+- Candidates are scoped to one selected club. Role queries and position facts are read from the latest save snapshot.
+- Position facts for the profile pitch, Moneyball save cohorts and best-XI builder require the latest import to be registered. An unregistered latest save yields no position eligibility; Atlas does not silently substitute older position ratings.
+- Not modelled: injuries, suspensions, match fitness, availability, tactical familiarity, role duty, traits, team instructions, cohesion or hidden SI selection calculations. The output is an Atlas estimate, not an in-game predicted XI.
+- Windows run `43511883115`, source `5ff275d534245880242a7280f95837f6ee3a3b0d`: 0 warnings, 0 errors, 103/103 tests passed.
