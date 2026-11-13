@@ -140,3 +140,11 @@ Remaining Diagnostics work:
 - A separate local pattern-level check passed all seven sensitive-value cases. The C# tests and WPF solution have not yet run on Windows.
 
 - 2026-11-13 follow-up: PlayerIntelligenceReportWindow.xaml now uses DynamicResource bindings for MONOLITH canvas/surface/text/accent/border tokens. Theme switching updates existing token and legacy brushes without rebuilding the current page. This code has not yet been exercised in a Windows UI run.
+
+## Field evidence policy follow-up — 2026-11-13
+
+- A further review found nine SQLite filters using `ValidationStatus LIKE '%Verified%'`, plus two UI filters using `Contains("Verified")`. These expressions could classify the word `Unverified` as verified.
+- The SQL filters now use a closed set of exact canonical statuses after normalization. The player detail and position-suitability UI now use `FieldEvidencePolicy.CanUseForDecision` instead of substring tests.
+- `FieldEvidencePolicy.Assess` now accepts only exact statuses `Verified`, `FieldVerified`, `Verified-UserUIWitness-ReadBack` and `FieldVerified-UserUIWitness-ReadBack` (separator/case normalized). Other verified-looking prefixes fail closed.
+- Added tests for exact allowlist recognition, provisional/mixed statuses, cross-provider IDs and exact-source-ID deduplication; current test suite now contains 20 expected test cases including the original Diagnostics tests.
+- Current Windows run for the expanded suite: https://github.com/lewisxatk/FM-Atlas/actions/runs/43466693498. At the time of this audit update it was in progress; no result is claimed here.
