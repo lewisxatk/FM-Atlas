@@ -266,3 +266,16 @@ Current verified application checkpoint remains commit 6c18e36fdc706fc49ad74ce15
 - Do not describe this as the fully completed roadmap or a user-accepted release. Remaining implementation gaps and exact runtime acceptance list are in `docs/MASTER_PROGRESS.md` and `docs/FEATURE_TRACEABILITY.md`.
 - Next action is manual acceptance on the user's Windows machine using a disposable copy of the FM27 Game Pass career, then report any visible issues/logs for the integrated fix pass. Do not use the original only-save.
 - `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`; no feature branch merge has occurred. Live Apply/Undo remains disabled.
+
+
+## Latest combined development handover — 2026-11-13 21:22 UTC
+
+- Active branch: `overhaul/monolith-full-platform`; exact tested source `4fdd17c344a00c64754218a4770e97c33a19f5eb`.
+- Latest Windows CI: [run 43509771993](https://github.com/lewisxatk/FM-Atlas/actions/runs/43509771993). .NET 8 WPF Release: **0 warnings / 0 errors**; MSTest **95/95 passed**, 0 failed/skipped.
+- Release artifact `14077394002`; test-results artifact `14078735267`; both expire 27 November 2026.
+- New work: 15-position pitch and source-key adapter; primary-position-normalised Moneyball cohorts and CSV output; multi-snapshot Development with identity-reuse guard and evidence labels; supported-build-gated squad planner slot viewer in Squad Architect.
+- fmsave 0.12.3 currently documents the squad planner reader for FM27 build `27.0.0+2486695` with one human manager. Slot meanings are unconfirmed; Atlas displays stored slot numbers only.
+- fmsave documents that a deleted person's unique_id may be assigned to a new person. Development history therefore resets on changed DOB or changed name when DOB is missing; same-name reuse without DOB remains ambiguous.
+- Next work remains the broader programme: age/league Moneyball cohorts where source mapping permits, formation/role-aware XI selection with validated eligibility, deeper tactical intelligence, graphics and mod-management workflows, shared MONOLITH control migration and release engineering.
+- User-PC acceptance is deliberately deferred until the user is at the PC and more work is complete. Use a disposable copy of the FM27 Game Pass career; never use the only save.
+- `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`; no merge has occurred. Live Apply/Undo remains disabled.
