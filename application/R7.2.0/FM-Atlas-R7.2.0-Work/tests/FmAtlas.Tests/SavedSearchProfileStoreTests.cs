@@ -110,7 +110,7 @@ public sealed class SavedSearchProfileStoreTests
         try
         {
             store.Save(CreateStatisticsProfile("stats-1", "Pressing"));
-            Assert.ThrowsException<InvalidOperationException>(() =>
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
                 store.Save(CreateStatisticsProfile("stats-2", "pressing")));
 
             var attributes = new SavedSearchProfile(
@@ -166,7 +166,7 @@ public sealed class SavedSearchProfileStoreTests
                     new SavedSearchCondition("goals", "Goals", double.NaN, null)
                 }
             };
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() => store.Save(profile));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => store.Save(profile));
 
             var invalidAttribute = new SavedSearchProfile(
                 "bad-attribute",
@@ -179,7 +179,7 @@ public sealed class SavedSearchProfileStoreTests
                 new[] { new SavedSearchCondition("finishing", "Finishing", 20.5, null) },
                 DateTime.UtcNow,
                 DateTime.UtcNow);
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() => store.Save(invalidAttribute));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => store.Save(invalidAttribute));
         }
         finally
         {
@@ -196,7 +196,7 @@ public sealed class SavedSearchProfileStoreTests
             const string corrupt = "{ not valid json";
             File.WriteAllText(path, corrupt);
 
-            Assert.ThrowsException<InvalidDataException>(() => store.Load());
+            Assert.ThrowsExactly<InvalidDataException>(() => store.Load());
             Assert.AreEqual(corrupt, File.ReadAllText(path));
         }
         finally
