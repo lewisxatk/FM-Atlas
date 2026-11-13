@@ -2749,10 +2749,15 @@ public sealed class ScoutDatabase
                 if (!TryFindNumericPath(row, fieldKey, out var raw) || !double.IsFinite(raw))
                     continue;
 
+                var minutesValue = reader.IsDBNull(4) ? (double?)null : reader.GetDouble(4);
+                if (minimumMinutes > 0
+                    && (!minutesValue.HasValue || !double.IsFinite(minutesValue.Value) || minutesValue.Value < minimumMinutes))
+                    continue;
+
                 var value = raw;
                 if (per90)
                 {
-                    var minutes = reader.IsDBNull(4) ? 0d : reader.GetDouble(4);
+                    var minutes = minutesValue ?? 0d;
                     if (!double.IsFinite(minutes) || minutes < minimumMinutes || minutes <= 0)
                         continue;
                     value = raw * 90d / minutes;
