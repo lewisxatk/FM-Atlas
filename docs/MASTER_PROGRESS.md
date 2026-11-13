@@ -294,3 +294,11 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Windows runtime acceptance remains outstanding: launch all routes, theme/high-DPI checks, profile persistence in the running app, copied FM27 Game Pass save import, exact process/build profile validation, graphics folder scan and UI review.
 - [ ] Live Apply/Undo remains blocked by LiveWriteCertification.IsCertified == false. Do not remove the gate without exact build and field-level witnesses plus disposable offline-save rollback acceptance.
 - Protected main remains untouched. All work remains on overhaul/monolith-full-platform.
+
+## Moneyball fixture triage — 2026-11-13 18:43 UTC
+
+- Windows run 43484787575 on source 8c698593 built successfully with 0 warnings and 0 errors, then reported 84/85 tests passing.
+- The sole failure was in the new SQLite test fixture, not in the Moneyball query: two different players were inserted with the same primary key tuple for FmsaveStatFacts (SnapshotId, TableName, RowIndex, FieldKey).
+- Corrected the fixture to use distinct row indexes for each row (commit d863808); the test still covers duplicate player/period observations by using two separate row indexes for the same player.
+- Added malformed advanced-filter enum/null-clause validation and regression tests in the same follow-on validation sequence.
+- Windows run 43485187445 is checking commit 437fbb5, which includes the corrected fixture and filter validation tests. Latest code head 507cb766 is queued in run 43485344141. Do not call the latest code verified until its Windows run passes.
