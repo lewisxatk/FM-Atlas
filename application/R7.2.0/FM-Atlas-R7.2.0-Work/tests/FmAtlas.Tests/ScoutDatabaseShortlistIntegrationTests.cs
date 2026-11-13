@@ -58,4 +58,64 @@ public sealed class ScoutDatabaseShortlistIntegrationTests
                 Directory.Delete(folder, recursive: true);
         }
     }
+    [TestMethod]
+    public async Task RecruitmentProjectMetadata_PersistsOwnerTagsBudgetsAndCandidateCount()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas-Recruitment-Project-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+        try
+        {
+            var database = new ScoutDatabase(databasePath, pooling: false);
+            await database.InitialiseAsync();
+            await database.CreateShortlistAsync("Summer rebuild");
+            await database.AddToShortlistAsync(new PlayerRecord { SourceId = "SAVE:1" }, "Summer rebuild");
+            await database.SaveRecruitmentProjectAsync(
+                "Summer rebuild",
+                "Monitoring",
+                "First-team scout",
+                new[] { "Priority", "Under-23", "priority" },
+                12500000m,
+                45000m);
+
+            var project = await database.GetRecruitmentProjectAsync("Summer rebuild");
+
+            Assert.IsNotNull(project);
+            Assert.AreEqual("Monitoring", project.Status);
+            Assert.AreEqual("First-team scout", project.Owner);
+            CollectionAssert.AreEqual(new[] { "Priority", "Under-23" }, project.Tags.ToArray());
+            Assert.AreEqual(12500000m, project.TransferBudget);
+            Assert.AreEqual(45000m, project.WeeklyWageBudget);
+            Assert.AreEqual(1, project.CandidateCount);
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task RecruitmentProjectMetadata_RejectsInvalidStatusBudgetsAndTagOverflow()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas-Recruitment-Validation-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var database = new ScoutDatabase(Path.Combine(folder, "scouting.db"), pooling: false);
+            await database.InitialiseAsync();
+            await database.CreateShortlistAsync("Validation project");
+
+            await Assert.ThrowsExactlyAsync<ArgumentException>(() => database.SaveRecruitmentProjectAsync(
+                "Validation project", "Unknown", null, Array.Empty<string>(), null, null));
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => database.SaveRecruitmentProjectAsync(
+                "Validation project", "Active", null, Array.Empty<string>(), -1m, null));
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => database.SaveRecruitmentProjectAsync(
+                "Validation project", "Active", null, Enumerable.Range(1, 13).Select(x => "tag-" + x).ToArray(), null, null));
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
 }

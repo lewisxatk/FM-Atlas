@@ -14,7 +14,7 @@ namespace FmAtlas;
 public partial class MainWindow
 {
     private sealed record DnaAttributeRow(string Category, string Attribute, double Value);
-    private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, string Period, string Direction, double Value, double? Percentile, int SampleSize, string Basis);
+    private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, int? Age, string League, string Period, string Direction, double Value, double? Percentile, int SampleSize, string Basis);
     private sealed record RecruitmentCandidateRow(string SourceId, string Name, string? Club, string? Position, int? Age, string Value, double? AtlasFit, string Coverage);
     private sealed record TacticalCandidateRow(int Rank, string Name, string Club, string Position, double Score, string Coverage);
     private sealed record TacticalShapeCandidateRow(string Phase, string Slot, string Player, string RoleFit, string PositionRating, string AtlasScore);
@@ -141,6 +141,29 @@ public partial class MainWindow
         profileRow.Children.Add(shortlistPicker); profileRow.Children.Add(newName); profileRow.Children.Add(create);
         root.Children.Add(Card(profileRow, 13, new Thickness(0, 0, 0, 10)));
 
+        var projectSettings = new WrapPanel();
+        var projectStatus = new ComboBox
+        {
+            Width = 155,
+            Height = 35,
+            Margin = new Thickness(3),
+            ItemsSource = new[] { "Planning", "Active", "Monitoring", "Closed" },
+            SelectedItem = "Active"
+        };
+        var projectOwner = Input("Owner"); projectOwner.Width = 155;
+        var projectTags = Input("Tags (comma separated)"); projectTags.Width = 250;
+        var transferBudget = Input("Transfer budget"); transferBudget.Width = 145;
+        var weeklyWageBudget = Input("Weekly wage budget"); weeklyWageBudget.Width = 160;
+        var saveProject = SoftButton("Save project details", async (_, _) => await SaveProjectDetailsAsync());
+        projectSettings.Children.Add(projectStatus);
+        projectSettings.Children.Add(projectOwner);
+        projectSettings.Children.Add(projectTags);
+        projectSettings.Children.Add(transferBudget);
+        projectSettings.Children.Add(weeklyWageBudget);
+        projectSettings.Children.Add(saveProject);
+        var projectCard = Card(projectSettings, 12, new Thickness(0, 0, 0, 10));
+        root.Children.Add(projectCard);
+
         TextBox notesInput = null!;
         var candidateRow = new WrapPanel();
         var candidateSearch = Input("Find candidate by name or club"); candidateSearch.Width = 250;
@@ -188,6 +211,61 @@ public partial class MainWindow
             if (!string.IsNullOrWhiteSpace(selectName)) shortlistPicker.SelectedItem = selectName;
             else if (names.Count > 0 && shortlistPicker.SelectedItem is null) shortlistPicker.SelectedIndex = 0;
             await LoadSavedRowsAsync();
+            await LoadProjectDetailsAsync();
+        }
+        async Task LoadProjectDetailsAsync()
+        {
+            if (shortlistPicker.SelectedItem is not string name)
+            {
+                projectStatus.SelectedItem = "Active";
+                projectOwner.Text = "";
+                projectTags.Text = "";
+                transferBudget.Text = "";
+                weeklyWageBudget.Text = "";
+                return;
+            }
+
+            var project = await RunDatabaseAsync(() => _database.GetRecruitmentProjectAsync(name));
+            projectStatus.SelectedItem = project?.Status ?? "Active";
+            projectOwner.Text = project?.Owner ?? "";
+            projectTags.Text = project is null ? "" : string.Join(", ", project.Tags);
+            transferBudget.Text = project?.TransferBudget?.ToString(CultureInfo.InvariantCulture) ?? "";
+            weeklyWageBudget.Text = project?.WeeklyWageBudget?.ToString(CultureInfo.InvariantCulture) ?? "";
+            if (project is not null)
+                status.Text = $"{project.Name} · {project.CandidateCount:N0} candidates · {project.Status}"
+                    + (string.IsNullOrWhiteSpace(project.Owner) ? "" : $" · Owner: {project.Owner}");
+        }
+        async Task SaveProjectDetailsAsync()
+        {
+            if (shortlistPicker.SelectedItem is not string name)
+            {
+                status.Text = "Create or select a recruitment project first.";
+                return;
+            }
+
+            static decimal? ParseBudget(string text, string label)
+            {
+                if (string.IsNullOrWhiteSpace(text)) return null;
+                if (!decimal.TryParse(text.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var value) || value < 0)
+                    throw new ArgumentException($"{label} must be a non-negative number, or left blank.");
+                return value;
+            }
+
+            try
+            {
+                var transfer = ParseBudget(transferBudget.Text, "Transfer budget");
+                var wages = ParseBudget(weeklyWageBudget.Text, "Weekly wage budget");
+                var tags = projectTags.Text.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var selectedStatus = projectStatus.SelectedItem as string ?? "Active";
+                await RunDatabaseAsync(() => _database.SaveRecruitmentProjectAsync(
+                    name, selectedStatus, projectOwner.Text, tags, transfer, wages));
+                await LoadProjectDetailsAsync();
+                status.Text = $"Saved project details for '{name}'.";
+            }
+            catch (Exception ex)
+            {
+                status.Text = "Could not save project details: " + ex.Message;
+            }
         }
         async Task LoadSavedRowsAsync()
         {
@@ -296,6 +374,7 @@ public partial class MainWindow
         {
             notesInput.Text = "";
             await LoadSavedRowsAsync();
+            await LoadProjectDetailsAsync();
         };
         await LoadShortlistsAsync();
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -331,12 +410,12 @@ public partial class MainWindow
         if (metrics.Count > 0) field.SelectedIndex = 0;
         var cohort = new ComboBox
         {
-            Width = 205,
+            Width = 230,
             Height = 35,
             Margin = new Thickness(3),
-            ItemsSource = new[] { "All players", "Same primary position" },
+            ItemsSource = new[] { "All players", "Same primary position", "Same age band (5-year)", "Same league", "Same position + age band" },
             SelectedIndex = 0,
-            ToolTip = "Position-normalised cohorts use the imported primary-position label. Players without a usable position are excluded from those groups."
+            ToolTip = "Groups use imported player metadata only. Missing values are excluded; league grouping compares identical imported league labels and is not a strength adjustment."
         };
         var direction = new ComboBox
         {
@@ -381,6 +460,8 @@ public partial class MainWindow
         grid.Columns.Add(Column("PLAYER", nameof(MoneyballRow.Name), 1.3));
         grid.Columns.Add(Column("CLUB", nameof(MoneyballRow.Club), .9));
         grid.Columns.Add(Column("PRIMARY POSITION", nameof(MoneyballRow.Position), .7));
+        grid.Columns.Add(Column("AGE", nameof(MoneyballRow.Age), .4));
+        grid.Columns.Add(Column("LEAGUE", nameof(MoneyballRow.League), .8));
         grid.Columns.Add(Column("PERIOD", nameof(MoneyballRow.Period), .8));
         grid.Columns.Add(Column("DIRECTION", nameof(MoneyballRow.Direction), .7));
         grid.Columns.Add(Column("VALUE", nameof(MoneyballRow.Value), .6));
@@ -425,26 +506,55 @@ public partial class MainWindow
                 var observations = indexedRows.Select(x => new CohortMetricObservation(
                     x.Key,
                     x.Row.Name + " · " + x.Row.Season,
-                    x.Row.Value,
-                    x.Row.PrimaryPosition)).ToArray();
-                var positionNormalised = string.Equals(cohort.SelectedItem as string, "Same primary position", StringComparison.Ordinal);
-                var ranked = positionNormalised
-                    ? CohortPercentileService.CalculateByGroup(observations, sample, higherIsBetter)
-                    : CohortPercentileService.Calculate(observations, sample, higherIsBetter);
+                    x.Row.Value)).ToArray();
                 var byId = indexedRows.ToDictionary(x => x.Key, x => x.Row, StringComparer.OrdinalIgnoreCase);
+                var cohortMode = cohort.SelectedItem as string ?? "All players";
+                static string? AgeBand(int? age)
+                {
+                    if (!age.HasValue || age.Value < 15 || age.Value > 60) return null;
+                    var lower = (age.Value / 5) * 5;
+                    return $"{lower}–{lower + 4}";
+                }
+                var groupedObservations = observations.Select(observation =>
+                {
+                    var row = byId[observation.Id];
+                    var position = string.IsNullOrWhiteSpace(row.PrimaryPosition) ? null : row.PrimaryPosition.Trim();
+                    var ageBand = AgeBand(row.Age);
+                    var league = string.IsNullOrWhiteSpace(row.League) ? null : row.League.Trim();
+                    var groupKey = cohortMode switch
+                    {
+                        "Same primary position" => position,
+                        "Same age band (5-year)" => ageBand,
+                        "Same league" => league,
+                        "Same position + age band" => position is not null && ageBand is not null ? position + " · " + ageBand : null,
+                        _ => null
+                    };
+                    return observation with { GroupKey = groupKey };
+                }).ToArray();
+                var grouped = cohortMode != "All players";
+                var ranked = grouped
+                    ? CohortPercentileService.CalculateByGroup(groupedObservations, sample, higherIsBetter)
+                    : CohortPercentileService.Calculate(observations, sample, higherIsBetter);
                 var displayRows = ranked.Select(x =>
                 {
                     var row = byId[x.Id];
-                    return new MoneyballRow(row.SourceId, row.Name, row.Club ?? "—", row.PrimaryPosition ?? "Unclassified", row.Season, directionLabel, row.Value,
-                        x.Percentile, x.SampleSize, x.Basis);
+                    return new MoneyballRow(row.SourceId, row.Name, row.Club ?? "—", row.PrimaryPosition ?? "Unclassified", row.Age,
+                        row.League ?? "—", row.Season, directionLabel, row.Value, x.Percentile, x.SampleSize, x.Basis);
                 }).ToArray();
                 currentRows = displayRows;
                 currentMetricKey = selected.Key;
                 grid.ItemsSource = displayRows;
                 export.IsEnabled = displayRows.Length > 0;
-                var unclassified = rows.Count(x => string.IsNullOrWhiteSpace(x.PrimaryPosition));
-                var cohortDescription = positionNormalised
-                    ? $"independent primary-position groups; {unclassified:N0} rows without a usable primary-position label excluded"
+                var missingGroupMetadata = cohortMode switch
+                {
+                    "Same primary position" => rows.Count(x => string.IsNullOrWhiteSpace(x.PrimaryPosition)),
+                    "Same age band (5-year)" => rows.Count(x => !AgeBand(x.Age).HasValue),
+                    "Same league" => rows.Count(x => string.IsNullOrWhiteSpace(x.League)),
+                    "Same position + age band" => rows.Count(x => string.IsNullOrWhiteSpace(x.PrimaryPosition) || !AgeBand(x.Age).HasValue),
+                    _ => 0
+                };
+                var cohortDescription = grouped
+                    ? $"independent {cohortMode} groups; {missingGroupMetadata:N0} rows without required metadata excluded"
                     : "the full returned cohort";
                 status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")} · {directionLabel} · {cohortDescription}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within each displayed sample of up to 50,000 rows; no cross-league strength adjustment or parser field-level certification is implied.";
             }
@@ -475,7 +585,7 @@ public partial class MainWindow
             static string Q(string? value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
             var lines = new List<string>
             {
-                "Metric,Direction,PlayerSourceId,Player,Club,PrimaryPosition,Period,Value,Percentile,SampleSize,EvidenceBasis"
+                "Metric,Direction,PlayerSourceId,Player,Club,PrimaryPosition,Age,League,Period,Value,Percentile,SampleSize,EvidenceBasis"
             };
             lines.AddRange(currentRows.Select(row => string.Join(",",
                 Q(currentMetricKey),
@@ -484,6 +594,8 @@ public partial class MainWindow
                 Q(row.Name),
                 Q(row.Club),
                 Q(row.Position),
+                row.Age?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                Q(row.League),
                 Q(row.Period),
                 row.Value.ToString("0.####", CultureInfo.InvariantCulture),
                 row.Percentile?.ToString("0.0", CultureInfo.InvariantCulture) ?? string.Empty,

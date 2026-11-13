@@ -23,7 +23,7 @@ public sealed class CohortPercentileGroupTests
 
         Assert.AreEqual(6, results.Count);
         Assert.IsTrue(results.All(x => x.SampleSize == 3));
-        Assert.IsTrue(results.All(x => x.Basis.Contains("Primary-position cohort", StringComparison.Ordinal)));
+        Assert.IsTrue(results.All(x => x.Basis.Contains("Cohort group", StringComparison.Ordinal)));
         Assert.AreEqual(50d, results.Single(x => x.Id == "gk-2").Percentile!.Value, 0.0001);
         Assert.AreEqual(50d, results.Single(x => x.Id == "st-2").Percentile!.Value, 0.0001);
         Assert.AreEqual(16.6667d, results.Single(x => x.Id == "gk-1").Percentile!.Value, 0.001);
@@ -69,6 +69,30 @@ public sealed class CohortPercentileGroupTests
         Assert.IsTrue(lowPercentile > highPercentile);
         Assert.AreEqual(results.Single(x => x.Id == "middle-a").Percentile!.Value, results.Single(x => x.Id == "middle-b").Percentile!.Value, 0.0001);
         Assert.IsTrue(results.All(x => x.Basis.Contains("lower values rank higher", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void CalculateByGroup_UsesExactAgeBandAndImportedLeagueLabelsAsIndependentKeys()
+    {
+        var observations = new[]
+        {
+            new CohortMetricObservation("age-1", "Age 1", 10, "20–24"),
+            new CohortMetricObservation("age-2", "Age 2", 20, "20–24"),
+            new CohortMetricObservation("age-3", "Age 3", 30, "20–24"),
+            new CohortMetricObservation("league-1", "League 1", 5, "Premier Division"),
+            new CohortMetricObservation("league-2", "League 2", 15, "Premier Division"),
+            new CohortMetricObservation("league-3", "League 3", 25, "Premier Division")
+        };
+
+        var results = CohortPercentileService.CalculateByGroup(observations, minimumSampleSize: 3);
+
+        Assert.AreEqual(6, results.Count);
+        Assert.AreEqual(3, results.Single(x => x.Id == "age-2").SampleSize);
+        Assert.AreEqual(3, results.Single(x => x.Id == "league-2").SampleSize);
+        Assert.IsTrue(results.Single(x => x.Id == "age-2").Basis.Contains("Cohort group '20–24'"));
+        Assert.IsTrue(results.Single(x => x.Id == "league-2").Basis.Contains("Cohort group 'Premier Division'"));
+        Assert.AreEqual(50d, results.Single(x => x.Id == "age-2").Percentile!.Value, 0.0001);
+        Assert.AreEqual(50d, results.Single(x => x.Id == "league-2").Percentile!.Value, 0.0001);
     }
 
 }

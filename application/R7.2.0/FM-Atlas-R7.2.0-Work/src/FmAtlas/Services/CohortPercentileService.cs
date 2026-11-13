@@ -29,7 +29,7 @@ public static class CohortPercentileService
             .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.GroupKey) && double.IsFinite(x.Value))
             .GroupBy(x => x.GroupKey!.Trim(), StringComparer.OrdinalIgnoreCase)
             .SelectMany(group => Calculate(group.ToArray(), minimumSampleSize, higherIsBetter)
-                .Select(result => result with { Basis = $"Primary-position cohort '{group.Key}': {result.Basis}" }))
+                .Select(result => result with { Basis = $"Cohort group '{group.Key}': {result.Basis}" }))
             .OrderByDescending(x => x.Percentile ?? double.MinValue)
             .ThenByDescending(x => higherIsBetter ? x.Value : -x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)

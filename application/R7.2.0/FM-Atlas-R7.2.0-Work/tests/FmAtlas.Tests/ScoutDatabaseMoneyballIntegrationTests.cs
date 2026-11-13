@@ -33,8 +33,8 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
                     """;
                 var snapshotId = Convert.ToInt32(await run.ExecuteScalarAsync());
 
-                await InsertPlayer(connection, snapshotId, "P1", "FMSAVE:1", "Low Minutes Player", "GK");
-                await InsertPlayer(connection, snapshotId, "P2", "FMSAVE:2", "Qualified Player", "STC");
+                await InsertPlayer(connection, snapshotId, "P1", "FMSAVE:1", "Low Minutes Player", "GK", 22, "National League");
+                await InsertPlayer(connection, snapshotId, "P2", "FMSAVE:2", "Qualified Player", "STC", 27, "Premier Division");
 
                 await InsertFact(connection, snapshotId, "P1", "player_season_stats", 0, "2025/26", 100, "goals", 50);
                 await InsertFact(connection, snapshotId, "P2", "player_season_stats", 1, "2025/26", 500, "goals", 30);
@@ -47,6 +47,9 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
             Assert.AreEqual(40d, qualified[0].Value, 0.0001,
                 "Duplicate player/period rows must retain the row with the greatest minutes, not inflate the cohort.");
             Assert.AreEqual("STC", qualified[0].PrimaryPosition, "The source-backed primary position must follow the player snapshot identity.");
+            Assert.AreEqual(27, qualified[0].Age);
+            Assert.AreEqual("Premier Division", qualified[0].League);
+            Assert.AreEqual("FMSave fixture", qualified[0].DataOrigin);
 
             var unrestricted = await database.SearchSeasonMetricAsync("goals", null, null, 5000, 0);
             Assert.AreEqual(2, unrestricted.Count);
@@ -127,17 +130,19 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
     }
 
     private static async Task InsertPlayer(
-        SqliteConnection connection, int snapshotId, string uid, string sourceId, string name, string position)
+        SqliteConnection connection, int snapshotId, string uid, string sourceId, string name, string position, int? age = null, string? league = null)
     {
         var player = connection.CreateCommand();
         player.CommandText = """
-            INSERT INTO Players(SourceId,Name,Club,DataOrigin,UpdatedUtc)
-            VALUES($source,$name,'Test FC','Moneyball fixture','2026-11-13T00:00:00Z');
+            INSERT INTO Players(SourceId,Name,Age,League,Club,DataOrigin,UpdatedUtc)
+            VALUES($source,$name,$age,$league,'Test FC','FMSave fixture','2026-11-13T00:00:00Z');
             INSERT INTO FmsavePlayerSnapshots(SnapshotId,PlayerUid,PlayerSourceId,RawJson)
             VALUES($snapshot,$uid,$source,$raw);
             """;
         player.Parameters.AddWithValue("$source", sourceId);
         player.Parameters.AddWithValue("$name", name);
+        player.Parameters.AddWithValue("$age", age.HasValue ? age.Value : DBNull.Value);
+        player.Parameters.AddWithValue("$league", (object?)league ?? DBNull.Value);
         player.Parameters.AddWithValue("$snapshot", snapshotId);
         player.Parameters.AddWithValue("$uid", uid);
         player.Parameters.AddWithValue("$raw", "{\"position\":\"" + position + "\"}");

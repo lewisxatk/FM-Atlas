@@ -17,7 +17,7 @@ public sealed record AtlasFactRecord(string Group, string Field, string? Value);
 public sealed record AtlasDevelopmentHistoryRecord(int SnapshotId, string ImportedUtc, string? GameDate, string? GameBuild, string SourceFileName, string FieldName, double Value, double? PreviousValue, double? Delta, bool IdentityBoundary);
 public sealed record SquadPlannerSlotRecord(int SeasonOffset, int Slot, string PlayerNames, int ResolvedPlayers, int UnresolvedPlayers);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
-public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value, string? PrimaryPosition = null);
+public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value, string? PrimaryPosition = null, int? Age = null, string? League = null, string DataOrigin = "Unknown");
 public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int StaffImported, int ClubsImported, int ExtraRowsImported, IReadOnlyDictionary<string,int> TableCounts, IReadOnlyList<string> Warnings);
 
 public sealed class ScoutDatabase
@@ -80,7 +80,7 @@ public sealed class ScoutDatabase
               AddedUtc TEXT NOT NULL, UNIQUE(SourceId, ShortlistName)
             );
             CREATE INDEX IF NOT EXISTS IX_Shortlists_Name ON Shortlists(ShortlistName);
-            CREATE TABLE IF NOT EXISTS ShortlistGroups (ShortlistName TEXT PRIMARY KEY, CreatedUtc TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS ShortlistGroups (ShortlistName TEXT PRIMARY KEY, CreatedUtc TEXT NOT NULL, Status TEXT NOT NULL DEFAULT 'Active', Owner TEXT NULL, TagsJson TEXT NULL, TransferBudget REAL NULL, WeeklyWageBudget REAL NULL, UpdatedUtc TEXT NULL);
 
             -- Live FM27 data is kept separate from the existing manually/CSV populated scouting tables.
             -- This prevents unverified live fields from silently overwriting trusted scouting data.
@@ -259,6 +259,12 @@ public sealed class ScoutDatabase
         await EnsureColumnAsync(db, "Players", "LeftFoot", "INTEGER NULL");
         await EnsureColumnAsync(db, "Players", "RightFoot", "INTEGER NULL");
         await EnsureColumnAsync(db, "Players", "SaveClubUid", "TEXT NULL");
+        await EnsureColumnAsync(db, "ShortlistGroups", "Status", "TEXT NOT NULL DEFAULT 'Active'");
+        await EnsureColumnAsync(db, "ShortlistGroups", "Owner", "TEXT NULL");
+        await EnsureColumnAsync(db, "ShortlistGroups", "TagsJson", "TEXT NULL");
+        await EnsureColumnAsync(db, "ShortlistGroups", "TransferBudget", "REAL NULL");
+        await EnsureColumnAsync(db, "ShortlistGroups", "WeeklyWageBudget", "REAL NULL");
+        await EnsureColumnAsync(db, "ShortlistGroups", "UpdatedUtc", "TEXT NULL");
         var clubIndex = db.CreateCommand();
         clubIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Players_SaveClubUid ON Players(SaveClubUid);";
         await clubIndex.ExecuteNonQueryAsync();
@@ -732,6 +738,108 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$name", shortlistName.Trim());
         cmd.Parameters.AddWithValue("$date", DateTime.UtcNow.ToString("O"));
         await cmd.ExecuteNonQueryAsync();
+    }
+
+
+    public async Task SaveRecruitmentProjectAsync(
+        string shortlistName,
+        string status,
+        string? owner,
+        IReadOnlyCollection<string> tags,
+        decimal? transferBudget,
+        decimal? weeklyWageBudget)
+    {
+        if (string.IsNullOrWhiteSpace(shortlistName) || shortlistName.Trim().Length > 100)
+            throw new ArgumentException("A shortlist name of 1–100 characters is required.", nameof(shortlistName));
+        var normalizedStatus = (status ?? string.Empty).Trim();
+        if (!new[] { "Planning", "Active", "Monitoring", "Closed" }.Contains(normalizedStatus, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Project status must be Planning, Active, Monitoring or Closed.", nameof(status));
+        var normalizedOwner = string.IsNullOrWhiteSpace(owner) ? null : owner.Trim();
+        if (normalizedOwner?.Length > 100)
+            throw new ArgumentOutOfRangeException(nameof(owner), "Owner names are limited to 100 characters.");
+        ArgumentNullException.ThrowIfNull(tags);
+        var normalizedTags = tags
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (normalizedTags.Length > 12 || normalizedTags.Any(x => x.Length > 24))
+            throw new ArgumentOutOfRangeException(nameof(tags), "Use up to 12 tags, with a maximum of 24 characters each.");
+        if (transferBudget.HasValue && transferBudget.Value < 0)
+            throw new ArgumentOutOfRangeException(nameof(transferBudget));
+        if (weeklyWageBudget.HasValue && weeklyWageBudget.Value < 0)
+            throw new ArgumentOutOfRangeException(nameof(weeklyWageBudget));
+
+        var now = DateTime.UtcNow.ToString("O");
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            INSERT INTO ShortlistGroups(
+                ShortlistName,CreatedUtc,Status,Owner,TagsJson,TransferBudget,WeeklyWageBudget,UpdatedUtc)
+            VALUES($name,$created,$status,$owner,$tags,$transfer,$wage,$updated)
+            ON CONFLICT(ShortlistName) DO UPDATE SET
+                Status=excluded.Status,
+                Owner=excluded.Owner,
+                TagsJson=excluded.TagsJson,
+                TransferBudget=excluded.TransferBudget,
+                WeeklyWageBudget=excluded.WeeklyWageBudget,
+                UpdatedUtc=excluded.UpdatedUtc;
+            """;
+        command.Parameters.AddWithValue("$name", shortlistName.Trim());
+        command.Parameters.AddWithValue("$created", now);
+        command.Parameters.AddWithValue("$status", normalizedStatus);
+        command.Parameters.AddWithValue("$owner", (object?)normalizedOwner ?? DBNull.Value);
+        command.Parameters.AddWithValue("$tags", JsonSerializer.Serialize(normalizedTags));
+        command.Parameters.AddWithValue("$transfer", transferBudget.HasValue ? (object)(double)transferBudget.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$wage", weeklyWageBudget.HasValue ? (object)(double)weeklyWageBudget.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$updated", now);
+        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    public async Task<RecruitmentProjectRecord?> GetRecruitmentProjectAsync(string shortlistName)
+    {
+        if (string.IsNullOrWhiteSpace(shortlistName))
+            throw new ArgumentException("Choose a shortlist.", nameof(shortlistName));
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT g.ShortlistName,COALESCE(g.Status,'Active'),g.Owner,g.TagsJson,
+                   g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc,COUNT(s.Id)
+            FROM ShortlistGroups g
+            LEFT JOIN Shortlists s ON s.ShortlistName=g.ShortlistName
+            WHERE g.ShortlistName=$name
+            GROUP BY g.ShortlistName,g.Status,g.Owner,g.TagsJson,g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc;
+            """;
+        command.Parameters.AddWithValue("$name", shortlistName.Trim());
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        if (!await reader.ReadAsync().ConfigureAwait(false))
+            return null;
+
+        IReadOnlyList<string> tags;
+        try
+        {
+            tags = reader.IsDBNull(3)
+                ? Array.Empty<string>()
+                : JsonSerializer.Deserialize<string[]>(reader.GetString(3)) ?? Array.Empty<string>();
+        }
+        catch (JsonException)
+        {
+            tags = Array.Empty<string>();
+        }
+
+        var createdText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);
+        return new RecruitmentProjectRecord(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.IsDBNull(2) ? null : reader.GetString(2),
+            tags,
+            reader.IsDBNull(4) ? null : Convert.ToDecimal(reader.GetDouble(4)),
+            reader.IsDBNull(5) ? null : Convert.ToDecimal(reader.GetDouble(5)),
+            DateTime.TryParse(createdText, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var created)
+                ? created : DateTime.MinValue,
+            reader.GetInt32(7));
     }
 
     public async Task AddToShortlistAsync(PlayerRecord player, string shortlistName, string? notes = null)
@@ -2708,14 +2816,14 @@ public sealed class ScoutDatabase
         var snapshotId = snapshotValue is null || snapshotValue == DBNull.Value
             ? (int?)null
             : Convert.ToInt32(snapshotValue);
-        var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club, string? Position)>(StringComparer.OrdinalIgnoreCase);
+        var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club, string? Position, int? Age, string? League, string DataOrigin)>(StringComparer.OrdinalIgnoreCase);
         var matches = new List<(string Uid, string Period, string Table, double? Minutes, double Value)>();
 
         if (snapshotId.HasValue)
         {
             var players = db.CreateCommand();
             players.CommandText = """
-                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson,r.KnownBuild
+                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson,r.KnownBuild,p.Age,p.League,COALESCE(p.DataOrigin,'Unknown')
                 FROM FmsavePlayerSnapshots s
                 LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId
                 INNER JOIN FmsaveImportRuns r ON r.SnapshotId=s.SnapshotId
@@ -2743,7 +2851,10 @@ public sealed class ScoutDatabase
                         reader.GetString(1),
                         reader.GetString(2),
                         reader.IsDBNull(3) ? null : reader.GetString(3),
-                        primaryPosition);
+                        primaryPosition,
+                        reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                        reader.IsDBNull(7) ? null : reader.GetString(7),
+                        reader.IsDBNull(8) ? "Unknown" : reader.GetString(8));
                 }
             }
 
@@ -2855,7 +2966,10 @@ public sealed class ScoutDatabase
                 playerMap[x.Uid].Club,
                 x.Period,
                 x.Value,
-                playerMap[x.Uid].Position))
+                playerMap[x.Uid].Position,
+                playerMap[x.Uid].Age,
+                playerMap[x.Uid].League,
+                playerMap[x.Uid].DataOrigin))
             .OrderByDescending(x => x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .Take(safeLimit)
@@ -2897,14 +3011,14 @@ public sealed class ScoutDatabase
             ? (int?)null
             : Convert.ToInt32(snapshotValue);
 
-        var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club, string? Position)>(StringComparer.OrdinalIgnoreCase);
+        var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club, string? Position, int? Age, string? League, string DataOrigin)>(StringComparer.OrdinalIgnoreCase);
         var matches = new List<(string Uid, string Period, double Minutes, double Value)>();
 
         if (snapshotId.HasValue)
         {
             var players = db.CreateCommand();
             players.CommandText = """
-                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson,r.KnownBuild
+                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson,r.KnownBuild,p.Age,p.League,COALESCE(p.DataOrigin,'Unknown')
                 FROM FmsavePlayerSnapshots s
                 LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId
                 INNER JOIN FmsaveImportRuns r ON r.SnapshotId=s.SnapshotId
@@ -2932,7 +3046,10 @@ public sealed class ScoutDatabase
                         reader.GetString(1),
                         reader.GetString(2),
                         reader.IsDBNull(3) ? null : reader.GetString(3),
-                        primaryPosition);
+                        primaryPosition,
+                        reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                        reader.IsDBNull(7) ? null : reader.GetString(7),
+                        reader.IsDBNull(8) ? "Unknown" : reader.GetString(8));
                 }
             }
 
@@ -3039,7 +3156,10 @@ public sealed class ScoutDatabase
                 playerMap[x.Uid].Club,
                 x.Period,
                 x.Value,
-                playerMap[x.Uid].Position))
+                playerMap[x.Uid].Position,
+                playerMap[x.Uid].Age,
+                playerMap[x.Uid].League,
+                playerMap[x.Uid].DataOrigin))
             .OrderByDescending(x => x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .Take(safeLimit)
@@ -3064,10 +3184,11 @@ public sealed class ScoutDatabase
         var results = new List<AnalyticsMetricResult>();
         var command = db.CreateCommand();
         command.CommandText = """
-            SELECT PlayerSourceId,PlayerName,Club,Season,Minutes,RawJson
-            FROM ExternalStatRows
-            WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns)
-            ORDER BY RowIndex;
+            SELECT e.PlayerSourceId,e.PlayerName,e.Club,e.Season,e.Minutes,e.RawJson,p.Age,p.League,COALESCE(p.DataOrigin,'Unknown')
+            FROM ExternalStatRows e
+            LEFT JOIN Players p ON p.SourceId=e.PlayerSourceId
+            WHERE e.ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns)
+            ORDER BY e.RowIndex;
             """;
 
         await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
@@ -3106,7 +3227,10 @@ public sealed class ScoutDatabase
                 var season = GetFirstJsonString(row, "season", "season_name", "year")
                     ?? (reader.IsDBNull(3) ? "FM View Export" : reader.GetString(3));
                 var primaryPosition = GetFirstJsonString(row, "position", "Position", "primary_position", "Primary Position", "natural_position");
-                results.Add(new AnalyticsMetricResult(sourceId, name, club, season, value, primaryPosition));
+                var age = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6);
+                var league = reader.IsDBNull(7) ? null : reader.GetString(7);
+                var dataOrigin = reader.IsDBNull(8) ? "Unknown" : reader.GetString(8);
+                results.Add(new AnalyticsMetricResult(sourceId, name, club, season, value, primaryPosition, age, league, dataOrigin));
             }
             catch (JsonException)
             {
