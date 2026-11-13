@@ -205,3 +205,81 @@ Key additions:
 - **FM View Exporter** documents Steam for Windows; it should not be presented as a known Game Pass-compatible plugin.
 - **FM Dossier** documentation says FM27 has been tested on Steam; other official store editions are checked on each read but have not been tested by the developer.
 - These qualifications matter because Atlas's intended target is Xbox/Game Pass. A working Steam offset/profile is not sufficient evidence for Game Pass.
+
+## Source-level reverse-engineering follow-up — 2026-11-13
+
+The initial register above was checked against current public source files, not just project README claims. This is still desk research: no third-party code was copied into Atlas, no third-party executable was run, and no user's game process/save was accessed.
+
+### fmsave: trust contract and build support
+
+Current public source inspected:
+- `src/fmsave/_layouts/fm27_27_0_0.py`
+- `docs/guides/trust.md`
+- `README.md`
+
+Important correction to any broad “FM27 supported” claim: the current README documents the normal FM27 reader for build `27.0.0+2486695`. Other FM27 builds are unverified and may borrow an FM27 layout only when section schemas match; the validation report warns about the borrowed layout. A registered build means a layout exists, not that every field meaning has been checked against the game.
+
+The trust guide makes three distinct evidence dimensions explicit:
+1. **Field meaning:** verified against the in-game UI or unconfirmed.
+2. **Coverage:** how often the field is present (a missing value may mean omitted data, failed join or unsupported decoding).
+3. **Reader integrity:** structural and consistency checks passed or warned.
+
+Unknown values remain `None`, not fabricated zeros. Reader checks distinguish blocking integrity failures from advisory population/coverage warnings. The parser deliberately preserves stored money units and historical finance periods rather than pretending they are current display-currency totals.
+
+Atlas implication: store field-level status, presence/coverage and reader validation separately. Do not promote every field just because the overall save parser reports a recognised layout. The current Atlas `PlayerRecord` has a record-level `DataOrigin`, while field evidence is stored separately; a future canonical field registry should preserve source, build, visibility, unit, confidence, freshness and validation per field.
+
+### fm-editor: versioned memory schemas and evidence
+
+Current public source inspected:
+- `README.md`
+- `docs/fm27/memory-layout.md`
+- `src/fields/fm27/player.rs`
+- Repository tree under `src/fields/fm24`, `src/fields/fm26`, `src/fields/fm27`
+
+The source separates field definitions by game version and records witness comments next to individual fields. The FM27 layout document explicitly says that its initial schema inherited from FM26 and that only the fields listed as verified were checked on FM27; inherited offsets remain unverified. It records the tested build, save context, human-readable witnesses, offsets, widths, pointer chains and the exact UI label observed.
+
+The project also separates game version from storefront detection. Its README notes that one FM27 Game Pass package has been brought up for a specific Store package and that unmapped Game Pass addresses stay disabled; an attach is not proof that every field layout is valid. The editor has a per-field whitelist and an undo stack, and it explicitly warns that writes affect the running game's memory.
+
+Atlas implication: the current build-profile registry is a useful first gate, but a module size/timestamp match must never become blanket field certification. Maintain per-version field maps and independent UI witnesses. Keep unsupported build/storefront combinations read-only. A field needs evidence about its value and meaning, not only a plausible address.
+
+### FMLibreEditor: modular UI and strict write evidence
+
+Current public source inspected:
+- `README.md`
+- `CONTRIBUTING.md`
+- `app/src/CommandPalette.tsx`
+- Repository tree under `app/src` and `app/src-tauri`
+
+FMLibreEditor uses a Rust core with a React/TypeScript UI and a Tauri bridge. The UI is split into distinct player/staff/club browsers, profiles, comparisons, filters, scouting, saved filters, command palette, mass-edit and diagnostics components. Its Ctrl+K palette searches both entities and commands, keeps keyboard focus, supports arrows/Enter/Escape, debounces requests and offers result limits.
+
+Its contribution guide states that new writable fields need two independent confirmations and a documented method for finding the offset. It also describes testing across storefronts and reporting the exact FM version. The README labels the application beta and calls for offline single-player backups. This is a useful safety and product-structure reference, but the project is GPL-3.0-or-later.
+
+Atlas implication: the biggest design lesson is not to copy the React/Tauri stack. It is to break the large MainWindow into independently testable feature components/services, add a real command palette, and enforce independent evidence before any new writable field is exposed.
+
+### FMSuperScout: scanner/core/UI split and read-only acquisition
+
+Current public source inspected:
+- `README.md`
+- `scanner/Program.cs`
+- `core/MemScan.Win.cs`
+- Repository tree under `scanner`, `core`, `plugin`, `app`, `mac`, `test`
+
+The repository separates an external scanner, shared scan core, optional in-process plugin and local application. The Windows process reader requests only `PROCESS_VM_READ` and `PROCESS_QUERY_INFORMATION`; it does not request VM write rights. It can use a Process Snapshotting API copy-on-write clone as a fallback when a consistent read is needed, but explicitly notes the memory and performance cost. It reuses large image buffers and limits parallel readers to reduce large-object-heap pressure and game-process memory overhead.
+
+The app keeps scan snapshots and advertises development deltas, intake radar and saved filters. Those are project features/claims; Atlas has not independently benchmarked their performance or validated their calculations.
+
+Atlas implication: retain the read-only-first architecture, avoid asking for write privileges in discovery paths, and measure scan memory/latency against large saves. Snapshot consistency should be an explicit, opt-in fallback with a resource-cost warning rather than a default that slows FM.
+
+### Cross-project conclusions
+
+1. **Version and storefront are separate axes.** A supported FM27 version does not automatically prove Game Pass/Steam module addresses are interchangeable.
+2. **Build registration is not field verification.** Track each field's witness and status separately.
+3. **Missing is not zero.** Keep null/unknown distinct from a real zero, and show coverage alongside results.
+4. **Reader integrity is not semantic correctness.** Structural checks, field meaning and presence coverage are different.
+5. **Read-only scanning should use least privilege.** Do not request write access until an explicitly certified edit operation.
+6. **Undo is a first-class safety feature.** It needs original bytes/current-value preflight, session identity, read-back and recovery evidence.
+7. **Scouting tools derive value from history.** Snapshots unlock growth, development and intake comparisons, but only when player identity is stable within a save and cross-save identity links are evidenced.
+8. **Modular architecture pays off.** Scanner, data model, query engine, UI components and platform adapters should be independently testable.
+9. **Licensing is a hard boundary.** FMLibreEditor and fm-editor are GPL-3.0-or-later; use as architectural research only unless a deliberate licensing decision is made. Do not transplant source code into a differently licensed/distributed Atlas release.
+
+These findings have been added to the Stage 1/2 audit as recommendations. They do not mean Atlas has implemented the referenced products' feature sets.
