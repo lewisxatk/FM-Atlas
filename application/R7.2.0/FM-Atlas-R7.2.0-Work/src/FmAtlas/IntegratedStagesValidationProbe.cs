@@ -9,3 +9,4 @@ internal static class IntegratedStagesValidationProbe
     internal const string Scope = "FM Atlas integrated stages 3-7 validation";
 }
 // Re-trigger validation against the corrected cohort-specific DTOs and current base.
+// Refresh validation after WPF captured-control initialization fixes.
