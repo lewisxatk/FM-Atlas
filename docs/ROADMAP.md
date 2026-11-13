@@ -228,3 +228,5 @@ See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
 - [ ] Execute a fresh Windows build, run in-app diagnostics, and record all warnings before proceeding to shell migration.
 - [ ] Continue the feature-to-file traceability matrix and source-level module audit, then complete MONOLITH shared controls and screen migration.
 
+
+- 2026-11-13: MONOLITH foundation follow-up: existing token brushes now update in place across theme switches, legacy colour bridges repaint tracked controls, MainWindow binds to theme resources and Player Intelligence report XAML uses DynamicResource. Full shared-control library/page migration and Windows visual acceptance remain pending.
