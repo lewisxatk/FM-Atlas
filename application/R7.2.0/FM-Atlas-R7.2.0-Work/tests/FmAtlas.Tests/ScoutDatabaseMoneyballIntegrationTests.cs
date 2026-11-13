@@ -118,7 +118,7 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
         row.Parameters.AddWithValue("$source", sourceId);
         row.Parameters.AddWithValue("$name", name);
         row.Parameters.AddWithValue("$minutes", minutes);
-        row.Parameters.AddWithValue("$json", "{\\"goals\\":" + goals.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
+        row.Parameters.AddWithValue("$json", "{\"goals\":" + goals.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
         await row.ExecuteNonQueryAsync();
     }
 
