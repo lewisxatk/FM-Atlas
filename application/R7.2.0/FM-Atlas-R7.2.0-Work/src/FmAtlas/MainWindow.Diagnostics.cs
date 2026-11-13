@@ -126,8 +126,16 @@ public partial class MainWindow
                 return (true, $"Registered fields: {fields.Count:N0} · field-verified: {Count(FieldEvidenceLevel.FieldVerified):N0} · profile-matched provisional: {Count(FieldEvidenceLevel.ProfileMatchedProvisional):N0} · candidate: {Count(FieldEvidenceLevel.Candidate):N0} · unverified: {Count(FieldEvidenceLevel.Unverified):N0}. The current live-write certification gate remains closed.");
             });
             await Add("Store profile detection", () =>
-                try { var pid = LiveMemoryEditService.FindSupportedProcessId(); return Task.FromResult((true, $"Exact FM27 Windows module profile matched for process {pid}. This is a profile match, not a field-by-field write certification.")); }
-                catch (Exception ex) { return Task.FromResult((false, ex.Message)); }
+            {
+                try
+                {
+                    var pid = LiveMemoryEditService.FindSupportedProcessId();
+                    return Task.FromResult((true, $"Exact FM27 Windows module profile matched for process {pid}. This is a profile match, not a field-by-field write certification."));
+                }
+                catch (Exception ex)
+                {
+                    return Task.FromResult((false, AtlasLog.RedactForSupport(ex.Message)));
+                }
             });
             await Add("Live edit write safety", () =>
             {
@@ -373,7 +381,7 @@ public partial class MainWindow
             }
 
             AtlasLog.Info("Support bundle exported locally. Bundle ID=" + bundleId);
-            MessageBox.Show(this, "Support ZIP saved. No files were uploaded. The reviewed bundle contains only its listed report/log files; it does not include your career save or Atlas database. Review the ZIP once more before sharing.\\n\\nBundle ID: " + bundleId, "FM Atlas support pack", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, "Support ZIP saved. No files were uploaded. The reviewed bundle contains only its listed report/log files; it does not include your career save or Atlas database. Review the ZIP once more before sharing." + Environment.NewLine + Environment.NewLine + "Bundle ID: " + bundleId, "FM Atlas support pack", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
