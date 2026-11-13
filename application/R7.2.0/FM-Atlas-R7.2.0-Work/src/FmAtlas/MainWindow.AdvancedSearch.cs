@@ -137,13 +137,92 @@ public partial class MainWindow
             if (minValue.HasValue) min.Text = minValue.Value.ToString(CultureInfo.InvariantCulture);
             if (maxValue.HasValue) max.Text = maxValue.Value.ToString(CultureInfo.InvariantCulture);
             var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
-            var remove = SoftButton("×", (_, _) => { filterPanel.Children.Remove(container); filterRows.RemoveAll(x => x.Container == container); });
-            remove.Width = 35; remove.Height = 34; remove.Margin = new Thickness(0);
             var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 0) };
-            row.Children.Add(field); row.Children.Add(min); row.Children.Add(max); row.Children.Add(remove);
+            var up = SoftButton("↑", (_, _) => MoveFilterRow(container, -1));
+            var down = SoftButton("↓", (_, _) => MoveFilterRow(container, 1));
+            var duplicate = SoftButton("＋", (_, _) => DuplicateFilterRow(container));
+            var remove = SoftButton("×", (_, _) =>
+            {
+                filterPanel.Children.Remove(container);
+                filterRows.RemoveAll(x => x.Container == container);
+            });
+            foreach (var action in new[] { up, down, duplicate, remove })
+            {
+                action.Width = 31;
+                action.Height = 34;
+                action.Margin = new Thickness(0, 0, 3, 0);
+            }
+            up.ToolTip = "Move condition up";
+            down.ToolTip = "Move condition down";
+            duplicate.ToolTip = "Duplicate condition";
+            remove.ToolTip = "Remove condition";
+            row.Children.Add(field);
+            row.Children.Add(min);
+            row.Children.Add(max);
+            row.Children.Add(up);
+            row.Children.Add(down);
+            row.Children.Add(duplicate);
+            row.Children.Add(remove);
             container.Child = row;
             filterRows.Add(new StatFilterUiRow(field, min, max, container));
             filterPanel.Children.Add(container);
+        }
+
+        void MoveFilterRow(Border container, int direction)
+        {
+            var current = filterRows.FindIndex(x => x.Container == container);
+            if (current < 0) return;
+            var target = Math.Clamp(current + direction, 0, filterRows.Count - 1);
+            if (target == current) return;
+
+            var item = filterRows[current];
+            filterRows.RemoveAt(current);
+            filterRows.Insert(target, item);
+            filterPanel.Children.Remove(container);
+            filterPanel.Children.Insert(target, container);
+        }
+
+        void DuplicateFilterRow(Border container)
+        {
+            if (filterRows.Count >= 60)
+            {
+                status.Text = "A single search supports up to 60 metric conditions.";
+                return;
+            }
+
+            var sourceIndex = filterRows.FindIndex(x => x.Container == container);
+            if (sourceIndex < 0) return;
+            var source = filterRows[sourceIndex];
+            if (source.Field.SelectedItem is not StatMetricField field)
+            {
+                status.Text = "Choose a metric field before duplicating this condition.";
+                return;
+            }
+
+            double? minValue = null, maxValue = null;
+            if (!string.IsNullOrWhiteSpace(source.Minimum.Text))
+            {
+                if (!double.TryParse(source.Minimum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) || !double.IsFinite(parsed))
+                {
+                    status.Text = "Correct the minimum before duplicating this condition.";
+                    return;
+                }
+                minValue = parsed;
+            }
+            if (!string.IsNullOrWhiteSpace(source.Maximum.Text))
+            {
+                if (!double.TryParse(source.Maximum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) || !double.IsFinite(parsed))
+                {
+                    status.Text = "Correct the maximum before duplicating this condition.";
+                    return;
+                }
+                maxValue = parsed;
+            }
+
+            AddFilterRow(field.Key, minValue, maxValue);
+            if (filterRows.Count > sourceIndex + 1)
+                MoveFilterRow(filterRows[^1].Container, sourceIndex + 1 - (filterRows.Count - 1));
+            status.Text = $"Duplicated '{field.DisplayName}' condition. Adjust the copy as needed.";
         }
 
         void RefreshSavedProfiles(string? selectedId = null)
@@ -568,9 +647,92 @@ public partial class MainWindow
             var min = Input("Min 1–20"); min.Width = 88; min.Height = 34; min.Text = minimum?.ToString(CultureInfo.InvariantCulture) ?? ""; min.Margin = new Thickness(0, 0, 7, 0);
             var max = Input("Max 1–20"); max.Width = 88; max.Height = 34; max.Text = maximum?.ToString(CultureInfo.InvariantCulture) ?? ""; max.Margin = new Thickness(0, 0, 7, 0);
             var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
-            var row = new StackPanel { Orientation = Orientation.Horizontal }; row.Children.Add(field); row.Children.Add(min); row.Children.Add(max);
-            var remove = SoftButton("×", (_, _) => { filterPanel.Children.Remove(container); filterRows.RemoveAll(x => x.Container == container); }); remove.Width = 35; remove.Height = 34; remove.Margin = new Thickness(0); row.Children.Add(remove); container.Child = row;
-            filterRows.Add(new AttributeFilterUiRow(field, min, max, container)); filterPanel.Children.Add(container);
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            var up = SoftButton("↑", (_, _) => MoveFilterRow(container, -1));
+            var down = SoftButton("↓", (_, _) => MoveFilterRow(container, 1));
+            var duplicate = SoftButton("＋", (_, _) => DuplicateFilterRow(container));
+            var remove = SoftButton("×", (_, _) =>
+            {
+                filterPanel.Children.Remove(container);
+                filterRows.RemoveAll(x => x.Container == container);
+            });
+            foreach (var action in new[] { up, down, duplicate, remove })
+            {
+                action.Width = 31;
+                action.Height = 34;
+                action.Margin = new Thickness(0, 0, 3, 0);
+            }
+            up.ToolTip = "Move condition up";
+            down.ToolTip = "Move condition down";
+            duplicate.ToolTip = "Duplicate condition";
+            remove.ToolTip = "Remove condition";
+            row.Children.Add(field);
+            row.Children.Add(min);
+            row.Children.Add(max);
+            row.Children.Add(up);
+            row.Children.Add(down);
+            row.Children.Add(duplicate);
+            row.Children.Add(remove);
+            container.Child = row;
+            filterRows.Add(new AttributeFilterUiRow(field, min, max, container));
+            filterPanel.Children.Add(container);
+        }
+
+        void MoveFilterRow(Border container, int direction)
+        {
+            var current = filterRows.FindIndex(x => x.Container == container);
+            if (current < 0) return;
+            var target = Math.Clamp(current + direction, 0, filterRows.Count - 1);
+            if (target == current) return;
+
+            var item = filterRows[current];
+            filterRows.RemoveAt(current);
+            filterRows.Insert(target, item);
+            filterPanel.Children.Remove(container);
+            filterPanel.Children.Insert(target, container);
+        }
+
+        void DuplicateFilterRow(Border container)
+        {
+            if (filterRows.Count >= 60)
+            {
+                status.Text = "A search supports up to 60 attribute and personality conditions.";
+                return;
+            }
+
+            var sourceIndex = filterRows.FindIndex(x => x.Container == container);
+            if (sourceIndex < 0) return;
+            var source = filterRows[sourceIndex];
+            if (source.Field.SelectedItem is not AttributePickerField field)
+            {
+                status.Text = "Choose an attribute field before duplicating this condition.";
+                return;
+            }
+
+            int? minValue = null, maxValue = null;
+            if (!string.IsNullOrWhiteSpace(source.Minimum.Text))
+            {
+                if (!int.TryParse(source.Minimum.Text, out var parsed) || parsed is < 1 or > 20)
+                {
+                    status.Text = "Correct the 1–20 minimum before duplicating this condition.";
+                    return;
+                }
+                minValue = parsed;
+            }
+            if (!string.IsNullOrWhiteSpace(source.Maximum.Text))
+            {
+                if (!int.TryParse(source.Maximum.Text, out var parsed) || parsed is < 1 or > 20)
+                {
+                    status.Text = "Correct the 1–20 maximum before duplicating this condition.";
+                    return;
+                }
+                maxValue = parsed;
+            }
+
+            AddFilterRow(field.Key, minValue, maxValue);
+            if (filterRows.Count > sourceIndex + 1)
+                MoveFilterRow(filterRows[^1].Container, sourceIndex + 1 - (filterRows.Count - 1));
+            status.Text = $"Duplicated '{field.Label}' condition. Adjust the copy as needed.";
         }
 
         void ApplyPreset(IEnumerable<(string Key, double Minimum)> preset)
