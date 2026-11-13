@@ -237,3 +237,12 @@ These are recommendations for the user's later Stage 3–7 approval, not work be
 - [ ] Update the master handover/progress records with exact final commits and test evidence.
 
 **Stop point:** Stage 1 & Stage 2 are in audit/verification. Do not begin the combined Stage 3–7 implementation until the user has reviewed the findings and explicitly approved moving forward.
+
+## Follow-up evidence and CI corrections — 2026-11-13
+
+- The support bundle composer is now used by the Diagnostics UI. Its five tests cover exact archive entries, archive round-trip, manifest hashes/sizes, secret/path/save-name redaction and rejection of arbitrary/path-traversal filenames.
+- The manifest now serializes nested file metadata in consistent camelCase to match its top-level JSON schema and the automated assertions.
+- A Windows build of the first composer/test commit failed because the new `SavedSearchProfileStore.cs` and `SupportBundleComposer.cs` used IO types without explicit `System.IO` imports. This is a genuine compile failure, not a test failure. Explicit imports were added in commits `47dec36` and `70e416c`.
+- The follow-up CI run for `a3efdb5` therefore remains a failed historical run. A new run is queued for the corrected source; wait for that exact run before marking the support bundle composer or saved-profile store build-verified.
+- The new `SavedSearchProfileStore` is present and wired into both Stats Search and Attribute Search. It stores criteria only in local JSON, validates up to 200 profiles/60 conditions, writes atomically through a temp file, rejects duplicate IDs/names and preserves corrupt source files instead of overwriting them. Six persistence/validation tests are present. It is a partial feature: it does not add nested Boolean groups or match explanations.
+- Source-level reverse-engineering was extended by inspecting current public code/docs from fmsave, fm-editor, FMLibreEditor and FMSuperScout. The detailed findings are in `research/RESEARCH_REGISTER.md`; key points include fmsave's one registered FM27 build and separate field-status/coverage/reader-integrity dimensions, per-version witnessed memory fields in fm-editor, a modular command-palette UI and two-witness write rule in FMLibreEditor, and least-privilege read-only scanning with optional process snapshots in FMSuperScout.
