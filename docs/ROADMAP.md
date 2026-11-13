@@ -23,6 +23,13 @@ Status labels: **Source implemented** = present in the supplied R7.2.0 package b
 - [ ] Establish a reproducible .NET build and baseline test.
 - [ ] Record release/version mapping and create a protected baseline tag.
 
+## Phase 0A — Design-system-first delivery gate
+
+- [ ] MONOLITH is the first UI implementation milestone after source integrity and clean-build baseline.
+- [ ] No new feature screen is ready for implementation until its required shared components exist or are explicitly added to the shared library.
+- [ ] Approve the application shell, rounded control language, search pop-out and Scouting Matrix mockups before broad screen migration.
+- [ ] Keep feature logic separate from presentation so visual work does not silently alter search, save import, analytics or editor behaviour.
+
 ## Phase 1 — Application foundation
 
 - [ ] Audit WPF solution/project structure and dependencies.
@@ -100,13 +107,46 @@ Status labels: **Source implemented** = present in the supplied R7.2.0 package b
 - [ ] Test missing, duplicate and malformed graphics references.
 - [ ] Keep licensed/user-provided graphics outside source control unless permitted.
 
-## Phase 7 — UI and themes
+## Phase 7 — MONOLITH design system and application-wide UI foundation (FIRST implementation priority)
 
-- [ ] Audit current Obsidian theme state.
-- [ ] Audit Aurora Frost theme and retain as a supported design direction.
-- [ ] Apply consistent theme tokens across all views, dialogs and controls.
-- [ ] Improve navigation, hierarchy, responsive layout and accessibility.
-- [ ] Verify contrast, keyboard navigation and scaling.
+**Decision (2026-11-13):** MONOLITH is the primary FM Atlas visual identity. Use orange accents, restrained animation and rounded, approachable controls. Mix in Swiss Sport editorial structure, TOUCHLINE football-specific visualisations and PULSE statistical presentation. Aurora Frost is rejected and must not be carried forward as a design direction.
+
+**Non-negotiable sequencing rule:** establish and integrate the shared design system before implementing or redesigning feature screens. All subsequent screens and controls consume shared tokens and reusable components. Do not build features against temporary one-off styles and retrofit them later.
+
+- [ ] Audit the imported R7.2.0 WPF solution, current views, styles, resources, navigation and controls before changing code.
+- [ ] Produce and commit the MONOLITH design specification and screen mockup references.
+- [ ] Define central design tokens: dark graphite palette, orange accent, warm light theme, typography, spacing, radii, borders, elevation, focus, status and semantic colours.
+- [ ] Establish consistent rounded geometry and spacing rules (small/medium/large radii; avoid excessive pill-shaped controls).
+- [ ] Build the application shell first: sidebar, top bar, content workspace, page headers, status areas, command palette and responsive/resizable layout.
+- [ ] Build reusable controls: buttons, icon buttons, inputs, dropdowns, combo boxes, tabs, chips, badges, tooltips, menus, dialogs, pop-outs, cards, tables, empty/loading/error states.
+- [ ] Establish shared visualisation styles for percentile bars, charts, attribute grids, radar charts and tactical pitch views.
+- [ ] Implement dark graphite as primary theme and warm light as secondary using the same semantic tokens and components.
+- [ ] Set motion rules: restrained short transitions, subtle hover/focus feedback, no constant animation or flashing; respect reduced-motion preferences where practical.
+- [ ] Validate keyboard navigation, focus visibility, contrast, text scaling, high-DPI and common desktop resolutions.
+- [ ] Add visual regression/screenshot checkpoints for the shell and shared components before feature migration.
+- [ ] Only after the foundation is accepted, migrate feature screens incrementally without unnecessarily changing business/data logic.
+
+### Phase 7A — FMRTE-style Advanced Search and Filter experience
+
+**Goal:** deliver the speed, clarity and filter-building flexibility of FMRTE's Search Filter workflow, with FM Atlas's own implementation and visual identity. Reproduce the useful interaction model; do not copy proprietary source code, assets or branding.
+
+- [ ] Audit existing R7.2.0 search implementation and preserve working field mappings and query logic.
+- [ ] Provide simple Quick Search plus an easy one-click Advanced Search pop-out/drawer.
+- [ ] Make the advanced panel rounded, readable, spacious and easy to scan, with clear sections and visible active-filter summary.
+- [ ] Use filter rows: field/category selector, operator selector (equals, not equals, greater/less than, between, contains, starts with, is set/missing where valid), and type-appropriate value editor.
+- [ ] Support multiple conditions, add/remove/duplicate rows, clear/reset, include/exclude and named saved searches.
+- [ ] Support grouped AND/OR logic and nested groups where the query engine supports them; clearly show why a player matches.
+- [ ] Organise fields into groups: identity, age/date, position/suitability, attributes, foot, nationality, club/league, contract/value/wages, home-grown/origin, season statistics, development and other verified fields.
+- [ ] Provide attribute ranges (1–20), multi-position selection, and the 15-position pitch/suitability view with five labelled suitability levels where source data supports it.
+- [ ] Add searchable field lists, sensible defaults, inline help/tooltips, validation and keyboard operation.
+- [ ] Show active filters as removable chips and result-count/empty-state feedback without hiding criteria.
+- [ ] Add save, rename, duplicate, delete and load preset workflows; starter presets must use grounded, documented criteria.
+- [ ] Allow custom result columns, sorting and reusable search profiles to integrate with the Scouting Matrix.
+- [ ] Preserve Newgen/regen requirements: Origin = All/Newgens/Real/Unknown; Unknown is not Newgen; age uses in-game date; no UID-only guessing; FM26 initial validation, then FM27 parity.
+- [ ] Test AND/OR truth tables, missing values, numeric boundaries, date semantics, multi-position matches, saved-search migrations and large result sets.
+- [ ] Every filter must map to a verified data field; mark unavailable fields rather than presenting nonfunctional controls.
+
+**Acceptance criteria:** a user can open Advanced Search in one click, build and understand a multi-condition search, save/reopen/edit it, and see matching results with active criteria clearly visible. Controls must fit the shared MONOLITH layout at supported desktop resolutions.
 
 ## Phase 8 — Value finder and quality of life
 
