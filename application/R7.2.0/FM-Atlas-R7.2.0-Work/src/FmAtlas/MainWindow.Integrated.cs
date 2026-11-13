@@ -858,6 +858,11 @@ public partial class MainWindow
                 compositeStatus.Text = "Enter valid minimum minutes (1–10,000) and minimum cohort size (1–100,000).";
                 return;
             }
+            if (per90.IsChecked == true && selectedMetrics.Any(x => !x.SupportsPer90))
+            {
+                compositeStatus.Text = "Per 90 can only be saved when every selected metric supports cumulative-count conversion.";
+                return;
+            }
             if (!TryReadCompositeWeights(selectedMetrics, out var weights, out var error))
             {
                 compositeStatus.Text = error;
