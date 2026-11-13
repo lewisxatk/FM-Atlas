@@ -3,7 +3,7 @@
 Last updated: 2026-11-13  
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
-Programme commit: `c9d8a87f9c437b84f60d567f422a7611274d5bc0`
+Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`
 
 ## Verified progress
 
@@ -14,6 +14,11 @@ Programme commit: `c9d8a87f9c437b84f60d567f422a7611274d5bc0`
 - [x] Integrated feature scope consolidated in `docs/OVERHAUL_MASTER_PROGRAMME.md`.
 - [x] User supplied repaired R7.2.0 v2 build log: Windows .NET 8 WPF Release build succeeded, 0 errors, 15 warnings.
 - [x] Build output path confirmed in the log: `src/FmAtlas/bin/Release/net8.0-windows/FmAtlas.exe`.
+- [x] Recovered R7.2.0 application tree imported into `application/R7.2.0/FM-Atlas-R7.2.0-Work/` on this branch (source import commit `6069c20`).
+- [x] Static recovery audit imported as `recovery/R7.2.0-STATIC-AUDIT.md`.
+- [x] The recovery tree contains the 106 tracked source-package files; generated `obj` and build artefacts were not imported.
+- [x] Compared repaired v2 ZIP with the later `updated.zip`: 102 common source files are byte-identical; the eight changed source files' Git blob hashes match the eight files in the existing recovery branch. The recovery branch therefore already contains the source corresponding to the later repaired build, for those source paths.
+- [x] Closed redundant source-import PR #1 after direct import into the overhaul branch; no changes to `main`.
 
 ## Newly confirmed product requirement
 
@@ -23,7 +28,7 @@ Programme commit: `c9d8a87f9c437b84f60d567f422a7611274d5bc0`
 
 ## Not yet verified / not complete
 
-- [ ] The repaired source v2 package has not yet been imported into this GitHub branch.
+
 - [ ] No application launch evidence yet.
 - [ ] No runtime feature acceptance evidence yet.
 - [ ] No full source-level audit of every R7.2.0 module yet.
