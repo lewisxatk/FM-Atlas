@@ -123,6 +123,11 @@ public partial class MainWindow
                 var hasMin = double.TryParse(row.Minimum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var lower);
                 var hasMax = double.TryParse(row.Maximum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var upper);
                 if (!hasMin && !hasMax) continue;
+                if ((hasMin && !double.IsFinite(lower)) || (hasMax && !double.IsFinite(upper)))
+                {
+                    status.Text = $"Enter finite numeric boundaries for {field.DisplayName}.";
+                    return;
+                }
                 if (hasMin && hasMax && lower > upper) { status.Text = $"Minimum cannot exceed maximum for {field.DisplayName}."; return; }
                 if (per90.IsChecked == true && !field.SupportsPer90) { status.Text = $"{field.DisplayName} is already a rate, percentage, rating or playing-time field and cannot be normalised per 90 again."; return; }
                 criteria.Add(new StatFilterCriterion(field.Key, field.DisplayName, hasMin ? lower : null, hasMax ? upper : null));
