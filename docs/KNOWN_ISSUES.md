@@ -63,3 +63,9 @@ The following supersedes older build/privacy notes above where they conflict:
 - A preceding compile failure also occurred from malformed C# string literals during an initial privacy-copy edit; those lines were corrected before the current run. Both failed intermediate runs remain part of the audit history.
 - Diagnostics opt-in now includes player names and recent edit history only. Credentials/tokens, absolute paths and career save filenames remain always redacted. Actual ZIP generation and manual inspection on the user's Windows PC remain outstanding.
 - All 21 routes have been statically mapped in docs/STAGE1_STAGE2_AUDIT.md; Windows runtime route smoke tests, visual/DPI acceptance, actual Game Pass build verification and graphics-root validation remain outstanding.
+## Latest Stage 1/2 Windows verification — 2026-11-13 17:49 UTC
+
+- Corrected source commit `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991` passed Windows Actions run `43476085012`: Release build 0 warnings/0 errors; 64/64 tests passed.
+- The earlier pending status for run `43475788525` is superseded. That run failed on missing System.IO imports and test API/signature issues; these were fixed before `43476085012`.
+- Automated tests cover support bundle archive allowlisting, hash/size manifest, redaction, path-traversal rejection, saved search profile persistence and SQLite live-evidence isolation.
+- Manual WPF route smoke tests, actual support ZIP inspection, save-copy import acceptance, theme/DPI visuals, Game Pass build confirmation and graphics-root validation remain open.
