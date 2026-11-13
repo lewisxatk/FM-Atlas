@@ -57,6 +57,71 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
         }
     }
 
+    [TestMethod]
+    public async Task MoneyballSearch_FallsBackToFmViewCsvAndAppliesMinutesFloor()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+
+        try
+        {
+            var database = new ScoutDatabase(databasePath, pooling: false);
+            await database.InitialiseAsync();
+
+            await using (var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder { DataSource = databasePath, Pooling = false }.ToString()))
+            {
+                await connection.OpenAsync();
+
+                var import = connection.CreateCommand();
+                import.CommandText = """
+                    INSERT INTO ExternalStatImportRuns(FileName,ImportedUtc,RowsSeen,RowsImported)
+                    VALUES('fixture.csv','2026-11-13T00:00:00Z',2,2);
+                    SELECT last_insert_rowid();
+                    """;
+                var importId = Convert.ToInt32(await import.ExecuteScalarAsync());
+
+                await InsertExternalRow(connection, importId, 0, "CSV:1", "Low Minutes CSV Player", 100, 50);
+                await InsertExternalRow(connection, importId, 1, "CSV:2", "Qualified CSV Player", 900, 5);
+            }
+
+            var totals = await database.SearchSeasonMetricAsync("goals", null, null, 5000, 450);
+            Assert.AreEqual(1, totals.Count);
+            Assert.AreEqual("Qualified CSV Player", totals[0].Name);
+            Assert.AreEqual(5d, totals[0].Value, 0.0001);
+
+            var per90 = await database.SearchSeasonMetricPer90Async("goals", null, null, 450, 5000);
+            Assert.AreEqual(1, per90.Count);
+            Assert.AreEqual("Qualified CSV Player", per90[0].Name);
+            Assert.AreEqual(0.5d, per90[0].Value, 0.0001);
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    private static async Task InsertExternalRow(
+        SqliteConnection connection, int importId, int rowIndex,
+        string sourceId, string name, double minutes, double goals)
+    {
+        var row = connection.CreateCommand();
+        row.CommandText = """
+            INSERT INTO ExternalStatRows(
+                ImportId,RowIndex,PlayerIdentity,PlayerSourceId,PlayerName,Club,Season,Minutes,RawJson)
+            VALUES($import,$row,$identity,$source,$name,'CSV Test FC','2025/26',$minutes,$json);
+            """;
+        row.Parameters.AddWithValue("$import", importId);
+        row.Parameters.AddWithValue("$row", rowIndex);
+        row.Parameters.AddWithValue("$identity", sourceId);
+        row.Parameters.AddWithValue("$source", sourceId);
+        row.Parameters.AddWithValue("$name", name);
+        row.Parameters.AddWithValue("$minutes", minutes);
+        row.Parameters.AddWithValue("$json", "{\\"goals\\":" + goals.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
+        await row.ExecuteNonQueryAsync();
+    }
+
     private static async Task InsertPlayer(
         SqliteConnection connection, int snapshotId, string uid, string sourceId, string name)
     {
