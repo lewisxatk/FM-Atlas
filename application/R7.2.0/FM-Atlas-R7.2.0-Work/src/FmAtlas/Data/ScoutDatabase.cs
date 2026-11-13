@@ -687,7 +687,7 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$value", value); cmd.Parameters.AddWithValue("$status", validationStatus);
         cmd.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); cmd.Parameters.AddWithValue("$uid", playerUid); cmd.Parameters.AddWithValue("$field", fieldKey);
         var changed = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-        if (changed == 0) AtlasLog.Warn($"Live field fact was not present to update after a read-back verified write: uid={playerUid}, field={fieldKey}.");
+        if (changed == 0) AtlasLog.Warning($"Live field fact was not present to update after a read-back verified write: uid={playerUid}, field={fieldKey}.");
     }
 
     public async Task<List<(string FieldKey,double? NumericValue,string? TextValue,string ValidationStatus)>> GetLivePlayerFactsAsync(long playerUid)
