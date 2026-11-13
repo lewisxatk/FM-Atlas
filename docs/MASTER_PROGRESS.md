@@ -18,7 +18,7 @@ Latest source-code checkpoint: `830cedc7735babdf6aa3fd35d3c82e5029b45395`
 - [x] Recovered R7.2.0 application tree imported into `application/R7.2.0/FM-Atlas-R7.2.0-Work/` on this branch (source import commit `6069c20`).
 - [x] Static recovery audit imported as `recovery/R7.2.0-STATIC-AUDIT.md`.
 - [x] The recovery tree contains the 106 tracked source-package files; generated `obj` and build artefacts were not imported.
-- [x] Compared repaired v2 ZIP with the later `updated.zip`: 102 common source files are byte-identical; the eight changed source files' Git blob hashes match the eight files in the existing recovery branch. The recovery branch therefore already contains the source corresponding to the later repaired build, for those source paths.
+- [x] Compared repaired v2 ZIP with the recovery import. Correction: eight compile-fix source files differed; the first branch CI build failed with 92 compiler errors. Those eight v2 repairs were applied individually on the overhaul branch, preserving the MONOLITH and safety changes. The repaired branch subsequently passed a Windows .NET 8 Release build and automated tests at commit `5aa82c2`.
 - [x] Closed redundant source-import PR #1 after direct import into the overhaul branch; no changes to `main`.
 
 ## Newly confirmed product requirement
@@ -27,7 +27,7 @@ Latest source-code checkpoint: `830cedc7735babdf6aa3fd35d3c82e5029b45395`
 - [x] Existing Diagnostics / Tester & Logs page, local rolling logs, health checks, copy/export, support ZIP preview, manifest hashes and local-only export inspected in source.
 - [x] Fixed over-escaped credential redaction and expanded path redaction to cover complete Windows and UNC paths, including spaces (code checkpoint `6fc4675`).
 - [x] Added deterministic support-data redaction regression checks to the Diagnostics health-check list (bearer token, API key, password, user path, spaced drive path, UNC path and standalone save filename).
-- [ ] Windows/.NET build and in-app execution of the new redaction check still required; equivalent regex cases passed in a separate local check only.
+- [x] Windows/.NET Release build and 10/10 initial Diagnostics redaction tests passed at commit `5aa82c2`; later identity/evidence tests were added after this checkpoint and require a newer run.
 
 ## Initial source architecture audit — 2026-11-13
 
@@ -47,7 +47,7 @@ Latest source-code checkpoint: `830cedc7735babdf6aa3fd35d3c82e5029b45395`
 
 - [ ] No application launch evidence yet.
 - [ ] No runtime feature acceptance evidence yet.
-- [ ] No full source-level audit of every R7.2.0 module yet.
+- [ ] Full source-level audit of every R7.2.0 module remains incomplete; the initial architecture and tool-specific static audit have been recorded.
 - [ ] MONOLITH is partially present (central theme service and mode switch); semantic-token coverage, reusable controls and migration of all views remain incomplete.
 - [ ] Reverse-engineering register remains desk research/source review, not complete reverse engineering.
 - [ ] Exact FM27 Xbox Game Pass build/profile compatibility is unverified.
@@ -58,7 +58,7 @@ Latest source-code checkpoint: `830cedc7735babdf6aa3fd35d3c82e5029b45395`
 
 ## Immediate engineering queue
 
-1. Run a Windows Release build and smoke test for the recovered source plus Diagnostics redaction hardening; triage the 15 previously reported warnings.
+1. Confirm latest Windows Release build and expanded automated tests; then triage remaining compiler warnings and perform Windows app launch/smoke testing.
 2. Finish source-level review and feature-to-file traceability for every imported module.
 3. Establish repeatable test fixtures for field provenance, database imports, search, role fit, graphics mapping and recovery.
 4. Complete MONOLITH semantic tokens, shared WPF controls and shell migration before feature-screen migration.
@@ -73,6 +73,10 @@ Latest source-code checkpoint: `830cedc7735babdf6aa3fd35d3c82e5029b45395`
 Only mark a feature complete when the source change exists on this branch and its acceptance evidence is linked. A successful compile does not prove runtime functionality. No stage may be described as finished solely because it appears in the roadmap or source comments.
 
 ## Latest engineering change log
+
+- 2026-11-13: Recovered-source/v2 comparison corrected: the recovery import had eight stale compile-fix files; all eight were patched on the integrated branch. Windows run `43465739690` succeeded at `5aa82c2` (restore, Release build, 10/10 initial tests and artifact uploads).
+- 2026-11-13: Added explicit per-field evidence classification and tests for unverified/candidate/provisional/verified statuses; added provider-safe identity resolver and tests preventing LIVE/FMSAVE fuzzy identity collapse. Current-head Windows run `43466693498` at `fd40df08` is still running at the last check.
+- 2026-11-13: FMSave bridge pinned to 0.12.3 and expanded to preserve officials, team match statistics and squad-planner tables in the raw sidecar. Local FM27 Game Pass save compatibility remains unverified.
 
 - 2026-11-13: Corrected credential-redaction patterns, switched to complete drive-letter/UNC path redaction (including paths with spaces), added self-check cases and surfaced the check in Diagnostics. Code commits: `05d2c77`, `f7b9f4c`, `9c90953`, `6fc4675`. Not yet built or run in Windows.
 
