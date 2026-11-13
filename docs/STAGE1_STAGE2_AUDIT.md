@@ -291,3 +291,9 @@ This does not mean the parser values are wrong. It means the UI cannot currently
 - This run includes the support-bundle composer and its five tests, six saved-search profile persistence/validation tests, and the expanded SQLite evidence-isolation test that exercises the generic local search/count, Attribute Search, Role Lab and Mass Edit paths with LIVE mirror rows.
 - Intermediate failures are retained in the CI history: `43475232418` was a genuine missing-System.IO compile failure; `43475719335` exposed follow-on test compile issues. Imports, MSTest exception assertions and the SQLite search-call arguments were corrected. The final exact run `43476085012` is the passing result; do not use intermediate failures as the final status.
 - The branch continued to receive documentation/research-only updates after the tested source commit. Fetch current branch HEAD before further edits; application code tested here is the exact source that produced the 64/64 pass.
+
+## Superseding user direction — full programme continuation (2026-11-13)
+
+The opening boundary above records the earlier Stage 1/2 review checkpoint. The user has since explicitly instructed continuation of the full FM Atlas overhaul, with all previously agreed features included in one integrated development. That newer instruction supersedes the earlier Stage 3–7 pause. Stages remain internal quality gates; they are not separate user-facing releases and do not require another approval before implementation continues.
+
+The latest verified application source is 6c18e36fdc706fc49ad74ce15fe1ee73c43ce991; Windows run 43476085012 passed the WPF Release build with 0 warnings/0 errors and 64/64 tests. The application source remains unchanged after that tested commit; subsequent commits are documentation/research only.
