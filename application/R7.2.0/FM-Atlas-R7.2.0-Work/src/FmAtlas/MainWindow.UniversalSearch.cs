@@ -25,7 +25,7 @@ public partial class MainWindow
         public required ComboBox Logic { get; init; }
         public required StackPanel ClausesPanel { get; init; }
         public required StackPanel Body { get; init; }
-        public required Border Container { get; init; }
+        public required Border Container { get; set; }
         public List<object> ClauseOrder { get; } = new();
     }
 
@@ -61,6 +61,8 @@ public partial class MainWindow
         profileRow.Children.Add(SoftButton("Export", (_, _) => ExportProfiles()));
         root.Children.Add(Card(profileRow, 13, new Thickness(0, 0, 0, 10)));
 
+        AdvancedGroupUi rootGroup = null!;
+        TextBlock status = null!;
         var quickSearch = Input("Optional quick text filter (player / club / nation)"); quickSearch.Width = 320;
         var conditionActions = new WrapPanel();
         var addCondition = PrimaryButton("＋ Add condition", (_, _) => AddCondition(rootGroup));
@@ -75,11 +77,11 @@ public partial class MainWindow
         root.Children.Add(Card(conditionActions, 13, new Thickness(0, 0, 0, 10)));
 
         var groupHost = new StackPanel();
-        var rootGroup = CreateGroupUi(1, "ROOT GROUP");
+        rootGroup = CreateGroupUi(1, "ROOT GROUP");
         groupHost.Children.Add(rootGroup.Container);
         root.Children.Add(groupHost);
 
-        var status = Txt("Add a condition or nested group, then run the search.", 10, false, Muted, wrap: true);
+        status = Txt("Add a condition or nested group, then run the search.", 10, false, Muted, wrap: true);
         root.Children.Add(status);
 
         var results = CreateGrid();
@@ -114,12 +116,13 @@ public partial class MainWindow
             var clausePanel = new StackPanel();
             var body = new StackPanel();
             var toolbar = new WrapPanel();
+            AdvancedGroupUi state = null!;
             toolbar.Children.Add(Txt(title, 9, true, Teal));
             toolbar.Children.Add(logic);
             toolbar.Children.Add(SoftButton("Add condition", (_, _) => AddCondition(state)));
             if (depth < AdvancedFilterEvaluator.MaximumDepth)
                 toolbar.Children.Add(SoftButton("Add subgroup", (_, _) => AddNestedGroup(state)));
-            var state = new AdvancedGroupUi
+            state = new AdvancedGroupUi
             {
                 Depth = depth,
                 Logic = logic,
