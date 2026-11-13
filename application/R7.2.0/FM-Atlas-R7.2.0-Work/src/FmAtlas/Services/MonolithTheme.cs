@@ -18,6 +18,8 @@ public enum AtlasThemeMode
 public static class MonolithTheme
 {
     private static readonly object Gate = new();
+    private sealed record LegacyBrushEntry(WeakReference<SolidColorBrush> Brush, string OriginalHex);
+    private static readonly List<LegacyBrushEntry> LegacyBrushes = new();
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FmAtlas", "theme.json");
@@ -72,8 +74,39 @@ public static class MonolithTheme
                 ["Danger"] = "#F08C96"
             };
 
+        if (!app.Dispatcher.CheckAccess())
+        {
+            app.Dispatcher.Invoke(() => Apply(app));
+            return;
+        }
+
+        // Keep token brush instances stable so controls already using them update in place.
         foreach (var pair in tokens)
-            app.Resources["Atlas." + pair.Key] = MakeBrush(pair.Value);
+        {
+            var key = "Atlas." + pair.Key;
+            if (app.Resources[key] is SolidColorBrush existing && !existing.IsFrozen)
+                existing.Color = ParseColor(pair.Value);
+            else
+                app.Resources[key] = MakeBrush(pair.Value);
+        }
+
+        // Legacy page helpers also receive tracked mutable brushes. Re-map them when the
+        // theme changes so existing pages do not need to be destroyed/recreated.
+        lock (Gate)
+        {
+            for (var i = LegacyBrushes.Count - 1; i >= 0; i--)
+            {
+                var entry = LegacyBrushes[i];
+                if (!entry.Brush.TryGetTarget(out var brush))
+                {
+                    LegacyBrushes.RemoveAt(i);
+                    continue;
+                }
+
+                if (!brush.IsFrozen)
+                    brush.Color = ParseColor(MapLegacy(entry.OriginalHex, light));
+            }
+        }
 
         app.Resources["Atlas.FontFamily"] = new FontFamily(FontFamilyName);
         app.Resources["Atlas.ThemeName"] = light ? "Warm Light" : "Obsidian";
@@ -124,8 +157,20 @@ public static class MonolithTheme
     /// <summary>Maps old R7 page colours to MONOLITH semantic roles.</summary>
     public static Brush ResolveLegacy(string hex)
     {
+        var original = (hex ?? string.Empty).Trim();
+        var brush = MakeBrush(MapLegacy(original, CurrentMode == AtlasThemeMode.WarmLight));
+        lock (Gate)
+        {
+            LegacyBrushes.RemoveAll(entry => !entry.Brush.TryGetTarget(out _));
+            LegacyBrushes.Add(new LegacyBrushEntry(new WeakReference<SolidColorBrush>(brush), original));
+        }
+        return brush;
+    }
+
+    private static string MapLegacy(string hex, bool light)
+    {
+
         var value = (hex ?? string.Empty).Trim().ToUpperInvariant();
-        var light = CurrentMode == AtlasThemeMode.WarmLight;
 
         static bool Is(string candidate, params string[] values)
             => values.Contains(candidate, StringComparer.OrdinalIgnoreCase);
@@ -168,7 +213,7 @@ public static class MonolithTheme
         else
             mapped = value;
 
-        return MakeBrush(mapped);
+        return mapped;
     }
 
     private static AtlasThemeMode LoadMode()
@@ -187,10 +232,9 @@ public static class MonolithTheme
         return AtlasThemeMode.Obsidian;
     }
 
+    private static Color ParseColor(string hex)
+        => (Color)ColorConverter.ConvertFromString(hex);
+
     private static SolidColorBrush MakeBrush(string hex)
-    {
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
-        brush.Freeze();
-        return brush;
-    }
+        => new(ParseColor(hex));
 }
