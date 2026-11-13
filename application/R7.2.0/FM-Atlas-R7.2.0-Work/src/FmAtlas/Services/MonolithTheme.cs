@@ -124,56 +124,47 @@ public static class MonolithTheme
     /// <summary>Maps old R7 page colours to MONOLITH semantic roles.</summary>
     public static Brush ResolveLegacy(string hex)
     {
-        var value = hex.ToUpperInvariant();
+        var value = (hex ?? string.Empty).Trim().ToUpperInvariant();
         var light = CurrentMode == AtlasThemeMode.WarmLight;
-        string mapped;
 
-        if (value is "#C6F36B" or "#D8F5A2" or "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8"
-            or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8")
+        static bool Is(string candidate, params string[] values)
+            => values.Contains(candidate, StringComparer.OrdinalIgnoreCase);
+
+        string mapped;
+        if (Is(value,
+            "#C6F36B", "#D8F5A2", "#087F91", "#2D75B6", "#2D8A63", "#3988C8",
+            "#205F91", "#237C62", "#2A669C", "#356C98", "#277BB9", "#16845D", "#4BA6A8", "#2BA578"))
             mapped = light ? "#E87826" : "#F28A36";
-        else if (value is "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65"
-            or "#365F83" or "#3D586E" or "#486477")
-            mapped = light ? "#242830" : "#F1F2F3";
-        else if (value is "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F")
+        else if (Is(value,
+            "#63778A", "#647A8E", "#6F8293", "#8293A1", "#526B7D", "#536C7F",
+            "#9EADB9", "#B9C5D0", "#485562", "#35424E"))
             mapped = light ? "#727780" : "#9299A3";
-        else if (value is "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF"
-            or "#E1E9EF" or "#C9D9E8")
+        else if (Is(value,
+            "#D7E3EA", "#D4E1EC", "#DDE7ED", "#D5E0E7", "#D8E4ED",
+            "#E1E9EF", "#C9D9E8", "#D9E7F1", "#DCE8F2", "#C4CED8"))
             mapped = light ? "#DAD9D2" : "#343A43";
-        else if (value is "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA"
-            or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9"
-            or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF")
+        else if (Is(value, "#FFFFFF", "#FBFDFF", "#F9FDFC", "#F8FCFA", "#F7FBFA", "#F6FCFA",
+            "#F4F8FC", "#F4F8FB", "#F5F8FC", "#F4F8FB", "#EEF4F8", "#EEF4F9",
+            "#EAF1F5", "#EAF1F8", "#EAF2F9", "#E9EFF3", "#E8EEF2", "#E6EDF2"))
             mapped = light ? "#FFFFFF" : "#1B1F25";
-        else if (value is "#EEF4F8" or "#EEF4F9" or "#EAF1F5" or "#0D1117" or "#111820" or "#151B22")
+        else if (Is(value, "#0D1117", "#111820", "#151B22", "#171F28", "#182F45",
+            "#183B56", "#1A3851", "#173B55", "#20342C", "#2A3427", "#30291D",
+            "#35252A", "#342C1C"))
             mapped = light ? "#F2F2EF" : "#101216";
-        else if (value is "#1C242E" or "#202A35" or "#20242B" or "#171F28")
+        else if (Is(value, "#1C242E", "#202A35", "#20242B", "#66563A", "#66502C"))
             mapped = light ? "#E9E8E2" : "#252A32";
-        else if (value is "#F08C96" or "#A54E55" or "#B44B52" or "#B94A48" or "#D77B7E")
+        else if (Is(value, "#F08C96", "#A54E55", "#B44B52", "#B94A48", "#D77B7E", "#C7797B", "#F8E8E9"))
             mapped = light ? "#B54750" : "#F08C96";
-        else if (value is "#176B46" or "#2F825D" or "#37875A" or "#4F9B70")
+        else if (Is(value, "#176B46", "#2F825D", "#37875A", "#4F9B70", "#8BCFA6"))
             mapped = light ? "#287A55" : "#8BCFA6";
-        else if (value is "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24"
-            or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A")
+        else if (Is(value, "#D9A44D", "#78591F", "#84612B", "#8B622C", "#94652A", "#A06B24",
+            "#A46E2B", "#A56D22", "#C47B32", "#D18A3A", "#D8A34A", "#E5A65D",
+            "#EBD5A7", "#EED8AA", "#F8F0DF", "#FFF4DE", "#FFF5E4", "#66563A"))
             mapped = light ? "#A66B19" : "#E6C477";
-        else if (value is "#2D75B6" or "#3988C8" or "#356C98" or "#2A669C" or "#277BB9" or "#205F91" or "#16845D" or "#237C62" or "#2BA578" or "#4BA6A8")
-            mapped = light ? "#E87826" : "#F28A36";
-        else if (value is "#0D1117" or "#111820" or "#151B22" or "#171F28" or "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#20342C" or "#2A3427" or "#30291D" or "#35252A" or "#35424E" or "#485562" or "#342C1C")
-            mapped = light ? "#F2F2EF" : "#101216";
-        else if (value is "#202A35" or "#1C242E" or "#2A3427" or "#20342C" or "#66563A" or "#66502C")
-            mapped = light ? "#E9E8E2" : "#252A32";
-        else if (value is "#9EADB9" or "#B9C5D0" or "#C4CED8" or "#485562" or "#35424E")
-            mapped = light ? "#727780" : "#9299A3";
-        else if (value is "#B7E5E0" or "#D3E9E4" or "#DBF2EF" or "#E1F3EA" or "#B45B2F" or "#C7797B" or "#D8A34A" or "#E5A65D" or "#EBD5A7" or "#EED8AA" or "#F8F0DF" or "#FFF4DE" or "#FFF5E4")
-            mapped = light ? "#E87826" : "#E6C477";
-        else if (value is "#F4F8FB" or "#F4F8FC" or "#F5F8FC" or "#F6FCFA" or "#F7FBFA" or "#F8FCFA" or "#F9FDFC" or "#FBFDFF" or "#EEF4F8" or "#EEF4F9" or "#EAF1F5" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#DCE8F2" or "#D9E7F1" or "#D9E5EF" or "#E1E9EF" or "#E6EDF2" or "#EAF1F8")
-            mapped = light ? "#FFFFFF" : "#1B1F25";
-        else if (value is "#F8E8E9" or "#C7797B" or "#A54E55" or "#B44B52" or "#B94A48" or "#C7797B" or "#D77B7E")
-            mapped = light ? "#B54750" : "#F08C96";
-        else if (value is "#8BCFA6" or "#176B46" or "#2F825D" or "#37875A" or "#4F9B70" or "#2D8A63")
-            mapped = light ? "#287A55" : "#8BCFA6";
-        else if (value is "#D8A34A" or "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24" or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A")
-            mapped = light ? "#A66B19" : "#E6C477";
-        else if (value == "#B45B2F")
+        else if (Is(value, "#B45B2F"))
             mapped = light ? "#B65D25" : "#E6A06E";
+        else if (Is(value, "#E8EEF4", "#DCE5ED", "#B7E5E0"))
+            mapped = light ? "#242830" : "#F1F2F3";
         else
             mapped = value;
 
