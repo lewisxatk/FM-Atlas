@@ -317,3 +317,12 @@ The following supersedes older build-status statements above where they conflict
 - [ ] Windows runtime acceptance remains outstanding: launch both search screens, verify all profile buttons, export/import between app instances, check skipped conflicts and verify no player/save contents are included in the JSON.
 - The branch head at this checkpoint is the tested application commit. Main remains untouched at 2051bbee042fb8e7203b7855e833e391ccee9ecb.
 - Continue the complete roadmap as one integrated programme; this feature tranche is not the full product release.
+
+## Latest Attribute Search verification — 2026-11-13 18:04 UTC
+
+- Tested application source: `0fbd5fa5162b89798aa55e96669a01b26cd2ddbd`.
+- Windows Actions run `43478483715`: .NET 8 WPF Release build 0 warnings / 0 errors; 68/68 tests passed, 0 failed/skipped.
+- Release artifact `14064057973`; test-results artifact `14064172732`. EXE, main DLL, SQLite and save bridge files verified in the Release ZIP; TRX verified 68/68.
+- Attribute Search adds optional ANY/OR criteria matching while preserving ALL/AND as default. SQL groups the attribute predicates and retains text search as an outer AND; MatchAny is persisted in profiles. A disposable SQLite test proves BOTH / one-only / neither outcomes and text-filter interaction.
+- This is a verified implementation checkpoint, not completion of the overall product. Continue all remaining modules on the same overhaul branch; use internal CI gates but keep the final product integrated.
+- Manual Windows visual/runtime and actual copied FM27 Game Pass save testing remain open. Live Apply/Undo remains disabled pending exact build/field certification and rollback proof.
