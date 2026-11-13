@@ -1,0 +1,13 @@
+FM ATLAS COACHPRO R5 — START HERE
+
+This is the R5 CoachPro source rebuild, not the old R4.3 build.
+
+1. Read README-R5-COACHPRO.md for the full scope, setup, and limitations.
+2. Install .NET 8 SDK on Windows.
+3. Run Build-FMAtlas-R5.bat to compile the app.
+4. Run src\FmAtlas\bin\Release\net8.0-windows\FmAtlas.exe.
+5. To import broad career data, install Python 3.12+, run Setup-FMAtlas-Save-Bridge.ps1, and use Import Career Save with a COPY of your FM save.
+6. To create a self-contained app and one-file installer, install Inno Setup 6 and run Build-Installer-R5.bat.
+
+Existing user database is retained at %LOCALAPPDATA%\FmAtlas\scouting.db.
+The build has not been compiled or run on Windows in the environment where this source was prepared. See docs-R5\SOURCE-REVIEW-R5.md before relying on any imported FM27 field.
