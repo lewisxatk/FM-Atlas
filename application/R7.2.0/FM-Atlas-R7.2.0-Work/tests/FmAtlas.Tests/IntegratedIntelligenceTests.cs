@@ -110,11 +110,11 @@ public sealed class IntegratedIntelligenceTests
     {
         var observations = new[]
         {
-            new MetricObservation("a", "A", 10),
-            new MetricObservation("b", "B", 10),
-            new MetricObservation("c", "C", 20),
-            new MetricObservation("d", "D", 30),
-            new MetricObservation("e", "E", 40)
+            new CohortMetricObservation("a", "A", 10),
+            new CohortMetricObservation("b", "B", 10),
+            new CohortMetricObservation("c", "C", 20),
+            new CohortMetricObservation("d", "D", 30),
+            new CohortMetricObservation("e", "E", 40)
         };
 
         var results = CohortPercentileService.Calculate(observations, minimumSampleSize: 5);
