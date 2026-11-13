@@ -283,3 +283,17 @@ Atlas implication: retain the read-only-first architecture, avoid asking for wri
 9. **Licensing is a hard boundary.** FMLibreEditor and fm-editor are GPL-3.0-or-later; use as architectural research only unless a deliberate licensing decision is made. Do not transplant source code into a differently licensed/distributed Atlas release.
 
 These findings have been added to the Stage 1/2 audit as recommendations. They do not mean Atlas has implemented the referenced products' feature sets.
+
+### Additional safety and implementation details verified in FMLibreEditor
+
+The current `docs/DEVELOPING.md` was inspected directly. It documents a useful pre-write contract: before every write, check (1) the same save is still loaded, (2) the object still belongs to the same person, (3) the target value is valid for the field, (4) the current value is plausible for that field/layout, and (5) read-back equals the written value. Any failed check aborts the write.
+
+Its save-change guard is particularly relevant: it reads the game's save-load counter and suspends all writes/freezes after a save load or return to the main menu until the data is reloaded. The docs explain why UID and address checks alone are insufficient: another career can contain the same UID at a reused address. It also documents per-build profiles and a read-only fallback when profile locations fail validation. The in-game date discovery requires two independent witnesses rather than accepting any plausible date-like number.
+
+This validates several of Atlas's existing safety concepts (session generation, identity re-resolution, current-value preflight, read-back and closed write certification) but also highlights that a Game Pass module profile should not be treated as universal. FMLibreEditor documents a tested Store package 0.9.2435.0 and separately records build-specific static locations. Atlas's corresponding profile entry is a useful research cross-check, not independent certification of the user's own installation.
+
+### Additional scanner implementation detail verified in FMSuperScout
+
+The Windows scanner source `scanner/Program.cs` selects a real FM process by checking for the adjacent `fm_Data` directory, handles access-denied/elevated-process cases distinctly from “game not running”, and opens the process with read-only rights. The core's `MemScan.Win.cs` uses `ReadProcessMemory` and `VirtualQueryEx`; it optionally captures a copy-on-write process snapshot for a consistent retry, while explicitly accounting for commit-memory cost and slower writes to FM memory during the snapshot. It reuses large image buffers to reduce LOH growth and caps parallel workers.
+
+Atlas opportunity: keep process discovery diagnostics explicit (not-running vs access-denied vs unsupported build), use least privilege for scanning, and test large-save memory/latency. The snapshot technique is a research option, not something to adopt without profiling and separate acceptance.
