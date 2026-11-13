@@ -87,6 +87,9 @@ public partial class MainWindow
         profileRow.Children.Add(SoftButton("Save profile", (_, _) => SaveCurrentProfile()));
         profileRow.Children.Add(SoftButton("Load profile", (_, _) => LoadSelectedProfile()));
         profileRow.Children.Add(SoftButton("Delete profile", (_, _) => DeleteSelectedProfile()));
+        profileRow.Children.Add(SoftButton("Duplicate profile", (_, _) => DuplicateSelectedProfile()));
+        profileRow.Children.Add(SoftButton("Import profiles", (_, _) => ImportProfiles()));
+        profileRow.Children.Add(SoftButton("Export profiles", (_, _) => ExportProfiles()));
         controlStack.Children.Add(profileRow);
         controlStack.Children.Add(Txt("CONDITIONS · CHOOSE WHETHER ALL OR ANY CONDITION MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
         controlStack.Children.Add(Txt("The catalogue combines every numeric metric found in the latest imported save plus any FM View Exporter CSV you import. To capture more columns, add them to an in-game player view before exporting; FM's own view export has a practical column ceiling.", 9, false, Muted, wrap: true));
@@ -285,6 +288,96 @@ public partial class MainWindow
             }
         }
 
+
+        void DuplicateSelectedProfile()
+        {
+            if (profilesPicker.SelectedItem is not SavedSearchProfile profile)
+            {
+                status.Text = "Choose a statistical profile to duplicate.";
+                return;
+            }
+
+            try
+            {
+                var copy = profileStore.Duplicate(profile.Id);
+                RefreshSavedProfiles(copy.Id);
+                profileName.Text = copy.Name;
+                status.Text = $"Created '{copy.Name}'. Review the copied conditions, then save changes if needed.";
+                AtlasLog.Info($"Duplicated statistical search profile: source={profile.Id}; copy={copy.Id}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not duplicate statistical search profile.", ex);
+                status.Text = "Profile could not be duplicated: " + ex.Message;
+            }
+        }
+
+        void ExportProfiles()
+        {
+            var profiles = profileStore.Load().Where(x => x.Kind == SavedSearchKind.Statistics).ToList();
+            if (profiles.Count == 0)
+            {
+                status.Text = "There are no statistical profiles to export.";
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Export FM Atlas statistical search profiles",
+                FileName = "FM-Atlas-Stats-Profiles.json",
+                Filter = "FM Atlas search profiles (*.json)|*.json",
+                AddExtension = true,
+                DefaultExt = ".json",
+                OverwritePrompt = true
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            try
+            {
+                File.WriteAllText(dialog.FileName, profileStore.ExportJson(SavedSearchKind.Statistics), new UTF8Encoding(false));
+                status.Text = $"Exported {profiles.Count} statistical profile(s). Only search criteria and settings were included.";
+                AtlasLog.Info($"Exported statistical search profiles: count={profiles.Count}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not export statistical search profiles.", ex);
+                status.Text = "Profiles could not be exported: " + ex.Message;
+            }
+        }
+
+        void ImportProfiles()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Import FM Atlas search profiles",
+                Filter = "FM Atlas search profiles (*.json)|*.json|All files (*.*)|*.*",
+                CheckFileExists = true
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            try
+            {
+                var info = new FileInfo(dialog.FileName);
+                if (info.Length > 1_000_000)
+                    throw new InvalidDataException("The selected profile file exceeds the 1 MB safety limit.");
+
+                var imported = profileStore.ImportJson(File.ReadAllText(dialog.FileName, Encoding.UTF8));
+                RefreshSavedProfiles();
+                status.Text = $"Imported {imported.Added} profile(s); skipped {imported.Skipped} conflict(s).";
+                if (imported.Conflicts.Count > 0)
+                {
+                    MessageBox.Show(this, string.Join(Environment.NewLine, imported.Conflicts.Take(12)),
+                        "FM Atlas · Profile import conflicts", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                AtlasLog.Info($"Imported statistical-screen profile file: added={imported.Added}; skipped={imported.Skipped}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not import statistical search profiles.", ex);
+                status.Text = "Profiles could not be imported: " + ex.Message;
+            }
+        }
+
         async Task RunSearchAsync()
         {
             var criteria = new List<StatFilterCriterion>();
@@ -423,6 +516,9 @@ public partial class MainWindow
         profileRow.Children.Add(SoftButton("Save profile", (_, _) => SaveCurrentProfile()));
         profileRow.Children.Add(SoftButton("Load profile", (_, _) => LoadSelectedProfile()));
         profileRow.Children.Add(SoftButton("Delete profile", (_, _) => DeleteSelectedProfile()));
+        profileRow.Children.Add(SoftButton("Duplicate profile", (_, _) => DuplicateSelectedProfile()));
+        profileRow.Children.Add(SoftButton("Import profiles", (_, _) => ImportProfiles()));
+        profileRow.Children.Add(SoftButton("Export profiles", (_, _) => ExportProfiles()));
         builderStack.Children.Add(profileRow);
 
         var presets = new WrapPanel { Margin = new Thickness(0, 5, 0, 5) };
@@ -600,6 +696,96 @@ public partial class MainWindow
             {
                 AtlasLog.Error("Could not delete attribute search profile.", ex);
                 status.Text = "Profile could not be deleted: " + ex.Message;
+            }
+        }
+
+
+        void DuplicateSelectedProfile()
+        {
+            if (profilesPicker.SelectedItem is not SavedSearchProfile profile)
+            {
+                status.Text = "Choose an attribute profile to duplicate.";
+                return;
+            }
+
+            try
+            {
+                var copy = profileStore.Duplicate(profile.Id);
+                RefreshSavedProfiles(copy.Id);
+                profileName.Text = copy.Name;
+                status.Text = $"Created '{copy.Name}'. Review the copied conditions, then save changes if needed.";
+                AtlasLog.Info($"Duplicated attribute search profile: source={profile.Id}; copy={copy.Id}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not duplicate attribute search profile.", ex);
+                status.Text = "Profile could not be duplicated: " + ex.Message;
+            }
+        }
+
+        void ExportProfiles()
+        {
+            var profiles = profileStore.Load().Where(x => x.Kind == SavedSearchKind.Attributes).ToList();
+            if (profiles.Count == 0)
+            {
+                status.Text = "There are no attribute profiles to export.";
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Export FM Atlas attribute search profiles",
+                FileName = "FM-Atlas-Attribute-Profiles.json",
+                Filter = "FM Atlas search profiles (*.json)|*.json",
+                AddExtension = true,
+                DefaultExt = ".json",
+                OverwritePrompt = true
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            try
+            {
+                File.WriteAllText(dialog.FileName, profileStore.ExportJson(SavedSearchKind.Attributes), new UTF8Encoding(false));
+                status.Text = $"Exported {profiles.Count} attribute profile(s). Only search criteria and settings were included.";
+                AtlasLog.Info($"Exported attribute search profiles: count={profiles.Count}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not export attribute search profiles.", ex);
+                status.Text = "Profiles could not be exported: " + ex.Message;
+            }
+        }
+
+        void ImportProfiles()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Import FM Atlas search profiles",
+                Filter = "FM Atlas search profiles (*.json)|*.json|All files (*.*)|*.*",
+                CheckFileExists = true
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            try
+            {
+                var info = new FileInfo(dialog.FileName);
+                if (info.Length > 1_000_000)
+                    throw new InvalidDataException("The selected profile file exceeds the 1 MB safety limit.");
+
+                var imported = profileStore.ImportJson(File.ReadAllText(dialog.FileName, Encoding.UTF8));
+                RefreshSavedProfiles();
+                status.Text = $"Imported {imported.Added} profile(s); skipped {imported.Skipped} conflict(s).";
+                if (imported.Conflicts.Count > 0)
+                {
+                    MessageBox.Show(this, string.Join(Environment.NewLine, imported.Conflicts.Take(12)),
+                        "FM Atlas · Profile import conflicts", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                AtlasLog.Info($"Imported attribute-screen profile file: added={imported.Added}; skipped={imported.Skipped}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not import attribute search profiles.", ex);
+                status.Text = "Profiles could not be imported: " + ex.Message;
             }
         }
 
