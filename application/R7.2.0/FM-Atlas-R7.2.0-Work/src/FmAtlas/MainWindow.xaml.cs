@@ -1331,7 +1331,7 @@ public partial class MainWindow : Window
                 }.Select(b => (b.Label, Count: squad.Count(x => x.Age.HasValue && x.Age.Value >= b.Min && x.Age.Value <= b.Max))).ToList();
                 return (Squad: ordered, AverageAge: ages.Count == 0 ? (double?)null : ages.Average(),
                     AverageCa: cas.Count == 0 ? (double?)null : cas.Average(), AveragePa: pas.Count == 0 ? (double?)null : pas.Average(),
-                    Positions: positions, AgeBands: bands);
+                    Positions: positions, AgeBands: bands, Succession: SquadSuccessionService.Analyse(squad));
             });
             roster.ItemsSource = snapshot.Squad;
             metrics.Children.Clear();
@@ -1339,11 +1339,36 @@ public partial class MainWindow : Window
             metrics.Children.Add(MetricCard("AVERAGE AGE", snapshot.AverageAge?.ToString("0.0") ?? "—", "Where available", "◷"));
             metrics.Children.Add(MetricCard("AVERAGE CA", snapshot.AverageCa?.ToString("0.0") ?? "—", "Parser values · unconfirmed", "↗"));
             metrics.Children.Add(MetricCard("AVERAGE PA", snapshot.AveragePa?.ToString("0.0") ?? "—", "Parser values · unconfirmed", "⌁"));
+            metrics.Children.Add(MetricCard("HOME-GROWN CLUB", snapshot.Succession.HomeGrownClub.ToString("N0"), "Imported flag · not eligibility ruling", "⌂"));
+            metrics.Children.Add(MetricCard("HOME-GROWN NATION", snapshot.Succession.HomeGrownNation.ToString("N0"), "Imported flag · not eligibility ruling", "◎"));
+            metrics.Children.Add(MetricCard("U23 PLAYERS", snapshot.Succession.Under23.ToString("N0"), "Age 22 or younger · imported age", "♟"));
+            metrics.Children.Add(MetricCard("U21 PLAYERS", snapshot.Succession.Under21.ToString("N0"), "Age 20 or younger · imported age", "◷"));
             insight.Children.Clear();
             insight.Children.Add(Txt("POSITIONAL COVER", 9, true, Teal)); insight.Children.Add(Txt("Imported primary-position counts", 18, true, Ink));
             foreach (var position in snapshot.Positions) AddDetailRow(insight, position.Position, position.Count.ToString("N0") + " players");
             insight.Children.Add(Txt("AGE PROFILE", 9, true, Teal) is var ageTitle ? Configure(ageTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
             foreach (var band in snapshot.AgeBands) AddDetailRow(insight, band.Label, band.Count.ToString("N0"));
+
+            insight.Children.Add(Txt("SUCCESSION & HOME-GROWN COVER", 9, true, Teal) is var successionTitle ? Configure(successionTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
+            insight.Children.Add(Txt("Position groups use the imported primary-position label. U23 means age 22 or younger; home-grown totals report the stored flags only and are not a registration-rule decision.", 9, false, Muted, wrap: true));
+            var successionGrid = CreateGrid();
+            successionGrid.Height = 230;
+            successionGrid.Columns.Add(Column("POSITION", "Position", .9));
+            successionGrid.Columns.Add(Column("PLAYERS", "Players", .5));
+            successionGrid.Columns.Add(Column("U23", "Under23", .4));
+            successionGrid.Columns.Add(Column("HG CLUB", "HomeGrownClub", .5));
+            successionGrid.Columns.Add(Column("AVG AGE", "AverageAge", .5));
+            successionGrid.Columns.Add(Column("COVER", "SuccessionStatus", 1.1));
+            successionGrid.ItemsSource = snapshot.Succession.Positions.Select(x => new
+            {
+                x.Position,
+                x.Players,
+                x.Under23,
+                x.HomeGrownClub,
+                AverageAge = x.AverageAge?.ToString("0.0", CultureInfo.InvariantCulture) ?? "—",
+                x.SuccessionStatus
+            }).ToArray();
+            insight.Children.Add(successionGrid);
 
             bestXiGrid.ItemsSource = null;
             bestXiStatus.Text = "Select one club above, then build an Atlas-estimated XI.";
