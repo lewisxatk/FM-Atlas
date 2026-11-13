@@ -53,6 +53,73 @@ public sealed class ScoutDatabasePositionRatingsIntegrationTests
         }
     }
 
+    [TestMethod]
+    public async Task GetPlayerPositionRatingsForClubAsync_UsesLatestVerifiedSnapshotPerPlayer()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas-ClubPositionRatings-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+
+        try
+        {
+            var database = new ScoutDatabase(databasePath, pooling: false);
+            await database.InitialiseAsync();
+            await using var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder { DataSource = databasePath, Pooling = false }.ToString());
+            await connection.OpenAsync();
+
+            foreach (var player in new[] { ("FMSAVE:player-42", "Player 42"), ("FMSAVE:player-99", "Player 99") })
+            {
+                var insertPlayer = connection.CreateCommand();
+                insertPlayer.CommandText = """
+                    INSERT INTO Players(SourceId,Name,Club,DataOrigin,UpdatedUtc)
+                    VALUES($source,$name,'Test FC','FMSave snapshot',$utc);
+                    """;
+                insertPlayer.Parameters.AddWithValue("$source", player.Item1);
+                insertPlayer.Parameters.AddWithValue("$name", player.Item2);
+                insertPlayer.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O"));
+                await insertPlayer.ExecuteNonQueryAsync();
+            }
+
+            var first = await InsertKnownSnapshotAsync(connection, "week-1.json", knownBuild: true);
+            var second = await InsertKnownSnapshotAsync(connection, "week-2.json", knownBuild: true);
+            var other = await InsertKnownSnapshotAsync(connection, "other-player.json", knownBuild: true);
+            var unknown = await InsertKnownSnapshotAsync(connection, "unknown-build.json", knownBuild: false);
+
+            await InsertRatingAsync(connection, first, "FMSAVE:player-42", "gk", 18);
+            await InsertRatingAsync(connection, second, "FMSAVE:player-42", "gk", 19);
+            await InsertRatingAsync(connection, second, "FMSAVE:player-42", "dc", 14);
+            await InsertRatingAsync(connection, other, "FMSAVE:player-99", "gk", 20);
+            await InsertRatingAsync(connection, unknown, "FMSAVE:player-42", "gk", 2);
+
+            var results = await database.GetPlayerPositionRatingsForClubAsync("Test FC");
+
+            Assert.AreEqual(2, results.Count);
+            Assert.AreEqual(19d, results["FMSAVE:player-42"]["gk"]);
+            Assert.AreEqual(14d, results["FMSAVE:player-42"]["dc"]);
+            Assert.AreEqual(20d, results["FMSAVE:player-99"]["gk"]);
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    private static async Task<int> InsertKnownSnapshotAsync(SqliteConnection connection, string file, bool knownBuild)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO FmsaveImportRuns(SourceFileName,SourceFileSize,CreatedUtc,Game,GameBuild,KnownBuild)
+            VALUES($file,100,$utc,'FM27','FM27-test-build',$known);
+            SELECT last_insert_rowid();
+            """;
+        command.Parameters.AddWithValue("$file", file);
+        command.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O"));
+        command.Parameters.AddWithValue("$known", knownBuild ? 1 : 0);
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
     private static async Task<int> InsertSnapshotAsync(SqliteConnection connection, string file, string source)
     {
         var command = connection.CreateCommand();
