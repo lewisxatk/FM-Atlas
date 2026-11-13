@@ -15,6 +15,12 @@ Programme commit: `c9d8a87f9c437b84f60d567f422a7611274d5bc0`
 - [x] User supplied repaired R7.2.0 v2 build log: Windows .NET 8 WPF Release build succeeded, 0 errors, 15 warnings.
 - [x] Build output path confirmed in the log: `src/FmAtlas/bin/Release/net8.0-windows/FmAtlas.exe`.
 
+## Newly confirmed product requirement
+
+- [x] User confirmed delivery preference: one integrated development/release candidate, not multiple small user-facing releases.
+- [x] Built-in Diagnostics / Send Logs requirement added to the master programme: structured logs, one-click health checks, privacy-redacted support ZIP, bundle preview/confirmation, copyable error details, local-first export and log rotation.
+- [ ] Diagnostics feature is specified but not implemented in the application yet.
+
 ## Not yet verified / not complete
 
 - [ ] The repaired source v2 package has not yet been imported into this GitHub branch.
