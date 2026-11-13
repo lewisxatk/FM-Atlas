@@ -273,3 +273,13 @@ The following supersedes older build-status statements above where they conflict
 - Follow-on Role Lab source change `4b4ddfcb7299a0fad5dc2ea60658d895a48127df` exposes selected role input attributes and weights plus a method/missing-data explanation. Its own Windows workflow `43471187844` completed successfully: WPF Release build 0 warnings/0 errors and 47/47 tests passed; visual/runtime acceptance remains open.
 - These are compile and automated-test results. They do not establish that the WPF application has launched, every page works, themes are visually accepted, support ZIPs have been manually inspected, or FM27 Game Pass/save integration is accepted.
 - Exact Game Pass build/field compatibility remains unverified. Live memory Apply/Undo remains disabled by the global certification gate.
+
+## Latest verified Role Fit contribution implementation — 2026-11-13
+
+- Latest exact code commit: `91bd7728c555a0c0e54cfd8d02706467fdafdb89`.
+- Windows Actions run `43472380514`: .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; **48/48 MSTest tests passed**. Release artifact `14061643285`; test-results artifact `14061143387`.
+- RoleFitService now returns explainable per-attribute additive score contributions. It retains human-readable profile labels, excludes missing/invalid values, requires at least 50% count coverage and scales weights to avoid overflow.
+- The database carries contributions to the Role Lab candidate result; the UI displays per-player contributions on selection and exports them to CSV. The contribution sum is tested against the displayed weighted estimate.
+- This improves the Role Lab implementation, but does not complete the role/scouting workstream. Position familiarity, role suitability evidence, player-level UI visual acceptance and exact FM27 Game Pass runtime verification remain open.
+- The intermediate compile failure on `2f978f3` was corrected in `0c6546a`; the final tested commit is `91bd772`.
+- WPF runtime, route-by-route UI acceptance, actual save-copy import acceptance, graphics folder validation, and Game Pass build/field certification remain outstanding. Live memory Apply/Undo remains disabled.
