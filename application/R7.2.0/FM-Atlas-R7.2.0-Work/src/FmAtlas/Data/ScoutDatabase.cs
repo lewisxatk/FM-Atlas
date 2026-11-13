@@ -1988,7 +1988,7 @@ public sealed class ScoutDatabase
                 var slotValue = GetNumeric(row, "slot");
                 if (!offsetValue.HasValue || !slotValue.HasValue
                     || offsetValue.Value < 0 || offsetValue.Value > 2
-                    || slotValue.Value < 0 || slotValue.Value > 100
+                    || slotValue.Value < 1 || slotValue.Value > 27
                     || offsetValue.Value != Math.Truncate(offsetValue.Value)
                     || slotValue.Value != Math.Truncate(slotValue.Value))
                     continue;
