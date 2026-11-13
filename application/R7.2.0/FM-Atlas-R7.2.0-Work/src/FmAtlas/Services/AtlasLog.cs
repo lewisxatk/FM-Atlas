@@ -84,8 +84,15 @@ public static class AtlasLog
     {
         var text = value.Replace('\r', ' ').Replace('\n', ' ');
         // Scrub credential formats before a log can enter a support bundle.
+        // Handle quoted JSON/config values first so spaces and embedded punctuation
+        // cannot leave the tail of a secret in the exported text.
+        text = Regex.Replace(
+            text,
+            @"(?i)([""']?(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|secret|password|passwd|authorization)[""']?\s*[:=]\s*)([""'])(.*?)\2",
+            "$1[redacted]");
         text = Regex.Replace(text, @"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]");
-        text = Regex.Replace(text, @"(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|authorization)\s*[:=]\s*[^;\s,]+", "$1=[redacted]");
+        text = Regex.Replace(text, @"(?i)\b(Basic\s+)[A-Za-z0-9+/=]+", "$1[redacted]");
+        text = Regex.Replace(text, @"(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|secret|password|passwd|authorization)\s*[:=]\s*[^;\s,]+", "$1=[redacted]");
         text = Regex.Replace(text, @"(?i)\b[A-Z]:\\[^""<>|,;()\r\n]+", "[path redacted]");
         text = Regex.Replace(text, @"(?i)\\\\[^\\\r\n]+(?:\\[^\\\r\n]+)+", "[path redacted]");
         // Redact standalone Football Manager save filenames as a final safeguard.
