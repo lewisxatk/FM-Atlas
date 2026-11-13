@@ -243,3 +243,14 @@ See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
 - Windows run [43486407442](https://github.com/lewisxatk/FM-Atlas/actions/runs/43486407442): Release build 0 warnings / 0 errors; 87/87 MSTest passed.
 - Includes current Stage 3–7 integration work and the latest Moneyball/Scouting Matrix fixes. The complete scope and outstanding tasks remain itemised above; a passing automated build does not convert unchecked roadmap items into complete work.
 - User-side acceptance is now the next gate: launch, all-route/theme/DPI checks, support ZIP/CSV review, copied FM27 save import, actual Game Pass compatibility and configured graphics-root validation. Live Apply/Undo stays blocked.
+
+
+## Combined position, Moneyball, Development and Squad Planner checkpoint — 2026-11-13
+
+- Exact tested source `4fdd17c344a00c64754218a4770e97c33a19f5eb`; Windows run [43509771993](https://github.com/lewisxatk/FM-Atlas/actions/runs/43509771993).
+- .NET 8 WPF Release build: 0 warnings / 0 errors; 95/95 tests passed.
+- Added all-15-position pitch visualisation from source position ratings, with natural/accomplished classifier thresholds and explicitly Atlas-only lower visual bands.
+- Added primary-position Moneyball cohorts for imported save and FM View data; no league-strength or age normalisation is claimed.
+- Added multi-snapshot player development history with source evidence labels and protection against detected fmsave unique-ID reuse.
+- Added read-only squad planner slot display, gated to fmsave's documented FM27 build, with same-snapshot player UID resolution and unknown slot semantics preserved.
+- Still pending: broader age/league cohorts, integrated best-XI optimizer, tactical effectiveness/buy-in, graphics/mod workflows, complete MONOLITH migration and final installer/release. User-side runtime testing is deferred until the user is on PC and more implementation is complete.
