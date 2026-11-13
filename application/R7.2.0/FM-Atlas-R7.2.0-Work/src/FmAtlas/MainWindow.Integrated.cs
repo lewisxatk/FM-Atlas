@@ -258,7 +258,7 @@ public partial class MainWindow
                     Key = row.SourceId + "|" + row.Season + "|" + index.ToString(CultureInfo.InvariantCulture),
                     Row = row
                 }).ToArray();
-                var observations = indexedRows.Select(x => new MetricObservation(
+                var observations = indexedRows.Select(x => new CohortMetricObservation(
                     x.Key, x.Row.Name + " · " + x.Row.Season, x.Row.Value)).ToArray();
                 var ranked = CohortPercentileService.Calculate(observations, sample);
                 var byId = indexedRows.ToDictionary(x => x.Key, x => x.Row, StringComparer.OrdinalIgnoreCase);
