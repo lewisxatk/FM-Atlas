@@ -25,6 +25,10 @@ public sealed class AtlasLogRedactionTests
     [DataRow(@"D:\Football Manager\Career\atlas-test-career.fmf", "Football Manager")]
     [DataRow(@"\\AtlasServer\Users\AtlasTestUser\Documents\Career\save.fmf", "AtlasServer")]
     [DataRow("Failed to read atlas-test-career.fm", "atlas-test-career.fm")]
+    [DataRow("\"api_key\": \"atlas secret with spaces\"", "atlas secret with spaces")]
+    [DataRow("Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==", "QWxhZGRpbjpvcGVuIHNlc2FtZQ==")]
+    [DataRow("client_secret=atlas-client-secret-456", "atlas-client-secret-456")]
+    [DataRow("https://example.invalid/callback?access_token=atlas-query-token-123", "atlas-query-token-123")]
     public void RedactForSupport_ShouldRemoveSensitiveValues(string input, string forbidden)
     {
         var sanitized = AtlasLog.RedactForSupport(input);
