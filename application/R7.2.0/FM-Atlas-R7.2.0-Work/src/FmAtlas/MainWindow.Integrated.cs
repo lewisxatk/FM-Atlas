@@ -672,8 +672,6 @@ public partial class MainWindow
         status.Text = metrics.Count == 0 ? "No seasonal metric fields found. Import a copied career save with season statistics or an FM View CSV first." : $"{metrics.Count:N0} seasonal metrics available from the latest imports.";
         root.Children.Add(status);
 
-        root.Children.Add(status);
-
         // Multi-metric Moneyball composite. Every input is an already-ranked within-cohort
         // percentile; the composite is Atlas's transparent weighted average, never FM's hidden rating.
         var compositePanel = new StackPanel();
