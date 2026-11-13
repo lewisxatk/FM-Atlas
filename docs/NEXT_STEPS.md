@@ -25,7 +25,7 @@ A repeatable workflow is present at `.github/workflows/fm-atlas-windows-build.ym
 - [ ] Triage all warnings; do not hide or suppress warnings without a reason.
 - [ ] If CI cannot be enabled or triggered, run the same restore/build commands on Windows and attach the complete log.
 
-Equivalent regex cases for bearer tokens, keys/passwords, user paths, spaced drive paths, UNC paths and save filenames passed a separate local pattern check. The actual C# `ValidateRedaction()` check still needs to execute inside the Windows Diagnostics page.
+Equivalent regex cases for bearer tokens, keys/passwords, user paths, spaced drive paths, UNC paths and save filenames passed a separate local pattern check. A Windows .NET 8 MSTest project now covers these cases plus line-break, length-cap and safe-text behaviour; the test project has not yet run on Windows. The actual C# `ValidateRedaction()` check still needs to execute inside the Windows Diagnostics page.
 
 ### Runtime smoke checklist
 
