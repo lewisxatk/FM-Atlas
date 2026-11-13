@@ -2017,7 +2017,7 @@ public sealed class ScoutDatabase
                         else
                         {
                             unresolved++;
-                            if (uid is not null) names.Add($"Unresolved UID {uid}");
+                            names.Add(uid is not null ? $"Unresolved UID {uid}" : "Unresolved player reference");
                         }
                     }
                 }
