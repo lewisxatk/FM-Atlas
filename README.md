@@ -11,7 +11,7 @@ FM Atlas is a Windows Football Manager intelligence and modding workspace. The i
 - R7.0.2 and R7.1.0 archives have been inventoried and compared. Their complete source trees still need separate immutable GitHub baselines; they are not the current working code.
 - The user supplied a Windows 10 / .NET 8.0.427 build log for the repaired R7.2.0 baseline: **0 errors, 15 warnings**. The current overhaul branch has had later source changes and still needs a fresh Windows build and runtime acceptance.
 - A Windows .NET 8 Release build workflow has been added at `.github/workflows/fm-atlas-windows-build.yml`. No workflow run is currently reported.
-- Current diagnostics privacy hardening and architecture work are committed on the overhaul branch. Equivalent regex test cases passed locally; the C# Diagnostics check and current WPF build have not yet been run on Windows.
+- Current diagnostics privacy hardening, architecture/feature traceability, a Windows MSTest project and the build/test workflow are committed on the overhaul branch. Equivalent regex test cases passed locally; the C# tests, Diagnostics check and current WPF build have not yet been run on Windows.
 
 ## Start here
 
