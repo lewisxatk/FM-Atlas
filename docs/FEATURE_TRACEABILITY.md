@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | WPF desktop entry/startup | `App.xaml`, `App.xaml.cs`, `MainWindow.xaml`, `MainWindow.xaml.cs` | .NET 8 WPF project; App startup, exception hooks and MainWindow Loaded sequence inspected | Source present — partial | Current-branch Windows build, startup smoke test, startup recovery UX |
 | Main shell/navigation | `MainWindow.xaml.cs` | Dynamic sidebar, top action bar, career strip and page host; route switch covers 21 destinations | Source present — partial | Refactor 1,980-line code-behind shell; remove dead/fallback routes; keyboard/focus/responsive tests |
-| Global search | `GlobalSearchWindow.cs`, `MainWindow.xaml.cs` | Separate global-search window; current shortcut is Ctrl+F | Source present — partial | Ctrl+K command palette, indexed cross-entity search, keyboard navigation and results explanation |
+| Global search | `GlobalSearchWindow.cs`, `MainWindow.xaml.cs` | Separate database-backed Players/Staff/Clubs search; Ctrl+K and Ctrl+F open it, Enter/Escape are supported, results grids virtualize | Source present — partial | Full Ctrl+K command palette with commands/actions and saved searches; more entity types, ranked suggestions and result explanations |
 | Settings/preferences | `MainWindow.xaml.cs`, `Services/MonolithTheme.cs` | Theme selector and local theme preference persistence | Source present — narrow | Central settings schema, validation, migration and user-data location settings |
 | Logs and exception capture | `Services/AtlasLog.cs`, `App.xaml.cs` | Local rolling log; dispatcher/AppDomain/task exception handlers | Source present — partial | Structured event fields, correlation IDs, feature/operation tags, log rotation tests, no sensitive-content logging audit |
 | Notifications, quick actions, profile menu | — | No integrated implementation identified in the shell audit | Not present — planned | Add accessible notification/status centre, quick actions and account/profile menu |
@@ -169,9 +169,9 @@
 | Requirement | Source locations | Current evidence | Status | Remaining work |
 |---|---|---|---|---|
 | Build scripts/installer | Application root build/publish batch files and `Installer/FM-Atlas-27.iss` | Build, publish and installer scripts are present | Source present — partial | Reproducible publish, install/upgrade/rollback and clean-machine validation |
-| Windows CI build | `.github/workflows/fm-atlas-windows-build.yml` | Workflow file added for .NET 8 restore, Release build and artifact upload | Code-only — unverified | First successful workflow run and warning triage |
+| Windows CI build | `.github/workflows/fm-atlas-windows-build.yml` | Successful Windows .NET 8 restore/build/test and artifact upload at commit `5aa82c2`; latest Ctrl+K/global-search commit `830cedc` has a separate run in progress | Verified — earlier checkpoint only | Confirm latest source checkpoint run; triage warnings and keep runtime UI acceptance separate |
 | Support diagnostics | `MainWindow.Diagnostics.cs`, `Services/AtlasLog.cs`, `tests/FmAtlas.Tests/AtlasLogRedactionTests.cs` | Health checks, local logs, bundle preview, SHA-256 manifest, local export; in-app self-check and initial MSTest coverage added | Code-only — unverified after hardening | Windows build/run, execute the unit suite, bundle inspection, log-rotation tests and robust recovery on diagnostic failures |
-| Automated test suite | `tests/FmAtlas.Tests/FmAtlas.Tests.csproj`, `tests/FmAtlas.Tests/AtlasLogRedactionTests.cs` | Initial Windows .NET 8 MSTest project with diagnostics redaction, line-break/length and safe-text tests; included in solution and Windows workflow | Source present — initial suite only, not run | First Windows run; add test projects/fixtures for SQLite migrations, imports, search truth tables, per-90, percentiles, role-fit, graphics and recovery |
+| Automated test suite | `tests/FmAtlas.Tests/FmAtlas.Tests.csproj`, `tests/FmAtlas.Tests/AtlasLogRedactionTests.cs` | Windows CI TRX confirms 10 tests executed, 10 passed, 0 failed at commit `5aa82c2` | Verified — Diagnostics suite only | Expand fixture coverage for SQLite migrations/imports, search truth tables, per-90, percentiles, role-fit, graphics and recovery |
 | Release acceptance | Existing test plan and publish scripts | Previous R7.2.0 test plan exists; current branch has no final acceptance report | Not present — planned | Build, launch, data/search/graphics/editor tests, packaging and evidence bundle |
 
 ## Navigation inventory observed in source
@@ -195,5 +195,7 @@ This list is a route inventory only. Each route must be opened and acceptance-te
 
 - R7.2.0 source import: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`.
 - Diagnostics hardening code checkpoint: `6fc46757688be84af497e13c3d27e40877da3f92`.
+- Windows CI build/test run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43465739690 (commit `5aa82c2`; TRX 10/10 passed).
+- Latest keyboard/global-search source commit: `830cedc7735babdf6aa3fd35d3c82e5029b45395` (Windows run in progress at time of this register update).
 - Windows build workflow added: `042c95ea52a063886de4a59f8b49858bc28b0e6d`.
 - Current full branch head moves as each documentation/engineering checkpoint is committed; use the active GitHub ref and master progress file for the latest value.
