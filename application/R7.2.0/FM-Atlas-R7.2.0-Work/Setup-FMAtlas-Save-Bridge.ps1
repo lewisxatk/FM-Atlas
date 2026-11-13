@@ -12,8 +12,10 @@ if ($parts.Count -lt 2 -or [int]$parts[0] -lt 3 -or ([int]$parts[0] -eq 3 -and [
     throw "Python $version is too old. fmsave requires Python 3.12 or newer."
 }
 Write-Host "Using Python $version" -ForegroundColor Gray
-& py -3 -m pip install --upgrade fmsave==0.9.3
+& py -3 -m pip install --upgrade fmsave==0.12.3
 if ($LASTEXITCODE -ne 0) { throw 'Could not install fmsave. Check your internet connection and pip setup.' }
-& py -3 -c "import fmsave; print('fmsave bridge ready')"
+$installedFmsave = & py -3 -c "import fmsave; print(getattr(fmsave, '__version__', 'unknown'))"
 if ($LASTEXITCODE -ne 0) { throw 'fmsave installed but could not be imported.' }
+if ($installedFmsave.Trim() -ne '0.12.3') { throw "FM Atlas requires fmsave 0.12.3, but Python reports $installedFmsave." }
+Write-Host "Verified fmsave $installedFmsave" -ForegroundColor Gray
 Write-Host 'Setup complete. Restart FM Atlas and choose Import Career Save.' -ForegroundColor Green
