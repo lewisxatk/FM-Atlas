@@ -70,7 +70,7 @@ public sealed class MoneyballCompositeProfileStore
                     CreatedUtc = profiles[index].CreatedUtc,
                     UpdatedUtc = DateTime.UtcNow,
                     MetricKeys = profile.MetricKeys.ToArray(),
-                    MetricWeights = new Dictionary<string, double>(profile.MetricWeights, StringComparer.OrdinalIgnoreCase)
+                    MetricWeights = profile.MetricWeights.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase)
                 };
                 profiles[index] = updated;
                 WriteDocument(profiles);
@@ -88,7 +88,7 @@ public sealed class MoneyballCompositeProfileStore
                 CreatedUtc = profile.CreatedUtc == default ? DateTime.UtcNow : profile.CreatedUtc,
                 UpdatedUtc = DateTime.UtcNow,
                 MetricKeys = profile.MetricKeys.ToArray(),
-                MetricWeights = new Dictionary<string, double>(profile.MetricWeights, StringComparer.OrdinalIgnoreCase)
+                MetricWeights = profile.MetricWeights.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase)
             };
             profiles.Add(created);
             WriteDocument(profiles);
@@ -127,7 +127,7 @@ public sealed class MoneyballCompositeProfileStore
                 CreatedUtc = now,
                 UpdatedUtc = now,
                 MetricKeys = source.MetricKeys.ToArray(),
-                MetricWeights = new Dictionary<string, double>(source.MetricWeights, StringComparer.OrdinalIgnoreCase)
+                MetricWeights = source.MetricWeights.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase)
             };
             profiles.Add(copy);
             WriteDocument(profiles);
@@ -212,7 +212,7 @@ public sealed class MoneyballCompositeProfileStore
                 {
                     Name = imported.Name.Trim(),
                     MetricKeys = imported.MetricKeys.ToArray(),
-                    MetricWeights = new Dictionary<string, double>(imported.MetricWeights, StringComparer.OrdinalIgnoreCase)
+                    MetricWeights = imported.MetricWeights.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase)
                 });
                 added++;
             }
