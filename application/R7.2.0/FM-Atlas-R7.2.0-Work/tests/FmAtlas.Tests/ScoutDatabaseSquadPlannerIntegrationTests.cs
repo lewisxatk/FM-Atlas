@@ -28,7 +28,7 @@ public sealed class ScoutDatabaseSquadPlannerIntegrationTests
                 var run = connection.CreateCommand();
                 run.CommandText = """
                     INSERT INTO FmsaveImportRuns(SourceFileName,SourceFileSize,CreatedUtc,Game,GameBuild,KnownBuild,GameDate)
-                    VALUES('planner-fixture.json',100,'2026-11-13T00:00:00Z','FM27','test-build',1,'2026-11-12');
+                    VALUES('planner-fixture.json',100,'2026-11-13T00:00:00Z','FM27','27.0.0+2486695',1,'2026-11-12');
                     SELECT last_insert_rowid();
                     """;
                 var snapshotId = Convert.ToInt32(await run.ExecuteScalarAsync());
