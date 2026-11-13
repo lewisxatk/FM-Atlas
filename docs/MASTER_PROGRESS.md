@@ -4,7 +4,7 @@ Last updated: 2026-11-13
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
 Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`  
-Latest source-code checkpoint: `830cedc7735babdf6aa3fd35d3c82e5029b45395`
+Latest source-code checkpoint: `fd40df08c8f8194881be56a1e5198dfcfa1ca1d2`
 
 ## Verified progress
 
@@ -86,3 +86,5 @@ Only mark a feature complete when the source change exists on this branch and it
 
 - 2026-11-13: GitHub Actions Windows run `43465739690` passed at commit `5aa82c2`: .NET restore, WPF Release build, 10/10 MSTest tests, test-results upload and Windows Release artifact upload all succeeded. TRX artifact digest: `6d09bb448e6dafbdab87e49cda69141c0629de9440eec41c8be15d79d343c40b`.
 - 2026-11-13: Added Ctrl+K global-search shortcut and MONOLITH canvas background binding in `GlobalSearchWindow` at source commit `830cedc`; independent workflow run was in progress at this checkpoint.
+
+- 2026-11-13: Found and corrected unsafe substring verification checks. Nine SQLite filters now use a normalized exact status allowlist; two UI consumers use `FieldEvidencePolicy`; policy accepts exact canonical statuses only. Added strict allowlist/misleading-prefix tests. Code commits: `8a2af4d`, `8bf70f9`, `c3a721d`, `f32cacd`, `fd40df0`. Latest expanded Windows run: `43466693498` (in progress at handover).
