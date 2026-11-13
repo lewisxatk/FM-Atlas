@@ -10,7 +10,8 @@ Status labels: **Source present** = code exists in the recovered R7.2.0 tree; **
 - [x] Reconcile the eight changed source files against the later successful-build package and retain source provenance.
 - [ ] Store R7.0.2 and R7.1.0 as separate complete, immutable repository baselines; their archive hashes and file inventories are recorded, but their full source trees are not yet separately committed here.
 - [x] Receive the user's Windows .NET 8 build log for the repaired R7.2.0 baseline: 0 errors, 15 warnings.
-- [ ] Rebuild the current branch after the later Diagnostics/privacy changes; the added Windows CI workflow has not yet produced a reported run.
+- [x] Windows CI restored and built the recovered WPF app and passed the 40-test suite at source commit `ade4637` (run `43468496760`).
+- [ ] Re-run Windows build after the subsequent unused-field and obsolete logging warning cleanup commits (`886a8a5`, `1022078`).
 - [ ] Launch and smoke-test the app.
 - [ ] Run save-import, search, analytics, CSV and graphics tests on copies.
 - [ ] Run guarded live Apply/Undo tests on a disposable offline save only after all preconditions pass.
@@ -23,7 +24,7 @@ Status labels: **Source present** = code exists in the recovered R7.2.0 tree; **
 - [x] Identify R7.2.0 as latest supplied candidate source.
 - [x] Import the repaired R7.2.0 working source without overwriting historical main or package archives.
 - [ ] Separately commit/tag complete R7.0.2, R7.1.0 and R7.2.0 immutable source baselines with provenance.
-- [x] Add a Windows .NET 8 Release build workflow; successful execution is still pending.
+- [x] Add a Windows .NET 8 Release build/test workflow; successful Release build and 40/40 test run verified at `ade4637`.
 - [ ] Record a reproducible current-branch build and baseline runtime test.
 
 ## Phase 0A — Design-system-first delivery gate
@@ -230,3 +231,5 @@ See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
 
 
 - 2026-11-13: MONOLITH foundation follow-up: existing token brushes now update in place across theme switches, legacy colour bridges repaint tracked controls, MainWindow binds to theme resources and Player Intelligence report XAML uses DynamicResource. Full shared-control library/page migration and Windows visual acceptance remain pending.
+
+- 2026-11-13: Windows build and 40/40 MSTest suite passed on the integrated branch at commit `ade4637`; 12 compiler warnings were then traced to eleven dead MainWindow filter fields and one obsolete logging call. Those have been cleaned in source, with follow-up CI pending.
