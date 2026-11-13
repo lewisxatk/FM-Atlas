@@ -42,8 +42,12 @@ public static class FieldEvidencePolicy
             level = FieldEvidenceLevel.Unverified;
             label = "Unverified";
         }
-        else if (normalized.StartsWith("fieldverified", StringComparison.Ordinal)
-            || normalized.StartsWith("verified", StringComparison.Ordinal))
+        // Accept only explicit, canonical verification states. Prefix matches such as
+        // "Verified-Provisional" or "Verified-Needs-Witness" must fail closed.
+        else if (normalized is "verified"
+            or "fieldverified"
+            or "verifieduseruiwitnessreadback"
+            or "fieldverifieduseruiwitnessreadback")
         {
             level = FieldEvidenceLevel.FieldVerified;
             label = "Field verified";
