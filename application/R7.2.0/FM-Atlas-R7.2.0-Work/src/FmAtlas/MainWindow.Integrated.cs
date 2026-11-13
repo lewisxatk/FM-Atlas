@@ -263,6 +263,7 @@ public partial class MainWindow
         Button export = null!;
         DataGrid grid = null!;
         MoneyballRow[] currentRows = Array.Empty<MoneyballRow>();
+        string? currentMetricKey = null;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PERFORMANCE SCOUTING", 9, true, Teal));
@@ -298,9 +299,19 @@ public partial class MainWindow
                 ? "Convert a cumulative count to a per-90 rate. Existing rates and percentages cannot be converted again."
                 : "This field is already a rate/percentage or is not suitable for per-90 conversion.";
         }
-        field.SelectionChanged += (_, _) => UpdatePer90Availability();
-        per90.Checked += (_, _) => UpdatePer90Availability();
-        per90.Unchecked += (_, _) => UpdatePer90Availability();
+        void InvalidateResults()
+        {
+            currentRows = Array.Empty<MoneyballRow>();
+            currentMetricKey = null;
+            grid.ItemsSource = null;
+            export.IsEnabled = false;
+            status.Text = "Criteria changed. Rank the cohort again before exporting.";
+        }
+        field.SelectionChanged += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
+        per90.Checked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
+        per90.Unchecked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
+        minimumMinutes.TextChanged += (_, _) => InvalidateResults();
+        minimumSample.TextChanged += (_, _) => InvalidateResults();
         UpdatePer90Availability();
         run = PrimaryButton("Rank cohort", async (_, _) => await RankAsync());
         export = SoftButton("Export CSV", (_, _) => ExportRows());
@@ -326,6 +337,10 @@ public partial class MainWindow
             var mins = int.TryParse(minimumMinutes.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMinutes) ? Math.Clamp(parsedMinutes, 1, 10000) : 450;
             var sample = int.TryParse(minimumSample.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedSample) ? Math.Clamp(parsedSample, 1, 100000) : 5;
             run.IsEnabled = false;
+            export.IsEnabled = false;
+            currentRows = Array.Empty<MoneyballRow>();
+            currentMetricKey = null;
+            grid.ItemsSource = null;
             try
             {
                 var rows = per90.IsChecked == true
@@ -347,6 +362,7 @@ public partial class MainWindow
                         x.Percentile, x.SampleSize, x.Basis);
                 }).ToArray();
                 currentRows = displayRows;
+                currentMetricKey = selected.Key;
                 grid.ItemsSource = displayRows;
                 export.IsEnabled = displayRows.Length > 0;
                 status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within these returned rows only; no cross-league strength adjustment or parser field-level certification is implied.";
@@ -381,7 +397,7 @@ public partial class MainWindow
                 "Metric,PlayerSourceId,Player,Club,Period,Value,Percentile,SampleSize,EvidenceBasis"
             };
             lines.AddRange(currentRows.Select(row => string.Join(",",
-                Q(field.SelectedItem is StatMetricField metric ? metric.Key : string.Empty),
+                Q(currentMetricKey),
                 Q(row.SourceId),
                 Q(row.Name),
                 Q(row.Club),
