@@ -62,8 +62,8 @@ public static class SquadSuccessionService
 
         return new SquadSuccessionSummary(
             squad.Length,
-            validAges.Count(x => x.Age <= 22),
-            validAges.Count(x => x.Age <= 20),
+            validAges.Count(x => x.Age.HasValue && x.Age.Value <= 22),
+            validAges.Count(x => x.Age.HasValue && x.Age.Value <= 20),
             squad.Count(x => x.HomeGrownClub == true),
             squad.Count(x => x.HomeGrownNation == true),
             positions);
