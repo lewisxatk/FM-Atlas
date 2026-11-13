@@ -228,7 +228,7 @@ public partial class MainWindow
         var card = Card(new StackPanel(), 13, new Thickness(0, 0, 0, 12));
         var stack = (StackPanel)card.Child;
         stack.Children.Add(Txt("POSITION SUITABILITY MAP", 9, true, Teal));
-        stack.Children.Add(Txt("15 FM position ratings · 0–20", 17, true, Ink));
+        stack.Children.Add(Txt("15 FM position ratings", 17, true, Ink));
         var pitch = new Grid { Height = 252, Margin = new Thickness(0, 7, 0, 7) };
         for (var row = 0; row < 7; row++)
             pitch.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
