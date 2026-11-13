@@ -80,7 +80,7 @@
 | Recruitment workspace | `MainWindow.xaml.cs` | Recruitment route uses player workspace mode | Source present — narrow | Role/team need and recruitment-project-specific filters |
 | Shortlists | `MainWindow.xaml.cs`, `Data/ScoutDatabase.cs` | Create, add, remove, list, notes and CSV export paths | Source present — partial | Priority, tags, status, owner, multiple recruitment projects and reports |
 | Squad Architect | MainWindow.xaml.cs, Services/SquadSuccessionService.cs, Services/SquadSelectionOptimizer.cs | Four formation templates, global one-player-per-slot best XI, transparent role-fit × registered position-rating score, source-backed age/position succession, U23/U21 and imported home-grown flag summaries | Source present — partial | Copied FM27 save comparison, confirmed home-grown registration rules, wage/contract fields, fitness/availability and upgrade-path planning |
-| Recruitment board/radar | MainWindow.Integrated.cs, Data/ScoutDatabase.cs, Models/RecruitmentProjectRecord.cs | Four project lanes (Planning/Active/Monitoring/Closed), project owner/tags/budgets, candidate counts, shortlist notes, role-profile ranking and add/remove flows; legacy shortlists are backfilled in place | Source present — partial | Project-specific saved role profile, stage automation, candidate comparison, field-backed fee/wage affordability, richer radar and copied-save acceptance |
+| Recruitment board/radar | MainWindow.Integrated.cs, Data/ScoutDatabase.cs, Models/RecruitmentProjectRecord.cs | Four project lanes (Planning/Active/Monitoring/Closed), owner/tags/budgets, saved target role profile, candidate counts, shortlist notes, role-fit ranking and add/remove flows; legacy shortlists are backfilled in place | Source present — partial | Stage automation, candidate comparison, field-backed fee/wage affordability, richer radar and copied-save acceptance |
 
 ## 8. Role Lab / Player Fit
 
@@ -460,3 +460,14 @@ Superseded: latest code-level Windows verification is source commit `4fdd17c344a
 - FM-Atlas-Windows-Release and FM-Atlas-Test-Results uploaded successfully.
 - Work included the recruitment project-board control-initialisation correction and nullable age checks for source-backed succession totals.
 - Manual WPF visual/theme/DPI checks and a copied FM27 Game Pass save session remain outstanding. Live Apply/Undo stays disabled; do not test against the original career save.
+
+
+## Final integrated branch checkpoint — 2026-11-13 22:51 UTC
+
+- Latest application/fix commit: `be456adeebcd944f8c61a47eb5ec25f412a93aa3` (recruitment role-picker callback initialization correction).
+- Windows Actions run [43522432752](https://github.com/lewisxatk/FM-Atlas/actions/runs/43522432752): **success**.
+- .NET 8 WPF Release build: **0 warnings / 0 errors**; MSTest: **126 passed, 0 failed, 0 skipped**.
+- Windows Release and test-results artifacts uploaded successfully.
+- Recruitment project target roles now persist with status/owner/tags/budgets and restore when projects are reopened.
+- No code changes from this development pass were written to `main`; the integrated work stays on `overhaul/monolith-full-platform`.
+- Manual WPF appearance/theme/DPI checks and copied FM27 Game Pass save acceptance still need the user's PC. Live Apply/Undo remains disabled.

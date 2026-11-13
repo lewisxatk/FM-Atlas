@@ -121,3 +121,11 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Fixed recruitment board callback initialisation and nullable age handling.
 - Windows Actions run [43521406194](https://github.com/lewisxatk/FM-Atlas/actions/runs/43521406194) passed: Release build 0 warnings / 0 errors; MSTest 126/126 passed; Release and test-results artifacts uploaded.
 - User-PC WPF visual and copied FM27 Game Pass save acceptance remains outstanding; live Apply/Undo remains disabled.
+
+
+## 2026-11-13 — Recruitment project role persistence and final integrated verification
+
+- Recruitment projects now retain an optional target Atlas role profile alongside status, owner, tags, transfer budget and weekly wage budget. Reopening a project restores its saved role, and project cards display the target role.
+- Added a database persistence assertion for the saved project role and fixed role-picker definite assignment in the Scouting Matrix.
+- Windows Actions run [43522432752](https://github.com/lewisxatk/FM-Atlas/actions/runs/43522432752) passed at commit `be456adeebcd944f8c61a47eb5ec25f412a93aa3`: 0 build warnings, 0 errors; 126/126 tests passed; Windows Release and test-results artifacts uploaded.
+- Manual WPF visual acceptance and a copied FM27 Game Pass save session remain outstanding. Live Apply/Undo remains disabled.

@@ -434,3 +434,11 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Current branch head 5d71aa242b9731a83f5f9ff411a798fc332549c4 passed Windows Actions run [43521406194](https://github.com/lewisxatk/FM-Atlas/actions/runs/43521406194): 0 build warnings, 0 errors; 126/126 tests passed; Release and test-results artifacts uploaded.
 - [ ] User-PC WPF launch/visual/theme/DPI acceptance, import of a copied FM27 Game Pass save, comparison against in-game squad/tactics/attributes and diagnostic export review.
 - Live Apply/Undo remains blocked. Do not test against the original career save. Main remains untouched.
+
+
+## Final branch verification — 2026-11-13 22:51 UTC
+
+- [x] Recruitment projects persist the selected Atlas target role profile and restore it when reopening a project; the board displays the role on each project card.
+- [x] Windows Actions run [43522432752](https://github.com/lewisxatk/FM-Atlas/actions/runs/43522432752) passed for commit `be456adeebcd944f8c61a47eb5ec25f412a93aa3`: Release build 0 warnings, 0 errors; 126/126 tests passed; Release and test-results artifacts uploaded.
+- No code changes from this development pass were written to main. All integrated work remains on the dedicated overhaul branch.
+- [ ] Remaining acceptance: user-PC WPF launch, visual/theme/DPI review, copied FM27 Game Pass save import and comparison against in-game data. Do not use the original career save for destructive tests; live Apply/Undo remains disabled.
