@@ -259,3 +259,6 @@ The user requested a single integrated delivery. Work should be coordinated as o
 
 - 2026-11-13: Created integrated overhaul branch and consolidated product, research, design, feature and acceptance scope. No claim that the listed features have been implemented by this document.
 - 2026-11-13: Reconciled the source-import status with the live branch, recorded the first application architecture audit and corrected diagnostics privacy redaction. Runtime acceptance remains pending.
+
+- 2026-11-13: Added initial Windows .NET 8 MSTest project and CI test execution for Diagnostics privacy behaviour; Windows execution remains pending.
+- 2026-11-13: Improved MONOLITH runtime theme switching with in-place token/legacy brush updates; bound MainWindow and Player Intelligence report XAML to theme resources. Full page migration and Windows visual acceptance remain pending.
