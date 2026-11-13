@@ -23,10 +23,25 @@ public sealed class ScoutDatabase
     private readonly string _connectionString;
 
     public ScoutDatabase()
+        : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas", "scouting.db"))
     {
-        var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas");
-        Directory.CreateDirectory(folder);
-        _connectionString = new SqliteConnectionStringBuilder { DataSource = Path.Combine(folder, "scouting.db") }.ToString();
+    }
+
+    /// <summary>
+    /// Creates an Atlas database at an explicit path. The path constructor supports
+    /// isolated test fixtures, portable installations and controlled database recovery.
+    /// </summary>
+    public ScoutDatabase(string databasePath)
+    {
+        if (string.IsNullOrWhiteSpace(databasePath))
+            throw new ArgumentException("A database path is required.", nameof(databasePath));
+
+        var fullPath = Path.GetFullPath(databasePath);
+        var folder = Path.GetDirectoryName(fullPath);
+        if (!string.IsNullOrEmpty(folder))
+            Directory.CreateDirectory(folder);
+
+        _connectionString = new SqliteConnectionStringBuilder { DataSource = fullPath }.ToString();
     }
 
     public async Task InitialiseAsync()
