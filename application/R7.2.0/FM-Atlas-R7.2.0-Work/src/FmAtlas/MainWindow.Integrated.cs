@@ -482,7 +482,7 @@ public partial class MainWindow
         var formation = new ComboBox
         {
             Width = 230, Height = 36, Margin = new Thickness(3),
-            ItemsSource = new[] { "4-3-3", "4-2-3-1", "4-4-2", "3-5-2" },
+            ItemsSource = TacticalFormationService.GetFormations(),
             SelectedIndex = 0,
             ToolTip = "Formation slots use each player's imported primary position as a conservative eligibility check."
         };
@@ -525,65 +525,10 @@ public partial class MainWindow
         async Task BuildLineupAsync()
         {
             var selectedFormation = formation.SelectedItem as string;
-            var slots = selectedFormation switch
-            {
-                "4-2-3-1" => new (string Id, string Label, string Role, string[] Allowed)[]
-                {
-                    ("GK","Goalkeeper","Goalkeeper",new[]{"GK"}),
-                    ("RB","Right Back","Full-Back",new[]{"DR","WBR"}),
-                    ("RCB","Right Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("LCB","Left Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("LB","Left Back","Full-Back",new[]{"DL","WBL"}),
-                    ("RDM","Right Defensive Midfielder","Defensive Midfielder",new[]{"DM"}),
-                    ("LDM","Left Defensive Midfielder","Defensive Midfielder",new[]{"DM"}),
-                    ("RW","Right Winger","Winger",new[]{"AMR","MR"}),
-                    ("AMC","Attacking Midfielder","Attacking Midfielder",new[]{"AMC"}),
-                    ("LW","Left Winger","Winger",new[]{"AML","ML"}),
-                    ("ST","Striker","Centre Forward",new[]{"ST","STC"})
-                },
-                "4-4-2" => new (string Id, string Label, string Role, string[] Allowed)[]
-                {
-                    ("GK","Goalkeeper","Goalkeeper",new[]{"GK"}),
-                    ("RB","Right Back","Full-Back",new[]{"DR","WBR"}),
-                    ("RCB","Right Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("LCB","Left Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("LB","Left Back","Full-Back",new[]{"DL","WBL"}),
-                    ("RM","Right Midfielder","Winger",new[]{"MR","AMR"}),
-                    ("RCM","Right Central Midfielder","Central Midfielder",new[]{"MC"}),
-                    ("LCM","Left Central Midfielder","Central Midfielder",new[]{"MC"}),
-                    ("LM","Left Midfielder","Winger",new[]{"ML","AML"}),
-                    ("RST","Right Striker","Centre Forward",new[]{"ST","STC"}),
-                    ("LST","Left Striker","Centre Forward",new[]{"ST","STC"})
-                },
-                "3-5-2" => new (string Id, string Label, string Role, string[] Allowed)[]
-                {
-                    ("GK","Goalkeeper","Goalkeeper",new[]{"GK"}),
-                    ("RCB","Right Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("CB","Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("LCB","Left Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("RWB","Right Wing-Back","Wing-Back",new[]{"WBR","DR"}),
-                    ("LWB","Left Wing-Back","Wing-Back",new[]{"WBL","DL"}),
-                    ("DM","Defensive Midfielder","Defensive Midfielder",new[]{"DM"}),
-                    ("RCM","Right Central Midfielder","Central Midfielder",new[]{"MC"}),
-                    ("LCM","Left Central Midfielder","Central Midfielder",new[]{"MC"}),
-                    ("RST","Right Striker","Centre Forward",new[]{"ST","STC"}),
-                    ("LST","Left Striker","Centre Forward",new[]{"ST","STC"})
-                },
-                _ => new (string Id, string Label, string Role, string[] Allowed)[]
-                {
-                    ("GK","Goalkeeper","Goalkeeper",new[]{"GK"}),
-                    ("RB","Right Back","Full-Back",new[]{"DR","WBR"}),
-                    ("RCB","Right Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("LCB","Left Centre-Back","Centre-Back",new[]{"DC","SW"}),
-                    ("LB","Left Back","Full-Back",new[]{"DL","WBL"}),
-                    ("DM","Defensive Midfielder","Defensive Midfielder",new[]{"DM"}),
-                    ("RCM","Right Central Midfielder","Central Midfielder",new[]{"MC"}),
-                    ("LCM","Left Central Midfielder","Central Midfielder",new[]{"MC"}),
-                    ("RW","Right Winger","Winger",new[]{"AMR","MR"}),
-                    ("LW","Left Winger","Winger",new[]{"AML","ML"}),
-                    ("ST","Striker","Centre Forward",new[]{"ST","STC"})
-                }
-            };
+            if (string.IsNullOrWhiteSpace(selectedFormation)) { status.Text = "Choose a formation."; return; }
+            var slots = TacticalFormationService.GetSlots(selectedFormation)
+                .Select(x => (Id: x.SlotId, Label: x.DisplayName, Role: x.RoleProfileName, Allowed: x.AllowedPrimaryPositions))
+                .ToArray();
 
             var profileLookup = profiles.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
             var missingProfiles = slots.Select(x => x.Role).Distinct(StringComparer.OrdinalIgnoreCase)
