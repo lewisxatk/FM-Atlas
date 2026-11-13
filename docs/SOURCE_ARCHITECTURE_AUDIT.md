@@ -22,7 +22,7 @@ Purpose: record what is actually present in the imported application before broa
 - MainWindow.xaml is a minimal WPF Window containing the RootGrid host; most UI is composed dynamically in C#.
 - MainWindow.xaml.cs is the largest UI file (approximately 1,980 source lines in the inspected revision). It builds the sidebar, header, career status strip and page host, and contains most navigation and shared visual helper methods.
 - Current shell actions include global search, reload game, Save Atlas, Save Game guidance, Import Save and Diagnostics.
-- Existing global-search keyboard shortcut is Ctrl+F. The planned Ctrl+K command palette is not implemented in the inspected shell.
+- Existing global-search window is accessible through Ctrl+F and Ctrl+K. Ctrl+K currently opens the existing Players/Staff/Clubs search window; the richer command palette with actions and suggestions remains planned.
 - Navigation is a dynamically built list of text-glyph buttons. A polished icon system, command palette, notifications centre and full responsive workspace system remain outstanding.
 - Navigation includes Dashboard, Players, Recruitment, Value Finder, Attribute Search, Stats Search, Squad Architect, Clubs, Staff, Transfers, Analytics, Tactical Lab, Role Lab, Shortlists, Live Editor, Mass Edit, Edit History, Atlas Assistant, Settings, Tester & Logs and Help & Tutorial. Presence in navigation does not prove each page is complete.
 
@@ -148,3 +148,11 @@ Remaining Diagnostics work:
 - `FieldEvidencePolicy.Assess` now accepts only exact statuses `Verified`, `FieldVerified`, `Verified-UserUIWitness-ReadBack` and `FieldVerified-UserUIWitness-ReadBack` (separator/case normalized). Other verified-looking prefixes fail closed.
 - Added tests for exact allowlist recognition, provisional/mixed statuses, cross-provider IDs and exact-source-ID deduplication; current test suite now contains 20 expected test cases including the original Diagnostics tests.
 - Current Windows run for the expanded suite: https://github.com/lewisxatk/FM-Atlas/actions/runs/43466693498. At the time of this audit update it was in progress; no result is claimed here.
+
+## Latest Windows validation — 2026-11-13
+
+- Windows GitHub Actions run `43468496760`, exact source commit `ade463712df284034ba475a2f1bc85584e9394d9`, completed .NET 8 restore and WPF Release build successfully: 0 errors.
+- MSTest result: 40 passed, 0 failed, 0 skipped. The suite covers Diagnostics redaction, evidence policy, provider identity, squad selection assignment, metric math, ALL/ANY statistics and numeric-boundary validation.
+- Compiler warnings: 12. Source review confirmed eleven private MainWindow filter fields appeared only in their declarations across all seven MainWindow partial source files; these declarations were removed. One use of obsolete `AtlasLog.Warn` was switched to `AtlasLog.Warning`. Follow-up Windows run is pending for these changes.
+- Latest source commits for warning cleanup: `886a8a5` and `1022078`; current branch head at audit update is `1022078bd4fd79d21f687feb721f6e6e7f4087d7`.
+- This audit remains static plus CI build/unit-test evidence. No application launch, WPF UI automation, Game Pass process attachment or save-file runtime acceptance is claimed.
