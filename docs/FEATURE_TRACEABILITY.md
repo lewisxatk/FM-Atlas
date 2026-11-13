@@ -138,7 +138,7 @@
 |---|---|---|---|---|
 | Process/build discovery | `Services/GameProcessDetector.cs`, `Services/GameModuleDiagnostics.cs`, `Services/Fm27BuildProfiles.cs` | Separate Game Pass and Steam PE fingerprint records | Source present — narrow | Exact user's installed Game Pass build verification; new-build rejection tests |
 | Read-only scan/import | `Services/LiveDataImporter.cs` | Profile-matched player/club identity reader and field survey methods | Code-only — unverified | Independent witnesses, bounded read tests, cancellation and identity/coverage acceptance |
-| Field registry policy | `Services/FieldEvidencePolicy.cs`, database | Profile match and field verification are separate statuses | Source present — narrow | Enforce field-level evidence on every consumer and display |
+| Field registry policy | `Services/FieldEvidencePolicy.cs`, `Data/ScoutDatabase.cs`, `MainWindow.xaml.cs`, `MainWindow.R7.cs` | Exact canonical verified-status allowlist; all nine live-fact SQL filters exclude unverified/provisional statuses; player detail and role-position map use the shared policy | Source present — hardened, runtime pending | Add query-level integration tests and migrate any remaining downstream consumers; preserve global write gate |
 | Apply/read-back/Undo | `Services/LiveMemoryEditService.cs`, `Services/LiveWriteCertification.cs` | Preflight, identity check, career-session invalidation, read-back and undo pathways exist; global certification switch is false | Blocked by safety gate | Keep disabled until exact build, field witnesses and disposable offline-save acceptance pass |
 
 ## 15. Graphics and Skin Studio
@@ -221,3 +221,11 @@ This list is a route inventory only. Each route must be opened and acceptance-te
 - MONOLITH is a partially migrated design foundation, not yet a complete restyle of every screen.
 - Reverse engineering so far is static source/package research, source mapping and guarded implementation decisions. It is not a complete reconstruction of FM27's executable or all memory structures.
 - The overall product remains incomplete. Player DNA, Scouting Matrix, Moneyball, full Tactical Intelligence, Match Lab, Optimal XI solver, broad multi-entity editing, skin/mod manager and final installer/release still need implementation and acceptance evidence.
+
+## Evidence-policy regression checkpoint — 2026-11-13
+
+- A substring condition (`LIKE '%Verified%'` / `Contains("Verified")`) was unsafe because it also matches `Unverified`.
+- All nine occurrences in the live SQLite candidate queries were replaced with an explicit normalized allowlist (`Verified`, `FieldVerified`, `Verified-UserUIWitness-ReadBack` and its FieldVerified equivalent).
+- Both UI consumers previously using `Contains("Verified")` now call `FieldEvidencePolicy.CanUseForDecision`.
+- `FieldEvidencePolicy.Assess` now accepts only exact canonical verified statuses after normalization; misleading prefixes such as `Verified-Provisional`, `Verified-Needs-UI-Witness` and mixed unverified states fail closed.
+- Eight tests from the external same-branch update cover evidence states and provider-specific player identity; two added tests cover strict allowlist behavior and misleading statuses. These tests have not yet passed a Windows run.
