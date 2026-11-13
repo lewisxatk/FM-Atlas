@@ -51,3 +51,15 @@ This list replaces the earlier recovery-era issue list. It distinguishes code pr
 
 - Installer and publish scripts exist in source; reproducible publish, upgrade/migration, rollback, code-signing decision, hashes and clean-machine install remain unverified.
 - Accessibility, high-DPI, performance and regression coverage are not yet complete.
+## Stage 1/2 verification update — 2026-11-13
+
+The following supersedes older build/privacy notes above where they conflict:
+
+- Last completed green application verification before the new Diagnostics composer/profile additions: Windows run 43473487285, exact source 8cfe5b3, 53/53 tests, 0 warnings and 0 errors.
+- The support ZIP composer has been extracted into Services/SupportBundleComposer.cs; five tests cover allowlisted entries, ZIP round-trip, manifest hashes/sizes, redaction and path-traversal rejection.
+- Saved Stats/Attribute Search profiles now use SavedSearchProfileStore and local atomic JSON persistence; six tests cover round-trip, update, duplicate names, deletion, validation and corrupt-file preservation.
+- The first CI run for those additions failed because the new source files lacked explicit System.IO imports. Those imports were added. The manifest serializer was also set to camelCase to match its test/schema contract.
+- Windows Actions run 43475788525, exact code commit 6cfdee5, is the current verification run for the corrected composer/profile source. It was pending at the time of this note; do not claim success until it completes.
+- A preceding compile failure also occurred from malformed C# string literals during an initial privacy-copy edit; those lines were corrected before the current run. Both failed intermediate runs remain part of the audit history.
+- Diagnostics opt-in now includes player names and recent edit history only. Credentials/tokens, absolute paths and career save filenames remain always redacted. Actual ZIP generation and manual inspection on the user's Windows PC remain outstanding.
+- All 21 routes have been statically mapped in docs/STAGE1_STAGE2_AUDIT.md; Windows runtime route smoke tests, visual/DPI acceptance, actual Game Pass build verification and graphics-root validation remain outstanding.
