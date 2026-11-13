@@ -97,3 +97,15 @@ Status labels: **Verified** = evidence inspected in this repository or reproduci
 - [x] Reported: C# database parsing, UI imports and search logic repairs.
 
 These checked boxes mean **reported in previous work**, not verified by this repository. The authoritative verification checklist remains Phase 0 onward.
+
+## Recovery status update — 2026-11-13
+
+- [x] Received and inspected R7.0.2 archive (83 files; hash recorded).
+- [x] Received and inspected R7.1.0 archive (95 files; hash recorded).
+- [x] Compared relative paths: 16 shared files differ; R7.1.0 adds 12 files and removes none.
+- [ ] Import the R7.1.0 source tree into GitHub while retaining R7.0.2 provenance/comparison.
+- [ ] Run Windows .NET 8 WPF build and record exact logs.
+- [ ] Execute the R7.1.0 acceptance plan using a COPY of an FM27 save.
+- [ ] Resume feature development only after source baseline and build status are known.
+
+See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
