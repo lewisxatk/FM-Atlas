@@ -263,3 +263,5 @@ These services are domain foundations, not fully delivered screens. Squad Archit
 - The ALL/ANY statistics matcher is connected to the statistics search UI/SQLite query. Missing metrics are non-matches (not zero); ALL/ANY and finite-boundary cases have passing tests.
 - Warning cleanup after the tested source removed the 11 private fields confirmed unused across the seven MainWindow partials and switched the one obsolete logging call to the current API. Current-head CI is required to verify this cleanup.
 - Windows build/test pass is not a substitute for app-launch, visual, Game Pass or save-data acceptance.
+
+- 2026-11-13: Windows run `43469077009` at `1022078` passed 40/40 tests, 0 build warnings and 0 errors. A new disposable SQLite integration test now exercises actual live CA/PA and attribute queries with mixed evidence statuses; a missing `System.IO` import was corrected in `e109eab`, awaiting another Windows run.
