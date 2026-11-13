@@ -1,128 +1,64 @@
 # FM Atlas — Master Handover
 
-**Checkpoint date:** 2026-11-13  
-**Project:** FM Atlas Windows desktop application  
-**Current repository:** https://github.com/lewisxatk/FM-Atlas  
-**Checkpoint type:** Documentation baseline; source import pending
+**Checkpoint:** 2026-11-13  
+**Repository:** https://github.com/lewisxatk/FM-Atlas  
+**Active programme branch:** `overhaul/monolith-full-platform`  
+**Main branch:** preserved; do not use for unreviewed overhaul work.
 
-## 1. Mission
+## Mission
 
-Build FM Atlas into a polished Football Manager scouting, analytics, player editing and modding desktop suite. The established visual direction is **Aurora Frost** (minimal white/blue, clear Apple-like layout); a separate **Obsidian** dark theme overhaul has also been discussed and is evidenced in the latest session screenshots. Theme work must be coherent across the whole application, not just the logo or a few accent colours.
+Build FM Atlas into a premium Windows Football Manager intelligence and modding suite covering scouting, recruitment, analytics, tactical intelligence, player development, squad planning, save/database inspection, safe editing, graphics/skin management and mod research.
 
-## 2. What the latest conversation reports
+## Authoritative design decision
 
-The following items are **reported as implemented or inspected in the previous ChatGPT session**, based on screenshots and visible conversation text. They have not yet been independently checked against source code in this repository.
+**MONOLITH is the primary design system.** Obsidian/graphite dark theme, warm-light secondary theme, Atlas orange accents, Inter typography, Swiss Sport editorial hierarchy, Touchline football visualisations and Pulse statistical presentation. Use rounded, approachable controls and restrained motion. Aurora Frost is superseded as the primary direction and must not be reintroduced as the default.
 
-- FM27 graphics, live import, player editing, metrics, database and search integrations.
-- Guarded live-memory editing, importer mappings, UI updates, persistence, undo and profile-graphics resolution.
-- Player-search, memory-editing, metrics and diagnostics code inspected and patched.
-- Indexed storage, live-editing safeguards, expanded search, profile support and documentation updates.
-- FM Atlas value finder implemented/documented with database safeguards.
-- C# database parsing, UI imports and search logic inspected/repaired.
-- Advanced player search, UI theming, statistics and attribute discovery described as implemented and verified in that earlier session.
-- Multi-condition search workspaces and a consistent Obsidian theme were the next development focus.
+## Current source/build facts
 
-These are historical session claims, **not this repository's verified feature status**.
+- The user ran the repaired R7.2.0 v2 package on Windows 10 with .NET SDK 8.0.427.
+- Uploaded build log dated 2026-11-13 15:56:50 reports **Build succeeded, 0 errors, 15 warnings**.
+- Output reported: `src/FmAtlas/bin/Release/net8.0-windows/FmAtlas.exe`.
+- This verifies compilation on the user's PC only. Application startup, runtime features, imported save correctness, graphics resolution and live editing are not yet verified.
+- The repaired v2 source package has not yet been imported into this GitHub branch. The repository's existing source-of-truth history and recovery archives remain important and must be preserved.
 
-## 3. Critical package/source findings from the latest session
+## Reverse-engineering status
 
-The previous session reported:
-- An uploaded **R7.0.2 archive** was intact.
-- A previously generated **R7.1.0 package** was also present.
-- R7.1.0 reportedly included an analytics / role-fit / editor-local / logging pass.
-- The R7.1.0 package reportedly stated that live writes were not implemented.
-- WPF compilation reportedly had not been run for that package.
-- The next task was to trace exact source diffs and the data pipeline, extending existing work rather than replacing it.
+The research register records FMLibreEditor, fm-editor, FMSuperScout, fmsave, gilet, FM Player Analyzer, FM View Exporter, FMM Editor, FMRTE, FM Dossier, TalentSeer, Teknik Oda, FaceDrop, Customize Editor, Scout Reporter and SaveMyTime.
 
-The actual archives and source files are not attached to this repository yet. These findings must be rechecked against the files when supplied.
+These are not all fully reverse-engineered. Current evidence includes desk research, documentation review and static inspection of some uploaded packages. No external executable was run, no user save or live process was inspected, and the user's exact FM27 Game Pass build/profile has not been verified. GPL projects remain research-only unless a deliberate licence decision is made. See `research/RESEARCH_REGISTER.md` and `docs/OVERHAUL_MASTER_PROGRAMME.md`.
 
-## 4. Search and analytics audit
+## Programme scope
 
-The previous session described a source audit finding:
-- Statistics were discovered as flat numeric leaf names, capped at 500.
-- The Analytics screen applied one metric at a time.
-- Player attributes were stored in a separate indexed table, potentially providing a better basis for multi-attribute filtering.
-- Planned work: extend both paths into proper multi-condition search workspaces.
+The authoritative integrated feature scope and acceptance gates are in [OVERHAUL_MASTER_PROGRAMME.md](OVERHAUL_MASTER_PROGRAMME.md). It includes:
+- MONOLITH shared WPF design system and application shell;
+- universal field/data registry and FMRTE-style Advanced Search;
+- Player DNA, Scouting Matrix, role fit and recruitment intelligence;
+- Wyscout-style Performance & Moneyball Scout with traceable per-90 metrics and percentiles;
+- Tactical Intelligence Studio and Match Lab;
+- player development and career assistant;
+- offline Save Inspector/import pipeline and database/editor studio;
+- guarded Game Pass live adapter;
+- graphics and skin studio, modding/research workbench;
+- quality, accessibility, tests, packaging and release engineering.
 
-Do not assume the cap or schema details remain true until the source and database are imported and inspected.
+## Safety and evidence
 
-## 5. Product/design direction already established
+- Treat Game Pass, Steam and Epic as separate targets. Game Pass is the user's intended target.
+- Unknown builds remain read-only.
+- A module fingerprint alone does not verify every memory field.
+- Live writes require save identity, entity identity, range/type validation, expected-old-value preflight, read-back, career-switch invalidation and guarded Undo.
+- Keep hidden/structural fields blocked until independently verified.
+- Never test on the user's only career save; use disposable offline copies.
+- Keep licensed game assets, third-party binaries, personal saves and secrets out of source control unless specifically safe and permitted.
+- Distinguish researched, source-inspected, implemented, compiled, launched, fixture-tested, copied-save-tested and verified-in-game.
+- Do not mark roadmap items complete without linked source changes and acceptance evidence.
 
-- Windows 10 desktop application; .NET 8 SDK was previously installed on the user's PC.
-- WPF application architecture is reported in the latest package audit.
-- Primary scouting layout: filters on the left, central player results, selected-player profile/details on the right.
-- Top navigation with clear actions for loading/saving a game and searching.
-- Player position picker should cover FM positions and show positional suitability clearly (including pitch visualization and colour-coded suitability).
-- Search should cover attributes including mental, hidden and physical attributes where supported by the data source.
-- Player profile should expose league, nationality, homegrown information and useful player details.
-- Editing mode should make editable attributes explicit and provide a deliberate save action.
-- Themes discussed: Aurora Frost and Obsidian. Do not silently discard either; establish the current intended default after inspecting the latest source/package.
+## Checkpoint references
 
-## 6. Safety and data integrity requirements
-
-Live-memory editing is high risk. Keep it guarded and opt-in. Before any write:
-- identify the exact target process and supported game version;
-- validate process/module identity and expected memory region;
-- validate address, type, range and current value;
-- preserve original values for undo/rollback;
-- avoid writes when mappings or version checks are uncertain;
-- log the operation and its result without leaking sensitive data;
-- never modify the user's only save or database copy during testing.
-
-The presence of a memory adapter or UI does not prove that live writes are implemented or safe.
-
-## 7. Repository state
-
-At this checkpoint:
-- GitHub repository exists and is private.
-- Default branch is `main`.
-- Repository was confirmed empty before the documentation baseline was created.
-- No application source code, release archives, database, game save, build output or installer has been imported.
-- No build or test has been run from this repository.
-
-## 8. Immediate recovery sequence
-
-1. Obtain the exact R7.0.2 archive and R7.1.0 package/source tree from the previous work.
-2. Preserve original files unchanged; record file names, sizes and hashes.
-3. Extract copies into an isolated audit workspace.
-4. Compare R7.0.2 with R7.1.0 and identify source files changed, added or removed.
-5. Determine which package corresponds to the latest source changes.
-6. Import the verified source tree to this repository in a dedicated baseline commit.
-7. Restore/build with the documented .NET SDK and record the actual output.
-8. Only then continue feature implementation.
-
-## 9. Checkpoint update format
-
-For each development checkpoint record:
-- date and branch;
-- starting commit;
-- files changed;
-- features implemented;
-- build/test commands and exact results;
-- known failures and risks;
-- package/archive produced (if any);
-- next safe action.
-
-Never mark work complete solely because code was drafted or a package was generated.
-
-## 10. Uploaded archive recovery (2026-11-13)
-
-Both original ZIP uploads were successfully inspected. See [Recovery Inventory](../recovery/RECOVERY-INVENTORY.md) for exact sizes, SHA-256 hashes and the file-level comparison.
-
-- R7.0.2 archive: 83 files.
-- R7.1.0 archive: 95 files.
-- 16 shared paths differ; R7.1.0 adds 12 files and removes none.
-- R7.1.0 is the newest supplied source candidate, not yet a Windows-verified release.
-- The full R7.1.0 package documentation includes a Master Specification and Extended Research & Backlog that were not represented in the initial conversation-only handover.
-- R7.1.0 explicitly states live FM memory writes are not implemented; its editor is Atlas-local SQLite only.
-- The package says WPF compile, app startup, real save import and Steam/Game Pass checks remain outstanding.
-
-**Important:** The ZIP archives have been inventoried but the full source tree has not yet been committed to this repository. Do not treat the documentation baseline as a source-code backup.
-
-## 11. Newer R7.2.0 source checkpoint recovered (2026-11-13)
-
-A third archive arrived after the initial recovery bundle: R7.2.0 Source Checkpoint. It is newer than R7.1.0 and contains 106 files. Its SHA-256, size and 7.1-to-7.2 file diff are recorded in [Recovery Inventory](../recovery/RECOVERY-INVENTORY.md) and [R7.2.0 Checkpoint](../recovery/R7.2.0-CHECKPOINT.md).
-
-**Important correction to the earlier handover:** R7.1.0 said live FM writes were not implemented. R7.2.0 introduces a separate narrow live writer for CA/PA and 47 visible standard player attributes, with guarded preview/apply/read-back/undo and hidden-field exclusions. This is source implementation only. R7.2.0 itself says Windows WPF build, startup, save import, process fingerprint and real Apply/Undo tests have not yet passed. Treat it as unverified until tested on Windows against a disposable offline save.
-
-R7.2.0 is now the latest candidate baseline. R7.1.0 and R7.0.2 must remain intact as comparison points. Do not continue feature development against R7.1.0 unless the R7.2.0 diff shows a specific regression requiring it.
+- [Integrated overhaul programme](OVERHAUL_MASTER_PROGRAMME.md)
+- [Master progress](MASTER_PROGRESS.md)
+- [Roadmap](ROADMAP.md)
+- [Architecture](ARCHITECTURE.md)
+- [Research register](../research/RESEARCH_REGISTER.md)
+- [Recovery inventory](../recovery/RECOVERY-INVENTORY.md)
+- [R7.2.0 source checkpoint](../recovery/R7.2.0-CHECKPOINT.md)
