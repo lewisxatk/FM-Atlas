@@ -1322,6 +1322,7 @@ public partial class MainWindow : Window
             foreach (var band in snapshot.AgeBands) AddDetailRow(insight, band.Label, band.Count.ToString("N0"));
 
             insight.Children.Add(Txt("IN-GAME SQUAD PLANNER", 9, true, Teal) is var plannerTitle ? Configure(plannerTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
+            insight.Children.Add(Txt("Imported from the save's human-manager planner; this section is independent of the club filter above.", 9, false, Muted, wrap: true));
             if (plannerRows.Count == 0)
             {
                 insight.Children.Add(Txt("No squad-planner rows were included in the latest imported save. Import a supported save with the squad_planner reader available to show the game's stored slots here.", 9, false, Muted, wrap: true));
