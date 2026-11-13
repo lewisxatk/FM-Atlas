@@ -215,7 +215,7 @@ public partial class MainWindow : Window
         AddNav("▦", "Dashboard"); AddNav("♟", "Players"); AddNav("⌕", "Recruitment"); AddNav("◆", "Value Finder"); AddNav("⌗", "Attribute Search"); AddNav("∑", "Stats Search"); AddNav("▥", "Squad Architect");
         AddNav("◇", "Clubs"); AddNav("♙", "Staff"); AddNav("⇄", "Transfers"); AddNav("▥", "Analytics"); AddNav("⚑", "Tactical Lab"); AddNav("◎", "Role Lab");
         AddNavGroup("INTELLIGENCE");
-        AddNav("◈", "Player DNA"); AddNav("▦", "Scouting Matrix"); AddNav("⌁", "Moneyball Scout"); AddNav("⚑", "Tactical Studio"); AddNav("◷", "Match Lab"); AddNav("↗", "Development");
+        AddNav("◈", "Player DNA"); AddNav("⌕", "Advanced Search"); AddNav("▦", "Scouting Matrix"); AddNav("⌁", "Moneyball Scout"); AddNav("⚑", "Tactical Studio"); AddNav("◷", "Match Lab"); AddNav("↗", "Development");
         AddNavGroup("MANAGEMENT"); AddNav("▤", "Shortlists"); AddNav("✎", "Live Editor"); AddNav("▦", "Mass Edit"); AddNav("◷", "Edit History"); AddNav("▣", "Save Inspector");
         AddNavGroup("ATLAS TOOLS"); AddNav("▧", "Graphics & Skins"); AddNav("⚒", "Modding Workbench"); AddNav("✦", "Atlas Assistant"); AddNav("⚙", "Settings"); AddNav("◉", "Tester & Logs"); AddNav("?", "Help & Tutorial");
 
@@ -276,6 +276,7 @@ public partial class MainWindow : Window
             {
                 "Dashboard" => await DashboardPageAsync(),
                 "Player DNA" => await PlayerDnaPageAsync(),
+                "Advanced Search" => await UniversalAdvancedSearchPageAsync(),
                 "Scouting Matrix" => await ScoutingMatrixPageAsync(),
                 "Moneyball Scout" => await MoneyballScoutPageAsync(),
                 "Tactical Studio" => await TacticalStudioPageAsync(),
@@ -375,6 +376,7 @@ public partial class MainWindow : Window
         "Dashboard" => "Your career at a glance · data coverage · import health",
         "Players" => "Player intelligence · search · profile · attributes",
         "Player DNA" => "Inspect imported player attributes and compare source-backed profiles",
+        "Advanced Search" => "Build nested AND/OR conditions, explain matches and save reusable profiles",
         "Scouting Matrix" => "Manage shortlist candidates and recruitment priorities",
         "Moneyball Scout" => "Rank player performance within transparent, sample-qualified cohorts",
         "Tactical Studio" => "Compare squad players with explainable Atlas role-fit estimates",
