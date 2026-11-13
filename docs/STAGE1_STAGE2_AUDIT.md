@@ -222,21 +222,27 @@ These are recommendations for the user's later Stage 3–7 approval, not work be
 
 ## Stage 1 & 2 completion checklist
 
-- [x] Confirmed latest successful baseline Windows run: 53/53, zero warnings/errors at commit `8cfe5b3`.
-- [x] Inspected actual Diagnostics health checks, report builder, ZIP allowlist, manifest, preview and temp-file write flow.
-- [x] Identified and corrected the mismatch between personal-details opt-in copy and always-redacted paths/save filenames.
-- [x] Counted the active application source/test files and mapped all 21 navigation destinations to actual source behaviour.
-- [x] Audited the major save, memory, field-evidence, identity, role-fit, search, assistant and graphics adapters.
-- [x] Recorded third-party research references and licensing cautions.
-- [ ] Obtain a successful Windows CI run for the latest Diagnostics wording/manifest source change.
-- [ ] Run the app and verify Tester & Logs on Windows.
-- [ ] Generate and independently inspect both support ZIP variants and their manifests/hashes.
-- [ ] Launch and smoke-test all 21 routes on Windows; record failures and visual issues.
-- [ ] Validate the user's exact FM27 Game Pass build and graphics path (user-side acceptance required).
-- [ ] Reconcile Help/Tutorial and all other privacy copy with the corrected support-export policy.
-- [ ] Update the master handover/progress records with exact final commits and test evidence.
+<badge>Source audit complete; Windows CI passed</badge>
 
-**Stop point:** Stage 1 & Stage 2 are in audit/verification. Do not begin the combined Stage 3–7 implementation until the user has reviewed the findings and explicitly approved moving forward.
+- [x] Inspected the actual Diagnostics health checks, report builder, ZIP allowlist, manifest, preview and temporary-file save flow.
+- [x] Corrected the personal-details opt-in copy: only player names and recent edit history are opt-in; credentials/tokens, absolute paths and career-save filenames remain always redacted.
+- [x] Extracted support ZIP composition into `Services/SupportBundleComposer.cs`; the Diagnostics UI previews and writes the exact same in-memory package.
+- [x] Added automated tests for allowlisted archive entries, ZIP round-trip, manifest SHA-256/byte sizes, redaction and path-traversal/arbitrary filename rejection.
+- [x] Audited all 41 application source files and 10 C# test files (plus the test project file); mapped all 21 navigation destinations to actual route behaviour and limitations.
+- [x] Audited the principal WPF shell, SQLite layer, save bridge, memory reader/writer, field-evidence policy, player identity, role fit, search, assistant and graphics resolver.
+- [x] Found and closed the generic-table live-evidence leak: provisional LIVE mirror rows are excluded from normal local player search/count, club roster, Attribute Search, Role Lab and Mass Edit. Live identity discovery remains separate and evidence-gated.
+- [x] Added a disposable SQLite regression fixture with deliberately high provisional mirror values to prove those rows cannot influence those consumers.
+- [x] Corrected user-facing copy to state accurately that live Football Manager Apply/Undo are disabled by the build-wide certification gate.
+- [x] Recorded external reverse-engineering findings and licence boundaries in `research/RESEARCH_REGISTER.md`; no third-party source or offsets copied.
+- [x] Windows CI passed on exact Stage 1/2 application source commit `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`: .NET 8 WPF Release succeeded, **0 warnings / 0 errors**, **64/64 tests passed**, 0 skipped. Actions run `43476085012`.
+- [x] Windows Release artifact `14062557163`; test-results artifact `14062892033`.
+- [ ] Launch the application and verify Tester & Logs on the user's Windows PC.
+- [ ] Generate and independently inspect default and opt-in support ZIPs from the running app, including real report/README text, all entry hashes and exclusions.
+- [ ] Launch and smoke-test all 21 routes on Windows; record blank pages, broken controls, data-dependent states, DPI/layout issues and crashes.
+- [ ] Validate the user's exact FM27 Game Pass binary/build and actual graphics root. Static source/profile matching cannot prove the locally installed build or paths.
+- [ ] Validate a copy of an FM27 career save import and review the parser's per-reader validation/coverage.
+
+**Stage status:** The combined Stage 1 source hardening and Stage 2 static reverse-engineering/route audit are complete and have passed Windows CI. Real app/runtime, ZIP export and Game Pass acceptance remain user-environment tasks; they are not being represented as complete. Stage 3–7 remain on hold until the user has reviewed these findings and explicitly approves the integrated implementation.
 
 ## Follow-up evidence and CI corrections — 2026-11-13
 
@@ -273,3 +279,15 @@ However, a critical provenance gap remains: the import stores a record-level Dat
 This does not mean the parser values are wrong. It means the UI cannot currently tell the user, for each value, whether that exact field is verified, unconfirmed, missing, or only structurally decoded. The FM27 global warning is not a substitute for field-level provenance.
 
 **Required in the later unified build:** introduce a canonical provenance registry that maps each imported field to game/build, parser version, source reader, field status, presence coverage, unit, confidence and freshness. Carry that metadata into player profiles, search, metrics, comparisons, value models and any edit preview. Until then, all FM27 imported values should be treated as research data with the parser's validation warnings visible, not silently presented as fully verified.
+
+
+## Exact integrated Windows verification — 2026-11-13 17:49 UTC
+
+- Exact tested source commit: `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`.
+- Actions run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43476085012.
+- .NET 8 WPF Release build: **succeeded, 0 warnings and 0 errors**.
+- MSTest: **64 passed, 0 failed, 0 skipped**.
+- Artifacts: Windows Release `14062557163`; test results `14062892033`.
+- This run includes the support-bundle composer and its five tests, six saved-search profile persistence/validation tests, and the expanded SQLite evidence-isolation test that exercises the generic local search/count, Attribute Search, Role Lab and Mass Edit paths with LIVE mirror rows.
+- Intermediate failures are retained in the CI history: `43475232418` was a genuine missing-System.IO compile failure; `43475719335` exposed follow-on test compile issues. Imports, MSTest exception assertions and the SQLite search-call arguments were corrected. The final exact run `43476085012` is the passing result; do not use intermediate failures as the final status.
+- The branch continued to receive documentation/research-only updates after the tested source commit. Fetch current branch HEAD before further edits; application code tested here is the exact source that produced the 64/64 pass.
