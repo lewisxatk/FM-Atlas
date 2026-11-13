@@ -1,14 +1,25 @@
 # FM Atlas Roadmap
 
-Status labels: **Verified** = evidence inspected in this repository or reproducible test; **Reported** = described in prior session/screenshots but not independently verified here; **Pending** = not yet confirmed or completed.
+Status labels: **Source implemented** = present in the supplied R7.2.0 package but not necessarily compiled; **Verified** = passed the relevant reproducible Windows/game test; **Pending** = not yet completed. R7.2.0 is the latest supplied candidate. The complete source import is still pending.
+
+## Current release gate — R7.2.0 recovery
+
+- [x] Receive and inspect R7.0.2 (83 files), R7.1.0 (95 files) and R7.2.0 (106 files).
+- [x] Record archive hashes and compare R7.2.0 against R7.1.0 (19 changed shared files, 11 added, 0 removed).
+- [ ] Import all three complete source trees into GitHub on a dedicated recovery branch.
+- [ ] Verify imported tree against archive inventory and tag the R7.2.0 baseline.
+- [ ] Build R7.2.0 WPF on Windows .NET 8; record full log.
+- [ ] Launch and smoke-test the app.
+- [ ] Run save-import, search, analytics, CSV and graphics tests on copies.
+- [ ] Run guarded live Apply/Undo tests on a disposable offline save only after all preconditions pass.
 
 ## Phase 0 — Recovery and source-of-truth
 
-- [ ] Obtain R7.0.2 archive and R7.1.0 package/source.
-- [ ] Inventory archives and record SHA-256 hashes.
-- [ ] Compare package/source versions and generate a file-level change report.
-- [ ] Identify the latest authoritative source tree.
-- [ ] Import source without overwriting originals.
+- [x] Obtain R7.0.2, R7.1.0 and R7.2.0 archives.
+- [x] Inventory archives and record SHA-256 hashes.
+- [x] Compare R7.2.0 against R7.1.0 and identify changed/new files.
+- [x] Identify R7.2.0 as latest supplied candidate source.
+- [ ] Import source without overwriting originals (see current release gate).
 - [ ] Establish a reproducible .NET build and baseline test.
 - [ ] Record release/version mapping and create a protected baseline tag.
 
@@ -22,8 +33,9 @@ Status labels: **Verified** = evidence inspected in this repository or reproduci
 
 ## Phase 2 — Scouting workspace
 
-- [ ] Verify reported advanced player search implementation.
-- [ ] Multi-condition filters (AND/OR groups where appropriate).
+- [x] R7.2.0 source: advanced multi-attribute player search, up to 60 AND conditions.
+- [ ] Verify the feature in the Windows app with a real imported save.
+- [ ] Multi-condition filters with saved AND/OR groups (beyond current AND-only implementation).
 - [ ] Position picker covering the game's supported positions.
 - [ ] Positional suitability display / pitch visualization.
 - [ ] League, nationality, homegrown and player profile details.
@@ -32,9 +44,10 @@ Status labels: **Verified** = evidence inspected in this repository or reproduci
 
 ## Phase 3 — Attributes and analytics
 
-- [ ] Audit attribute discovery and indexed attribute storage.
-- [ ] Verify the reported 500-leaf discovery cap and remove only if confirmed.
-- [ ] Multi-metric analytics filters.
+- [x] R7.2.0 source: indexed statistic facts and dynamic metric catalogue.
+- [x] R7.2.0 source: multi-condition stats search and optional per-90/minutes floor.
+- [ ] Verify data correctness and performance against a real FM27 save.
+- [ ] Multi-metric analytics refinements and cohort normalisation.
 - [ ] Compare, rank and shortlist players.
 - [ ] Role-fit calculations with documented inputs and uncertainty.
 - [ ] Exportable reports and saved analysis views.
@@ -49,6 +62,8 @@ Status labels: **Verified** = evidence inspected in this repository or reproduci
 
 ## Phase 5 — Editing and live adapter
 
+- [x] R7.2.0 source: separate local database editor and narrow live-memory writer.
+- [ ] Windows build and disposable-save acceptance of live-memory writer before use.
 - [ ] Audit local/offline editing separately from live-memory editing.
 - [ ] Verify importer/editor field mappings.
 - [ ] Verify persistence and undo/redo.
@@ -59,7 +74,8 @@ Status labels: **Verified** = evidence inspected in this repository or reproduci
 
 ## Phase 6 — Graphics and profile presentation
 
-- [ ] Verify FM27 graphics integration and profile-graphics resolution.
+- [x] R7.2.0 source: FM27 graphics resolver and player/club profile wiring.
+- [ ] Verify FM27 graphics integration and profile-graphics resolution against the user's real graphics folders.
 - [ ] Define supported graphics folders and lookup rules.
 - [ ] Test missing, duplicate and malformed graphics references.
 - [ ] Keep licensed/user-provided graphics outside source control unless permitted.
@@ -74,7 +90,8 @@ Status labels: **Verified** = evidence inspected in this repository or reproduci
 
 ## Phase 8 — Value finder and quality of life
 
-- [ ] Verify reported value finder and database safeguards.
+- [x] R7.2.0 source: Value & Upside Finder with transparent relative percentile formula and filters.
+- [ ] Verify reported value finder and database safeguards with real imported data.
 - [ ] Define transparent value/ranking inputs.
 - [ ] Add filters, sorting and export.
 - [ ] Add user-facing diagnostics and safe settings backup/restore.
