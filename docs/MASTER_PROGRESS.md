@@ -4,7 +4,7 @@ Last updated: 2026-11-13
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
 Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`  
-Latest source-code checkpoint: `5aa82c27117b4badf63e19d88681b12eb0c4db30`
+Latest source-code checkpoint: `830cedc7735babdf6aa3fd35d3c82e5029b45395`
 
 ## Verified progress
 
@@ -79,3 +79,6 @@ Only mark a feature complete when the source change exists on this branch and it
 - 2026-11-13: Added the initial Windows MSTest project and CI test execution; committed test code, solution inclusion and workflow updates. Seven sensitive-value pattern cases passed the local pattern-level check; C# tests and WPF build remain unexecuted on Windows.
 
 - 2026-11-13: Improved MONOLITH theme switching so token and legacy brushes update existing controls in place; bound MainWindow and Player Intelligence report surfaces to the theme. Commits: `0929483`, `e9fe226`, `5aa82c2`. Windows UI validation pending.
+
+- 2026-11-13: GitHub Actions Windows run `43465739690` passed at commit `5aa82c2`: .NET restore, WPF Release build, 10/10 MSTest tests, test-results upload and Windows Release artifact upload all succeeded. TRX artifact digest: `6d09bb448e6dafbdab87e49cda69141c0629de9440eec41c8be15d79d343c40b`.
+- 2026-11-13: Added Ctrl+K global-search shortcut and MONOLITH canvas background binding in `GlobalSearchWindow` at source commit `830cedc`; independent workflow run was in progress at this checkpoint.
