@@ -265,9 +265,9 @@ public partial class MainWindow : Window
             foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>())
             {
                 var active = string.Equals(button.Tag?.ToString(), page, StringComparison.OrdinalIgnoreCase);
-                button.Background = active ? Brush("#2A3427") : Brushes.Transparent;
+                button.Background = active ? TealDark : Brushes.Transparent;
                 if (button.Content is StackPanel row)
-                    foreach (var tb in row.Children.OfType<TextBlock>()) tb.Foreground = active ? Brush("#D8F5A2") : (tb.Text.Trim() == page ? Ink : Muted);
+                    foreach (var tb in row.Children.OfType<TextBlock>()) tb.Foreground = active ? Teal : (tb.Text.Trim() == page ? Ink : Muted);
             }
 
             _pageHost.Content = NavigationLoadingPane(page);
