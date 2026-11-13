@@ -294,3 +294,14 @@ The following supersedes older build-status statements above where they conflict
 - All commits after tested application source `8cfe5b3` are documentation-only checkpoint updates; application source remains unchanged from the 53-test run. The protected `main` branch remains at `2051bbee042fb8e7203b7855e833e391ccee9ecb`; fetch the live branch ref before resuming.
 - Still not verified: WPF startup/route acceptance, visual theme and DPI acceptance, the user's exact FM27 Game Pass build/profile, actual save-copy import behaviour and a manual inspection of exported support ZIPs. The whole overhaul is not complete.
 - The next integrated engineering gates remain Advanced Search, player intelligence, Moneyball cohorts/percentiles, recruitment workflows, Tactical Intelligence, Match Lab, development, Save Inspector/local editor, Game Pass read-only adapter, graphics/skin/mod workbench and release packaging. Live Apply/Undo remains disabled until field-level certification and safe read-back/rollback evidence.
+
+## Latest verified Search Profiles + Support Bundle checkpoint — 2026-11-13 17:50 UTC
+
+- Exact tested application source commit: 6c18e36fdc706fc49ad74ce15fe1ee73c43ce991.
+- Windows Actions run 43476085012: .NET 8 WPF Release build 0 warnings / 0 errors; 64/64 tests passed, 0 failed/skipped.
+- Release artifact 14062557163; test-results artifact 14062892033.
+- Stats Search and Attribute Search now provide local New/Save/Load/Delete profile controls with schema/bounds/duplicate validation, atomic persistence and stale-field protection. Statistics profiles retain ALL/ANY, per-90 and minimum minutes; attribute profiles retain the optional text filter and 1–20 conditions. Profiles persist criteria only, not player or career-save content.
+- The SupportBundleComposer now enforces a strict entry allow-list, redacts report/log content, rejects arbitrary paths/path traversal, previews the exact package and creates a SHA-256/size manifest. Tests cover archive round-trip, allowed entries, hash correctness and redaction.
+- The tested application source is still the latest application code; subsequent branch changes are documentation/research only. Main remains untouched at 2051bbee042fb8e7203b7855e833e391ccee9ecb.
+- User direction: continue the entire roadmap as one integrated programme. Internal implementation stages are verification gates, not separate user-facing releases; earlier hold language elsewhere in the docs is superseded.
+- Still outstanding: launch and visually test both search screens, restart/persistence and real results; manually inspect both support ZIP privacy modes; launch all 21 routes; verify theme/DPI; test a copied FM27 Game Pass save, exact build/field certification and actual graphics root. Live memory Apply/Undo stays disabled until field-level certification and disposable-save rollback pass.
