@@ -233,3 +233,5 @@ See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
 - 2026-11-13: MONOLITH foundation follow-up: existing token brushes now update in place across theme switches, legacy colour bridges repaint tracked controls, MainWindow binds to theme resources and Player Intelligence report XAML uses DynamicResource. Full shared-control library/page migration and Windows visual acceptance remain pending.
 
 - 2026-11-13: Windows build and 40/40 MSTest suite passed on the integrated branch at commit `ade4637`; 12 compiler warnings were then traced to eleven dead MainWindow filter fields and one obsolete logging call. Those have been cleaned in source, with follow-up CI pending.
+
+- 2026-11-13: Current Windows .NET 8 Release build and 47/47 automated tests passed at `b8bad3a` (run `43470501984`), with zero compiler warnings/errors. Added passing SQLite live-evidence consumer integration and shared RoleFit score tests; runtime UI and game integration acceptance remain outstanding.
