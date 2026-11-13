@@ -182,3 +182,12 @@ Remaining Diagnostics work:
 - `GetLatestSquadPlannerSlotsAsync` reads only the latest snapshot's `squad_planner` extra-table rows, resolves UIDs against that same snapshot, retains unresolved/null entries in order and validates season offsets 0–2 and slot numbers 1–27. It requires registered FM27 build `27.0.0+2486695` because fmsave 0.12.3 documents that exact reader boundary. Slot semantics are not inferred.
 - Windows run `43509771993` at exact commit `4fdd17c344a00c64754218a4770e97c33a19f5eb`: Release build 0 warnings / 0 errors; 95/95 tests passed.
 - Automated tests do not substitute for actual FM27 Game Pass runtime, save-import, UI/DPI, or graphics-root acceptance.
+
+
+## Formation-based Squad Architect optimiser and position evidence gates — 2026-11-13
+
+- `SquadArchitectService` defines four formation templates and converts role-fit results plus position-rating evidence into slot-score edges. Composite is explicitly `roleFit × positionRating / 20`; `SquadSelectionOptimizer` solves the global assignment and prevents one candidate filling multiple slots.
+- `ScoutDatabase.SearchRoleFitCandidatesAsync` supports a club filter and caller-defined result cap. `GetPlayerPositionRatingsForClubAsync` loads only the latest imported snapshot and requires `KnownBuild=1`; it does not fall back to an older verified snapshot when the latest import is unregistered.
+- `GetPlayerPositionRatingsAsync` and `GetFmsavePlayerFactsAsync(..., "positions")` likewise require the latest registered snapshot. Moneyball save-derived primary-position grouping only reads the position label when that snapshot is registered.
+- UI shows the score components and states exclusions: no FM hidden score, fitness, injuries, suspensions, tactical familiarity, duties, player traits or availability.
+- Windows run `43511883115` at source `5ff275d534245880242a7280f95837f6ee3a3b0d`: 0 warnings / 0 errors; 103/103 tests passed.
