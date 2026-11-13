@@ -25,6 +25,33 @@ public sealed class RoleFitServiceTests
         Assert.AreEqual(3, result.AttributesAvailable);
         Assert.AreEqual(4, result.AttributesExpected);
         Assert.AreEqual(0.75, result.Coverage, 0.0001);
+        Assert.AreEqual(3, result.Contributions.Count);
+        var acceleration = result.Contributions.Single(x => x.Attribute == "Acceleration");
+        Assert.AreEqual(10, acceleration.Value, 0.0001);
+        Assert.AreEqual(2, acceleration.Weight, 0.0001);
+        Assert.AreEqual(5, acceleration.ScoreContribution, 0.0001);
+        Assert.AreEqual(result.Score, result.Contributions.Sum(x => x.ScoreContribution), 0.0001,
+            "The additive per-attribute contribution points must sum to the displayed role-fit score.");
+    }
+
+    [TestMethod]
+    public void CalculateEstimate_ProducesStableContributionsForVeryLargeFiniteWeights()
+    {
+        var profile = CreateProfile(
+            ("Pace", double.MaxValue),
+            ("Acceleration", double.MaxValue / 2));
+        var attributes = new Dictionary<string, double>
+        {
+            ["Pace"] = 20,
+            ["Acceleration"] = 10
+        };
+
+        var result = RoleFitService.CalculateEstimate(profile, attributes);
+
+        Assert.IsNotNull(result);
+        Assert.IsTrue(double.IsFinite(result.Score));
+        Assert.AreEqual(20d / 1.5d + 10d * .5d / 1.5d, result.Score, 0.0001);
+        Assert.AreEqual(result.Score, result.Contributions.Sum(x => x.ScoreContribution), 0.0001);
     }
 
     [TestMethod]
