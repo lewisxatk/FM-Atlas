@@ -20,14 +20,14 @@ Build FM Atlas into a premium Windows Football Manager intelligence and modding 
 - Output reported: `src/FmAtlas/bin/Release/net8.0-windows/FmAtlas.exe`.
 - This verifies compilation on the user's PC only. Application startup, runtime features, imported save correctness, graphics resolution and live editing are not yet verified.
 - The repaired R7.2.0 application source has been imported into `application/R7.2.0/FM-Atlas-R7.2.0-Work/` on the active overhaul branch. Source import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`.
-- The active branch head before this handover correction was `6fc46757688be84af497e13c3d27e40877da3f92`; `main` remains untouched.
+- `main` remains untouched. The active branch advances as work is committed; use `docs/MASTER_PROGRESS.md` and the GitHub branch ref for the latest checkpoint.
 - A current source-level architecture audit is recorded in `docs/SOURCE_ARCHITECTURE_AUDIT.md`. Feature-to-source coverage is tracked in `docs/FEATURE_TRACEABILITY.md`.
 
 ## Current implementation checkpoint
 
 - The application is a .NET 8 WPF project using Microsoft.Data.Sqlite 8.0.11.
 - App startup initialises local rolling logs, applies the MONOLITH theme preference, and records unhandled dispatcher/AppDomain/task exceptions.
-- A MONOLITH theme service already supports Obsidian and Warm Light, but older screens still contain hard-coded palette values and shared-control migration is incomplete.
+- A MONOLITH theme service supports Obsidian and Warm Light. The latest branch changes now update token brushes and tracked legacy brushes in place, bind the main window to theme tokens and migrate the Player Intelligence report XAML to DynamicResource tokens; older screens still contain hard-coded values and shared-control migration is incomplete.
 - Diagnostics already has health checks, copy/export actions, a support ZIP preview/confirmation screen, a SHA-256 manifest, and local-only export. The existing support archive excludes career saves, the SQLite database, FM installation files and arbitrary files by default.
 - A source audit found over-escaped credential patterns and incomplete handling of Windows paths containing spaces. These are now corrected in AtlasLog.cs. A Diagnostics self-check covers bearer tokens, API keys, passwords, user paths, spaced drive paths, UNC paths and standalone save filenames.
 - Equivalent regex regression cases passed locally. A Windows .NET 8 MSTest project now covers the cases and is included in the solution/CI workflow; neither the tests nor the current branch build have yet been run on Windows.
@@ -83,3 +83,11 @@ The authoritative integrated feature scope and acceptance gates are in [OVERHAUL
 - Added test project to the solution. Windows build workflow now runs the suite and uploads TRX results.
 - The new tests are source additions only at this point. Do not claim pass until an actual Windows workflow or local run is recorded.
 - Current main branch remains preserved. Recheck the branch head in GitHub before each handover because later checkpoints continue to advance it.
+
+## MONOLITH theme follow-up
+
+- Existing resource token brushes are now updated in place during theme changes instead of being replaced.
+- Legacy brushes created through `MonolithTheme.ResolveLegacy` are tracked through weak references and remapped on theme changes; dead references are pruned.
+- MainWindow background/foreground use central Canvas/TextPrimary resources.
+- PlayerIntelligenceReportWindow uses DynamicResource for theme-aware surfaces, buttons, text boxes, data grids and report accent/muted text.
+- This avoids destroying a page or losing its local filter state just to switch themes. It remains a source-level implementation until Windows runtime/theme/DPI acceptance is recorded.
