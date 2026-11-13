@@ -21,7 +21,7 @@ public partial class MainWindow
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("DEVELOPER & SUPPORT", 9, true, Teal));
         hs.Children.Add(Txt("Tester & Logs", 22, true, Ink));
-        hs.Children.Add(Txt("Run local health checks, copy a compact support log, or export a shareable support ZIP. The default report excludes player names, save names and personal file paths.", 10, false, Muted, wrap: true));
+        hs.Children.Add(Txt("Run local health checks, copy a compact support log, or review a support ZIP. Paths, credentials and standalone save filenames are redacted; inspect the preview before sharing.", 10, false, Muted, wrap: true));
         Grid.SetRow(header, 0); root.Children.Add(header);
 
         var body = new Grid();
