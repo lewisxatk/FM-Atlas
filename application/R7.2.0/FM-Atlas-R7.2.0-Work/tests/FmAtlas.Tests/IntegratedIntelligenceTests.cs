@@ -73,6 +73,39 @@ public sealed class IntegratedIntelligenceTests
     }
 
     [TestMethod]
+    public void AdvancedFilterEvaluator_InvalidNumericInputDoesNotPassNotEquals()
+    {
+        var group = new AdvancedFilterGroup(AdvancedFilterLogic.All, new[]
+        {
+            AdvancedFilterClause.ForCondition(new AdvancedFilterCondition("Age", AdvancedFilterOperator.NotEquals, "not-a-number"))
+        });
+
+        var result = AdvancedFilterEvaluator.Evaluate(
+            group,
+            new Dictionary<string, object?> { ["Age"] = 21 });
+
+        Assert.IsFalse(result.Matches);
+        Assert.AreEqual(0, result.ConditionsMatched);
+    }
+
+    [TestMethod]
+    public void AdvancedFilterEvaluator_NumericAndBooleanComparisonsRemainTyped()
+    {
+        var numeric = new AdvancedFilterGroup(AdvancedFilterLogic.All, new[]
+        {
+            AdvancedFilterClause.ForCondition(new AdvancedFilterCondition("Age", AdvancedFilterOperator.GreaterThan, "18")),
+            AdvancedFilterClause.ForCondition(new AdvancedFilterCondition("HomeGrownClub", AdvancedFilterOperator.Equals, "true"))
+        });
+
+        var result = AdvancedFilterEvaluator.Evaluate(
+            numeric,
+            new Dictionary<string, object?> { ["Age"] = 21, ["HomeGrownClub"] = true });
+
+        Assert.IsTrue(result.Matches);
+        Assert.AreEqual(2, result.ConditionsMatched);
+    }
+
+    [TestMethod]
     public void CohortPercentiles_UseMidRanksAndWithholdSmallSamples()
     {
         var observations = new[]
