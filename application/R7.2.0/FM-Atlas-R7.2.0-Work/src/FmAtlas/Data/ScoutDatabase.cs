@@ -3122,9 +3122,14 @@ public sealed class ScoutDatabase
             SELECT f.PlayerSourceId,f.FieldKey,f.NumericValue
             FROM FmsavePlayerFacts f
             INNER JOIN Players p ON p.SourceId=f.PlayerSourceId
-            INNER JOIN FmsaveImportRuns run ON run.SnapshotId=f.SnapshotId AND run.KnownBuild=1
-            WHERE f.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
-              AND f.FactGroup='positions'
+            INNER JOIN (
+                SELECT facts.PlayerSourceId,MAX(facts.SnapshotId) AS SnapshotId
+                FROM FmsavePlayerFacts facts
+                INNER JOIN FmsaveImportRuns known ON known.SnapshotId=facts.SnapshotId AND known.KnownBuild=1
+                WHERE facts.FactGroup='positions'
+                GROUP BY facts.PlayerSourceId
+            ) latest ON latest.PlayerSourceId=f.PlayerSourceId AND latest.SnapshotId=f.SnapshotId
+            WHERE f.FactGroup='positions'
               AND p.Club=$club COLLATE NOCASE
               AND f.NumericValue IS NOT NULL
               AND f.NumericValue >= 0 AND f.NumericValue <= 20;
