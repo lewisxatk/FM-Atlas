@@ -14,6 +14,7 @@ public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club
 public sealed record AtlasClubRecord(string SourceId, string Name, string? Nation, int PlayerCount, string DataSource);
 public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerName, string FieldName, string? OldValue, string? NewValue, string ChangedUtc, string ChangeSource);
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
+public sealed record AtlasDevelopmentHistoryRecord(int SnapshotId, string ImportedUtc, string? GameDate, string? GameBuild, string SourceFileName, string FieldName, double Value, double? PreviousValue, double? Delta);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
 public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value);
 public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int StaffImported, int ClubsImported, int ExtraRowsImported, IReadOnlyDictionary<string,int> TableCounts, IReadOnlyList<string> Warnings);
@@ -1449,6 +1450,86 @@ public sealed class ScoutDatabase
         var rows = new List<AtlasEditableAttribute>(); await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false)) rows.Add(new AtlasEditableAttribute(reader.GetString(0),reader.GetString(1),reader.GetDouble(2)));
         return rows;
+    }
+
+    /// <summary>
+    /// Builds a longitudinal, source-backed development history from every retained save
+    /// snapshot linked to the same persistent Atlas player identity. Missing observations
+    /// are not treated as zero and each value retains its import/build/date provenance.
+    /// </summary>
+    public async Task<List<AtlasDevelopmentHistoryRecord>> GetPlayerDevelopmentHistoryAsync(string sourceId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId))
+            throw new ArgumentException("A player source ID is required.", nameof(sourceId));
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT r.SnapshotId,r.CreatedUtc,r.GameDate,r.GameBuild,r.SourceFileName,s.RawJson
+            FROM FmsavePlayerSnapshots s
+            INNER JOIN FmsaveImportRuns r ON r.SnapshotId=s.SnapshotId
+            WHERE s.PlayerSourceId=$source
+            ORDER BY r.SnapshotId;
+            """;
+        command.Parameters.AddWithValue("$source", sourceId);
+
+        var results = new List<AtlasDevelopmentHistoryRecord>();
+        var previousValues = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            var snapshotId = reader.GetInt32(0);
+            var importedUtc = reader.GetString(1);
+            var gameDate = reader.IsDBNull(2) ? null : reader.GetString(2);
+            var gameBuild = reader.IsDBNull(3) ? null : reader.GetString(3);
+            var sourceFile = reader.GetString(4);
+            var rawJson = reader.GetString(5);
+
+            using var document = JsonDocument.Parse(rawJson);
+            var player = document.RootElement;
+            var values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+            if (GetNumeric(player, "current_ability") is double ca && double.IsFinite(ca) && ca >= 0 && ca <= 200)
+                values["Current Ability"] = ca;
+            if (GetNumeric(player, "potential_ability") is double pa && double.IsFinite(pa) && pa >= 0 && pa <= 200)
+                values["Potential Ability"] = pa;
+            if (GetNumeric(player, "age") is double age && double.IsFinite(age) && age >= 0 && age <= 100)
+                values["Age"] = age;
+
+            if (player.TryGetProperty("attributes", out var attributes) && attributes.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var pair in FlattenNumeric(attributes))
+                {
+                    if (!double.IsFinite(pair.Value) || pair.Value < 1 || pair.Value > 20)
+                        continue;
+                    values[pair.Key] = pair.Value;
+                }
+            }
+
+            foreach (var pair in values.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var hasPrevious = previousValues.TryGetValue(pair.Key, out var previous);
+                results.Add(new AtlasDevelopmentHistoryRecord(
+                    snapshotId,
+                    importedUtc,
+                    gameDate,
+                    gameBuild,
+                    sourceFile,
+                    pair.Key,
+                    pair.Value,
+                    hasPrevious ? previous : null,
+                    hasPrevious ? pair.Value - previous : null));
+            }
+
+            // A field absent from this snapshot is deliberately removed from the comparison
+            // baseline so a later reappearance cannot be presented as a consecutive trend.
+            previousValues.Clear();
+            foreach (var pair in values)
+                previousValues[pair.Key] = pair.Value;
+        }
+
+        return results;
     }
 
     public async Task<List<AtlasFactRecord>> GetFmsavePlayerFactsAsync(string sourceId, string group)
