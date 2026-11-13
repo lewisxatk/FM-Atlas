@@ -1237,19 +1237,8 @@ public partial class MainWindow : Window
             await Task.WhenAll(localRowsTask, liveRowsTask).ConfigureAwait(false);
             var localRows = await localRowsTask.ConfigureAwait(false);
             var liveRows = await liveRowsTask.ConfigureAwait(false);
-            // Do not merge people by name + club + age: homonyms and same-age players
-            // can be silently collapsed. LIVE UIDs and FMSAVE persistent IDs are different
-            // namespaces until a separately validated crosswalk exists. Deduplicate only
-            // exact source IDs; retain cross-provider rows as distinct records for now.
-            static int Completeness(PlayerRecord p) =>
-                (p.Age.HasValue ? 1 : 0) + (p.Nation is not null ? 1 : 0) + (p.Position is not null ? 1 : 0) +
-                (p.CurrentAbility.HasValue ? 1 : 0) + (p.PotentialAbility.HasValue ? 1 : 0) + (p.Value.HasValue ? 1 : 0) +
-                (p.League is not null ? 1 : 0) + (p.PreferredFoot is not null ? 1 : 0);
-            var merged = localRows.Concat(liveRows)
-                .GroupBy(p => p.SourceId, StringComparer.OrdinalIgnoreCase)
-                .Select(g => g.OrderByDescending(Completeness).First())
-                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            // Provider-specific IDs remain separate unless a verified crosswalk exists.
+            var merged = PlayerIdentityResolver.DeduplicateExactSourceIds(localRows.Concat(liveRows)).ToList();
             var label = $"Source-preserving view · {liveRows.Count:N0} live identities + {localRows.Count:N0} save/local records · cross-provider identity matching not assumed";
             return (merged, label);
         });
