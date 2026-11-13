@@ -1,0 +1,52 @@
+using FmAtlas.Services;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace FmAtlas.Tests;
+
+[TestClass]
+public sealed class CohortPercentileGroupTests
+{
+    [TestMethod]
+    public void CalculateByGroup_RanksEachPrimaryPositionIndependently()
+    {
+        var observations = new[]
+        {
+            new CohortMetricObservation("gk-1", "Keeper One", 10, "GK"),
+            new CohortMetricObservation("gk-2", "Keeper Two", 20, "GK"),
+            new CohortMetricObservation("gk-3", "Keeper Three", 30, "GK"),
+            new CohortMetricObservation("st-1", "Striker One", 10, "STC"),
+            new CohortMetricObservation("st-2", "Striker Two", 20, "STC"),
+            new CohortMetricObservation("st-3", "Striker Three", 30, "STC")
+        };
+
+        var results = CohortPercentileService.CalculateByGroup(observations, minimumSampleSize: 3);
+
+        Assert.AreEqual(6, results.Count);
+        Assert.IsTrue(results.All(x => x.SampleSize == 3));
+        Assert.IsTrue(results.All(x => x.Basis.Contains("Primary-position cohort", StringComparison.Ordinal)));
+        Assert.AreEqual(50d, results.Single(x => x.Id == "gk-2").Percentile!.Value, 0.0001);
+        Assert.AreEqual(50d, results.Single(x => x.Id == "st-2").Percentile!.Value, 0.0001);
+        Assert.AreEqual(16.6667d, results.Single(x => x.Id == "gk-1").Percentile!.Value, 0.001);
+        Assert.AreEqual(83.3333d, results.Single(x => x.Id == "st-3").Percentile!.Value, 0.001);
+    }
+
+    [TestMethod]
+    public void CalculateByGroup_ExcludesUnknownPositionAndAppliesMinimumPerGroup()
+    {
+        var observations = new[]
+        {
+            new CohortMetricObservation("gk-1", "Keeper One", 10, "GK"),
+            new CohortMetricObservation("gk-2", "Keeper Two", 20, "GK"),
+            new CohortMetricObservation("st-1", "Striker One", 10, "STC"),
+            new CohortMetricObservation("unknown", "Unclassified Player", 999, null),
+            new CohortMetricObservation("blank", "Blank Position", 999, " ")
+        };
+
+        var results = CohortPercentileService.CalculateByGroup(observations, minimumSampleSize: 3);
+
+        Assert.AreEqual(3, results.Count);
+        Assert.IsTrue(results.All(x => x.Percentile is null));
+        Assert.IsTrue(results.All(x => x.SampleSize < 3));
+        Assert.IsFalse(results.Any(x => x.Id is "unknown" or "blank"));
+    }
+}
