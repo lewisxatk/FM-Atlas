@@ -2477,7 +2477,7 @@ public sealed class ScoutDatabase
 
         return matches
             .Where(x => playerMap.TryGetValue(x.Uid, out var player) && !string.IsNullOrWhiteSpace(player.SourceId))
-            .GroupBy(x => x.Uid + "\\0" + x.Table + "\\0" + x.Period, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(x => x.Uid + "\0" + x.Table + "\0" + x.Period, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.OrderByDescending(x => x.Minutes ?? -1d).First())
             .OrderByDescending(x => x.Value)
             .Take(safeLimit)
@@ -2632,7 +2632,7 @@ public sealed class ScoutDatabase
 
         var results = matches
             .Where(x => playerMap.TryGetValue(x.Uid, out var player) && !string.IsNullOrWhiteSpace(player.SourceId))
-            .GroupBy(x => x.Uid + "\\0" + x.Period, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(x => x.Uid + "\0" + x.Period, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.OrderByDescending(x => x.Minutes).First())
             .Select(x => new AnalyticsMetricResult(
                 playerMap[x.Uid].SourceId,
