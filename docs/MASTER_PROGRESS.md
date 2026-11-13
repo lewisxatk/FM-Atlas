@@ -173,9 +173,9 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Found and corrected a privacy-copy mismatch: personal-details opt-in previously claimed to include save filenames and local absolute paths, but the final redaction policy removes those. Opt-in now covers player names and recent edit history only; credentials/tokens, absolute paths and career save filenames are always redacted. Manifest and preview declare the always-redacted categories.
 - [x] Updated Help & Tutorial privacy wording to match the Diagnostics page and support README.
 - [x] Mapped all 21 navigation destinations to their actual route handlers and implementation scope. The report distinguishes implemented, shared, narrow, informational and safety-blocked routes.
-- [x] Audited the 38-file application source tree, 9-file MSTest project, WPF shell, SQLite data layer, save bridge, live-memory adapter, field evidence, identity, role fit, search, assistant and graphics resolver.
+- [x] Audited the 41-file application source tree and 11-file MSTest project tree (10 C# test files plus csproj), WPF shell, SQLite data layer, save bridge, live-memory adapter, field evidence, identity, role fit, search, assistant and graphics resolver.
 - [x] Recorded reverse-engineering findings, external reference projects and licence cautions in `docs/STAGE1_STAGE2_AUDIT.md`.
-- [ ] Windows CI for the post-privacy-copy code changes must pass on the exact latest application source commit before this correction is marked verified.
+- [x] Windows CI passed on exact integrated Stage 1/2 source commit `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`: .NET 8 WPF Release build 0 warnings/0 errors; 64/64 MSTest cases passed.
 - [ ] Launch Tester & Logs on Windows and inspect default and opt-in ZIPs, entries, report/README, hashes and excluded data.
 - [ ] Launch all 21 routes on Windows and record smoke-test results, visual defects and data-dependent states.
 - [ ] Confirm exact Game Pass process/build and actual graphics root on the user's Windows installation; cannot be proven by static source review.
@@ -192,3 +192,17 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Manual Windows export inspection remains required.
 - Current tree inventory: 41 application source files and 11 test-project files (including the project file).
 - Earlier run `43474815591` failed compilation due malformed C# report strings introduced during the privacy-copy edit. The syntax was corrected in `d60206a`; the corrected source is included in the later pending run. Keep the failed run visible in the audit trail rather than treating it as a passing build.
+
+
+## Stage 1 + Stage 2 final Windows code checkpoint — 2026-11-13 17:49 UTC
+
+- [x] Exact tested application source: `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`.
+- [x] Windows Actions run `43476085012`: .NET 8 WPF Release build succeeded, **0 warnings / 0 errors**; MSTest **64 passed, 0 failed, 0 skipped**.
+- [x] Windows Release artifact `14062557163`; test-results artifact `14062892033`.
+- [x] The 64 executed cases cover the prior 53 checks plus support-bundle allowlist/ZIP round-trip/manifest hashes/redaction/path-traversal tests, saved-profile persistence and validation, and SQLite isolation of provisional `LIVE:` mirror records from generic local search/count, Attribute Search, Role Lab and Mass Edit.
+- [x] Extracted support-bundle composer is the exact code used by Diagnostics preview and local ZIP output. It accepts only named diagnostic/report log payloads, always redacts credentials/tokens, absolute paths and save filenames, and records SHA-256 and byte sizes for payload entries.
+- [x] Corrected Help/Settings/Mass Edit copy so it no longer describes live memory Apply/Undo as merely “off by default”: the build-wide certification gate means no in-game writes are available. `LiveWriteCertification.IsCertified` remains false.
+- [x] Completed static source audit and 21-route map. Findings are documented in `docs/STAGE1_STAGE2_AUDIT.md`; third-party reverse-engineering notes and licence boundaries are in `research/RESEARCH_REGISTER.md`.
+- [ ] Windows runtime acceptance still requires the user to launch the application, smoke-test 21 routes, test themes/DPI, generate and inspect both default and personal-details opt-in support ZIPs, validate a copied FM27 Game Pass save import and verify actual graphics paths.
+- [ ] fmsave import provenance remains incomplete: normalized save CA/PA/value/attributes and season-stat fields are not yet joined to field-level parser status/coverage during every query. The audit records this as a critical follow-on requirement.
+- Stage 3–7 remain paused pending the user's review and explicit approval. Do not start the combined product/design implementation.
