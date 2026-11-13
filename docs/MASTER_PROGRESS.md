@@ -4,8 +4,8 @@ Last updated: 2026-11-13
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
 Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`  
-Latest successful test checkpoint: `1022078bd4fd79d21f687feb721f6e6e7f4087d7`  
-Current source head at documentation update: `e109eabc34aaa5805863031324602d81033efeb1`
+Latest successful test checkpoint: `4fdd17c344a00c64754218a4770e97c33a19f5eb`  
+Current source head at documentation update: `4fdd17c344a00c64754218a4770e97c33a19f5eb`
 
 ## Verified progress
 
@@ -345,3 +345,20 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Position/league-cohort Moneyball, validated position familiarity/15-position suitability pitch, full tactical effectiveness and player buy-in models, multi-snapshot development history, graphics pack management, mod installation/restore, complete shared MONOLITH control migration and final installer/release process remain later implementation gaps. They are not marked complete merely because the initial screens exist.
 - [ ] Live Apply/Undo remains blocked by `LiveWriteCertification.IsCertified == false`. Unknown/unverified game builds remain read-only.
 - Main remains unchanged at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+
+
+## Combined Stage 3–7 intelligence and save-data checkpoint — 2026-11-13 21:22 UTC
+
+- [x] Exact tested application source: `4fdd17c344a00c64754218a4770e97c33a19f5eb` on `overhaul/monolith-full-platform`.
+- [x] Windows Actions run [`43509771993`](https://github.com/lewisxatk/FM-Atlas/actions/runs/43509771993): .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; **95/95 MSTest tests passed**, 0 failed, 0 skipped.
+- [x] Release artifact `14077394002`, 14,707,768 bytes, SHA-256 `473cc9093e3cc0fbfb508dc2741ee8329c23c1166116642254aceeac17f9dd19`; test-results artifact `14078735267`, SHA-256 `9325e6742509f04d8b96c7f56a6647832c5e30a3b3f971487c3ddaa5cb9ebebf`. Both expire 27 November 2026.
+- [x] Player profile now maps the actual 15 fmsave position ratings to a compact pitch layout. The position-key adapter handles the documented `gk, sw, dl, dc, dr, dm, ml, mc, mr, aml, amc, amr, stc, wbl, wbr` keys and aliases. Natural (18+) and Accomplished (15–17) follow fmsave's classifier; lower colour bands are explicitly Atlas-only visual groupings, not Football Manager labels or hidden formulas.
+- [x] Moneyball carries the imported primary-position label from save snapshots and FM View CSV rows. Users can rank the full returned cohort or calculate independent percentile distributions within each primary-position group; rows without a usable primary position are excluded from position-specific cohorts. Per-group sample floors still apply, and the UI states that no league-strength adjustment is inferred.
+- [x] Development now reads multiple dated snapshots for the same player source ID and displays attribute, CA, PA and age observations with deltas, build and source-file provenance. Parser-verified attributes are distinguished from fmsave-unconfirmed CA/PA/age fields.
+- [x] Development identity guard handles fmsave's documented warning that a deleted person's `unique_id` can be assigned to a new person: a changed birth date, or changed name when DOB evidence is missing, starts a new segment and suppresses false deltas. Same-name ID reuse without DOB evidence cannot be ruled out and is disclosed in the UI.
+- [x] Squad Architect reads the actual latest-save `squad_planner` table, resolves player UIDs against that same snapshot, preserves unresolved references in order and distinguishes empty slots from missing UID lists. It is gated to FM27 build `27.0.0+2486695` with a registered build, matching fmsave 0.12.3's documented reader boundary. Slots remain numbered; their tactical/category meanings are not guessed.
+- [x] Regression coverage includes 15-position key/colour mapping, position cohort separation and sample floors, primary-position propagation through indexed save and FM View data, multi-snapshot trend deltas, recycled unique-ID identity resets, and squad-planner UID/slot validation.
+- [ ] Still outstanding: age-band and league-normalised Moneyball cohorts; a verified competition-strength mapping; a formation/role-aware best-XI optimiser connected to validated player-slot eligibility; SI tactical effectiveness/player buy-in reconstruction; full graphics provider/cache/install/restore workflows; wider mod management; full shared MONOLITH control migration; final installer/publish/release process.
+- [ ] User-PC acceptance remains outstanding. When the user is ready, test only with a copy of the FM27 Game Pass career; compare player values/positions to the in-game UI, inspect the pitch map and planner slots, test Moneyball group results/CSV and multi-snapshot history, smoke-test every route/theme/DPI, verify graphics roots and review diagnostics/support exports.
+- [ ] Do not test against the user's only career save. Live Apply/Undo remains disabled; unknown or unregistered builds remain read-only.
+- Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
