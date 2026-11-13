@@ -130,3 +130,11 @@ Remaining Diagnostics work:
 - Source import commit: 6069c20abb8ab85881da1f5c10860de9b2a8e0f1.
 - Diagnostics privacy hardening code checkpoint: 6fc46757688be84af497e13c3d27e40877da3f92.
 - This audit is static source inspection. It is not a runtime acceptance report.
+
+## Subsequent additions after the initial static audit — 2026-11-13
+
+- Added `tests/FmAtlas.Tests/`, a Windows .NET 8 MSTest project referencing the application project.
+- Added deterministic tests for the Diagnostics redaction self-check, bearer/API-key/password/path/save-name redaction, line-break cleanup, output-size cap and ordinary text preservation.
+- Added the test project to `FmAtlas.sln` and extended the Windows CI workflow to execute `dotnet test` and upload TRX results.
+- NuGet references are pinned to Microsoft.NET.Test.Sdk 18.11.0 and MSTest 4.5.2. The NuGet Gallery lists these as compatible with .NET 8; package versions are deliberately pinned rather than floating. See the official package pages: https://www.nuget.org/packages/Microsoft.NET.Test.Sdk/18.11.0 and https://www.nuget.org/packages/MSTest/4.5.2.
+- A separate local pattern-level check passed all seven sensitive-value cases. The C# tests and WPF solution have not yet run on Windows.
