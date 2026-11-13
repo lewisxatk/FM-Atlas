@@ -33,21 +33,22 @@ public static class FieldEvidencePolicy
 
         FieldEvidenceLevel level;
         string label;
-        // Explicitly fail closed when a status contains "unverified", even if it
-        // also contains words such as "profile matched" or "provisional".
+        // Accept only explicit, canonical verification states. Any mixed or extended
+        // "verified-..." status is ambiguous and must fail closed rather than being
+        // promoted to either verified or a harmless-looking provisional category.
+        var canonicalVerified = normalized is "verified"
+            or "fieldverified"
+            or "verifieduseruiwitnessreadback"
+            or "fieldverifieduseruiwitnessreadback";
         if (normalized.Contains("unverified", StringComparison.Ordinal)
             || normalized.Contains("unknown", StringComparison.Ordinal)
-            || normalized.Length == 0)
+            || normalized.Length == 0
+            || (normalized.Contains("verified", StringComparison.Ordinal) && !canonicalVerified))
         {
             level = FieldEvidenceLevel.Unverified;
             label = "Unverified";
         }
-        // Accept only explicit, canonical verification states. Prefix matches such as
-        // "Verified-Provisional" or "Verified-Needs-Witness" must fail closed.
-        else if (normalized is "verified"
-            or "fieldverified"
-            or "verifieduseruiwitnessreadback"
-            or "fieldverifieduseruiwitnessreadback")
+        else if (canonicalVerified)
         {
             level = FieldEvidenceLevel.FieldVerified;
             label = "Field verified";
