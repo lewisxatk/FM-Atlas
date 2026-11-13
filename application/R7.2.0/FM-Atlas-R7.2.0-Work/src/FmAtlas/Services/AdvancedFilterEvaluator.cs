@@ -202,20 +202,23 @@ public static class AdvancedFilterEvaluator
         switch (condition.Operator)
         {
             case AdvancedFilterOperator.Equals:
-                result = Compare(actualText, expected) == 0;
+                result = TryCompare(raw, expected, out var equalsComparison) && equalsComparison == 0;
                 break;
             case AdvancedFilterOperator.NotEquals:
-                result = Compare(actualText, expected) != 0;
+                // An invalid value never turns into a successful "not equals" result.
+                result = TryCompare(raw, expected, out var notEqualsComparison) && notEqualsComparison != 0;
                 break;
             case AdvancedFilterOperator.GreaterThan:
-                result = Compare(actualText, expected) > 0;
+                result = TryCompare(raw, expected, out var greaterComparison) && greaterComparison > 0;
                 break;
             case AdvancedFilterOperator.LessThan:
-                result = Compare(actualText, expected) < 0;
+                result = TryCompare(raw, expected, out var lessComparison) && lessComparison < 0;
                 break;
             case AdvancedFilterOperator.Between:
                 var high = condition.UpperValue ?? string.Empty;
-                result = Compare(actualText, expected) >= 0 && Compare(actualText, high) <= 0;
+                result = TryCompare(raw, expected, out var lowerComparison)
+                    && TryCompare(raw, high, out var upperComparison)
+                    && lowerComparison >= 0 && upperComparison <= 0;
                 break;
             case AdvancedFilterOperator.Contains:
                 result = actualText.Contains(expected, StringComparison.OrdinalIgnoreCase);
@@ -233,16 +236,38 @@ public static class AdvancedFilterEvaluator
         return result;
     }
 
-    private static int Compare(string left, string right)
+    private static bool TryCompare(object actual, string expected, out int comparison)
     {
-        if (TryNumber(left, out var leftNumber) && TryNumber(right, out var rightNumber))
-            return leftNumber.CompareTo(rightNumber);
+        comparison = 0;
+        var text = Convert.ToString(actual, CultureInfo.InvariantCulture) ?? string.Empty;
 
-        if (DateTimeOffset.TryParse(left, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var leftDate)
-            && DateTimeOffset.TryParse(right, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var rightDate))
-            return leftDate.CompareTo(rightDate);
+        if (actual is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal)
+        {
+            if (!TryNumber(text, out var actualNumber) || !TryNumber(expected, out var expectedNumber))
+                return false;
+            comparison = actualNumber.CompareTo(expectedNumber);
+            return true;
+        }
 
-        return string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
+        if (actual is bool actualBoolean)
+        {
+            if (!bool.TryParse(expected, out var expectedBoolean))
+                return false;
+            comparison = actualBoolean.CompareTo(expectedBoolean);
+            return true;
+        }
+
+        if (actual is DateTime or DateTimeOffset)
+        {
+            if (!DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var actualDate)
+                || !DateTimeOffset.TryParse(expected, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var expectedDate))
+                return false;
+            comparison = actualDate.CompareTo(expectedDate);
+            return true;
+        }
+
+        comparison = string.Compare(text, expected, StringComparison.OrdinalIgnoreCase);
+        return true;
     }
 
     private static bool TryNumber(string value, out decimal number)
