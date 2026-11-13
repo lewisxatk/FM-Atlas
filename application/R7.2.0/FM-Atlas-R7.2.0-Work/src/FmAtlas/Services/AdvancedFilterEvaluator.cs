@@ -236,9 +236,10 @@ public static class AdvancedFilterEvaluator
         return result;
     }
 
-    private static bool TryCompare(object actual, string expected, out int comparison)
+    private static bool TryCompare(object? actual, string expected, out int comparison)
     {
         comparison = 0;
+        if (actual is null) return false;
         var text = Convert.ToString(actual, CultureInfo.InvariantCulture) ?? string.Empty;
 
         if (actual is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal)
