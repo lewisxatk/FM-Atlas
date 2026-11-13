@@ -381,7 +381,7 @@ public partial class MainWindow : Window
         "Role Lab" => "Transparent IP/OOP role-fit estimates from imported player attributes",
         "Tester & Logs" => "System checks · diagnostic export · application and build logs",
         "Shortlists" => "Manage your local recruitment lists",
-        "Live Editor" => "Editing boundary · live game writing is not enabled in this build",
+        "Live Editor" => "Local database editor · live memory writes blocked pending field certification",
         "Edit History" => "Local FM Atlas data changes and audit trail",
         "Atlas Assistant" => "Search your local career snapshot using natural-language-style filters",
         "Settings" => "Data sources · save bridge · local storage · diagnostics",
@@ -1380,16 +1380,16 @@ public partial class MainWindow : Window
         var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var header = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 10)); var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("EDITOR WORKSPACE", 9, true, Teal)); hs.Children.Add(Txt("Editor Studio", 23, true, Ink));
-        hs.Children.Add(Txt(_editorEnabled ? "Atlas Editor · ON for this session" : "Atlas Editor · OFF by default", 11, true, _editorEnabled ? Brush("#2D8A63") : Brush("#94652A")));
+        hs.Children.Add(Txt(_editorEnabled ? "Atlas Local Editor · ON for this session" : "Atlas Local Editor · OFF by default", 11, true, _editorEnabled ? Brush("#2D8A63") : Brush("#94652A")));
         hs.Children.Add(_editorEnabled
             ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
             : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
         var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
-        alert.Child = Txt("Atlas local edits are separate from Football Manager. The guarded live-write path currently supports CA, PA and 47 visible standard player attributes only. Five hidden attribute offsets remain blocked pending stronger FM27 evidence. It requires an exact supported Steam/Game Pass module profile, the same career-load counter, fresh UID/name/current-byte preflight, explicit preview confirmation and read-back. Staff, club, contracts, transfers, personality and position edits remain unsupported. Back up your career and test only on a copied offline single-player save.", 10, true, Brush("#E6C477"), wrap: true);
+        alert.Child = Txt("LOCAL ATLAS EDITS ONLY. Live Football Manager memory Apply and Undo are disabled by the build-wide certification gate. An executable/module profile match is not proof that individual field offsets and encodings are correct. Read-only inspection and preview work can continue; live writes will not be enabled until field-level witnesses and disposable offline career Apply/read-back/Undo tests have passed.", 10, true, Brush("#E6C477"), wrap: true);
         hs.Children.Add(alert);
         if (!_editorEnabled)
         {
-            hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas edits and the separately confirmed live-edit path for eligible FM27 player records. The switch resets to OFF when FM Atlas closes; live writes still require their own preview and confirmation.", 11, false, Muted, wrap: true));
+            hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas database edits. This switch does not enable or unlock writes to the running Football Manager game.", 11, false, Muted, wrap: true));
             Grid.SetRow(header, 0); root.Children.Add(header); return root;
         }
         if (_selectedPlayer is null)
@@ -1422,7 +1422,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex) { AtlasLog.Error("Local CA/PA edit failed.", ex); MessageBox.Show(this, ex.Message, "Local editor", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }));
-        if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+        if (LiveWriteCertification.IsCertified && _selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
             abilityRow.Children.Add(SoftButton("Apply CA / PA to live FM", async (_, _) =>
             {
@@ -1462,7 +1462,7 @@ public partial class MainWindow : Window
         }
         controls.Children.Add(abilityRow);
         controls.Children.Add(Txt("PLAYER ATTRIBUTES", 9, true, Teal));
-        controls.Children.Add(Txt("Edit imported values. Local saves change Atlas only. Live saves are available for current LIVE:UID records and require a separate safety confirmation.", 9, false, Muted));
+        controls.Children.Add(Txt("Edit imported values in the FM Atlas database only. Saving here does not change the running Football Manager career. Live memory writes are disabled pending independent field certification.", 9, false, Muted));
         DockPanel.SetDock(controls, Dock.Top); dock.Children.Add(controls);
 
         var rows = await RunDatabaseAsync(() => _database.GetPlayerAttributeRowsAsync(_selectedPlayer.SourceId));
@@ -1489,7 +1489,7 @@ public partial class MainWindow : Window
             catch (Exception ex) { AtlasLog.Error("Local player attribute edit failed.", ex); MessageBox.Show(this, ex.Message, "Local editor", MessageBoxButton.OK, MessageBoxImage.Warning); }
         });
         saveAttributes.Margin = new Thickness(0, 9, 0, 0); DockPanel.SetDock(saveAttributes, Dock.Bottom); dock.Children.Add(saveAttributes);
-        if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+        if (LiveWriteCertification.IsCertified && _selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
             var liveSaveAttributes = SoftButton("Apply changed attributes to live FM", async (_, _) =>
             {
@@ -1548,7 +1548,7 @@ public partial class MainWindow : Window
         var top = new StackPanel();
         top.Children.Add(Txt("AUDIT TRAIL", 9, true, Teal));
         top.Children.Add(Txt("Edit history & guarded undo", 20, true, Ink));
-        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM entries can request a fresh, guarded inverse write, provided the same career, player and exact game build are still loaded.", 10, false, Muted, wrap: true));
+        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Any legacy live-memory history entries remain blocked from inverse writes until the build-wide certification gate is formally passed.", 10, false, Muted, wrap: true));
         var dg = CreateGrid(); dg.SelectionMode = DataGridSelectionMode.Single;
         dg.Columns.Add(Column("ID", "Id", .35)); dg.Columns.Add(Column("PLAYER", "PlayerName", 1.1)); dg.Columns.Add(Column("FIELD", "FieldName", 1)); dg.Columns.Add(Column("OLD", "OldValue", .6)); dg.Columns.Add(Column("NEW", "NewValue", .6)); dg.Columns.Add(Column("CHANGED", "ChangedUtc", 1)); dg.Columns.Add(Column("SOURCE", "ChangeSource", 1));
         dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
@@ -1935,7 +1935,7 @@ public partial class MainWindow : Window
         => new() { Background = Brush("#F8FCFA"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(radius), Padding = new Thickness(15), Margin = margin ?? new Thickness(0), Child = child };
 
     private static TextBlock Txt(string text, double size, bool bold, Brush foreground, bool wrap = false)
-        => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
+        => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily(MonolithTheme.FontFamilyName) };
 
     private static TextBox Input(string placeholder)
         => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#FBFDFF"), Foreground = Brush("#1A3851"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 12 };
