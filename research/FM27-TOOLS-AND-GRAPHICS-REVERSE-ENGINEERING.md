@@ -56,8 +56,18 @@ We should learn from their architecture and safeguards, not blindly transplant o
 Additional useful references:
 - fmsave: https://github.com/rhiever/fmsave — read-only save parser; MIT (verify current LICENSE).
 - FM View Exporter: https://github.com/ElectroHugin/FM-View-Exporter — view export workflow; verify current FM27 compatibility.
+
+### FM View Exporter
+- Repository: https://github.com/ElectroHugin/FM-View-Exporter
+- GPLv3 BepInEx plugin for FM27 Windows/Steam. Exports the currently displayed squad, player database or shortlist view to CSV and HTML with F9.
+- It scrolls through the list because FM only fills rows currently on screen; a squad can finish in seconds, but large player searches can take minutes and FM caps a search view at 10,000 results.
+- It exports exactly the visible FM view: hidden/unscouted values remain hidden. This is a UI-level export, not a hidden-stat memory reader.
+- Research value: a user-friendly import fallback, repeatable CSV fixtures and a route to compare Atlas's parser against FM's displayed columns. GPLv3; do not copy code without licence decision.
+
 - FM Dossier: https://www.fmdossier.dev/how-it-works — proprietary live-memory scouting reference.
 - FMRTE docs: https://docs.fmrte.com/ — feature/UX reference, not source-code evidence.
+- FMRTE 27 product page: https://www.fmrte.com/ — current feature benchmark includes live player/club/competition editing, quick search, player stats, transfer terms and undo. Its docs say scouting/search is free while saving edits requires a licence. This reveals advertised features, not its internal implementation.
+
 
 ## 2. How fast live-memory tools find hidden attributes
 
