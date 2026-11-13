@@ -122,3 +122,12 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] The dedicated SQLite test was independently seen passing at the preceding source commit `e109eab` (run `43470026732`): 41/41, 0 warnings/errors.
 - [ ] Application UI launch, route-by-route smoke tests, theme/DPI visual tests, actual support ZIP inspection, Game Pass process integration and save acceptance remain outstanding.
 - Current branch head at this entry: `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`; `main` remains at `2051bbee042fb8e7203b7855e833e391ccee9ecb`, with the overhaul branch 163 commits ahead and 0 behind at verification.
+
+## Role Lab explainability UI checkpoint — 2026-11-13
+
+- [x] Added visible per-role weighted-attribute chips to `MainWindow.RoleLab.cs`; every selected profile now displays its named inputs and exact Atlas weight factors, sorted by weight.
+- [x] Added a plain-language method note: only finite FM attribute values in the 1–20 range contribute; the score is a weighted mean of available inputs; at least 50% of requested attributes must be present; missing values are not treated as zero.
+- [x] Kept the distinction from FM's proprietary internal role formula explicit. These are Atlas model weights, not claimed SI weights.
+- [ ] Windows build/test and WPF visual acceptance for this UI change remain pending.
+- Source change: `4b4ddfcb7299a0fad5dc2ea60658d895a48127df`; automated Windows run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43471187844.
+- The last fully verified code checkpoint remains `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`: Windows .NET 8 Release build, 0 warnings/errors and 47/47 MSTest passed.
