@@ -342,10 +342,21 @@ The following source additions are present on overhaul/monolith-full-platform; t
 | Graphics & Skins | Read-only config.xml indexer with bounded traversal, duplicate/missing/path rejection reporting | User's configured Game Pass graphics root, pack precedence, large-pack cache and FaceDrop provider need validation; skin install/restore not implemented |
 | Modding Workbench | Research catalogue with licence and compatibility boundaries | Static research only; no unknown third-party EXE/DLL execution or automatic installation |
 
-The latest completed Windows test checkpoint remains commit 4c588147 with 81/81 tests, 0 warnings and 0 errors. Subsequent Moneyball query and integration-test changes are not marked verified until the latest-head Windows workflow completes.
+Superseded: the latest-head combined Stage 3–7 Windows checkpoint is commit `c51f80574d9131cb9caa1b25a44541ae370df553`, run `43486407442`, with 87/87 tests and 0 warnings/errors. The current build/test evidence is code-level only; WPF runtime and user-save acceptance remain outstanding.
 
 ## Scouting Matrix notes update — 2026-11-13
 
 - Scouting Matrix now exposes an editable notes field for the selected saved shortlist candidate, capped at 2,000 characters.
 - Persistence reuses the shortlist UPSERT, which changes only Notes for an existing source ID/shortlist pair and preserves AddedUtc.
-- A disposable SQLite integration test covers create/update/clear and identity preservation. The latest-head Windows workflow is pending; do not mark the UI/test accepted until it passes and the WPF screen is manually inspected.
+- A disposable SQLite integration test covers create/update/clear and identity preservation. The test passed in Windows run `43486407442` (87/87); visual interaction still requires manual WPF inspection.
+
+
+## Superseding combined Stage 3–7 code verification — 2026-11-13
+
+- Exact tested source: `c51f80574d9131cb9caa1b25a44541ae370df553`; Windows run [43486407442](https://github.com/lewisxatk/FM-Atlas/actions/runs/43486407442).
+- Release build: **0 warnings / 0 errors**. Automated tests: **87 passed, 0 failed, 0 skipped**. Windows Release artifact `14066379269`; TRX artifact `14067926212`.
+- Moneyball source corrections verified by the run: season-only cohorts, field-specific indexed-stat coverage, legacy season JSON fallback, latest FM View CSV fallback when no usable save observations exist, minimum-minutes enforcement for raw and per-90 results, per-90 disabled for metrics marked as rates/percentages, up to 50,000 observation return limit, tie-aware O(n log n) cohort percentiles and provenance-rich CSV export.
+- Scouting Matrix note create/update/clear persistence verified by isolated SQLite test; AddedUtc is preserved when notes change.
+- MONOLITH initial resources and active navigation now use semantic orange tokens; dashboard legacy product label removed.
+- This is an automated build/test checkpoint, not WPF manual acceptance. The app still needs to be launched and inspected at supported sizes/DPI; save parsing, source provenance completeness, position suitability, tactical proprietary metrics, Game Pass fingerprint compatibility and configured graphics roots must be validated against a COPY of the user's actual FM27 environment.
+- No live-memory Apply/Undo is certified or enabled. Unknown builds remain read-only.
