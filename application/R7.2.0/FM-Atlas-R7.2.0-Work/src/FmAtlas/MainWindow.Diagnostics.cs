@@ -250,70 +250,25 @@ public partial class MainWindow
         try
         {
             var report = await CreateDiagnosticsReportAsync(includePersonal, bundleId);
-            var files = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["support-report.txt"] = new UTF8Encoding(false).GetBytes(report),
-                ["README.txt"] = new UTF8Encoding(false).GetBytes(
-                    "FM Atlas support bundle\\r\\n" +
-                    "This ZIP contains diagnostic text and redacted application logs only. It does not contain your career save, FM installation files, SQLite database or arbitrary personal files.\\r\\n" +
-                    (includePersonal ? "You opted in to include player names and recent edit history. Absolute paths and career save filenames remain redacted. Review before sharing.\\r\\n" : "Player names and edit history were excluded. Absolute paths and career save filenames are always redacted.\\r\\n") +
-                    "No files are uploaded automatically. You choose whether and how to share this ZIP.\\r\\n")
-            };
-
-            var logFiles = AtlasLog.GetLogFiles();
+            var logs = new List<(string Name, string Text)>();
             var logIndex = 0;
-            foreach (var logPath in logFiles)
+            foreach (var logPath in AtlasLog.GetLogFiles())
             {
-                var logName = logIndex++ == 0 ? "recent-application-log.txt" : $"application-logs/fm-atlas.{logIndex - 1}.log";
+                var logName = logIndex++ == 0
+                    ? "recent-application-log.txt"
+                    : $"application-logs/fm-atlas.{logIndex - 1}.log";
                 var text = AtlasLog.ReadFileForSupport(logPath, 60000);
-                if (string.IsNullOrWhiteSpace(text)) continue;
-                files[logName] = new UTF8Encoding(false).GetBytes(text);
+                if (!string.IsNullOrWhiteSpace(text))
+                    logs.Add((logName, text));
             }
-            if (!files.ContainsKey("recent-application-log.txt"))
-                files["recent-application-log.txt"] = new UTF8Encoding(false).GetBytes("No application log is available.");
 
-            var manifestEntries = files.Select(pair => new
-            {
-                name = pair.Key,
-                sizeBytes = pair.Value.LongLength,
-                sha256 = Convert.ToHexString(SHA256.HashData(pair.Value))
-            }).ToArray();
-            var manifest = new
-            {
-                schema = 1,
+            var package = SupportBundleComposer.Compose(
                 bundleId,
-                generatedUtc = DateTime.UtcNow,
-                appVersion = typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown",
-                personalDetailsIncluded = includePersonal,
-                automaticallyUploaded = false,
-                excludedByDesign = new[] { "career saves", "SQLite database", "FM installation files", "arbitrary user files" },
-                alwaysRedacted = new[] { "credentials and tokens", "absolute file paths", "career save filenames" },
-                files = manifestEntries
-            };
-            files["manifest.json"] = new UTF8Encoding(false).GetBytes(JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
-
-            var preview = new StringBuilder();
-            preview.AppendLine("SUPPORT BUNDLE CONTENTS");
-            preview.AppendLine("Bundle ID: " + bundleId);
-            preview.AppendLine("Player names/edit history: " + (includePersonal ? "included because you opted in" : "excluded"));
-            preview.AppendLine("Absolute paths and career save filenames: always redacted");
-            preview.AppendLine();
-            preview.AppendLine("Files to be exported:");
-            foreach (var item in manifestEntries) preview.AppendLine($"• {item.name} · {item.sizeBytes:N0} bytes · SHA-256 {item.sha256}");
-            preview.AppendLine("• manifest.json");
-            preview.AppendLine();
-            preview.AppendLine("Excluded: career save files, FM installation files, SQLite database, arbitrary user files, credentials and tokens.");
-            preview.AppendLine("No automatic upload. The ZIP is saved locally and only shared if you choose.");
-            preview.AppendLine();
-            preview.AppendLine("DIAGNOSTIC REPORT PREVIEW");
-            preview.AppendLine(report);
-            foreach (var logFile in files.Where(x => x.Key.EndsWith(".log", StringComparison.OrdinalIgnoreCase)))
-            {
-                preview.AppendLine();
-                preview.AppendLine("LOG CONTENT PREVIEW · " + logFile.Key);
-                var logText = Encoding.UTF8.GetString(logFile.Value);
-                preview.AppendLine(logText.Length > 5000 ? logText[^5000..] : logText);
-            }
+                typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown",
+                includePersonal,
+                report,
+                logs);
+            var preview = package.PreviewText;
 
             var previewWindow = new Window
             {
@@ -335,7 +290,7 @@ public partial class MainWindow
             layout.Children.Add(title);
             var previewText = new TextBox
             {
-                Text = preview.ToString(),
+                Text = preview,
                 IsReadOnly = true,
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.NoWrap,
@@ -373,16 +328,9 @@ public partial class MainWindow
             var tempPath = dialog.FileName + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
-                await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
-                {
-                    using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
-                    foreach (var pair in files)
-                    {
-                        var entry = archive.CreateEntry(pair.Key, CompressionLevel.Optimal);
-                        await using var entryStream = entry.Open();
-                        await entryStream.WriteAsync(pair.Value);
-                    }
-                }
+                var archiveBytes = package.CreateZipBytes();
+                await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    await stream.WriteAsync(archiveBytes);
                 File.Move(tempPath, dialog.FileName, true);
             }
             catch
