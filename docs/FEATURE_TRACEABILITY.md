@@ -339,7 +339,7 @@ The following source additions are present on overhaul/monolith-full-platform; t
 | Match Lab | Retrieve stored aggregate performance facts for a selected player | No verified event timeline, shot map or match outcome model |
 | Development | Display current facts, dated multi-snapshot attribute/CA/PA/age history, source/build provenance and identity-reset markers | CA/PA/age and birth-date evidence are fmsave-unconfirmed; same-name ID reuse without DOB evidence cannot be ruled out; runtime save acceptance required |
 | Save Inspector | Read-only last-import summary, retained table counts and field registry | Real copied-save parser coverage and validation report need acceptance |
-| Squad Architect | Existing squad metrics plus read-only latest-save squad_planner slots with same-snapshot player UID resolution | Slot meanings remain unconfirmed; planner reader is gated to FM27 build 27.0.0+2486695 with registered build; no best-XI optimiser integration yet |
+| Squad Architect | Four formation templates, global one-player-per-slot best-XI optimiser, transparent role-fit × position-rating composite, club-scoped candidates and read-only squad_planner slots | Atlas estimate only; no fitness/injury/availability/tactical-duty/hidden SI logic; planner slot meanings remain unconfirmed and reader is gated to FM27 build 27.0.0+2486695 |
 | Graphics & Skins | Read-only config.xml indexer with bounded traversal, duplicate/missing/path rejection reporting | User's configured Game Pass graphics root, pack precedence, large-pack cache and FaceDrop provider need validation; skin install/restore not implemented |
 | Modding Workbench | Research catalogue with licence and compatibility boundaries | Static research only; no unknown third-party EXE/DLL execution or automatic installation |
 
@@ -374,3 +374,13 @@ Superseded: latest code-level Windows verification is source commit `4fdd17c344a
 - Squad Architect displays raw numbered squad-planner slots only for the documented FM27 build gate, resolves UIDs against the same imported snapshot, preserves unresolved references and does not infer slot meanings.
 - This is build and automated-test evidence only. No WPF launch, visual acceptance, copied-save import, Game Pass compatibility acceptance or live-memory write has been performed.
 - Live Apply/Undo remains disabled. Unknown/unregistered builds remain read-only.
+
+
+## Latest Squad Architect verification — 2026-11-13 21:37 UTC
+
+- Tested application source: `5ff275d534245880242a7280f95837f6ee3a3b0d`; Windows run [43511883115](https://github.com/lewisxatk/FM-Atlas/actions/runs/43511883115).
+- .NET 8 WPF Release build: **0 warnings / 0 errors**. MSTest: **103 passed, 0 failed, 0 skipped**.
+- Four formations are available. Slot eligibility requires a role-fit estimate plus a registered-save position rating; the Hungarian/global assignment uses each player at most once.
+- Atlas composite formula is documented in UI and service code; it is not represented as FM's internal calculation.
+- Latest registered snapshot is required for position eligibility. If the newest import is unregistered, no old position data is silently substituted.
+- WPF runtime, copied-save, Game Pass and visual acceptance remain outstanding. Live Apply/Undo remains disabled.
