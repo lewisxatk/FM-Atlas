@@ -92,4 +92,60 @@ public sealed class ScoutDatabaseAttributeSearchIntegrationTests
         command.Parameters.AddWithValue("$value", value);
         await command.ExecuteNonQueryAsync();
     }
+    [TestMethod]
+    public async Task GetPlayerAttributeMapsAsync_BatchesRequestedPlayersAndKeepsCategoryLabels()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.AttributeMaps-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+        try
+        {
+            var database = new ScoutDatabase(databasePath, pooling: false);
+            await database.InitialiseAsync();
+            await using (var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder { DataSource = databasePath, Pooling = false }.ToString()))
+            {
+                await connection.OpenAsync();
+                await InsertPlayer(connection, "LOCAL:MAP-1", "Map One", "Map FC");
+                await InsertPlayer(connection, "LOCAL:MAP-2", "Map Two", "Map FC");
+                await InsertAttribute(connection, "LOCAL:MAP-1", "Finishing", 18);
+                await InsertAttribute(connection, "LOCAL:MAP-1", "Composure", 16);
+                await InsertAttribute(connection, "LOCAL:MAP-2", "Passing", 17);
+            }
+
+            var maps = await database.GetPlayerAttributeMapsAsync(
+                new[] { "LOCAL:MAP-1", "LOCAL:MAP-2", "LOCAL:MISSING", "LOCAL:MAP-1" });
+
+            Assert.AreEqual(3, maps.Count);
+            Assert.AreEqual(18d, maps["LOCAL:MAP-1"]["Finishing"], 0.0001);
+            Assert.AreEqual(16d, maps["LOCAL:MAP-1"]["Composure"], 0.0001);
+            Assert.AreEqual(17d, maps["LOCAL:MAP-2"]["Passing"], 0.0001);
+            Assert.AreEqual(0, maps["LOCAL:MISSING"].Count);
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task GetPlayerAttributeMapsAsync_RejectsMoreThanOneThousandSourceIds()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.AttributeMaps-Limit-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var database = new ScoutDatabase(Path.Combine(folder, "scouting.db"), pooling: false);
+            await database.InitialiseAsync();
+            var ids = Enumerable.Range(0, 1001).Select(x => "LOCAL:" + x).ToArray();
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => database.GetPlayerAttributeMapsAsync(ids));
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
 }

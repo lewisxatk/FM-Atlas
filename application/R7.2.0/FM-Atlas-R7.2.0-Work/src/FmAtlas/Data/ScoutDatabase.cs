@@ -625,6 +625,60 @@ public sealed class ScoutDatabase
         return result;
     }
 
+
+    public async Task<Dictionary<string, Dictionary<string, double>>> GetPlayerAttributeMapsAsync(
+        IReadOnlyCollection<string> sourceIds)
+    {
+        ArgumentNullException.ThrowIfNull(sourceIds);
+        var ids = sourceIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (ids.Length > 1000)
+            throw new ArgumentOutOfRangeException(nameof(sourceIds), "Load at most 1,000 player attribute maps in one batch.");
+
+        var result = ids.ToDictionary(
+            id => id,
+            _ => new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
+        if (ids.Length == 0)
+            return result;
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        var parameters = ids.Select((id, index) => "$id" + index.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        command.CommandText = """
+            SELECT SourceId,
+                CASE
+                    WHEN Category LIKE 'attributes:%'
+                        THEN substr(Category,instr(Category,':')+1)||' · '||AttributeName
+                    WHEN Category='personality'
+                        THEN 'Personality · '||AttributeName
+                    ELSE AttributeName
+                END,
+                AttributeValue
+            FROM PlayerAttributes
+            WHERE SourceId IN (
+            """ + string.Join(",", parameters) + ") ORDER BY SourceId,Category,AttributeName;";
+        for (var index = 0; index < ids.Length; index++)
+            command.Parameters.AddWithValue(parameters[index], ids[index]);
+
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            var sourceId = reader.GetString(0);
+            if (!result.TryGetValue(sourceId, out var values))
+                continue;
+            var value = reader.GetDouble(2);
+            if (double.IsFinite(value))
+                values[reader.GetString(1)] = value;
+        }
+
+        return result;
+    }
+
     public async Task<int> ImportPlayersCsvAsync(string path)
     {
         var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8);

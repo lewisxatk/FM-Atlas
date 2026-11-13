@@ -14,6 +14,7 @@ namespace FmAtlas;
 public partial class MainWindow
 {
     private sealed record DnaAttributeRow(string Category, string Attribute, double Value);
+    private sealed record PlayerSimilarityRow(int Rank, string Name, string? Club, string? Position, double Similarity, int SharedAttributes, string Coverage, string Basis);
     private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, int? Age, string League, string Period, string Direction, double Value, double? Percentile, int SampleSize, string Basis);
     private sealed record RecruitmentCandidateRow(string SourceId, string Name, string? Club, string? Position, int? Age, string Value, double? AtlasFit, string Coverage);
     private sealed record TacticalCandidateRow(int Rank, string Name, string Club, string Position, double Score, string Coverage);
@@ -27,6 +28,9 @@ public partial class MainWindow
         DataGrid results = null!;
         TextBlock detailStatus = null!;
         DataGrid attributes = null!;
+        DataGrid similarGrid = null!;
+        Button findSimilarButton = null!;
+        List<PlayerRecord> currentSearchPlayers = new();
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PLAYER INTELLIGENCE", 9, true, Teal));
@@ -38,7 +42,8 @@ public partial class MainWindow
         var search = Input("Search player name, club or nation"); search.Width = 300;
         find = PrimaryButton("Find players", async (_, _) => await FindPlayersAsync());
         var compare = SoftButton("Compare selected", async (_, _) => await CompareSelectedAsync());
-        searchRow.Children.Add(search); searchRow.Children.Add(find); searchRow.Children.Add(compare);
+        findSimilarButton = SoftButton("Find similar players", async (_, _) => await FindSimilarAsync());
+        searchRow.Children.Add(search); searchRow.Children.Add(find); searchRow.Children.Add(compare); searchRow.Children.Add(findSimilarButton);
         root.Children.Add(Card(searchRow, 13, new Thickness(0, 0, 0, 10)));
 
         results = CreateGrid();
@@ -63,6 +68,22 @@ public partial class MainWindow
         detail.Children.Add(attributes);
         root.Children.Add(Card(detail, 14));
 
+        var similarityPanel = new StackPanel();
+        similarityPanel.Children.Add(Txt("SIMILAR PLAYER FINDER", 9, true, Teal));
+        similarityPanel.Children.Add(Txt("Closest attribute profiles", 18, true, Ink));
+        similarityPanel.Children.Add(Txt("Ranks only the players in your current search results using shared, valid 1–20 attributes. Similarity is an Atlas comparison, not FM's internal rating; names, age, club, CA/PA and position are not score inputs.", 9, false, Muted, wrap: true));
+        similarGrid = CreateGrid();
+        similarGrid.Columns.Add(Column("RANK", nameof(PlayerSimilarityRow.Rank), .35));
+        similarGrid.Columns.Add(Column("PLAYER", nameof(PlayerSimilarityRow.Name), 1.2));
+        similarGrid.Columns.Add(Column("CLUB", nameof(PlayerSimilarityRow.Club), .8));
+        similarGrid.Columns.Add(Column("POSITION", nameof(PlayerSimilarityRow.Position), .7));
+        similarGrid.Columns.Add(Column("SIMILARITY", nameof(PlayerSimilarityRow.Similarity), .65));
+        similarGrid.Columns.Add(Column("SHARED", nameof(PlayerSimilarityRow.SharedAttributes), .45));
+        similarGrid.Columns.Add(Column("COVERAGE", nameof(PlayerSimilarityRow.Coverage), .7));
+        similarGrid.Columns.Add(Column("BASIS", nameof(PlayerSimilarityRow.Basis), 1.4));
+        similarityPanel.Children.Add(similarGrid);
+        root.Children.Add(Card(similarityPanel, 14));
+
         async Task FindPlayersAsync()
         {
             find.IsEnabled = false;
@@ -71,8 +92,10 @@ public partial class MainWindow
             {
                 var players = await RunDatabaseAsync(() => _database.SearchAsync(search.Text.Trim(), null, null,
                     null, null, null, null, limit: 250));
+                currentSearchPlayers = players;
                 results.ItemsSource = players;
-                detailStatus.Text = $"{players.Count:N0} save/local records found. Live identity mirrors remain separate from the generic save search.";
+                similarGrid.ItemsSource = null;
+                detailStatus.Text = $"{players.Count:N0} save/local records found. Similarity search will compare only this result set; live identity mirrors remain separate.";
             }
             catch (Exception ex)
             {
@@ -80,6 +103,84 @@ public partial class MainWindow
                 detailStatus.Text = "Player search failed: " + ex.Message;
             }
             finally { find.IsEnabled = true; }
+        }
+
+        async Task FindSimilarAsync()
+        {
+            var target = results.SelectedItem as PlayerRecord
+                ?? results.SelectedItems.Cast<PlayerRecord>().FirstOrDefault();
+            if (target is null)
+            {
+                detailStatus.Text = "Select one target player before finding similar players.";
+                return;
+            }
+
+            findSimilarButton.IsEnabled = false;
+            similarGrid.ItemsSource = null;
+            detailStatus.Text = $"Comparing source-backed attributes for {target.Name}…";
+            try
+            {
+                var targetAttributes = await RunDatabaseAsync(() => _database.GetPlayerAttributesAsync(target.SourceId));
+                if (targetAttributes.Count == 0)
+                {
+                    detailStatus.Text = $"{target.Name} has no stored player attributes. Import a save or attribute dataset containing this player's ratings first.";
+                    return;
+                }
+
+                var candidates = currentSearchPlayers
+                    .Where(x => !x.SourceId.Equals(target.SourceId, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (candidates.Length == 0)
+                {
+                    detailStatus.Text = "Run a broader player search first. Similarity only compares the currently loaded result set.";
+                    return;
+                }
+
+                var attributeMaps = await RunDatabaseAsync(() =>
+                    _database.GetPlayerAttributeMapsAsync(candidates.Select(x => x.SourceId).ToArray()));
+                var comparisonCandidates = candidates.Select(player =>
+                    new PlayerSimilarityCandidate(
+                        player.SourceId,
+                        player.Name,
+                        player.Club,
+                        player.Position,
+                        attributeMaps.TryGetValue(player.SourceId, out var values)
+                            ? values
+                            : new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)))
+                    .ToArray();
+
+                var ranked = PlayerSimilarityService.Rank(
+                    target.SourceId,
+                    targetAttributes,
+                    comparisonCandidates,
+                    minimumCommonAttributes: 5,
+                    minimumTargetCoverage: 0.35);
+
+                similarGrid.ItemsSource = ranked.Select((match, index) =>
+                    new PlayerSimilarityRow(
+                        index + 1,
+                        match.Name,
+                        match.Club ?? "—",
+                        match.Position ?? "—",
+                        Math.Round(match.Similarity, 1),
+                        match.SharedAttributeCount,
+                        $"{match.TargetCoverage:P0} / {match.CandidateCoverage:P0}",
+                        match.Basis))
+                    .ToArray();
+
+                detailStatus.Text = ranked.Count == 0
+                    ? $"No similar players met the minimum overlap for {target.Name}. Need at least five common valid attributes and 35% target coverage."
+                    : $"{ranked.Count:N0} similar players ranked for {target.Name}. Scores use only shared finite 1–20 attributes; the table reports target/candidate coverage.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Player similarity ranking failed.", ex);
+                detailStatus.Text = "Could not find similar players: " + ex.Message;
+            }
+            finally
+            {
+                findSimilarButton.IsEnabled = true;
+            }
         }
 
         async Task CompareSelectedAsync()
