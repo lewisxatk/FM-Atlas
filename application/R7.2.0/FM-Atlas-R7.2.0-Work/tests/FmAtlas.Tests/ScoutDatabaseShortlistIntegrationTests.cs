@@ -76,13 +76,15 @@ public sealed class ScoutDatabaseShortlistIntegrationTests
                 "First-team scout",
                 new[] { "Priority", "Under-23", "priority" },
                 12500000m,
-                45000m);
+                45000m,
+                roleProfileName: "Pressing Forward");
 
             var project = await database.GetRecruitmentProjectAsync("Summer rebuild");
 
             Assert.IsNotNull(project);
             Assert.AreEqual("Monitoring", project.Status);
             Assert.AreEqual("First-team scout", project.Owner);
+            Assert.AreEqual("Pressing Forward", project.RoleProfileName);
             CollectionAssert.AreEqual(new[] { "Priority", "Under-23" }, project.Tags.ToArray());
             Assert.AreEqual(12500000m, project.TransferBudget);
             Assert.AreEqual(45000m, project.WeeklyWageBudget);

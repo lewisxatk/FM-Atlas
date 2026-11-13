@@ -4,6 +4,7 @@ public sealed record RecruitmentProjectRecord(
     string Name,
     string Status,
     string? Owner,
+    string? RoleProfileName,
     IReadOnlyList<string> Tags,
     decimal? TransferBudget,
     decimal? WeeklyWageBudget,

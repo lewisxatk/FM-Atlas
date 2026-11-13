@@ -80,7 +80,7 @@ public sealed class ScoutDatabase
               AddedUtc TEXT NOT NULL, UNIQUE(SourceId, ShortlistName)
             );
             CREATE INDEX IF NOT EXISTS IX_Shortlists_Name ON Shortlists(ShortlistName);
-            CREATE TABLE IF NOT EXISTS ShortlistGroups (ShortlistName TEXT PRIMARY KEY, CreatedUtc TEXT NOT NULL, Status TEXT NOT NULL DEFAULT 'Active', Owner TEXT NULL, TagsJson TEXT NULL, TransferBudget REAL NULL, WeeklyWageBudget REAL NULL, UpdatedUtc TEXT NULL);
+            CREATE TABLE IF NOT EXISTS ShortlistGroups (ShortlistName TEXT PRIMARY KEY, CreatedUtc TEXT NOT NULL, Status TEXT NOT NULL DEFAULT 'Active', Owner TEXT NULL, RoleProfileName TEXT NULL, TagsJson TEXT NULL, TransferBudget REAL NULL, WeeklyWageBudget REAL NULL, UpdatedUtc TEXT NULL);
 
             -- Live FM27 data is kept separate from the existing manually/CSV populated scouting tables.
             -- This prevents unverified live fields from silently overwriting trusted scouting data.
@@ -261,6 +261,7 @@ public sealed class ScoutDatabase
         await EnsureColumnAsync(db, "Players", "SaveClubUid", "TEXT NULL");
         await EnsureColumnAsync(db, "ShortlistGroups", "Status", "TEXT NOT NULL DEFAULT 'Active'");
         await EnsureColumnAsync(db, "ShortlistGroups", "Owner", "TEXT NULL");
+        await EnsureColumnAsync(db, "ShortlistGroups", "RoleProfileName", "TEXT NULL");
         await EnsureColumnAsync(db, "ShortlistGroups", "TagsJson", "TEXT NULL");
         await EnsureColumnAsync(db, "ShortlistGroups", "TransferBudget", "REAL NULL");
         await EnsureColumnAsync(db, "ShortlistGroups", "WeeklyWageBudget", "REAL NULL");
@@ -810,7 +811,8 @@ public sealed class ScoutDatabase
         string? owner,
         IReadOnlyCollection<string> tags,
         decimal? transferBudget,
-        decimal? weeklyWageBudget)
+        decimal? weeklyWageBudget,
+        string? roleProfileName = null)
     {
         if (string.IsNullOrWhiteSpace(shortlistName) || shortlistName.Trim().Length > 100)
             throw new ArgumentException("A shortlist name of 1–100 characters is required.", nameof(shortlistName));
@@ -820,6 +822,9 @@ public sealed class ScoutDatabase
         var normalizedOwner = string.IsNullOrWhiteSpace(owner) ? null : owner.Trim();
         if (normalizedOwner?.Length > 100)
             throw new ArgumentOutOfRangeException(nameof(owner), "Owner names are limited to 100 characters.");
+        var normalizedRole = string.IsNullOrWhiteSpace(roleProfileName) ? null : roleProfileName.Trim();
+        if (normalizedRole?.Length > 100)
+            throw new ArgumentOutOfRangeException(nameof(roleProfileName), "Role profile names are limited to 100 characters.");
         ArgumentNullException.ThrowIfNull(tags);
         var normalizedTags = tags
             .Where(x => !string.IsNullOrWhiteSpace(x))
@@ -839,11 +844,12 @@ public sealed class ScoutDatabase
         var command = db.CreateCommand();
         command.CommandText = """
             INSERT INTO ShortlistGroups(
-                ShortlistName,CreatedUtc,Status,Owner,TagsJson,TransferBudget,WeeklyWageBudget,UpdatedUtc)
-            VALUES($name,$created,$status,$owner,$tags,$transfer,$wage,$updated)
+                ShortlistName,CreatedUtc,Status,Owner,RoleProfileName,TagsJson,TransferBudget,WeeklyWageBudget,UpdatedUtc)
+            VALUES($name,$created,$status,$owner,$role,$tags,$transfer,$wage,$updated)
             ON CONFLICT(ShortlistName) DO UPDATE SET
                 Status=excluded.Status,
                 Owner=excluded.Owner,
+                RoleProfileName=excluded.RoleProfileName,
                 TagsJson=excluded.TagsJson,
                 TransferBudget=excluded.TransferBudget,
                 WeeklyWageBudget=excluded.WeeklyWageBudget,
@@ -853,6 +859,7 @@ public sealed class ScoutDatabase
         command.Parameters.AddWithValue("$created", now);
         command.Parameters.AddWithValue("$status", normalizedStatus);
         command.Parameters.AddWithValue("$owner", (object?)normalizedOwner ?? DBNull.Value);
+        command.Parameters.AddWithValue("$role", (object?)normalizedRole ?? DBNull.Value);
         command.Parameters.AddWithValue("$tags", JsonSerializer.Serialize(normalizedTags));
         command.Parameters.AddWithValue("$transfer", transferBudget.HasValue ? (object)(double)transferBudget.Value : DBNull.Value);
         command.Parameters.AddWithValue("$wage", weeklyWageBudget.HasValue ? (object)(double)weeklyWageBudget.Value : DBNull.Value);
@@ -867,11 +874,11 @@ public sealed class ScoutDatabase
         await db.OpenAsync().ConfigureAwait(false);
         var command = db.CreateCommand();
         command.CommandText = """
-            SELECT g.ShortlistName,COALESCE(g.Status,'Active'),g.Owner,g.TagsJson,
+            SELECT g.ShortlistName,COALESCE(g.Status,'Active'),g.Owner,g.RoleProfileName,g.TagsJson,
                    g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc,COUNT(s.Id)
             FROM ShortlistGroups g
             LEFT JOIN Shortlists s ON s.ShortlistName=g.ShortlistName
-            GROUP BY g.ShortlistName,g.Status,g.Owner,g.TagsJson,g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc
+            GROUP BY g.ShortlistName,g.Status,g.Owner,g.RoleProfileName,g.TagsJson,g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc
             ORDER BY CASE COALESCE(g.Status,'Active')
                 WHEN 'Planning' THEN 0
                 WHEN 'Active' THEN 1
@@ -888,26 +895,27 @@ public sealed class ScoutDatabase
             IReadOnlyList<string> tags;
             try
             {
-                tags = reader.IsDBNull(3)
+                tags = reader.IsDBNull(4)
                     ? Array.Empty<string>()
-                    : JsonSerializer.Deserialize<string[]>(reader.GetString(3)) ?? Array.Empty<string>();
+                    : JsonSerializer.Deserialize<string[]>(reader.GetString(4)) ?? Array.Empty<string>();
             }
             catch (JsonException)
             {
                 tags = Array.Empty<string>();
             }
 
-            var createdText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);
+            var createdText = reader.IsDBNull(7) ? string.Empty : reader.GetString(7);
             projects.Add(new RecruitmentProjectRecord(
                 reader.GetString(0),
                 reader.GetString(1),
                 reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
                 tags,
-                reader.IsDBNull(4) ? null : Convert.ToDecimal(reader.GetDouble(4)),
                 reader.IsDBNull(5) ? null : Convert.ToDecimal(reader.GetDouble(5)),
+                reader.IsDBNull(6) ? null : Convert.ToDecimal(reader.GetDouble(6)),
                 DateTime.TryParse(createdText, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var created)
                     ? created : DateTime.MinValue,
-                reader.GetInt32(7)));
+                reader.GetInt32(8)));
         }
 
         return projects;
@@ -921,12 +929,12 @@ public sealed class ScoutDatabase
         await db.OpenAsync().ConfigureAwait(false);
         var command = db.CreateCommand();
         command.CommandText = """
-            SELECT g.ShortlistName,COALESCE(g.Status,'Active'),g.Owner,g.TagsJson,
+            SELECT g.ShortlistName,COALESCE(g.Status,'Active'),g.Owner,g.RoleProfileName,g.TagsJson,
                    g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc,COUNT(s.Id)
             FROM ShortlistGroups g
             LEFT JOIN Shortlists s ON s.ShortlistName=g.ShortlistName
             WHERE g.ShortlistName=$name
-            GROUP BY g.ShortlistName,g.Status,g.Owner,g.TagsJson,g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc;
+            GROUP BY g.ShortlistName,g.Status,g.Owner,g.RoleProfileName,g.TagsJson,g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc;
             """;
         command.Parameters.AddWithValue("$name", shortlistName.Trim());
         await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
@@ -936,26 +944,27 @@ public sealed class ScoutDatabase
         IReadOnlyList<string> tags;
         try
         {
-            tags = reader.IsDBNull(3)
+            tags = reader.IsDBNull(4)
                 ? Array.Empty<string>()
-                : JsonSerializer.Deserialize<string[]>(reader.GetString(3)) ?? Array.Empty<string>();
+                : JsonSerializer.Deserialize<string[]>(reader.GetString(4)) ?? Array.Empty<string>();
         }
         catch (JsonException)
         {
             tags = Array.Empty<string>();
         }
 
-        var createdText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);
+        var createdText = reader.IsDBNull(7) ? string.Empty : reader.GetString(7);
         return new RecruitmentProjectRecord(
             reader.GetString(0),
             reader.GetString(1),
             reader.IsDBNull(2) ? null : reader.GetString(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3),
             tags,
-            reader.IsDBNull(4) ? null : Convert.ToDecimal(reader.GetDouble(4)),
             reader.IsDBNull(5) ? null : Convert.ToDecimal(reader.GetDouble(5)),
+            reader.IsDBNull(6) ? null : Convert.ToDecimal(reader.GetDouble(6)),
             DateTime.TryParse(createdText, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var created)
                 ? created : DateTime.MinValue,
-            reader.GetInt32(7));
+            reader.GetInt32(8));
     }
 
     public async Task AddToShortlistAsync(PlayerRecord player, string shortlistName, string? notes = null)

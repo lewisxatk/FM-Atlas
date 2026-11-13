@@ -353,6 +353,9 @@ public partial class MainWindow
             var project = await RunDatabaseAsync(() => _database.GetRecruitmentProjectAsync(name));
             projectStatus.SelectedItem = project?.Status ?? "Active";
             projectOwner.Text = project?.Owner ?? "";
+            rolePicker.SelectedItem = project?.RoleProfileName is string savedRole
+                ? RoleFitService.GetProfiles().FirstOrDefault(x => x.Name.Equals(savedRole, StringComparison.OrdinalIgnoreCase))
+                : null;
             projectTags.Text = project is null ? "" : string.Join(", ", project.Tags);
             transferBudget.Text = project?.TransferBudget?.ToString(CultureInfo.InvariantCulture) ?? "";
             weeklyWageBudget.Text = project?.WeeklyWageBudget?.ToString(CultureInfo.InvariantCulture) ?? "";
@@ -391,6 +394,7 @@ public partial class MainWindow
                             projectContent.Children.Add(open);
                             AddDetailRow(projectContent, "Candidates", project.CandidateCount.ToString("N0"));
                             AddDetailRow(projectContent, "Owner", project.Owner ?? "Unassigned");
+                            AddDetailRow(projectContent, "Target role", project.RoleProfileName ?? "Not set");
                             AddDetailRow(projectContent, "Tags", project.Tags.Count == 0 ? "—" : string.Join(", ", project.Tags));
                             AddDetailRow(projectContent, "Transfer", project.TransferBudget?.ToString("C0", CultureInfo.GetCultureInfo("en-GB")) ?? "Not set");
                             AddDetailRow(projectContent, "Weekly wages", project.WeeklyWageBudget?.ToString("C0", CultureInfo.GetCultureInfo("en-GB")) ?? "Not set");
@@ -436,7 +440,8 @@ public partial class MainWindow
                 var tags = projectTags.Text.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 var selectedStatus = projectStatus.SelectedItem as string ?? "Active";
                 await RunDatabaseAsync(() => _database.SaveRecruitmentProjectAsync(
-                    name, selectedStatus, projectOwner.Text, tags, transfer, wages));
+                    name, selectedStatus, projectOwner.Text, tags, transfer, wages,
+                    (rolePicker.SelectedItem as RoleFitProfile)?.Name));
                 await LoadProjectDetailsAsync();
                 await LoadProjectsBoardAsync();
                 status.Text = $"Saved project details for '{name}'.";
