@@ -63,6 +63,29 @@ Only after Gates 1–3 pass:
 - [ ] Stop and disable writes if any identity, offset, value or rollback check is uncertain.
 - [ ] Keep hidden-attribute, personality, position, staff, club, contract, transfer and loan writes blocked.
 
+## Immediate next development priority — MONOLITH foundation first
+
+The visual foundation is a prerequisite for subsequent feature work, not late-stage polish.
+
+1. Complete the R7.2.0 source import and integrity checks; do not assume the source is in GitHub until the recovery branch is verified.
+2. Build and record the clean Windows baseline before refactoring.
+3. Audit existing WPF views, resources, styles, navigation and search code.
+4. Commit the MONOLITH design specification and approve the Command Centre, Scouting Matrix and Advanced Search mockups.
+5. Implement shared design tokens, rounded controls, application shell/navigation, dialogs/pop-outs, tables and reusable data visualisations.
+6. Validate the shared foundation at common resolutions and with keyboard navigation.
+7. Build the FMRTE-style Advanced Search pop-out on top of shared controls, preserving verified search logic and adding grouped AND/OR, saved profiles, clear active-filter feedback and customisable fields.
+8. Only then migrate remaining feature screens using the shared components.
+
+### Search UX requirements
+
+- Quick Search for everyday use and one-click Advanced Search pop-out/drawer for detailed filtering.
+- Readable filter rows with field, operator and value controls; add, remove, duplicate and reorder conditions.
+- Clear AND/OR groups, include/exclude, searchable field catalogue, inline explanations and type-aware value editors.
+- Rounded panels and controls, active-filter chips, result counts, reset/clear, saved searches and presets.
+- Grouped field catalogue for identity, positions, attributes, contracts, clubs/leagues, origin/home-grown and verified season statistics.
+- Fifteen-position suitability pitch and five suitability levels where supported by actual imported data.
+- No dead filters: every visible criterion maps to a verified field and tested query behaviour.
+
 ## Feature roadmap after baseline gates
 
 1. Complete saved searches, named presets, AND/OR groups, exclusions and custom result columns.
