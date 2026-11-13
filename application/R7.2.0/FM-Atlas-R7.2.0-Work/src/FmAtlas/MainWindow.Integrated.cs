@@ -338,6 +338,7 @@ public partial class MainWindow
 
         // Attach invalidation handlers only after the results grid and export button exist.
         field.SelectionChanged += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
+        cohort.SelectionChanged += (_, _) => InvalidateResults();
         per90.Checked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
         per90.Unchecked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
         minimumMinutes.TextChanged += (_, _) => InvalidateResults();
