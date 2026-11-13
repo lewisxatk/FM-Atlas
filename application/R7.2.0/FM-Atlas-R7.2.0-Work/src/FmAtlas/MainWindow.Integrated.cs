@@ -14,7 +14,7 @@ namespace FmAtlas;
 public partial class MainWindow
 {
     private sealed record DnaAttributeRow(string Category, string Attribute, double Value);
-    private sealed record MoneyballRow(string SourceId, string Name, string Club, string Period, double Value, double? Percentile, int SampleSize, string Basis);
+    private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, string Period, double Value, double? Percentile, int SampleSize, string Basis);
     private sealed record TacticalCandidateRow(int Rank, string Name, string Club, string Position, double Score, string Coverage);
     private sealed record GraphicsMappingRow(string Id, string Pack, string Target, string Status);
 
@@ -268,7 +268,7 @@ public partial class MainWindow
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PERFORMANCE SCOUTING", 9, true, Teal));
         hs.Children.Add(Txt("Moneyball Scout", 23, true, Ink));
-        hs.Children.Add(Txt("Rank players against the currently imported statistical cohort. This first integrated view uses one source metric at a time and displays the sample basis; it does not compare leagues with an invented strength adjustment.", 11, false, Muted, wrap: true));
+        hs.Children.Add(Txt("Rank one seasonal metric at a time. Compare the full imported cohort or calculate independent percentiles within each player's imported primary-position group. League-strength adjustment is not inferred when the source does not provide a validated competition mapping.", 11, false, Muted, wrap: true));
         root.Children.Add(header);
 
         var allMetrics = await RunDatabaseAsync(() => _database.GetSeasonMetricCatalogAsync());
@@ -284,6 +284,15 @@ public partial class MainWindow
         var options = new WrapPanel();
         var field = new ComboBox { Width = 320, Height = 35, Margin = new Thickness(3), ItemsSource = metrics, DisplayMemberPath = nameof(StatMetricField.PickerLabel), IsTextSearchEnabled = true };
         if (metrics.Count > 0) field.SelectedIndex = 0;
+        var cohort = new ComboBox
+        {
+            Width = 205,
+            Height = 35,
+            Margin = new Thickness(3),
+            ItemsSource = new[] { "All players", "Same primary position" },
+            SelectedIndex = 0,
+            ToolTip = "Position-normalised cohorts use the imported primary-position label. Players without a usable position are excluded from those groups."
+        };
         var per90 = new CheckBox { Content = "Per 90", Margin = new Thickness(10, 9, 8, 3), Foreground = Ink, VerticalAlignment = VerticalAlignment.Center };
         var minimumMinutes = Input("Minimum minutes"); minimumMinutes.Text = "450"; minimumMinutes.Width = 130;
         var minimumSample = Input("Minimum cohort size"); minimumSample.Text = "5"; minimumSample.Width = 140;
@@ -311,12 +320,13 @@ public partial class MainWindow
         run = PrimaryButton("Rank cohort", async (_, _) => await RankAsync());
         export = SoftButton("Export CSV", (_, _) => ExportRows());
         export.IsEnabled = false;
-        options.Children.Add(field); options.Children.Add(per90); options.Children.Add(minimumMinutes); options.Children.Add(minimumSample); options.Children.Add(run); options.Children.Add(export);
+        options.Children.Add(field); options.Children.Add(cohort); options.Children.Add(per90); options.Children.Add(minimumMinutes); options.Children.Add(minimumSample); options.Children.Add(run); options.Children.Add(export);
         root.Children.Add(Card(options, 13, new Thickness(0, 0, 0, 10)));
 
         grid = CreateGrid();
         grid.Columns.Add(Column("PLAYER", nameof(MoneyballRow.Name), 1.3));
         grid.Columns.Add(Column("CLUB", nameof(MoneyballRow.Club), .9));
+        grid.Columns.Add(Column("PRIMARY POSITION", nameof(MoneyballRow.Position), .7));
         grid.Columns.Add(Column("PERIOD", nameof(MoneyballRow.Period), .8));
         grid.Columns.Add(Column("VALUE", nameof(MoneyballRow.Value), .6));
         grid.Columns.Add(Column("PERCENTILE", nameof(MoneyballRow.Percentile), .7));
@@ -354,20 +364,30 @@ public partial class MainWindow
                     Row = row
                 }).ToArray();
                 var observations = indexedRows.Select(x => new CohortMetricObservation(
-                    x.Key, x.Row.Name + " · " + x.Row.Season, x.Row.Value)).ToArray();
-                var ranked = CohortPercentileService.Calculate(observations, sample);
+                    x.Key,
+                    x.Row.Name + " · " + x.Row.Season,
+                    x.Row.Value,
+                    x.Row.PrimaryPosition)).ToArray();
+                var positionNormalised = string.Equals(cohort.SelectedItem as string, "Same primary position", StringComparison.Ordinal);
+                var ranked = positionNormalised
+                    ? CohortPercentileService.CalculateByGroup(observations, sample)
+                    : CohortPercentileService.Calculate(observations, sample);
                 var byId = indexedRows.ToDictionary(x => x.Key, x => x.Row, StringComparer.OrdinalIgnoreCase);
                 var displayRows = ranked.Select(x =>
                 {
                     var row = byId[x.Id];
-                    return new MoneyballRow(row.SourceId, row.Name, row.Club ?? "—", row.Season, row.Value,
+                    return new MoneyballRow(row.SourceId, row.Name, row.Club ?? "—", row.PrimaryPosition ?? "Unclassified", row.Season, row.Value,
                         x.Percentile, x.SampleSize, x.Basis);
                 }).ToArray();
                 currentRows = displayRows;
                 currentMetricKey = selected.Key;
                 grid.ItemsSource = displayRows;
                 export.IsEnabled = displayRows.Length > 0;
-                status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within up to 50,000 returned rows only; no cross-league strength adjustment or parser field-level certification is implied.";
+                var unclassified = rows.Count(x => string.IsNullOrWhiteSpace(x.PrimaryPosition));
+                var cohortDescription = positionNormalised
+                    ? $"independent primary-position groups; {unclassified:N0} rows without a usable primary-position label excluded"
+                    : "the full returned cohort";
+                status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")} · {cohortDescription}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within each displayed sample of up to 50,000 rows; no cross-league strength adjustment or parser field-level certification is implied.";
             }
             catch (Exception ex)
             {
@@ -396,13 +416,14 @@ public partial class MainWindow
             static string Q(string? value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
             var lines = new List<string>
             {
-                "Metric,PlayerSourceId,Player,Club,Period,Value,Percentile,SampleSize,EvidenceBasis"
+                "Metric,PlayerSourceId,Player,Club,PrimaryPosition,Period,Value,Percentile,SampleSize,EvidenceBasis"
             };
             lines.AddRange(currentRows.Select(row => string.Join(",",
                 Q(currentMetricKey),
                 Q(row.SourceId),
                 Q(row.Name),
                 Q(row.Club),
+                Q(row.Position),
                 Q(row.Period),
                 row.Value.ToString("0.####", CultureInfo.InvariantCulture),
                 row.Percentile?.ToString("0.0", CultureInfo.InvariantCulture) ?? string.Empty,
