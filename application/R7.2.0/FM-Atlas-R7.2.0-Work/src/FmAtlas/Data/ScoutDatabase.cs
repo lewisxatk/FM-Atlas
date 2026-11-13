@@ -339,7 +339,8 @@ public sealed class ScoutDatabase
           SELECT SourceId, Name, Age, Club, Nation, League, Position, CurrentAbility, PotentialAbility,
                  Value, HomeGrownClub, HomeGrownNation, DataOrigin, PreferredFoot, LeftFoot, RightFoot
           FROM Players
-          WHERE ($search = '' OR Name LIKE $pattern OR COALESCE(Club,'') LIKE $pattern OR COALESCE(Nation,'') LIKE $pattern OR COALESCE(League,'') LIKE $pattern OR COALESCE(Position,'') LIKE $pattern OR SourceId LIKE $pattern)
+          WHERE SourceId NOT LIKE 'LIVE:%'
+            AND ($search = '' OR Name LIKE $pattern OR COALESCE(Club,'') LIKE $pattern OR COALESCE(Nation,'') LIKE $pattern OR COALESCE(League,'') LIKE $pattern OR COALESCE(Position,'') LIKE $pattern OR SourceId LIKE $pattern)
             AND ($minAge IS NULL OR Age >= $minAge)
             AND ($maxAge IS NULL OR Age <= $maxAge)
             AND ($minCa IS NULL OR CurrentAbility >= $minCa)
@@ -1005,7 +1006,7 @@ public sealed class ScoutDatabase
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM Players WHERE ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p) AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=Players.SourceId));";
+        cmd.CommandText = "SELECT COUNT(*) FROM Players WHERE SourceId NOT LIKE 'LIVE:%' AND ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p) AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=Players.SourceId));";
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$p", $"%{q}%");
@@ -1020,7 +1021,7 @@ public sealed class ScoutDatabase
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,HomeGrownClub,HomeGrownNation,DataOrigin,PreferredFoot,LeftFoot,RightFoot FROM Players WHERE SaveClubUid=$club AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=Players.SourceId)) ORDER BY Name COLLATE NOCASE LIMIT $limit;";
+        cmd.CommandText = "SELECT SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,HomeGrownClub,HomeGrownNation,DataOrigin,PreferredFoot,LeftFoot,RightFoot FROM Players WHERE SourceId NOT LIKE 'LIVE:%' AND SaveClubUid=$club AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=Players.SourceId)) ORDER BY Name COLLATE NOCASE LIMIT $limit;";
         cmd.Parameters.AddWithValue("$club", clubSourceId);
         cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 5000));
         var rows = new List<PlayerRecord>();
@@ -1875,7 +1876,7 @@ public sealed class ScoutDatabase
         await db.OpenAsync().ConfigureAwait(false);
         await using var tx = await db.BeginTransactionAsync().ConfigureAwait(false);
         var select = db.CreateCommand(); select.Transaction = (SqliteTransaction)tx;
-        select.CommandText = "SELECT SourceId,Name FROM Players WHERE ($q='' OR Name LIKE $p OR Club LIKE $p OR SourceId LIKE $p) ORDER BY Name COLLATE NOCASE LIMIT $limit;";
+        select.CommandText = "SELECT SourceId,Name FROM Players WHERE SourceId NOT LIKE 'LIVE:%' AND ($q='' OR Name LIKE $p OR Club LIKE $p OR SourceId LIKE $p) ORDER BY Name COLLATE NOCASE LIMIT $limit;";
         select.Parameters.AddWithValue("$q", q); select.Parameters.AddWithValue("$p", $"%{q}%"); select.Parameters.AddWithValue("$limit", limit);
         var targets = new List<(string Id,string Name)>();
         await using (var r = await select.ExecuteReaderAsync().ConfigureAwait(false))
@@ -2232,6 +2233,7 @@ public sealed class ScoutDatabase
             FROM Players p
             WHERE ($q='' OR p.Name LIKE $pattern OR COALESCE(p.Club,'') LIKE $pattern OR COALESCE(p.Nation,'') LIKE $pattern OR p.SourceId LIKE $pattern)
               AND ({string.Join(" AND ", predicates)})
+              AND p.SourceId NOT LIKE 'LIVE:%'
               AND (p.SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=p.SourceId))
             ORDER BY CASE WHEN $q<>'' AND p.Name LIKE $prefix THEN 0 ELSE 1 END,p.Name COLLATE NOCASE LIMIT $limit;
             """;
@@ -2519,8 +2521,8 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$limit", maxPlayers);
         cmd.CommandText = $"""
             SELECT p.SourceId,p.Name,p.Club,p.Age,p.Position,p.CurrentAbility,p.PotentialAbility,a.AttributeName,a.AttributeValue
-            FROM (SELECT * FROM Players WHERE SourceId NOT LIKE 'FMSAVE:%' OR SourceId IN
-                (SELECT PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns))
+            FROM (SELECT * FROM Players WHERE SourceId NOT LIKE 'LIVE:%' AND (SourceId NOT LIKE 'FMSAVE:%' OR SourceId IN
+                (SELECT PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)))
                 ORDER BY Name COLLATE NOCASE LIMIT $limit) p
             LEFT JOIN PlayerAttributes a ON a.SourceId=p.SourceId AND LOWER(REPLACE(REPLACE(REPLACE(a.AttributeName,'_',''),' ',''),'-','')) IN ({string.Join(",", parameterNames)})
             ORDER BY p.Name COLLATE NOCASE;
