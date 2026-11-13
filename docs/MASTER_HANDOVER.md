@@ -30,7 +30,7 @@ Build FM Atlas into a premium Windows Football Manager intelligence and modding 
 - A MONOLITH theme service supports Obsidian and Warm Light. The latest branch changes now update token brushes and tracked legacy brushes in place, bind the main window to theme tokens and migrate the Player Intelligence report XAML to DynamicResource tokens; older screens still contain hard-coded values and shared-control migration is incomplete.
 - Diagnostics already has health checks, copy/export actions, a support ZIP preview/confirmation screen, a SHA-256 manifest, and local-only export. The existing support archive excludes career saves, the SQLite database, FM installation files and arbitrary files by default.
 - A source audit found over-escaped credential patterns and incomplete handling of Windows paths containing spaces. These are now corrected in AtlasLog.cs. A Diagnostics self-check covers bearer tokens, API keys, passwords, user paths, spaced drive paths, UNC paths and standalone save filenames.
-- A GitHub Actions Windows run at commit `5aa82c2` completed .NET 8 restore, WPF Release build and the automated test suite. The TRX report confirms 10 tests executed, 10 passed, 0 failed. This proves the application and test project compiled at that checkpoint; it does not prove runtime UI or game integration.
+- GitHub Actions Windows run `43468496760` at commit `ade4637` completed .NET 8 restore, WPF Release build and expanded automated suite: 40 tests executed, 40 passed, 0 failed, 0 skipped; build reported 0 errors and 12 warnings. Release and TRX artifacts were uploaded. This verifies compilation and these automated unit tests at that exact checkpoint, not application UI or game integration.
 - Live Apply and Undo remain blocked by LiveWriteCertification.IsCertified = false. Do not enable them without independent field witnesses and disposable offline save acceptance.
 - Game Pass profile records and a configurable graphics resolver exist in source; neither the user's exact installed build nor their real graphics folders have been validated.
 
@@ -113,3 +113,13 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - New MSTest cases cover allowed canonical statuses, misleading prefixes, cross-provider ID separation and exact-ID duplicate resolution.
 - Latest source commit: `fd40df08c8f8194881be56a1e5198dfcfa1ca1d2`. The expanded Windows workflow run is `43466693498` and was still running during this handover update.
 - Do not promote these changes to runtime-verified until the latest Actions run completes and the UI/data flows are tested with a representative, disposable dataset.
+
+## Latest verified source checkpoint — 2026-11-13
+
+- Windows Actions run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43468496760
+- Exact tested commit: `ade463712df284034ba475a2f1bc85584e9394d9`.
+- .NET 8 restore: passed. WPF Release build: succeeded, 0 errors. MSTest: 40 passed / 40 total. Release artifact and TRX uploaded.
+- The expanded tests include Diagnostics redaction, strict evidence classification, provider identity isolation/deduplication, squad assignment optimizer, football metric calculations, ALL/ANY statistics matching and non-finite boundary rejection.
+- Build warnings at that tested commit: 12 (11 unused MainWindow private filter declarations and one obsolete AtlasLog.Warn call). A source-only warning cleanup removed the 11 unused declarations after confirming they were referenced nowhere in seven MainWindow partial classes, and changed the legacy call to AtlasLog.Warning. Commits: `886a8a5`, `1022078`.
+- CI run for the first cleanup commit `886a8a5` is in progress; a queued run for current head `1022078` is pending. No zero-warning claim until a completed run is inspected.
+- Application launch, UI screen coverage, actual support ZIP inspection, theme/DPI acceptance and Game Pass runtime compatibility remain untested.
