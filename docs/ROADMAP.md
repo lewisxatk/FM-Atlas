@@ -1,14 +1,16 @@
 # FM Atlas Roadmap
 
-Status labels: **Source implemented** = present in the supplied R7.2.0 package but not necessarily compiled; **Verified** = passed the relevant reproducible Windows/game test; **Pending** = not yet completed. R7.2.0 is the latest supplied candidate. The complete source import is still pending.
+Status labels: **Source present** = code exists in the recovered R7.2.0 tree; **Implemented on overhaul branch** = a new/changed source or configuration commit exists; **Build verified** = a reproducible Windows build passed; **Runtime verified** = the relevant UI/game acceptance test passed; **Pending** = evidence or implementation is still outstanding. The recovered R7.2.0 source is imported on `overhaul/monolith-full-platform`; import and runtime verification are separate gates.
 
 ## Current release gate — R7.2.0 recovery
 
 - [x] Receive and inspect R7.0.2 (83 files), R7.1.0 (95 files) and R7.2.0 (106 files).
 - [x] Record archive hashes and compare R7.2.0 against R7.1.0 (19 changed shared files, 11 added, 0 removed).
-- [ ] Import all three complete source trees into GitHub on a dedicated recovery branch.
-- [ ] Verify imported tree against archive inventory and tag the R7.2.0 baseline.
-- [ ] Build R7.2.0 WPF on Windows .NET 8; record full log.
+- [x] Import the repaired R7.2.0 application tree into `application/R7.2.0/FM-Atlas-R7.2.0-Work/` on the integrated overhaul branch (source-import commit `6069c20`).
+- [x] Reconcile the eight changed source files against the later successful-build package and retain source provenance.
+- [ ] Store R7.0.2 and R7.1.0 as separate complete, immutable repository baselines; their archive hashes and file inventories are recorded, but their full source trees are not yet separately committed here.
+- [x] Receive the user's Windows .NET 8 build log for the repaired R7.2.0 baseline: 0 errors, 15 warnings.
+- [ ] Rebuild the current branch after the later Diagnostics/privacy changes; the added Windows CI workflow has not yet produced a reported run.
 - [ ] Launch and smoke-test the app.
 - [ ] Run save-import, search, analytics, CSV and graphics tests on copies.
 - [ ] Run guarded live Apply/Undo tests on a disposable offline save only after all preconditions pass.
@@ -19,24 +21,26 @@ Status labels: **Source implemented** = present in the supplied R7.2.0 package b
 - [x] Inventory archives and record SHA-256 hashes.
 - [x] Compare R7.2.0 against R7.1.0 and identify changed/new files.
 - [x] Identify R7.2.0 as latest supplied candidate source.
-- [ ] Import source without overwriting originals (see current release gate).
-- [ ] Establish a reproducible .NET build and baseline test.
-- [ ] Record release/version mapping and create a protected baseline tag.
+- [x] Import the repaired R7.2.0 working source without overwriting historical main or package archives.
+- [ ] Separately commit/tag complete R7.0.2, R7.1.0 and R7.2.0 immutable source baselines with provenance.
+- [x] Add a Windows .NET 8 Release build workflow; successful execution is still pending.
+- [ ] Record a reproducible current-branch build and baseline runtime test.
 
 ## Phase 0A — Design-system-first delivery gate
 
-- [ ] MONOLITH is the first UI implementation milestone after source integrity and clean-build baseline.
+- [ ] Complete MONOLITH semantic resource dictionary, reusable WPF components and shell migration after the current-branch clean-build gate. The source already has a partial Obsidian/Warm Light theme service; this is not complete migration.
 - [ ] No new feature screen is ready for implementation until its required shared components exist or are explicitly added to the shared library.
 - [ ] Approve the application shell, rounded control language, search pop-out and Scouting Matrix mockups before broad screen migration.
 - [ ] Keep feature logic separate from presentation so visual work does not silently alter search, save import, analytics or editor behaviour.
 
 ## Phase 1 — Application foundation
 
-- [ ] Audit WPF solution/project structure and dependencies.
-- [ ] Verify .NET target frameworks and supported Windows versions.
-- [ ] Establish clean build, warnings and test reporting.
-- [ ] Separate application data, cache, logs, imported databases and user settings.
-- [ ] Add safe diagnostics export with secrets and personal data redacted.
+- [x] Audit WPF solution/project structure, target framework, SQLite dependency, startup, UI partials and major services (see `docs/SOURCE_ARCHITECTURE_AUDIT.md`).
+- [x] Record .NET 8 WPF target and Microsoft.Data.Sqlite 8.0.11; supported Windows/storefront behaviour still needs runtime validation.
+- [x] Add a Windows Release build workflow; current branch has no reported run yet.
+- [x] Confirm local app-data paths for SQLite, theme preference and rolling logs; full storage/cache separation and migration design remain pending.
+- [x] Confirm existing Diagnostics, copy/export, preview, manifest and local-only ZIP foundation; harden token/path redaction and add in-app privacy regression checks.
+- [ ] Build and execute the new Diagnostics checks on Windows; audit all log call sites for accidental personal-data capture.
 
 ## Phase 2 — Scouting workspace
 
@@ -197,7 +201,7 @@ These checked boxes mean **reported in previous work**, not verified by this rep
 - [x] Received and inspected R7.0.2 archive (83 files; hash recorded).
 - [x] Received and inspected R7.1.0 archive (95 files; hash recorded).
 - [x] Compared relative paths: 16 shared files differ; R7.1.0 adds 12 files and removes none.
-- [ ] Import the R7.1.0 source tree into GitHub while retaining R7.0.2 provenance/comparison.
+- [ ] Store R7.0.2 and R7.1.0 complete source trees as separate immutable repository baselines; their received ZIPs and comparison evidence are inventoried, but they are not the active application source.
 - [ ] Run Windows .NET 8 WPF build and record exact logs.
 - [ ] Execute the R7.1.0 acceptance plan using a COPY of an FM27 save.
 - [ ] Resume feature development only after source baseline and build status are known.
@@ -210,7 +214,17 @@ See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
 - [x] Recorded SHA-256 and compared against R7.1.0.
 - [x] Identified 19 changed shared files, 11 added files, no removals.
 - [x] Identified new advanced search, Value Finder, build-profile, graphics and live writer source files.
-- [ ] Import R7.2.0 source to a dedicated GitHub recovery branch.
-- [ ] Preserve R7.1.0 and R7.0.2 as separate historical source baselines.
-- [ ] Build R7.2.0 on Windows with .NET 8 WPF.
+- [x] Import repaired R7.2.0 application source to the integrated overhaul branch; provenance is recorded in the master progress and recovery checkpoint.
+- [ ] Commit/tag R7.1.0 and R7.0.2 as complete immutable historical source baselines.
+- [x] User-provided repaired R7.2.0 Windows .NET 8 build succeeded (0 errors, 15 warnings); rebuild after new branch changes remains pending.
 - [ ] Run user acceptance tests on a copied FM27 career; do not assume live writer works until Apply/read-back/Undo and career-switch safeguards pass.
+
+## Integrated overhaul checkpoint — 2026-11-13
+
+- [x] Reconciled all recovery-status wording with the actual active branch: R7.2.0 is imported; older R7.0.2/R7.1.0 full source baselines are inventoried but not separately committed as complete trees.
+- [x] Added initial source architecture audit and corrected stale handover/overhaul programme claims.
+- [x] Hardened `AtlasLog` token/password and complete Windows/UNC path redaction; added a Diagnostics regression check. Windows build/runtime acceptance for this post-import change is pending.
+- [x] Added `.github/workflows/fm-atlas-windows-build.yml` for Windows .NET 8 Release restore/build and artifact upload. No workflow run is currently reported.
+- [ ] Execute a fresh Windows build, run in-app diagnostics, and record all warnings before proceeding to shell migration.
+- [ ] Continue the feature-to-file traceability matrix and source-level module audit, then complete MONOLITH shared controls and screen migration.
+
