@@ -213,7 +213,7 @@ public partial class MainWindow
             var key = fact.Field.Trim().Replace(" ", "_").Replace("-", "_");
             if (double.TryParse(fact.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 20) values[key] = v;
         }
-        foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue && x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase)))
+        foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue && FieldEvidencePolicy.CanUseForDecision(x.ValidationStatus)))
         {
             var key = fact.FieldKey.Split('.').Last().Trim();
             if (double.TryParse(fact.NumericValue!.Value.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 20) values[key] = v;
