@@ -279,3 +279,18 @@ Only mark a feature complete when the source change exists on this branch and it
 - Added automated tests for nested filter logic and persistence, typed numeric/boolean comparison, missing-value semantics, cohort ranking, graphics XML/path safety and research catalogue boundaries.
 - Draft validation-only PR #2 targets `overhaul/monolith-full-platform`, not `main`, to run the existing Windows Release build and MSTest workflow. The first run is `43482389999` and was still in progress at this checkpoint. This PR is not intended to be merged.
 - No build/test result is claimed for the latest integrated head until the Windows workflow completes. The local container does not have the .NET SDK; Windows Actions is the authoritative compile/test environment.
+
+## Integrated Stage 3–7 continuation — 2026-11-13 18:40 UTC
+
+- [x] Recovered and verified integrated branch checkpoint 4c5881474a5f06ba9ec14702bd5e8169785c593c: Windows .NET 8 restore and WPF Release build passed with 0 warnings / 0 errors; MSTest passed 81/81, 0 failed and 0 skipped. Windows Release and test-result artifacts uploaded. Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43483705374.
+- [x] Fixed the Advanced Search profile import file-size guard and its test-project IO namespace issue before the 81-test green run.
+- [x] Continued Moneyball source audit and found the raw-total query was not consistently enforcing the UI minimum-minutes threshold, and the metric catalogue could expose FM View CSV fields without a reliable query fallback.
+- [x] Updated seasonal metric search to use indexed facts where available, preserve the older raw-JSON fallback, apply minimum minutes to raw totals, keep season observations separate from match rows, and use the latest FM View CSV export when no usable save observations exist.
+- [x] Updated the external metric fallback to enforce minimum minutes for raw totals and per-90 rates; ensured per-90 can fall back to CSV-only imports when no save snapshot exists.
+- [x] Updated Moneyball UI to apply its minutes floor to raw totals as well as per-90 and display the per-observation basis.
+- [x] Added SQLite integration tests for indexed seasonal totals, minimum-minute filtering, duplicate player-period rows, and FM View CSV-only raw/per-90 fallback.
+- [ ] The above Moneyball changes are source-committed but are not yet verified by Windows CI. Latest source head at this note: 8c6985935cc44241d2e8222017184008efbd76a0; current validation run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43484787575 (queued at the time of this update). A previous queued run on commit 40c02ecb was still building; wait for the latest-head run before calling this fix green.
+- [ ] Continue the Stage 3–7 feature/data acceptance audit. The integrated pages are initial implementations, not a completed product: Moneyball still lacks position/age/league cohort controls and defensible cross-league calibration; Tactical Studio remains an Atlas role-fit estimate, not SI Tactical Effectiveness; Match Lab is limited to imported aggregate facts; Player DNA comparison and recruitment matrix need runtime acceptance.
+- [ ] Windows runtime acceptance remains outstanding: launch all routes, theme/high-DPI checks, profile persistence in the running app, copied FM27 Game Pass save import, exact process/build profile validation, graphics folder scan and UI review.
+- [ ] Live Apply/Undo remains blocked by LiveWriteCertification.IsCertified == false. Do not remove the gate without exact build and field-level witnesses plus disposable offline-save rollback acceptance.
+- Protected main remains untouched. All work remains on overhaul/monolith-full-platform.
