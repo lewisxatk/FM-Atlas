@@ -469,7 +469,7 @@ public partial class MainWindow
         var heading = (StackPanel)header.Child;
         heading.Children.Add(Txt("PLAYER FINDER", 9, true, Teal));
         heading.Children.Add(Txt("Attribute Search", 25, true, Ink));
-        heading.Children.Add(Txt("Build your own player profile from any number of 1–20 attribute and personality requirements. Every selected attribute is applied together, so you can define your exact striker, midfielder, defender or goalkeeper rather than choosing one attribute at a time.", 11, false, Muted, wrap: true));
+        heading.Children.Add(Txt("Build your own player profile from verified 1–20 attribute and personality requirements. Choose whether every condition must match (ALL / AND) or whether any one condition is enough (ANY / OR).", 11, false, Muted, wrap: true));
         pageStack.Children.Add(header);
 
         var fields = PlayerAttributeSchema.Fields.Concat(PlayerAttributeSchema.PersonalityFields)
@@ -486,7 +486,18 @@ public partial class MainWindow
         var builder = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 10));
         var builderStack = (StackPanel)builder.Child;
         var search = Input("Optional player, club, nation or UID search"); search.Width = 280; search.Margin = new Thickness(0, 0, 8, 0);
-        var top = new WrapPanel(); top.Children.Add(FilterControl("OPTIONAL NAME / CLUB", search, 290));
+        var matchMode = new ComboBox
+        {
+            Width = 185,
+            Height = 34,
+            Margin = new Thickness(0, 0, 8, 0),
+            Padding = new Thickness(8, 5, 8, 5),
+            ItemsSource = new[] { "ALL conditions (AND)", "ANY condition (OR)" },
+            SelectedIndex = 0
+        };
+        var top = new WrapPanel();
+        top.Children.Add(FilterControl("OPTIONAL NAME / CLUB", search, 290));
+        top.Children.Add(FilterControl("MATCH LOGIC", matchMode, 195));
         top.Children.Add(SoftButton("＋ Add attribute", (_, _) => AddFilterRow()));
         Button findButton = null!;
         DataGrid grid = null!;
@@ -527,7 +538,7 @@ public partial class MainWindow
         presets.Children.Add(SoftButton("Ball Winner", (_, _) => ApplyPreset(new[] { ("tackling", 15d), ("work_rate", 14d), ("stamina", 14d), ("aggression", 12d), ("anticipation", 13d) })));
         presets.Children.Add(SoftButton("Elite Goalkeeper", (_, _) => ApplyPreset(new[] { ("reflexes", 15d), ("handling", 14d), ("one_on_ones", 14d), ("aerial_reach", 14d), ("command_of_area", 13d) })));
         builderStack.Children.Add(presets);
-        builderStack.Children.Add(Txt("ATTRIBUTE CONDITIONS · RATE EACH REQUIREMENT FROM 1 TO 20 · ALL CONDITIONS MATCH", 8, true, Muted));
+        builderStack.Children.Add(Txt("ATTRIBUTE CONDITIONS · RATE EACH REQUIREMENT FROM 1 TO 20 · CHOOSE ALL (AND) OR ANY (OR)", 8, true, Muted));
         builderStack.Children.Add(filterPanel);
         builderStack.Children.Add(status);
         pageStack.Children.Add(builder);
@@ -631,7 +642,7 @@ public partial class MainWindow
                 name,
                 SavedSearchKind.Attributes,
                 string.IsNullOrWhiteSpace(search.Text) ? null : search.Text.Trim(),
-                false,
+                matchMode.SelectedIndex == 1,
                 false,
                 0,
                 conditions,
@@ -666,6 +677,7 @@ public partial class MainWindow
                 AddFilterRow(condition.Key, condition.Minimum, condition.Maximum);
 
             search.Text = profile.TextFilter ?? string.Empty;
+            matchMode.SelectedIndex = profile.MatchAny ? 1 : 0;
             profileName.Text = profile.Name;
 
             var loaded = filterRows.Count;
@@ -806,9 +818,11 @@ public partial class MainWindow
             status.Text = $"Searching players for {criteria.Count} simultaneous attribute conditions…";
             try
             {
-                resultRows = await RunDatabaseAsync(() => _database.SearchPlayerAttributeCriteriaAsync(search.Text, criteria, 5000));
+                resultRows = await RunDatabaseAsync(() => _database.SearchPlayerAttributeCriteriaAsync(
+                    search.Text, criteria, 5000, matchAny: matchMode.SelectedIndex == 1));
                 grid.ItemsSource = resultRows;
-                status.Text = $"{resultRows.Count:N0} player matches · {criteria.Count} conditions · source: latest imported FM save / local scouting facts.";
+                var logic = matchMode.SelectedIndex == 1 ? "ANY / OR" : "ALL / AND";
+                status.Text = $"{resultRows.Count:N0} player matches · {criteria.Count} conditions · {logic} · source: latest imported FM save / local scouting facts.";
                 AtlasLog.Info($"Multi-attribute search completed: conditions={criteria.Count}; results={resultRows.Count}.");
             }
             catch (Exception ex) { AtlasLog.Error("Multi-attribute search failed.", ex); status.Text = "Attribute search failed: " + ex.Message; }
