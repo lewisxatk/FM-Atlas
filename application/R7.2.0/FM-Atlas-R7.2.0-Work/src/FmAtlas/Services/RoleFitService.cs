@@ -1,7 +1,17 @@
 namespace FmAtlas.Services;
 
 public sealed record RoleFitProfile(string Name, string Phase, string PositionGroup, string Description, IReadOnlyDictionary<string, double> Weights);
-public sealed record RoleFitCandidate(string SourceId, string Name, string? Club, int? Age, string? Position, int? CurrentAbility, int? PotentialAbility, double Score, int AttributesAvailable, int AttributesExpected, double Coverage);
+public sealed record RoleFitCandidate(string SourceId, string Name, string? Club, int? Age, string? Position, int? CurrentAbility, int? PotentialAbility, double Score, int AttributesAvailable, int AttributesExpected, double Coverage)
+{
+    public IReadOnlyList<RoleFitAttributeContribution> Contributions { get; init; } = Array.Empty<RoleFitAttributeContribution>();
+}
+
+/// <summary>One available input's additive contribution to an Atlas role-fit score.</summary>
+public sealed record RoleFitAttributeContribution(
+    string Attribute,
+    double Value,
+    double Weight,
+    double ScoreContribution);
 
 /// <summary>
 /// Transparent coaching-style role estimates. These are not Sports Interactive's hidden role formula
@@ -79,28 +89,44 @@ public static class RoleFitService
                 normalizedAttributes[key] = pair.Value;
         }
 
-        var weightedTotal = 0d;
-        var availableWeight = 0d;
-        var available = 0;
-        foreach (var weight in normalizedWeights)
-        {
-            if (!normalizedAttributes.TryGetValue(weight.Key, out var value))
-                continue;
+        var availableInputs = normalizedWeights
+            .Where(weight => normalizedAttributes.ContainsKey(weight.Key))
+            .Select(weight => (Attribute: weight.Key, Value: normalizedAttributes[weight.Key], Weight: weight.Value))
+            .ToArray();
 
-            weightedTotal += value * weight.Value;
-            availableWeight += weight.Value;
-            available++;
-        }
+        var coverage = availableInputs.Length / (double)normalizedWeights.Count;
+        if (availableInputs.Length == 0 || coverage < minimumCoverage)
+            return null;
 
-        var coverage = available / (double)normalizedWeights.Count;
-        if (available == 0 || availableWeight <= 0 || coverage < minimumCoverage)
+        // Scale by the largest available weight first. This preserves the weighted mean
+        // while avoiding overflow when a malformed profile supplies very large finite weights.
+        var maximumWeight = availableInputs.Max(x => x.Weight);
+        var scaledWeights = availableInputs.Select(x => x.Weight / maximumWeight).ToArray();
+        var scaledWeightTotal = scaledWeights.Sum();
+        if (!double.IsFinite(scaledWeightTotal) || scaledWeightTotal <= 0)
+            return null;
+
+        var contributions = availableInputs
+            .Select((input, index) => new RoleFitAttributeContribution(
+                input.Attribute,
+                input.Value,
+                input.Weight,
+                input.Value * scaledWeights[index] / scaledWeightTotal))
+            .OrderByDescending(x => x.ScoreContribution)
+            .ThenBy(x => x.Attribute, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        // Each contribution is already expressed in score points; their sum is the score.
+        var score = contributions.Sum(x => x.ScoreContribution);
+        if (!double.IsFinite(score))
             return null;
 
         return new RoleFitCandidateScore(
-            weightedTotal / availableWeight,
-            available,
+            score,
+            availableInputs.Length,
             normalizedWeights.Count,
-            coverage);
+            coverage,
+            contributions);
     }
 
     private static string NormalizeAttributeKey(string value)
@@ -111,4 +137,5 @@ public sealed record RoleFitCandidateScore(
     double Score,
     int AttributesAvailable,
     int AttributesExpected,
-    double Coverage);
+    double Coverage,
+    IReadOnlyList<RoleFitAttributeContribution> Contributions);
