@@ -16,6 +16,7 @@ public partial class MainWindow
     private sealed record DnaAttributeRow(string Category, string Attribute, double Value);
     private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, string Period, double Value, double? Percentile, int SampleSize, string Basis);
     private sealed record TacticalCandidateRow(int Rank, string Name, string Club, string Position, double Score, string Coverage);
+    private sealed record TacticalLineupRow(string Slot, string Player, string Club, string PrimaryPosition, string AtlasFit, string Assignment);
     private sealed record GraphicsMappingRow(string Id, string Pack, string Target, string Status);
 
     private async Task<UIElement> PlayerDnaPageAsync()
@@ -449,20 +450,22 @@ public partial class MainWindow
     private async Task<UIElement> TacticalStudioPageAsync()
     {
         var root = new StackPanel();
-        var status = Txt("Select a tactical role to rank imported players.", 10, false, Muted, wrap: true);
+        var status = Txt("Select a tactical role to rank imported players, or build a best-fit XI from a formation.", 10, false, Muted, wrap: true);
         Button run = null!;
+        Button buildLineup = null!;
         DataGrid grid = null!;
+        DataGrid lineupGrid = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("TACTICAL INTELLIGENCE", 9, true, Teal));
         hs.Children.Add(Txt("Tactical Studio", 23, true, Ink));
-        hs.Children.Add(Txt("Explore role-specific squad fit using Atlas's transparent attribute-weighted models. FM's hidden tactical effectiveness and buy-in formulas are not claimed or reconstructed here.", 11, false, Muted, wrap: true));
+        hs.Children.Add(Txt("Explore role-specific squad fit and assemble a one-player-per-slot best-fit XI. Scores are Atlas's transparent attribute-weighted estimates, not Football Manager's hidden tactical effectiveness, familiarity, selection or buy-in formulas.", 11, false, Muted, wrap: true));
         root.Children.Add(header);
 
         var profiles = RoleFitService.GetProfiles();
         var profile = new ComboBox { Width = 300, Height = 36, Margin = new Thickness(3), ItemsSource = profiles, DisplayMemberPath = nameof(RoleFitProfile.Name), IsTextSearchEnabled = true };
         if (profiles.Count > 0) profile.SelectedIndex = 0;
-        run = PrimaryButton("Analyse squad fit", async (_, _) => await AnalyseAsync());
+        run = PrimaryButton("Analyse role fit", async (_, _) => await AnalyseAsync());
         var controls = new WrapPanel(); controls.Children.Add(profile); controls.Children.Add(run);
         root.Children.Add(Card(controls, 13, new Thickness(0, 0, 0, 10)));
 
@@ -474,6 +477,28 @@ public partial class MainWindow
         grid.Columns.Add(Column("ATLAS FIT", nameof(TacticalCandidateRow.Score), .6));
         grid.Columns.Add(Column("COVERAGE", nameof(TacticalCandidateRow.Coverage), .7));
         root.Children.Add(Card(grid, 14));
+
+        var formationControls = new WrapPanel();
+        var formation = new ComboBox
+        {
+            Width = 230, Height = 36, Margin = new Thickness(3),
+            ItemsSource = new[] { "4-3-3", "4-2-3-1", "4-4-2", "3-5-2" },
+            SelectedIndex = 0,
+            ToolTip = "Formation slots use each player's imported primary position as a conservative eligibility check."
+        };
+        buildLineup = PrimaryButton("Build best-fit XI", async (_, _) => await BuildLineupAsync());
+        formationControls.Children.Add(formation);
+        formationControls.Children.Add(buildLineup);
+        root.Children.Add(Txt("FORMATION BUILDER", 9, true, Teal) is var formationTitle ? Configure(formationTitle, new Thickness(0, 18, 0, 5)) : new TextBlock());
+        root.Children.Add(Card(formationControls, 13, new Thickness(0, 0, 0, 8)));
+        lineupGrid = CreateGrid();
+        lineupGrid.Columns.Add(Column("SLOT", nameof(TacticalLineupRow.Slot), .8));
+        lineupGrid.Columns.Add(Column("PLAYER", nameof(TacticalLineupRow.Player), 1.2));
+        lineupGrid.Columns.Add(Column("CLUB", nameof(TacticalLineupRow.Club), .9));
+        lineupGrid.Columns.Add(Column("PRIMARY POSITION", nameof(TacticalLineupRow.PrimaryPosition), .8));
+        lineupGrid.Columns.Add(Column("ATLAS FIT", nameof(TacticalLineupRow.AtlasFit), .6));
+        lineupGrid.Columns.Add(Column("ASSIGNMENT", nameof(TacticalLineupRow.Assignment), .8));
+        root.Children.Add(Card(lineupGrid, 14));
         root.Children.Add(status);
 
         async Task AnalyseAsync()
@@ -495,6 +520,153 @@ public partial class MainWindow
                 status.Text = "Role fit analysis failed: " + ex.Message;
             }
             finally { run.IsEnabled = true; }
+        }
+
+        async Task BuildLineupAsync()
+        {
+            var selectedFormation = formation.SelectedItem as string;
+            var slots = selectedFormation switch
+            {
+                "4-2-3-1" => new (string Id, string Label, string Role, string[] Allowed)[]
+                {
+                    ("GK","Goalkeeper","Goalkeeper",new[]{"GK"}),
+                    ("RB","Right Back","Full-Back",new[]{"DR","WBR"}),
+                    ("RCB","Right Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("LCB","Left Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("LB","Left Back","Full-Back",new[]{"DL","WBL"}),
+                    ("RDM","Right Defensive Midfielder","Defensive Midfielder",new[]{"DM"}),
+                    ("LDM","Left Defensive Midfielder","Defensive Midfielder",new[]{"DM"}),
+                    ("RW","Right Winger","Winger",new[]{"AMR","MR"}),
+                    ("AMC","Attacking Midfielder","Attacking Midfielder",new[]{"AMC"}),
+                    ("LW","Left Winger","Winger",new[]{"AML","ML"}),
+                    ("ST","Striker","Centre Forward",new[]{"ST","STC"})
+                },
+                "4-4-2" => new (string Id, string Label, string Role, string[] Allowed)[]
+                {
+                    ("GK","Goalkeeper","Goalkeeper",new[]{"GK"}),
+                    ("RB","Right Back","Full-Back",new[]{"DR","WBR"}),
+                    ("RCB","Right Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("LCB","Left Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("LB","Left Back","Full-Back",new[]{"DL","WBL"}),
+                    ("RM","Right Midfielder","Winger",new[]{"MR","AMR"}),
+                    ("RCM","Right Central Midfielder","Central Midfielder",new[]{"MC"}),
+                    ("LCM","Left Central Midfielder","Central Midfielder",new[]{"MC"}),
+                    ("LM","Left Midfielder","Winger",new[]{"ML","AML"}),
+                    ("RST","Right Striker","Centre Forward",new[]{"ST","STC"}),
+                    ("LST","Left Striker","Centre Forward",new[]{"ST","STC"})
+                },
+                "3-5-2" => new (string Id, string Label, string Role, string[] Allowed)[]
+                {
+                    ("GK","Goalkeeper","Goalkeeper",new[]{"GK"}),
+                    ("RCB","Right Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("CB","Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("LCB","Left Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("RWB","Right Wing-Back","Wing-Back",new[]{"WBR","DR"}),
+                    ("LWB","Left Wing-Back","Wing-Back",new[]{"WBL","DL"}),
+                    ("DM","Defensive Midfielder","Defensive Midfielder",new[]{"DM"}),
+                    ("RCM","Right Central Midfielder","Central Midfielder",new[]{"MC"}),
+                    ("LCM","Left Central Midfielder","Central Midfielder",new[]{"MC"}),
+                    ("RST","Right Striker","Centre Forward",new[]{"ST","STC"}),
+                    ("LST","Left Striker","Centre Forward",new[]{"ST","STC"})
+                },
+                _ => new (string Id, string Label, string Role, string[] Allowed)[]
+                {
+                    ("GK","Goalkeeper","Goalkeeper",new[]{"GK"}),
+                    ("RB","Right Back","Full-Back",new[]{"DR","WBR"}),
+                    ("RCB","Right Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("LCB","Left Centre-Back","Centre-Back",new[]{"DC","SW"}),
+                    ("LB","Left Back","Full-Back",new[]{"DL","WBL"}),
+                    ("DM","Defensive Midfielder","Defensive Midfielder",new[]{"DM"}),
+                    ("RCM","Right Central Midfielder","Central Midfielder",new[]{"MC"}),
+                    ("LCM","Left Central Midfielder","Central Midfielder",new[]{"MC"}),
+                    ("RW","Right Winger","Winger",new[]{"AMR","MR"}),
+                    ("LW","Left Winger","Winger",new[]{"AML","ML"}),
+                    ("ST","Striker","Centre Forward",new[]{"ST","STC"})
+                }
+            };
+
+            var profileLookup = profiles.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+            var missingProfiles = slots.Select(x => x.Role).Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(x => !profileLookup.ContainsKey(x)).ToArray();
+            if (missingProfiles.Length > 0)
+            {
+                status.Text = "Formation cannot be built because these Atlas role profiles are missing: " + string.Join(", ", missingProfiles);
+                return;
+            }
+
+            buildLineup.IsEnabled = false;
+            run.IsEnabled = false;
+            lineupGrid.ItemsSource = null;
+            status.Text = $"Calculating source-backed role estimates for {selectedFormation}…";
+            try
+            {
+                var roleNames = slots.Select(x => x.Role).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                var roleResults = await Task.WhenAll(roleNames.Select(async roleName =>
+                {
+                    var roleProfile = profileLookup[roleName];
+                    var candidates = await RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(roleProfile, 500));
+                    return (Role: roleName, Candidates: candidates);
+                }));
+
+                var candidatesById = new Dictionary<string, RoleFitCandidate>(StringComparer.OrdinalIgnoreCase);
+                var scoresByRole = new Dictionary<string, Dictionary<string, double>>(StringComparer.OrdinalIgnoreCase);
+                foreach (var result in roleResults)
+                {
+                    var roleScores = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var candidate in result.Candidates)
+                    {
+                        candidatesById.TryAdd(candidate.SourceId, candidate);
+                        roleScores[candidate.SourceId] = candidate.Score;
+                    }
+                    scoresByRole[result.Role] = roleScores;
+                }
+
+                static string NormalizePosition(string? value)
+                    => new((value ?? string.Empty).Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
+
+                var optimizerSlots = slots.Select(x => new SquadSelectionSlot(x.Id, x.Label)).ToArray();
+                var optimizerCandidates = candidatesById.Values.Select(candidate =>
+                {
+                    var primary = NormalizePosition(candidate.Position);
+                    var slotScores = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var slot in slots)
+                    {
+                        if (!slot.Allowed.Contains(primary, StringComparer.OrdinalIgnoreCase)) continue;
+                        if (scoresByRole[slot.Role].TryGetValue(candidate.SourceId, out var score))
+                            slotScores[slot.Id] = score;
+                    }
+                    return new SquadSelectionCandidate(candidate.SourceId, candidate.Name, slotScores);
+                }).ToArray();
+
+                var result = SquadSelectionOptimizer.Optimize(optimizerSlots, optimizerCandidates);
+                var displayRows = result.Assignments.Select(assignment =>
+                {
+                    if (assignment.Candidate is null)
+                        return new TacticalLineupRow(assignment.Slot.DisplayName, "—", "—", "—", "—", "No eligible primary-position candidate");
+                    var source = candidatesById[assignment.Candidate.SourceId];
+                    return new TacticalLineupRow(
+                        assignment.Slot.DisplayName,
+                        source.Name,
+                        source.Club ?? "—",
+                        source.Position ?? "—",
+                        assignment.Score!.Value.ToString("0.00", CultureInfo.InvariantCulture),
+                        "Selected · Atlas estimate");
+                }).ToArray();
+
+                lineupGrid.ItemsSource = displayRows;
+                var unfilled = result.UnfilledSlots.Count;
+                status.Text = $"{result.FilledSlots}/11 slots filled · total Atlas fit {result.TotalScore:0.00} · {selectedFormation}. One player can fill only one slot. Eligibility uses the imported primary position only; players with missing or secondary-position-only evidence are conservatively excluded. Scores are transparent Atlas role estimates, not FM's hidden tactical formula or proof of tactical familiarity.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Tactical formation builder failed.", ex);
+                status.Text = "Formation builder failed: " + ex.Message;
+            }
+            finally
+            {
+                buildLineup.IsEnabled = true;
+                run.IsEnabled = true;
+            }
         }
 
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
