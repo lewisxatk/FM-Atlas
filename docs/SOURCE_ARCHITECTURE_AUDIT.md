@@ -156,3 +156,10 @@ Remaining Diagnostics work:
 - Compiler warnings: 12. Source review confirmed eleven private MainWindow filter fields appeared only in their declarations across all seven MainWindow partial source files; these declarations were removed. One use of obsolete `AtlasLog.Warn` was switched to `AtlasLog.Warning`. Follow-up Windows run is pending for these changes.
 - Latest source commits for warning cleanup: `886a8a5` and `1022078`; current branch head at audit update is `1022078bd4fd79d21f687feb721f6e6e7f4087d7`.
 - This audit remains static plus CI build/unit-test evidence. No application launch, WPF UI automation, Game Pass process attachment or save-file runtime acceptance is claimed.
+
+## Warning-free build and SQL integration extension — 2026-11-13
+
+- Actions run `43469077009` at exact source commit `1022078bd4fd79d21f687feb721f6e6e7f4087d7`: Windows .NET 8 WPF Release build succeeded with 0 warnings and 0 errors; the test suite passed 40/40.
+- Eleven private MainWindow filter fields were confirmed unused across all seven partial classes and removed; the only obsolete `AtlasLog.Warn` invocation was replaced with `AtlasLog.Warning`.
+- `ScoutDatabase` now has a path-based constructor to support disposable fixture databases without changing the default LocalAppData database location. The optional pooling argument permits test fixtures to close/delete their SQLite files deterministically.
+- `ScoutDatabaseEvidenceIntegrationTests` seeds a disposable SQLite database and checks that actual live player query, CA/PA filters and attribute filters exclude unverified/provisional/mixed statuses. The missing `System.IO` import was corrected in `e109eab`; current Windows execution is pending.
