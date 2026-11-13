@@ -2540,16 +2540,20 @@ public sealed class ScoutDatabase
         var results = new List<RoleFitCandidate>();
         foreach (var pair in grouped)
         {
-            double weighted = 0, totalWeight = 0;
-            var available = 0;
-            foreach (var weight in weights)
-                if (pair.Value.Attrs.TryGetValue(weight.Key, out var score) && score >= 1 && score <= 20)
-                { weighted += score * weight.Value; totalWeight += weight.Value; available++; }
-            if (available == 0 || totalWeight <= 0) continue;
-            var coverage = available / (double)weights.Count;
-            // Avoid presenting a role rating when most of its requested attributes are absent.
-            if (coverage < 0.5) continue;
-            results.Add(new RoleFitCandidate(pair.Key, pair.Value.Name, pair.Value.Club, pair.Value.Age, pair.Value.Position, pair.Value.Ca, pair.Value.Pa, weighted / totalWeight, available, weights.Count, coverage));
+            var estimate = RoleFitService.CalculateEstimate(profile, pair.Value.Attrs);
+            if (estimate is null) continue;
+            results.Add(new RoleFitCandidate(
+                pair.Key,
+                pair.Value.Name,
+                pair.Value.Club,
+                pair.Value.Age,
+                pair.Value.Position,
+                pair.Value.Ca,
+                pair.Value.Pa,
+                estimate.Score,
+                estimate.AttributesAvailable,
+                estimate.AttributesExpected,
+                estimate.Coverage));
         }
         return results.OrderByDescending(x => x.Score).ThenByDescending(x => x.Coverage).Take(250).ToList();
     }
