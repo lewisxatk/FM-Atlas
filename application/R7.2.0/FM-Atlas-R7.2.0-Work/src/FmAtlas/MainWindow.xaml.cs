@@ -413,7 +413,7 @@ public partial class MainWindow : Window
         var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var hero = new Border { CornerRadius = new CornerRadius(23), Padding = new Thickness(24), Background = new LinearGradientBrush(Color.FromRgb(29, 39, 49), Color.FromRgb(18, 25, 33), 25), BorderBrush = Line, BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 14) };
         var heroGrid = new Grid(); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var heroLeft = new StackPanel(); heroLeft.Children.Add(Txt("WELCOME TO COACHPRO", 9, true, Brush("#B7E5E0")));
+        var heroLeft = new StackPanel(); heroLeft.Children.Add(Txt("FM ATLAS · MONOLITH", 9, true, Teal));
         heroLeft.Children.Add(Txt("A clearer view of your football world.", 25, true, Brushes.White));
         heroLeft.Children.Add(Txt("Load the active career for verified live identity data, or import a save copy to unlock the broader player and club intelligence layer.", 11, false, Brush("#DBF2EF"), wrap: true));
         heroGrid.Children.Add(heroLeft);
