@@ -49,12 +49,40 @@ public static class AtlasLog
 
     public static string RedactForSupport(string value) => Redact(value);
 
+    /// <summary>
+    /// Runs deterministic privacy regression cases used by the Diagnostics page.
+    /// These checks verify that common secrets, personal paths and save names do not
+    /// survive the same redaction pipeline used for logs and support reports.
+    /// </summary>
+    public static IReadOnlyList<string> ValidateRedaction()
+    {
+        var cases = new[]
+        {
+            (Name: "bearer-token", Input: "Authorization: Bearer atlas-test-token-123", Forbidden: "atlas-test-token-123"),
+            (Name: "api-key", Input: "api_key=atlas-test-api-key-456", Forbidden: "atlas-test-api-key-456"),
+            (Name: "password", Input: "password: atlas-test-password-789", Forbidden: "atlas-test-password-789"),
+            (Name: "user-path", Input: @"C:\Users\AtlasTestUser\AppData\Local\FmAtlas\scouting.db", Forbidden: "AtlasTestUser"),
+            (Name: "save-path", Input: @"D:\Football Manager\Career\atlas-test-career.fmf", Forbidden: "atlas-test-career.fmf"),
+            (Name: "standalone-save-name", Input: "Failed to read atlas-test-career.fm", Forbidden: "atlas-test-career.fm")
+        };
+
+        var failures = new List<string>();
+        foreach (var test in cases)
+        {
+            var redacted = Redact(test.Input);
+            if (redacted.Contains(test.Forbidden, StringComparison.OrdinalIgnoreCase))
+                failures.Add(test.Name);
+        }
+
+        return failures;
+    }
+
     private static string Redact(string value)
     {
         var text = value.Replace('\r', ' ').Replace('\n', ' ');
         // Scrub common credential/token formats before a log can enter a support bundle.
-        text = Regex.Replace(text, @"(?i)\\b(Bearer\\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]");
-        text = Regex.Replace(text, @"(?i)\\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|authorization)\\s*[:=]\\s*[^;\\s,]+", "$1=[redacted]");
+        text = Regex.Replace(text, @"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]");
+        text = Regex.Replace(text, @"(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|authorization)\s*[:=]\s*[^;\s,]+", "$1=[redacted]");
         text = Regex.Replace(text, @"(?i)[A-Z]:\\Users\\[^\\\s]+", "%USERPROFILE%");
         text = Regex.Replace(text, @"(?i)\\\\[^\\]+\\Users\\[^\\\s]+", "%USERPROFILE%");
         // Import exceptions can mention saves stored outside the user profile. Redact absolute Windows paths
