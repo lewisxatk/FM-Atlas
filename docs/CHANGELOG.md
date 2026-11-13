@@ -72,3 +72,11 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 
 - Windows Actions run `43469077009` passed at commit `1022078`: .NET 8 WPF Release build with 0 warnings/0 errors; 40/40 MSTest tests passed.
 - Added test-isolated `ScoutDatabase(string databasePath, bool pooling = true)` constructor and SQLite integration coverage for live field evidence query consumers; missing test-file IO import was corrected, Windows execution pending.
+
+## 2026-11-13 — SQL evidence integration and Role Fit scoring
+
+- Windows run `43470026732` at `e109eab`: Release build 0 warnings/0 errors; 41/41 tests passed, including the new actual SQLite evidence-consumer integration test.
+- Extracted `RoleFitService.CalculateEstimate` as a single transparent weighted scoring implementation and changed database Role Lab search to use it.
+- Added six RoleFit tests for weighted means, coverage, normalized attribute keys, missing values, out-of-range/nonfinite values and profile validation.
+- Windows run `43470501984` at `b8bad3a`: Release build 0 warnings/0 errors; **47/47 tests passed**; Release and TRX artifacts uploaded.
+- Main branch preserved; 163 commits ahead/0 behind at this checkpoint.
