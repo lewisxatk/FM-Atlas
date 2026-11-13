@@ -125,3 +125,9 @@ The user requested Stage 1 and Stage 2 to be completed together first, then rece
 - The combined report and all 21 route findings are in `docs/STAGE1_STAGE2_AUDIT.md`. Detailed third-party source findings are in `research/RESEARCH_REGISTER.md`.
 - Remaining acceptance requires the user's PC: launch the app, smoke-test routes, inspect actual support ZIPs, import a disposable save copy, check themes/DPI and confirm exact Game Pass build/graphics path.
 - After the user reviews the report and decides whether to proceed, combine Stage 3–7 into one integrated implementation. Do not begin that implementation before explicit approval.
+
+## Superseding user direction — continue the complete integrated programme
+
+The user has explicitly asked to continue the whole overhaul and include everything agreed, as one integrated development. This supersedes earlier instructions in this file to pause Stage 3–7 pending another approval. Use internal phases/checkpoints, continuous CI and evidence gates, but do not split the roadmap into separate user-facing mini-releases or stop at the Stage 1/2 report.
+
+The current tested application checkpoint is 6c18e36fdc706fc49ad74ce15fe1ee73c43ce991, Windows run 43476085012: Release build 0 warnings/0 errors, 64/64 tests passed. Continue the remaining roadmap on overhaul/monolith-full-platform, preserving main.
