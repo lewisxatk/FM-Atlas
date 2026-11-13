@@ -4,7 +4,7 @@ Last updated: 2026-11-13
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
 Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`  
-Latest verified code checkpoint: `6fc46757688be84af497e13c3d27e40877da3f92`
+Latest source-code checkpoint: `6fc46757688be84af497e13c3d27e40877da3f92`
 
 ## Verified progress
 
@@ -72,3 +72,5 @@ Only mark a feature complete when the source change exists on this branch and it
 ## Latest engineering change log
 
 - 2026-11-13: Corrected credential-redaction patterns, switched to complete drive-letter/UNC path redaction (including paths with spaces), added self-check cases and surfaced the check in Diagnostics. Code commits: `05d2c77`, `f7b9f4c`, `9c90953`, `6fc4675`. Not yet built or run in Windows.
+
+- 2026-11-13: Added the initial Windows MSTest project and CI test execution; committed test code, solution inclusion and workflow updates. Seven sensitive-value pattern cases passed the local pattern-level check; C# tests and WPF build remain unexecuted on Windows.
