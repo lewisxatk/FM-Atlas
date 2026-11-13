@@ -163,3 +163,12 @@ Remaining Diagnostics work:
 - Eleven private MainWindow filter fields were confirmed unused across all seven partial classes and removed; the only obsolete `AtlasLog.Warn` invocation was replaced with `AtlasLog.Warning`.
 - `ScoutDatabase` now has a path-based constructor to support disposable fixture databases without changing the default LocalAppData database location. The optional pooling argument permits test fixtures to close/delete their SQLite files deterministically.
 - `ScoutDatabaseEvidenceIntegrationTests` seeds a disposable SQLite database and checks that actual live player query, CA/PA filters and attribute filters exclude unverified/provisional/mixed statuses. The missing `System.IO` import was corrected in `e109eab`; current Windows execution is pending.
+
+## Latest data and role-scoring test evidence — 2026-11-13
+
+- Windows Actions run `43470501984` for exact commit `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712` passed .NET 8 restore/build with 0 warnings and 0 errors; MSTest 47/47 passed.
+- `ScoutDatabaseEvidenceIntegrationTests` exercises a real disposable SQLite database and actual live search consumers, including CA/PA and attribute filters, using canonical verified/read-back states and unverified/provisional/mixed statuses. Run `43470026732` at `e109eab` passed 41/41; latest combined run passed with 47 tests.
+- `ScoutDatabase(string databasePath, bool pooling = true)` preserves the original default LocalAppData constructor path while allowing isolated database fixtures and deterministic pool disabling.
+- `RoleFitService.CalculateEstimate` centralizes the transparent weighted calculation and is used by `SearchRoleFitCandidatesAsync`; six tests cover weighting, coverage, normalized names, missing/out-of-range/nonfinite values and malformed profile weights.
+- RoleFit remains an Atlas estimate, not FM's internal role rating. User interface acceptance, position familiarity, tactical context and attribute contribution explainability remain outstanding.
+- The separate maximum-weight SquadSelectionOptimizer has unit tests but is not integrated into Squad Architect because validated player/slot eligibility mapping remains incomplete.
