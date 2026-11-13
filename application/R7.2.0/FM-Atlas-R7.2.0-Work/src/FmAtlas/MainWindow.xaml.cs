@@ -214,8 +214,10 @@ public partial class MainWindow : Window
         AddNavGroup("WORKSPACE");
         AddNav("▦", "Dashboard"); AddNav("♟", "Players"); AddNav("⌕", "Recruitment"); AddNav("◆", "Value Finder"); AddNav("⌗", "Attribute Search"); AddNav("∑", "Stats Search"); AddNav("▥", "Squad Architect");
         AddNav("◇", "Clubs"); AddNav("♙", "Staff"); AddNav("⇄", "Transfers"); AddNav("▥", "Analytics"); AddNav("⚑", "Tactical Lab"); AddNav("◎", "Role Lab");
-        AddNavGroup("MANAGEMENT"); AddNav("▤", "Shortlists"); AddNav("✎", "Live Editor"); AddNav("▦", "Mass Edit"); AddNav("◷", "Edit History");
-        AddNavGroup("ATLAS TOOLS"); AddNav("✦", "Atlas Assistant"); AddNav("⚙", "Settings"); AddNav("◉", "Tester & Logs"); AddNav("?", "Help & Tutorial");
+        AddNavGroup("INTELLIGENCE");
+        AddNav("◈", "Player DNA"); AddNav("▦", "Scouting Matrix"); AddNav("⌁", "Moneyball Scout"); AddNav("⚑", "Tactical Studio"); AddNav("◷", "Match Lab"); AddNav("↗", "Development");
+        AddNavGroup("MANAGEMENT"); AddNav("▤", "Shortlists"); AddNav("✎", "Live Editor"); AddNav("▦", "Mass Edit"); AddNav("◷", "Edit History"); AddNav("▣", "Save Inspector");
+        AddNavGroup("ATLAS TOOLS"); AddNav("▧", "Graphics & Skins"); AddNav("⚒", "Modding Workbench"); AddNav("✦", "Atlas Assistant"); AddNav("⚙", "Settings"); AddNav("◉", "Tester & Logs"); AddNav("?", "Help & Tutorial");
 
         var bottom = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(15), Padding = new Thickness(11), Margin = new Thickness(0, 14, 0, 0) };
         var bottomStack = new StackPanel(); bottomStack.Children.Add(Txt("GAME CONNECTION", 9, true, Teal));
@@ -273,6 +275,15 @@ public partial class MainWindow : Window
             UIElement content = page switch
             {
                 "Dashboard" => await DashboardPageAsync(),
+                "Player DNA" => await PlayerDnaPageAsync(),
+                "Scouting Matrix" => await ScoutingMatrixPageAsync(),
+                "Moneyball Scout" => await MoneyballScoutPageAsync(),
+                "Tactical Studio" => await TacticalStudioPageAsync(),
+                "Match Lab" => await MatchLabPageAsync(),
+                "Development" => await DevelopmentPageAsync(),
+                "Save Inspector" => await SaveInspectorPageAsync(),
+                "Graphics & Skins" => GraphicsSkinsPage(),
+                "Modding Workbench" => ModdingWorkbenchPage(),
                 "Players" => await PlayerWorkspaceAsync(false),
                 "Recruitment" => await PlayerWorkspaceAsync(true),
                 "Clubs" => await ClubsPageAsync(),
@@ -363,6 +374,15 @@ public partial class MainWindow : Window
     {
         "Dashboard" => "Your career at a glance · data coverage · import health",
         "Players" => "Player intelligence · search · profile · attributes",
+        "Player DNA" => "Inspect imported player attributes and compare source-backed profiles",
+        "Scouting Matrix" => "Manage shortlist candidates and recruitment priorities",
+        "Moneyball Scout" => "Rank player performance within transparent, sample-qualified cohorts",
+        "Tactical Studio" => "Compare squad players with explainable Atlas role-fit estimates",
+        "Match Lab" => "Inspect season and match performance facts present in imported saves",
+        "Development" => "Review current player facts and Atlas-local edit history",
+        "Save Inspector" => "Inspect imported snapshot metadata, retained tables and field evidence",
+        "Graphics & Skins" => "Read-only config.xml index of your existing graphics library",
+        "Modding Workbench" => "Research catalogue of Football Manager tools, formats and licences",
         "Recruitment" => "Build an explainable shortlist from your imported career data",
         "Squad Architect" => "Inspect club squads, age distribution and positional coverage",
         "Clubs" => "Club directory · squad links · available save data",
