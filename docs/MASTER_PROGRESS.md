@@ -108,5 +108,17 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43469077009.
 - [x] Removed 11 genuinely unused private filter declarations after checking every MainWindow partial; replaced obsolete `AtlasLog.Warn` usage. Zero compiler warnings verified at `1022078`.
 - [x] Added disposable-path constructor for `ScoutDatabase` and a SQLite integration test covering canonical verified, read-back verified, unverified, provisional and mixed-status CA/PA/attribute rows.
-- [ ] The first integration fixture build caught missing `System.IO` imports; fixed in `e109eab`. The latest integration-test commit awaits its own Windows build/test run; no SQL integration pass is claimed yet.
+- [x] SQLite evidence-consumer integration test passed on Windows at `e109eab` (run `43470026732`): 41/41 tests, 0 warnings, 0 errors.
+- [x] Latest combined Role Fit extraction and SQLite integration source passed Windows CI at `b8bad3a` (run `43470501984`): 47/47 tests, 0 warnings, 0 errors.
 - Current code head at this entry: `e109eabc34aaa5805863031324602d81033efeb1`.
+
+## Latest full Windows verification — 2026-11-13 17:14 UTC
+
+- [x] Exact tested commit: `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`.
+- [x] Windows .NET 8 Release restore/build succeeded: **0 warnings, 0 errors**.
+- [x] MSTest: **47 executed, 47 passed, 0 failed, 0 skipped**.
+- [x] The 47 tests include the SQLite live-fact evidence-consumer integration test and six RoleFit scoring tests in addition to earlier Diagnostics, field-evidence, identity, assignment, metric and search tests.
+- [x] Windows Release and TRX artifacts uploaded. Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43470501984.
+- [x] The dedicated SQLite test was independently seen passing at the preceding source commit `e109eab` (run `43470026732`): 41/41, 0 warnings/errors.
+- [ ] Application UI launch, route-by-route smoke tests, theme/DPI visual tests, actual support ZIP inspection, Game Pass process integration and save acceptance remain outstanding.
+- Current branch head at this entry: `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`; `main` remains at `2051bbee042fb8e7203b7855e833e391ccee9ecb`, with the overhaul branch 163 commits ahead and 0 behind at verification.
