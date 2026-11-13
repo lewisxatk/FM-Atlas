@@ -56,3 +56,5 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 
 - Added an initial Windows .NET 8 MSTest project for Diagnostics redaction and supporting input-sanitisation behaviour; included it in the solution and wired it into Windows CI. First Windows execution remains pending.
 - Added `docs/FEATURE_TRACEABILITY.md` covering source locations, current coverage and implementation/acceptance gaps across the integrated programme.
+
+- Improved MONOLITH theme switching: central token brushes update in place, tracked legacy brushes are re-mapped without rebuilding pages, MainWindow surfaces use theme tokens, and Player Intelligence report XAML uses DynamicResource bindings. Windows visual acceptance pending.
