@@ -235,3 +235,11 @@ See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
 - 2026-11-13: Windows build and 40/40 MSTest suite passed on the integrated branch at commit `ade4637`; 12 compiler warnings were then traced to eleven dead MainWindow filter fields and one obsolete logging call. Those have been cleaned in source, with follow-up CI pending.
 
 - 2026-11-13: Current Windows .NET 8 Release build and 47/47 automated tests passed at `b8bad3a` (run `43470501984`), with zero compiler warnings/errors. Added passing SQLite live-evidence consumer integration and shared RoleFit score tests; runtime UI and game integration acceptance remain outstanding.
+
+
+## Combined Stage 3–7 Windows validation checkpoint — 2026-11-13
+
+- Exact tested integrated source: `c51f80574d9131cb9caa1b25a44541ae370df553`.
+- Windows run [43486407442](https://github.com/lewisxatk/FM-Atlas/actions/runs/43486407442): Release build 0 warnings / 0 errors; 87/87 MSTest passed.
+- Includes current Stage 3–7 integration work and the latest Moneyball/Scouting Matrix fixes. The complete scope and outstanding tasks remain itemised above; a passing automated build does not convert unchecked roadmap items into complete work.
+- User-side acceptance is now the next gate: launch, all-route/theme/DPI checks, support ZIP/CSV review, copied FM27 save import, actual Game Pass compatibility and configured graphics-root validation. Live Apply/Undo stays blocked.
