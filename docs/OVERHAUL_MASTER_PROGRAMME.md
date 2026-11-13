@@ -262,3 +262,14 @@ The user requested a single integrated delivery. Work should be coordinated as o
 
 - 2026-11-13: Added initial Windows .NET 8 MSTest project and CI test execution for Diagnostics privacy behaviour; Windows execution remains pending.
 - 2026-11-13: Improved MONOLITH runtime theme switching with in-place token/legacy brush updates; bound MainWindow and Player Intelligence report XAML to theme resources. Full page migration and Windows visual acceptance remain pending.
+
+## Current verified engineering checkpoint — 2026-11-13
+
+The following supersedes older build-status statements above where they conflict:
+
+- Repaired R7.2.0 source is imported at `application/R7.2.0/FM-Atlas-R7.2.0-Work/`; source-import commit `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`.
+- Windows Actions run `43470501984` tested application source commit `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`: .NET 8 WPF Release build succeeded with **0 warnings, 0 errors**; **47/47 tests passed**. Release and test-result artifacts were uploaded.
+- Coverage includes Diagnostics redaction, field-evidence and identity policy, a real disposable SQLite test of live CA/PA/attribute query consumers, role-fit calculation, squad-assignment optimizer, metric math and ALL/ANY search matching.
+- Follow-on Role Lab source change `4b4ddfcb7299a0fad5dc2ea60658d895a48127df` exposes selected role input attributes and weights plus a method/missing-data explanation. Its own Windows workflow `43471187844` must complete before that UI change is called build-verified.
+- These are compile and automated-test results. They do not establish that the WPF application has launched, every page works, themes are visually accepted, support ZIPs have been manually inspected, or FM27 Game Pass/save integration is accepted.
+- Exact Game Pass build/field compatibility remains unverified. Live memory Apply/Undo remains disabled by the global certification gate.
