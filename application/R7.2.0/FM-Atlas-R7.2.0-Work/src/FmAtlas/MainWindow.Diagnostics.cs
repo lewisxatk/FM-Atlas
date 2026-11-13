@@ -32,12 +32,14 @@ public partial class MainWindow
         var checksTop = new StackPanel();
         checksTop.Children.Add(Txt("SYSTEM CHECKS", 9, true, Teal));
         checksTop.Children.Add(Txt("Environment health", 17, true, Ink));
+        StackPanel checkList = null!;
+        TextBox logView = null!;
         var checkStatus = Txt("Checks have not been run in this session.", 10, false, Muted, wrap: true); checkStatus.Margin = new Thickness(0, 6, 0, 8);
         checksTop.Children.Add(checkStatus);
         checksTop.Children.Add(PrimaryButton("Run quick checks", async (_, _) => await RunChecksAsync()));
         checksTop.Children.Add(SoftButton("Open application log folder", (_, _) => OpenLogFolder()));
         DockPanel.SetDock(checksTop, Dock.Top); checksDock.Children.Add(checksTop);
-        var checkList = new StackPanel();
+        checkList = new StackPanel();
         var checkScroll = new ScrollViewer { Content = checkList, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         checksDock.Children.Add(checkScroll);
         Grid.SetColumn(checksCard, 0); body.Children.Add(checksCard);
@@ -60,7 +62,7 @@ public partial class MainWindow
             Clipboard.SetText(AtlasLog.ReadRecent()); checkStatus.Text = "Recent application log copied to clipboard.";
         }));
         DockPanel.SetDock(reportTop, Dock.Top); reportDock.Children.Add(reportTop);
-        var logView = new TextBox { Text = AtlasLog.ReadRecent(12000), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, FontFamily = new System.Windows.Media.FontFamily("Consolas"), FontSize = 10, Background = Brush("#F4F8FB"), BorderBrush = Line, Padding = new Thickness(9) };
+        logView = new TextBox { Text = AtlasLog.ReadRecent(12000), IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, FontFamily = new System.Windows.Media.FontFamily("Consolas"), FontSize = 10, Background = Brush("#F4F8FB"), BorderBrush = Line, Padding = new Thickness(9) };
         DockPanel.SetDock(logView, Dock.Bottom); reportDock.Children.Add(logView);
         Grid.SetColumn(reportCard, 1); body.Children.Add(reportCard);
         Grid.SetRow(body, 1); root.Children.Add(body);
