@@ -584,6 +584,10 @@ public partial class MainWindow
         TextBox compositeWeights = null!;
         DataGrid compositeGrid = null!;
         TextBlock compositeStatus = null!;
+        var compositeProfileStore = new MoneyballCompositeProfileStore();
+        var compositeProfiles = new List<MoneyballCompositeProfile>();
+        ComboBox compositeProfilePicker = null!;
+        TextBox compositeProfileName = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PERFORMANCE SCOUTING", 9, true, Teal));
@@ -679,6 +683,25 @@ public partial class MainWindow
         compositePanel.Children.Add(Txt("Composite performance ranking", 18, true, Ink));
         compositePanel.Children.Add(Txt("Select 2–12 seasonal metrics. Each is ranked with the same cohort, minutes, per-90 and higher/lower direction settings above; the composite averages their valid within-cohort percentiles. Use metrics with the same desirability direction. This is an Atlas composite, not FM's internal player rating or a league-strength adjustment.", 9, false, Muted, wrap: true));
 
+        var compositeProfileRow = new WrapPanel { Margin = new Thickness(0, 6, 0, 8) };
+        compositeProfilePicker = new ComboBox
+        {
+            Width = 210, Height = 34, Margin = new Thickness(3),
+            DisplayMemberPath = nameof(MoneyballCompositeProfile.Name),
+            IsTextSearchEnabled = true
+        };
+        compositeProfileName = Input("Composite profile name");
+        compositeProfileName.Width = 180;
+        compositeProfileRow.Children.Add(compositeProfilePicker);
+        compositeProfileRow.Children.Add(compositeProfileName);
+        compositeProfileRow.Children.Add(SoftButton("Save profile", (_, _) => SaveCompositeProfile()));
+        compositeProfileRow.Children.Add(SoftButton("Load profile", (_, _) => LoadCompositeProfile()));
+        compositeProfileRow.Children.Add(SoftButton("Duplicate", (_, _) => DuplicateCompositeProfile()));
+        compositeProfileRow.Children.Add(SoftButton("Delete", (_, _) => DeleteCompositeProfile()));
+        compositeProfileRow.Children.Add(SoftButton("Import", (_, _) => ImportCompositeProfiles()));
+        compositeProfileRow.Children.Add(SoftButton("Export", (_, _) => ExportCompositeProfiles()));
+        compositePanel.Children.Add(Card(compositeProfileRow, 10));
+
         compositeMetrics = new ListBox
         {
             ItemsSource = metrics,
@@ -765,6 +788,237 @@ public partial class MainWindow
             compositeExport.IsEnabled = false;
             compositeStatus.Text = "Metric weights changed. Rank the composite again before exporting.";
         };
+
+        void RefreshCompositeProfiles(string? selectedId = null)
+        {
+            try
+            {
+                compositeProfiles.Clear();
+                compositeProfiles.AddRange(compositeProfileStore.Load());
+                compositeProfilePicker.ItemsSource = null;
+                compositeProfilePicker.ItemsSource = compositeProfiles;
+                compositeProfilePicker.SelectedItem = selectedId is null
+                    ? null
+                    : compositeProfiles.FirstOrDefault(x => x.Id == selectedId);
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not load Moneyball composite profiles.", ex);
+                compositeStatus.Text = "Saved composite profiles could not be loaded. The original profile file was preserved.";
+            }
+        }
+
+        bool TryReadCompositeWeights(StatMetricField[] selectedMetrics, out Dictionary<string, double> weights, out string error)
+        {
+            weights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            error = string.Empty;
+            if (string.IsNullOrWhiteSpace(compositeWeights.Text)) return true;
+            foreach (var token in compositeWeights.Text.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var pair = token.Split('=', 2, StringSplitOptions.TrimEntries);
+                if (pair.Length != 2 || pair[0].Length == 0
+                    || !selectedMetrics.Any(x => x.Key.Equals(pair[0], StringComparison.OrdinalIgnoreCase))
+                    || !double.TryParse(pair[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var weight)
+                    || !double.IsFinite(weight) || weight <= 0
+                    || !weights.TryAdd(pair[0], weight))
+                {
+                    error = $"Invalid weight '{token}'. Use a selected metric key and a positive number, for example metric_key=2.";
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        void SaveCompositeProfile()
+        {
+            var selectedMetrics = compositeMetrics.SelectedItems.Cast<StatMetricField>()
+                .DistinctBy(x => x.Key, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (selectedMetrics.Length is < 2 or > 12)
+            {
+                compositeStatus.Text = "Select between 2 and 12 metrics before saving a composite profile.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(compositeProfileName.Text))
+            {
+                compositeStatus.Text = "Enter a name for this Moneyball composite profile.";
+                return;
+            }
+            if (!int.TryParse(compositeMinimum.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var minimumMetricCount)
+                || minimumMetricCount < 2 || minimumMetricCount > selectedMetrics.Length)
+            {
+                compositeStatus.Text = "Minimum metrics per player must be between 2 and the number of selected metrics.";
+                return;
+            }
+            if (!int.TryParse(minimumMinutes.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mins)
+                || mins is < 1 or > 10000
+                || !int.TryParse(minimumSample.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sample)
+                || sample is < 1 or > 100000)
+            {
+                compositeStatus.Text = "Enter valid minimum minutes (1–10,000) and minimum cohort size (1–100,000).";
+                return;
+            }
+            if (!TryReadCompositeWeights(selectedMetrics, out var weights, out var error))
+            {
+                compositeStatus.Text = error;
+                return;
+            }
+
+            var existing = compositeProfilePicker.SelectedItem as MoneyballCompositeProfile;
+            var now = DateTime.UtcNow;
+            var profile = new MoneyballCompositeProfile(
+                existing?.Id ?? Guid.NewGuid().ToString("N"),
+                compositeProfileName.Text.Trim(),
+                selectedMetrics.Select(x => x.Key).ToArray(),
+                minimumMetricCount,
+                weights,
+                cohort.SelectedItem as string ?? "All players",
+                !string.Equals(direction.SelectedItem as string, "Lower is better", StringComparison.Ordinal),
+                per90.IsChecked == true,
+                mins,
+                sample,
+                existing?.CreatedUtc ?? now,
+                now);
+            try
+            {
+                var saved = compositeProfileStore.Save(profile);
+                RefreshCompositeProfiles(saved.Id);
+                compositeProfileName.Text = saved.Name;
+                compositeStatus.Text = $"Saved Moneyball composite profile '{saved.Name}'. Only metric keys and search settings were stored; no player or save data was included.";
+                AtlasLog.Info($"Saved Moneyball composite profile: id={saved.Id}; metrics={saved.MetricKeys.Count}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not save Moneyball composite profile.", ex);
+                compositeStatus.Text = "Profile could not be saved: " + ex.Message;
+            }
+        }
+
+        void LoadCompositeProfile()
+        {
+            if (compositeProfilePicker.SelectedItem is not MoneyballCompositeProfile profile)
+            {
+                compositeStatus.Text = "Choose a saved Moneyball composite profile to load.";
+                return;
+            }
+
+            compositeMetrics.SelectedItems.Clear();
+            var missing = new List<string>();
+            foreach (var key in profile.MetricKeys)
+            {
+                var metric = metrics.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+                if (metric is null) missing.Add(key);
+                else compositeMetrics.SelectedItems.Add(metric);
+            }
+            compositeMinimum.Text = profile.MinimumMetrics.ToString(CultureInfo.InvariantCulture);
+            compositeWeights.Text = string.Join(", ", profile.MetricWeights.Select(x => x.Key + "=" + x.Value.ToString("0.####", CultureInfo.InvariantCulture)));
+            cohort.SelectedItem = profile.CohortMode;
+            direction.SelectedItem = profile.HigherIsBetter ? "Higher is better" : "Lower is better";
+            per90.IsChecked = profile.Per90;
+            minimumMinutes.Text = profile.MinimumMinutes.ToString(CultureInfo.InvariantCulture);
+            minimumSample.Text = profile.MinimumSampleSize.ToString(CultureInfo.InvariantCulture);
+            compositeProfileName.Text = profile.Name;
+            compositeStatus.Text = missing.Count == 0
+                ? $"Loaded '{profile.Name}' with {profile.MetricKeys.Count} metric(s). Rank the composite to refresh results."
+                : $"Loaded {profile.MetricKeys.Count - missing.Count} of {profile.MetricKeys.Count} metrics. Missing catalogue fields were not substituted: {string.Join(", ", missing)}.";
+        }
+
+        void DuplicateCompositeProfile()
+        {
+            if (compositeProfilePicker.SelectedItem is not MoneyballCompositeProfile profile)
+            {
+                compositeStatus.Text = "Choose a Moneyball profile to duplicate.";
+                return;
+            }
+            try
+            {
+                var copy = compositeProfileStore.Duplicate(profile.Id);
+                RefreshCompositeProfiles(copy.Id);
+                compositeProfileName.Text = copy.Name;
+                compositeStatus.Text = $"Created '{copy.Name}'. Review the copied criteria, then save changes if needed.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not duplicate Moneyball composite profile.", ex);
+                compositeStatus.Text = "Profile could not be duplicated: " + ex.Message;
+            }
+        }
+
+        void DeleteCompositeProfile()
+        {
+            if (compositeProfilePicker.SelectedItem is not MoneyballCompositeProfile profile)
+            {
+                compositeStatus.Text = "Choose a Moneyball profile to delete.";
+                return;
+            }
+            if (MessageBox.Show(this, $"Delete Moneyball profile '{profile.Name}'?", "FM Atlas · Delete Moneyball profile",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            try
+            {
+                compositeProfileStore.Delete(profile.Id);
+                compositeProfileName.Text = string.Empty;
+                RefreshCompositeProfiles();
+                compositeStatus.Text = $"Deleted Moneyball profile '{profile.Name}'.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not delete Moneyball composite profile.", ex);
+                compositeStatus.Text = "Profile could not be deleted: " + ex.Message;
+            }
+        }
+
+        void ExportCompositeProfiles()
+        {
+            try
+            {
+                if (compositeProfileStore.Load().Count == 0)
+                {
+                    compositeStatus.Text = "There are no Moneyball composite profiles to export.";
+                    return;
+                }
+                var dialog = new SaveFileDialog
+                {
+                    Title = "Export Moneyball composite profiles",
+                    FileName = "FM-Atlas-Moneyball-Profiles.json",
+                    Filter = "FM Atlas Moneyball profiles (*.json)|*.json",
+                    AddExtension = true,
+                    DefaultExt = ".json",
+                    OverwritePrompt = true
+                };
+                if (dialog.ShowDialog(this) != true) return;
+                File.WriteAllText(dialog.FileName, compositeProfileStore.ExportJson(), new UTF8Encoding(false));
+                compositeStatus.Text = "Exported Moneyball composite criteria only. Player and career-save data were not included.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not export Moneyball composite profiles.", ex);
+                compositeStatus.Text = "Profiles could not be exported: " + ex.Message;
+            }
+        }
+
+        void ImportCompositeProfiles()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Import Moneyball composite profiles",
+                Filter = "FM Atlas Moneyball profiles (*.json)|*.json|JSON files (*.json)|*.json",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                var result = compositeProfileStore.ImportJson(File.ReadAllText(dialog.FileName, Encoding.UTF8));
+                RefreshCompositeProfiles();
+                compositeStatus.Text = $"Imported {result.Added} profile(s); skipped {result.Skipped} conflict(s). {string.Join(" ", result.Conflicts.Take(3))}";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not import Moneyball composite profiles.", ex);
+                compositeStatus.Text = "Profiles could not be imported: " + ex.Message;
+            }
+        }
+
+        RefreshCompositeProfiles();
 
         async Task RankAsync()
         {
