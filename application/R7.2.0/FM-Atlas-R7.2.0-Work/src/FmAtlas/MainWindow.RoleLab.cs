@@ -26,6 +26,8 @@ public partial class MainWindow
         role.SelectedIndex = 0;
         Button find = null!;
         TextBlock status = null!;
+        TextBlock contributionStatus = null!;
+        WrapPanel contributionPanel = null!;
         DataGrid grid = null!;
         var results = new List<RoleFitCandidate>();
         find = PrimaryButton("Find best fits", async (_, _) => await SearchAsync()); find.Margin = new Thickness(0, 0, 8, 8);
@@ -60,10 +62,10 @@ public partial class MainWindow
         var contributionCard = Card(new StackPanel(), 12, new Thickness(0, 10, 0, 0));
         var contributionStack = (StackPanel)contributionCard.Child;
         contributionStack.Children.Add(Txt("SELECTED PLAYER CONTRIBUTIONS", 8, true, Teal));
-        var contributionStatus = Txt("Select a player row to inspect how the available attribute inputs add up to the Atlas role-fit score.", 9, false, Muted, wrap: true);
+        contributionStatus = Txt("Select a player row to inspect how the available attribute inputs add up to the Atlas role-fit score.", 9, false, Muted, wrap: true);
         contributionStatus.Margin = new Thickness(0, 4, 0, 5);
         contributionStack.Children.Add(contributionStatus);
-        var contributionPanel = new WrapPanel();
+        contributionPanel = new WrapPanel();
         contributionStack.Children.Add(contributionPanel);
         Grid.SetRow(contributionCard, 2); root.Children.Add(contributionCard);
 
