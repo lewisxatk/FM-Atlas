@@ -303,3 +303,9 @@ These services are domain foundations, not fully delivered screens. Squad Archit
 | Requirement | Source locations | Evidence | Status | Remaining work |
 |---|---|---|---|---|
 | Attribute Search ALL/AND and ANY/OR | `Data/ScoutDatabase.cs`, `MainWindow.AdvancedSearch.cs`, `Services/SavedSearchProfileStore.cs`, `SavedSearchProfileStoreTests.cs`, `ScoutDatabaseAttributeSearchIntegrationTests.cs` | UI offers both modes; ALL is the default; SQL joins the grouped attribute predicates with AND or OR while text search remains an outer AND; selected mode is saved/restored. A seeded SQLite test checks BOTH / first-only / second-only / neither and text-filter interaction. Windows run `43478483715` at `0fbd5fa`: 68/68 tests, 0 warnings/errors. | Source, build and integration tests verified | Launch on Windows with a copied FM27 save; check visible result correctness, saved-profile persistence and missing-field semantics. Continue to nested groups, includes/excludes, condition reordering and reusable query templates. |
+
+## Advanced Search condition ordering and duplication — Windows verified
+
+| Requirement | Source locations | Evidence | Status | Remaining work |
+|---|---|---|---|---|
+| Reorder and duplicate conditions | `MainWindow.AdvancedSearch.cs` | Both Stats Search and Attribute Search expose Move Up / Move Down / Duplicate / Remove. The action updates the view container and the underlying ordered filter list together; duplicates copy the current field and valid bounds and respect the 60-condition limit. Windows run `43479401387` at `eb5d8f2`: 68/68 tests, 0 warnings/errors. | Source and Windows compile/test verified; UI behavior still needs manual acceptance | Test row order after profile save/load, duplicate edits, edge rows and all supported DPI sizes; continue toward nested logical groups and include/exclude conditions. |
