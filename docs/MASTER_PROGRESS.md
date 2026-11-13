@@ -329,3 +329,19 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] User-PC acceptance remains outstanding: launch the WPF app, inspect all routes/themes/DPI and keyboard flow, verify support ZIP contents, import only a COPY of an FM27 Game Pass save, compare imported fields to the in-game UI, check the actual configured graphics root, and verify that unknown/unsupported Game Pass builds remain read-only.
 - [ ] Live Apply/Undo remains prohibited until the exact installed build, each field offset/encoding, identity resolution, preflight, write/read-back and rollback are independently witnessed on a disposable offline career.
 - Main remains untouched; all changes and validation are on `overhaul/monolith-full-platform`.
+
+
+## Combined Stage 3–7 updated Windows checkpoint — 2026-11-13 18:52 UTC
+
+- [x] Exact tested source commit: `c51f80574d9131cb9caa1b25a44541ae370df553` on `overhaul/monolith-full-platform`.
+- [x] Windows Actions run `43486407442`: restore successful; .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; **87/87 MSTest tests passed**, 0 failed, 0 skipped.
+- [x] Windows Release artifact `14066379269` (14,694,174 bytes; SHA-256 `f46c01c18982ec58e79d557cb696ca27b55c61c817207d2753795b14581f36ca`) and test-results artifact `14067926212` (SHA-256 `c08febcbd364e6c6c58865b29cf45879fd87926e7cb61c69a3c4b0a00457131d`) uploaded. GitHub artifact retention expires 27 November 2026.
+- [x] The tested tree includes the Scouting Matrix editable notes UI and SQLite create/update/clear regression test; note updates preserve the shortlist AddedUtc timestamp.
+- [x] MONOLITH initial WPF resources, orange semantic active-navigation state and dashboard label were aligned with the Obsidian/Atlas identity.
+- [x] Moneyball now exports CSV with metric key, provider-specific PlayerSourceId, player/club/period, value, percentile, sample size and evidence basis. Stale result rows and export are invalidated when the selected metric, per-90 toggle or thresholds change.
+- [x] Moneyball queries and external export fallback now permit up to 50,000 returned season observations; cohort ranking remains sorted, tie-aware O(n log n), with regression coverage at 50,000 observations. The UI states that the percentile is relative to the returned window, not league-strength adjusted.
+- [x] Latest CI verifies source compilation and automated regression tests only. It does not verify runtime WPF visuals, keyboard/DPI behaviour, actual user data mappings, Game Pass installation compatibility, graphics roots or any live memory write.
+- [ ] Next validation is user-environment acceptance: launch the exact Windows Release package; smoke-test all routes and both themes at common DPI scales; exercise the Advanced Search and profile import/export screens; edit/clear Scouting Matrix notes; run Moneyball against a copied FM27 save and an FM View export; inspect generated CSV and support ZIPs; validate the user's graphics config root. Do not use the only career save.
+- [ ] Position/league-cohort Moneyball, validated position familiarity/15-position suitability pitch, full tactical effectiveness and player buy-in models, multi-snapshot development history, graphics pack management, mod installation/restore, complete shared MONOLITH control migration and final installer/release process remain later implementation gaps. They are not marked complete merely because the initial screens exist.
+- [ ] Live Apply/Undo remains blocked by `LiveWriteCertification.IsCertified == false`. Unknown/unverified game builds remain read-only.
+- Main remains unchanged at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
