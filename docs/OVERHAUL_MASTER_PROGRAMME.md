@@ -326,3 +326,11 @@ The following supersedes older build-status statements above where they conflict
 - Attribute Search adds optional ANY/OR criteria matching while preserving ALL/AND as default. SQL groups the attribute predicates and retains text search as an outer AND; MatchAny is persisted in profiles. A disposable SQLite test proves BOTH / one-only / neither outcomes and text-filter interaction.
 - This is a verified implementation checkpoint, not completion of the overall product. Continue all remaining modules on the same overhaul branch; use internal CI gates but keep the final product integrated.
 - Manual Windows visual/runtime and actual copied FM27 Game Pass save testing remain open. Live Apply/Undo remains disabled pending exact build/field certification and rollback proof.
+
+## Latest Advanced Search condition controls — Windows checkpoint, 2026-11-13 18:09 UTC
+
+- Tested application source: `eb5d8f2228310459df34713222f6257fc85b171c`.
+- Windows Actions run `43479401387`: .NET 8 WPF Release build 0 warnings / 0 errors; 68/68 tests passed.
+- Artifacts: Release `14064023817`, TRX `14064766061`. Package and test report were downloaded and inspected.
+- Stats Search and Attribute Search now support per-condition move up/down and duplicate, with synchronized view and model order. Manual layout/profile-persistence acceptance remains outstanding.
+- Nested condition groups, include/exclude semantics and import/export of full group expressions remain roadmap work. Keep the entire roadmap active as one integrated programme.
