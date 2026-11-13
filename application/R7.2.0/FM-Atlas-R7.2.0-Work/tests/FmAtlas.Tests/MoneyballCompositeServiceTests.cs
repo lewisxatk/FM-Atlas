@@ -79,7 +79,7 @@ public sealed class MoneyballCompositeServiceTests
             new MoneyballMetricPercentileObservation("P1", "Player One", "2025/26", "goals", 85)
         };
 
-        Assert.ThrowsException<ArgumentException>(() => MoneyballCompositeService.Calculate(observations));
+        Assert.ThrowsExactly<ArgumentException>(() => MoneyballCompositeService.Calculate(observations));
     }
 
     [TestMethod]
@@ -91,8 +91,8 @@ public sealed class MoneyballCompositeServiceTests
         };
         var weights = new Dictionary<string, double> { ["goals"] = double.NaN };
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => MoneyballCompositeService.Calculate(observations, weights));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => MoneyballCompositeService.Calculate(observations, minimumMetrics: 0));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => MoneyballCompositeService.Calculate(observations, weights));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => MoneyballCompositeService.Calculate(observations, minimumMetrics: 0));
     }
 
     [TestMethod]
@@ -124,7 +124,7 @@ public sealed class MoneyballCompositeServiceTests
             [" Goals "] = 2
         };
 
-        Assert.ThrowsException<ArgumentException>(() => MoneyballCompositeService.Calculate(observations, weights));
+        Assert.ThrowsExactly<ArgumentException>(() => MoneyballCompositeService.Calculate(observations, weights));
     }
 
 }
