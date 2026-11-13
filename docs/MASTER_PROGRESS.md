@@ -231,3 +231,15 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Manually generate default and personal-details-opt-in support ZIPs from the running app; inspect exact entries, preview, README, manifest hashes and always-redacted content.
 - [ ] The user has reiterated that the full roadmap should continue as one integrated programme. Internal engineering checkpoints and CI are retained for safety, but this is not a sequence of separate user-facing mini-releases. Continue Stage 3–7 scope on the same protected overhaul branch.
 - [ ] Still outstanding from the user's Windows/Game Pass environment: launch all 21 routes, visual/theme/DPI acceptance, real copied-save import, exact Game Pass build/field certification and GraphicsResolver validation against the actual configured folder. Live Apply/Undo remains disabled pending field-level proof and disposable-save rollback acceptance.
+
+## Latest portable Search Profiles checkpoint — 2026-11-13 17:57 UTC
+
+- [x] Exact tested application source commit: e67c0a3b65dcadee485783ca700555bb89fa7076.
+- [x] Windows Actions run 43477411616: .NET 8 WPF Release build succeeded with 0 warnings / 0 errors; 67/67 MSTest tests passed, 0 failed, 0 skipped.
+- [x] Release artifact 14062868942 and test-results artifact 14063946560 uploaded. The downloaded Windows Release ZIP contains FmAtlas.exe, .NET dependencies, SQLite and the save-bridge tools. The downloaded TRX independently records 67 passed, 0 failed.
+- [x] SavedSearchProfileStore now supports Duplicate, ExportJson by all/category, and ImportJson with schema/size/field validation. Imports merge without overwriting existing IDs or same-category names and return explicit skipped-conflict details.
+- [x] Stats Search and Attribute Search expose Duplicate profile, Import profiles and Export profiles in addition to New/Save/Load/Delete. Exports are category-specific; imports accept the versioned portable JSON document and refresh the current screen.
+- [x] Added regression tests for independent duplicate ID/unique name, category-only export, cross-store import, ID collision safety, name conflict safety, and unsupported schema rejection.
+- [ ] Windows runtime acceptance remains outstanding: launch both search screens, verify all profile buttons, export/import between app instances, check skipped conflicts and verify no player/save contents are included in the JSON.
+- The branch head at this checkpoint is the tested application commit. Main remains untouched at 2051bbee042fb8e7203b7855e833e391ccee9ecb.
+- Continue the complete roadmap as one integrated programme; this feature tranche is not the full product release.
