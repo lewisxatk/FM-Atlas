@@ -95,8 +95,12 @@ public partial class MainWindow
             });
             await Add("Python save bridge", async () =>
             {
-                var available = await FmsaveBridgeService.IsAvailableAsync();
-                return (available, available ? "Python Launcher and fmsave are detected" : "Not detected · run Setup-FMAtlas-Save-Bridge.ps1 to enable save imports");
+                var version = await FmsaveBridgeService.GetInstalledVersionAsync();
+                var available = string.Equals(version, FmsaveBridgeService.SupportedPackageVersion, StringComparison.Ordinal);
+                var detail = available
+                    ? $"Python Launcher and fmsave {version} are detected (supported adapter version)."
+                    : $"Detected fmsave: {version ?? "not installed"}. FM Atlas requires {FmsaveBridgeService.SupportedPackageVersion}; run Setup-FMAtlas-Save-Bridge.ps1.";
+                return (available, detail);
             });
             await Add("Football Manager process", () => Task.FromResult((true, GameProcessDetector.Detect().Detail)));
             await Add("Imported career snapshot", async () =>
@@ -153,7 +157,8 @@ public partial class MainWindow
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
         var tables = await RunDatabaseAsync(() => _database.GetFmsaveExtraTableCountsAsync());
         var process = GameProcessDetector.Detect();
-        var bridge = await FmsaveBridgeService.IsAvailableAsync();
+        var bridgeVersion = await FmsaveBridgeService.GetInstalledVersionAsync();
+        var bridge = string.Equals(bridgeVersion, FmsaveBridgeService.SupportedPackageVersion, StringComparison.Ordinal);
         var dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas", "scouting.db");
         var dbSize = File.Exists(dbPath) ? new FileInfo(dbPath).Length : 0;
         var assembly = typeof(App).Assembly;
@@ -181,7 +186,7 @@ public partial class MainWindow
             sb.AppendLine("Store/build profile: no unique supported profile match · " + AtlasLog.RedactForSupport(ex.Message));
         }
 
-        sb.AppendLine("Python/fmsave bridge: " + (bridge ? "available" : "not available"));
+        sb.AppendLine($"Python/fmsave bridge: {(bridge ? "supported" : "missing or version mismatch")} · detected={bridgeVersion ?? "not installed"} · required={FmsaveBridgeService.SupportedPackageVersion}");
         sb.AppendLine();
         sb.AppendLine("DATA COUNTS");
         sb.AppendLine($"Live identities: players={metrics.LivePlayers} · clubs={metrics.LiveClubs} · staff={metrics.LiveStaff}");
