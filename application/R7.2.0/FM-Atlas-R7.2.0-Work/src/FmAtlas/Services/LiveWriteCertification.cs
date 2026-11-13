@@ -8,7 +8,7 @@ namespace FmAtlas.Services;
 /// </summary>
 public static class LiveWriteCertification
 {
-    public const bool IsCertified = false;
+    public static bool IsCertified => false;
 
     public const string BlockReason =
         "Live Football Manager memory writes are disabled in this build. The current process profile " +
