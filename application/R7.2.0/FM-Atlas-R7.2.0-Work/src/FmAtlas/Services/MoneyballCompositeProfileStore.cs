@@ -280,7 +280,7 @@ public sealed class MoneyballCompositeProfileStore
         var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var key in profile.MetricKeys)
         {
-            if (string.IsNullOrWhiteSpace(key) || key.Length > 256 || !keys.Add(key.Trim()))
+            if (string.IsNullOrWhiteSpace(key) || key.Length > 256 || key != key.Trim() || !keys.Add(key))
                 throw new ArgumentException("Metric keys must be non-empty, bounded and unique.", nameof(profile));
         }
         if (profile.MinimumMetrics < 2 || profile.MinimumMetrics > profile.MetricKeys.Count)
@@ -295,7 +295,8 @@ public sealed class MoneyballCompositeProfileStore
             throw new ArgumentException("Metric weights cannot be null.", nameof(profile));
         foreach (var pair in profile.MetricWeights)
         {
-            if (!profile.MetricKeys.Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(pair.Key) || pair.Key != pair.Key.Trim()
+                || !profile.MetricKeys.Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
                 throw new ArgumentException($"Weight key '{pair.Key}' is not one of the selected metrics.", nameof(profile));
             if (string.IsNullOrWhiteSpace(pair.Key) || !double.IsFinite(pair.Value) || pair.Value <= 0)
                 throw new ArgumentOutOfRangeException(nameof(profile), "Metric weights must be finite positive numbers.");
