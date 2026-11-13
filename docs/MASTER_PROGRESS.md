@@ -162,7 +162,7 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Role Fit database integration test seeds an isolated SQLite store and proves that the real candidate query returns readable contribution labels, values, Atlas weights, additive score points, weighted score and 2/3 missing-data coverage.
 - [x] Diagnostics redaction pipeline and regression tests cover bearer/basic tokens, quoted secrets, credentials, query tokens, Windows/UNC paths and standalone save filenames.
 - [ ] WPF app launch, route-by-route UI acceptance, real imported FM27 save-copy test, theme/DPI visual checks and actual support-ZIP manual inspection remain outstanding.
-- All changes after the tested application source `8cfe5b3` are documentation-only checkpoint updates; no application source changed after the 53-test run. The protected `main` branch remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`. Check the live branch ref before resuming.
+- This statement was superseded by the later SupportBundleComposer and SavedSearchProfileStore source additions. The exact follow-on application source is now verified by run `43476085012` at commit `6c18e36` with 64/64 tests, 0 warnings and 0 errors. The protected `main` branch remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`. Check the live branch ref before resuming.
 - Live memory Apply/Undo remains disabled until exact Game Pass build/field certification and disposable-save read-back/undo acceptance.
 
 
@@ -189,8 +189,8 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Manifest records SHA-256 and byte length for every payload file other than the manifest itself; the archive is built from the same exact in-memory package shown in the preview.
 - [x] Added five automated tests for allowlisted ZIP entries, archive round-trip, manifest hashes/sizes, redaction and path-traversal rejection.
 - [ ] Windows CI run `43475232418` for exact code commit `a3efdb57115475c6d7693a26f85928910664fdee` is still in progress; do not claim this extraction verified until it completes successfully.
-- [ ] Manual Windows export inspection remains required.
-- Current tree inventory: 41 application source files and 11 test-project files (including the project file).
+- [ ] Manual Windows export inspection remains required; automated composer tests cover archive entries, hashes, redaction and traversal rejection.
+- Current tree inventory at the tested source: 41 application source files and 11 test-project files (including the project file).
 - Earlier run `43474815591` failed compilation due malformed C# report strings introduced during the privacy-copy edit. The syntax was corrected in `d60206a`; the corrected source is included in the later pending run. Keep the failed run visible in the audit trail rather than treating it as a passing build.
 
 
@@ -206,3 +206,13 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Windows runtime acceptance still requires the user to launch the application, smoke-test 21 routes, test themes/DPI, generate and inspect both default and personal-details opt-in support ZIPs, validate a copied FM27 Game Pass save import and verify actual graphics paths.
 - [ ] fmsave import provenance remains incomplete: normalized save CA/PA/value/attributes and season-stat fields are not yet joined to field-level parser status/coverage during every query. The audit records this as a critical follow-on requirement.
 - Stage 3–7 remain paused pending the user's review and explicit approval. Do not start the combined product/design implementation.
+## Completed Stage 1/2 engineering checkpoint — 2026-11-13 17:49 UTC
+
+- [x] Exact tested application source commit: `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`.
+- [x] Windows Actions run `43476085012`: .NET 8 WPF Release build succeeded, **0 warnings / 0 errors**; MSTest **64/64 passed**, 0 failed/skipped.
+- [x] SupportBundleComposer and SavedSearchProfileStore are included in the passing build. Test coverage includes strict support ZIP allowlisting, ZIP round-trip, manifest hashes/sizes, privacy redaction, invalid path rejection and saved-search profile persistence/validation.
+- [x] Expanded SQLite evidence isolation verifies untrusted LIVE mirror rows do not leak into generic local search/count, Attribute Search, Role Lab and Mass Edit consumers.
+- [x] Stage 2 route mapping covers all 21 destinations. Source-level research now includes fmsave 0.12.3 trust/build support, FMLibreEditor's Game Pass 0.9.2435.0 observations and write safeguards, fm-editor's per-build witnessed field model, and FMSuperScout's read-only scanner and explicitly heuristic market-value model.
+- [x] Key gaps documented: save-import field provenance is not yet joined to every normalized player/stat field; Transfers can hide live records when any local rows exist; Tactical Lab is informational; Squad Architect is not yet a validated Best XI optimizer; Global Search/Assistant are narrow; live Apply/Undo remains disabled.
+- [ ] Remaining user-environment acceptance: launch the WPF app, smoke-test all 21 routes, inspect actual support ZIPs, import a disposable FM27 save copy, check Obsidian/Warm Light and DPI, and identify the installed Game Pass build/graphics root.
+- Stage 3–7 remain paused pending the user's review and explicit approval. No broad overhaul implementation has started.
