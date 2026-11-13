@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Win32;
 using FmAtlas.Models;
+using FmAtlas.Services;
 
 namespace FmAtlas;
 
@@ -14,6 +15,7 @@ public partial class MainWindow
     private async Task<UIElement> ValueFinderPageAsync()
     {
         var root = new Grid();
+        Button search = null!;
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var stack = new StackPanel();
@@ -54,7 +56,7 @@ public partial class MainWindow
         grid.Columns.Add(Column("VALUE PCTL", "DisplayMarketValuePercentile", .6));
 
         var buttons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
-        var search = PrimaryButton("Find undervalued players", async (_, _) => await RunSearchAsync());
+        search = PrimaryButton("Find undervalued players", async (_, _) => await RunSearchAsync());
         var export = SoftButton("Export CSV", (_, _) => ExportRows());
         var reset = SoftButton("Reset", (_, _) => { age.Text = "25"; value.Clear(); ca.Clear(); upside.Text = "8"; position.Clear(); grid.ItemsSource = null; results.Clear(); status.Text = "Filters cleared."; });
         buttons.Children.Add(search); buttons.Children.Add(export); buttons.Children.Add(reset);
