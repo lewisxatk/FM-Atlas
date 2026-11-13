@@ -4,8 +4,8 @@ Last updated: 2026-11-13
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
 Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`  
-Latest successful test checkpoint: `ade463712df284034ba475a2f1bc85584e9394d9`  
-Current source head at documentation update: `1022078bd4fd79d21f687feb721f6e6e7f4087d7`
+Latest successful test checkpoint: `1022078bd4fd79d21f687feb721f6e6e7f4087d7`  
+Current source head at documentation update: `e109eabc34aaa5805863031324602d81033efeb1`
 
 ## Verified progress
 
@@ -28,7 +28,7 @@ Current source head at documentation update: `1022078bd4fd79d21f687feb721f6e6e7f
 - [x] Existing Diagnostics / Tester & Logs page, local rolling logs, health checks, copy/export, support ZIP preview, manifest hashes and local-only export inspected in source.
 - [x] Fixed over-escaped credential redaction and expanded path redaction to cover complete Windows and UNC paths, including spaces (code checkpoint `6fc4675`).
 - [x] Added deterministic support-data redaction regression checks to the Diagnostics health-check list (bearer token, API key, password, user path, spaced drive path, UNC path and standalone save filename).
-- [x] Windows .NET 8 Release build and 40/40 expanded MSTest suite passed at commit `ade4637` (Actions run `43468496760`); 0 errors, 12 warnings.
+- [x] Windows .NET 8 Release build and 40/40 expanded MSTest suite passed at commit `1022078` (Actions run `43469077009`); 0 warnings, 0 errors.
 
 ## Initial source architecture audit — 2026-11-13
 
@@ -99,3 +99,14 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] 12 compiler warnings were triaged: 11 were private MainWindow filter fields never referenced in any of seven partial classes; one was a legacy `AtlasLog.Warn` call. Those have been removed/replaced in commits `886a8a5` and `1022078`. A new CI run is checking the warning cleanup; do not assume zero warnings until it completes.
 - Current branch head at this progress update: `1022078bd4fd79d21f687feb721f6e6e7f4087d7`.
 - [ ] Windows application launch/UI smoke tests and actual Game Pass integration remain outstanding; CI build success is not runtime acceptance.
+
+## Warning-free verification and SQL integration test — 2026-11-13
+
+- [x] Exact tested source commit: `1022078bd4fd79d21f687feb721f6e6e7f4087d7`.
+- [x] Windows .NET 8 Release restore and build passed: **0 warnings, 0 errors**.
+- [x] MSTest result: **40 passed, 0 failed, 0 skipped**.
+- [x] Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43469077009.
+- [x] Removed 11 genuinely unused private filter declarations after checking every MainWindow partial; replaced obsolete `AtlasLog.Warn` usage. Zero compiler warnings verified at `1022078`.
+- [x] Added disposable-path constructor for `ScoutDatabase` and a SQLite integration test covering canonical verified, read-back verified, unverified, provisional and mixed-status CA/PA/attribute rows.
+- [ ] The first integration fixture build caught missing `System.IO` imports; fixed in `e109eab`. The latest integration-test commit awaits its own Windows build/test run; no SQL integration pass is claimed yet.
+- Current code head at this entry: `e109eabc34aaa5805863031324602d81033efeb1`.
