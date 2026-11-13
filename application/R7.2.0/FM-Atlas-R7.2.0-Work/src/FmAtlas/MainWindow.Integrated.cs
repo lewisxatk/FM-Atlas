@@ -240,7 +240,9 @@ public partial class MainWindow
             var supportsPer90 = field.SelectedItem is StatMetricField selectedMetric && selectedMetric.SupportsPer90;
             per90.IsEnabled = supportsPer90;
             if (!supportsPer90) per90.IsChecked = false;
-            minimumMinutes.IsEnabled = supportsPer90 && per90.IsChecked == true;
+            // The sample-size floor applies to raw totals and per-90 rates alike.
+            minimumMinutes.IsEnabled = field.SelectedItem is StatMetricField;
+            minimumMinutes.ToolTip = "Minimum playing minutes required for a player to enter this cohort.";
             per90.ToolTip = supportsPer90
                 ? "Convert a cumulative count to a per-90 rate. Existing rates and percentages cannot be converted again."
                 : "This field is already a rate/percentage or is not suitable for per-90 conversion.";
