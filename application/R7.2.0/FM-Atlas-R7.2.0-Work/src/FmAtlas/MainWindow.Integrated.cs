@@ -654,7 +654,6 @@ public partial class MainWindow
                 }).ToArray();
 
                 lineupGrid.ItemsSource = displayRows;
-                var unfilled = result.UnfilledSlots.Count;
                 status.Text = $"{result.FilledSlots}/11 slots filled · total Atlas fit {result.TotalScore:0.00} · {selectedFormation}. One player can fill only one slot. Eligibility uses the imported primary position only; players with missing or secondary-position-only evidence are conservatively excluded. Scores are transparent Atlas role estimates, not FM's hidden tactical formula or proof of tactical familiarity.";
             }
             catch (Exception ex)
