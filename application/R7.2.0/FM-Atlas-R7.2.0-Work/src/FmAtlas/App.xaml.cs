@@ -9,6 +9,7 @@ public partial class App : Application
     public App()
     {
         AtlasLog.Initialise();
+        MonolithTheme.Apply(this);
         DispatcherUnhandledException += (_, e) =>
         {
             AtlasLog.Error("Unhandled WPF dispatcher exception.", e.Exception);
