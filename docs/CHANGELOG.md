@@ -61,3 +61,11 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 
 - Corrected a field-evidence data-integrity defect: substring matching for `Verified` could include `Unverified`. All nine live-fact SQL conditions now use an explicit normalized allowlist; two UI consumers use the shared evidence policy; strict canonical-status tests added.
 - Added tests for provider-specific identity separation, exact-ID completeness deduplication and fail-closed unknown/provisional evidence statuses.
+
+## 2026-11-13 — Windows validation and reliability follow-up
+
+- Windows run `43468496760` at `ade4637`: .NET 8 restore and WPF Release build passed; 0 errors; MSTest 40/40 passed; Release and TRX artifacts uploaded. Compiler reported 12 warnings.
+- Added ALL/ANY match mode to Advanced Statistics Search and shared `StatConditionMatcher`: missing metric values remain missing/non-matches; per-90 uses player-period minutes; NaN/infinite bounds are rejected.
+- Added tested squad one-to-one assignment optimizer and FootballMetricMath calculation helpers. These remain separate services until integrated with validated data/UI flows.
+- Corrected fail-closed evidence classification and consumers; preserved the global live-write kill switch.
+- Removed 11 unused private MainWindow filter declarations after confirming no references in any seven MainWindow partial files; replaced an obsolete `AtlasLog.Warn` call with `AtlasLog.Warning`. New Windows run required to verify post-cleanup warning count.
