@@ -71,7 +71,7 @@ public sealed class GlobalSearchWindow : Window
         MinWidth = 880;
         MinHeight = 580;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = BrushOf("#0D1117");
+        Background = MonolithTheme.GetBrush("Canvas");
         Foreground = Ink;
         FontFamily = new FontFamily(MonolithTheme.FontFamilyName);
         Build();
