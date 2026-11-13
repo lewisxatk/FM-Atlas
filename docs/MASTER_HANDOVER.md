@@ -245,3 +245,13 @@ Current verified application checkpoint remains commit 6c18e36fdc706fc49ad74ce15
 - Attribute Search supports ALL/AND (default) and ANY/OR, persists that choice in Attribute Search profiles, keeps free-text filtering ANDed outside the OR group, and is covered by a real disposable SQLite integration test.
 - This checkpoint supersedes earlier references in this handover to 67/67 or 64/64 as the latest tested source. Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
 - Remaining user-environment checks: open the WPF app, test actual search results with a copied FM27 Game Pass save, verify saved profile persistence, and complete visual acceptance. Continue the whole integrated roadmap rather than treating this tranche as final.
+
+## Superseding tested source checkpoint — Advanced Search condition controls (2026-11-13)
+
+- Exact tested application source: `eb5d8f2228310459df34713222f6257fc85b171c`.
+- Windows Actions run `43479401387`: WPF Release build 0 warnings / 0 errors; 68/68 tests passed, 0 failed, 0 skipped.
+- Release artifact `14064023817`; test-results artifact `14064766061`. Both downloaded and inspected; TRX confirms 68 pass, Release ZIP contains FmAtlas.exe, FmAtlas.dll, SQLite and save-bridge tools.
+- Stats Search and Attribute Search now expose Move Up, Move Down and Duplicate actions on each condition row; the underlying ordered list changes with the visible rows.
+- This commit is the current branch head; main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- Remaining: run the app on Windows, validate row layout, save/load row order, duplicate and edge-row behavior, then implement nested AND/OR groups and include/exclude semantics.
+- Continue the wider programme as one integrated product; do not treat this checkpoint as the final release.
