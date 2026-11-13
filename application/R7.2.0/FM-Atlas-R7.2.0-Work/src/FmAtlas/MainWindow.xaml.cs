@@ -644,18 +644,9 @@ public partial class MainWindow : Window
             // of candidates even though only one page of rows is ultimately displayed.
             var (results, mergedHasMore) = await Task.Run(() =>
             {
-                static string IdentityKey(PlayerRecord item) =>
-                    item.Name.Trim().ToUpperInvariant() + "|" + (item.Club ?? string.Empty).Trim().ToUpperInvariant() + "|" + (item.Age?.ToString() ?? "?");
-                static int Completeness(PlayerRecord item) =>
-                    (item.Age.HasValue ? 1 : 0) + (item.Nation is not null ? 1 : 0) +
-                    (item.League is not null ? 1 : 0) + (item.Position is not null ? 1 : 0) +
-                    (item.CurrentAbility.HasValue ? 1 : 0) + (item.PotentialAbility.HasValue ? 1 : 0) +
-                    (item.Value.HasValue ? 1 : 0) + (item.PreferredFoot is not null ? 1 : 0) +
-                    (item.LeftFoot.HasValue ? 1 : 0) + (item.RightFoot.HasValue ? 1 : 0);
-                // Prefer the richest source row when the same player appears in both indexes.
-                var merged = local.Concat(live)
-                    .GroupBy(IdentityKey, StringComparer.OrdinalIgnoreCase)
-                    .Select(group => group.OrderByDescending(Completeness).First())
+                // Merge only exact provider-specific source IDs. Similar names/clubs/ages
+                // are not enough to prove two records represent the same person.
+                var merged = PlayerIdentityResolver.DeduplicateExactSourceIds(local.Concat(live))
                     .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
                     .ThenBy(x => x.Club, StringComparer.OrdinalIgnoreCase)
                     .ToList();
