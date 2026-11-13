@@ -442,3 +442,10 @@ Superseded: latest code-level Windows verification is source commit `4fdd17c344a
 - MSTest: **111 passed, 0 failed, 0 skipped**.
 - Both FM-Atlas-Test-Results and FM-Atlas-Windows-Release artifacts uploaded successfully.
 - This verifies the Windows build and automated tests for the commit only. It is not WPF manual visual acceptance, copied FM27 save acceptance or Game Pass/live-memory acceptance.
+
+
+## Follow-on integrated continuation — 2026-11-13
+
+- **Moneyball Scout:** metric results now retain the imported player age, league label and data-origin metadata alongside the statistical observation. The workspace supports independent five-year age-band groups, exact imported-league groups and combined primary-position/age groups. Rows without the required metadata are excluded from that grouped comparison; minimum sample size and higher/lower direction still apply. This is not season-date age reconstruction or competition-strength adjustment.
+- **Recruitment projects:** shortlist groups are extended in place with project status, owner, tags, transfer budget and weekly wage budget. Existing shortlist names/candidates remain intact and default to Active. Values are stored separately; missing asking prices and wages remain unavailable. Candidate count is derived from saved shortlist rows.
+- **Verification:** new database and cohort regression coverage is included in this source pass. The next Windows Actions run is the acceptance gate; no new build/test result is assumed by this register update.

@@ -7,12 +7,14 @@ on:
       - overhaul/monolith-full-platform
     paths:
       - 'application/R7.2.0/FM-Atlas-R7.2.0-Work/**'
+      - 'docs/**'
       - '.github/workflows/fm-atlas-windows-build.yml'
   pull_request:
     branches:
       - overhaul/monolith-full-platform
     paths:
       - 'application/R7.2.0/FM-Atlas-R7.2.0-Work/**'
+      - 'docs/**'
       - '.github/workflows/fm-atlas-windows-build.yml'
   workflow_dispatch:
 

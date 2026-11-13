@@ -101,3 +101,11 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - MSTest passed 111/111 with 0 skipped.
 - Windows Release and test-result artifacts uploaded.
 - This remains automated CI evidence only; no manual WPF or copied-save acceptance is claimed.
+
+
+## 2026-11-13 — Moneyball age/league cohorts and recruitment project boards
+
+- Moneyball player/metric results now carry imported age, league and data-origin metadata.
+- Added five-year age-band grouping, exact imported-league grouping and combined position/age grouping. Missing values are excluded and sample-size gating remains active; no league strength or historical season age is inferred.
+- Shortlist groups gain project status, owner, tags, transfer budget and weekly wage budget, with a non-destructive migration and UI load/save controls.
+- Added cohort, shortlist persistence and project validation tests. Windows CI verification pending.

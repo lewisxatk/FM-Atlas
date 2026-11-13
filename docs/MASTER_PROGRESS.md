@@ -412,3 +412,13 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] MSTest: 111 passed, 0 failed, 0 skipped.
 - [x] Release executable and test-results artifacts uploaded in Actions run [43515650093](https://github.com/lewisxatk/FM-Atlas/actions/runs/43515650093).
 - [ ] User-PC visual/theme/DPI, copied FM27 Game Pass save and tactical-shape acceptance remains outstanding.
+
+
+## Follow-on integrated continuation — 2026-11-13
+
+- [x] Added imported age, league and data-origin metadata to Moneyball query results for save and FM View data.
+- [x] Added five-year age-band, exact imported-league and primary-position-plus-age cohort options; missing grouping metadata is excluded, and small samples retain withheld percentiles.
+- [x] Added candidate count, project status, owner, tags, transfer budget and weekly wage budget to recruitment boards using an in-place SQLite migration.
+- [x] Added project metadata input/save/load controls to Scouting Matrix and regression tests for project persistence/validation.
+- [ ] Verify the full continuation pass with Windows Release build and automated tests.
+- [ ] Manual WPF visual acceptance and a copied FM27 Game Pass save remain separate PC gates.
