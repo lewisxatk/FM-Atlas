@@ -16,7 +16,6 @@ public partial class MainWindow
     private sealed record DnaAttributeRow(string Category, string Attribute, double Value);
     private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, string Period, double Value, double? Percentile, int SampleSize, string Basis);
     private sealed record TacticalCandidateRow(int Rank, string Name, string Club, string Position, double Score, string Coverage);
-    private sealed record TacticalLineupRow(string Slot, string Player, string Club, string PrimaryPosition, string RoleFit, string PositionRating, string CompositeScore, string Assignment);
     private sealed record GraphicsMappingRow(string Id, string Pack, string Target, string Status);
 
     private async Task<UIElement> PlayerDnaPageAsync()
@@ -450,16 +449,14 @@ public partial class MainWindow
     private async Task<UIElement> TacticalStudioPageAsync()
     {
         var root = new StackPanel();
-        var status = Txt("Select a tactical role to rank imported players, or build a best-fit XI from a formation.", 10, false, Muted, wrap: true);
+        var status = Txt("Select a tactical role to rank imported players.", 10, false, Muted, wrap: true);
         Button run = null!;
-        Button buildLineup = null!;
         DataGrid grid = null!;
-        DataGrid lineupGrid = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("TACTICAL INTELLIGENCE", 9, true, Teal));
         hs.Children.Add(Txt("Tactical Studio", 23, true, Ink));
-        hs.Children.Add(Txt("Explore role-specific squad fit and assemble a one-player-per-slot best-fit XI. Scores are Atlas's transparent attribute-weighted estimates, not Football Manager's hidden tactical effectiveness, familiarity, selection or buy-in formulas.", 11, false, Muted, wrap: true));
+        hs.Children.Add(Txt("Explore role-specific squad fit using Atlas's transparent attribute-weighted models. Football Manager's hidden tactical effectiveness and buy-in formulas are not claimed or reconstructed here. Use Squad Architect for formation-based best-XI selection.", 11, false, Muted, wrap: true));
         root.Children.Add(header);
 
         var profiles = RoleFitService.GetProfiles();
@@ -477,30 +474,6 @@ public partial class MainWindow
         grid.Columns.Add(Column("ATLAS FIT", nameof(TacticalCandidateRow.Score), .6));
         grid.Columns.Add(Column("COVERAGE", nameof(TacticalCandidateRow.Coverage), .7));
         root.Children.Add(Card(grid, 14));
-
-        var formationControls = new WrapPanel();
-        var formation = new ComboBox
-        {
-            Width = 230, Height = 36, Margin = new Thickness(3),
-            ItemsSource = SquadArchitectService.GetFormationNames(),
-            SelectedIndex = 0,
-            ToolTip = "Formation slots use each player's imported primary position as a conservative eligibility check."
-        };
-        buildLineup = PrimaryButton("Build best-fit XI", async (_, _) => await BuildLineupAsync());
-        formationControls.Children.Add(formation);
-        formationControls.Children.Add(buildLineup);
-        root.Children.Add(Txt("FORMATION BUILDER", 9, true, Teal) is var formationTitle ? Configure(formationTitle, new Thickness(0, 18, 0, 5)) : new TextBlock());
-        root.Children.Add(Card(formationControls, 13, new Thickness(0, 0, 0, 8)));
-        lineupGrid = CreateGrid();
-        lineupGrid.Columns.Add(Column("SLOT", nameof(TacticalLineupRow.Slot), .8));
-        lineupGrid.Columns.Add(Column("PLAYER", nameof(TacticalLineupRow.Player), 1.2));
-        lineupGrid.Columns.Add(Column("CLUB", nameof(TacticalLineupRow.Club), .9));
-        lineupGrid.Columns.Add(Column("PRIMARY POSITION", nameof(TacticalLineupRow.PrimaryPosition), .8));
-        lineupGrid.Columns.Add(Column("ROLE FIT", nameof(TacticalLineupRow.RoleFit), .55));
-        lineupGrid.Columns.Add(Column("POSITION /20", nameof(TacticalLineupRow.PositionRating), .6));
-        lineupGrid.Columns.Add(Column("COMPOSITE", nameof(TacticalLineupRow.CompositeScore), .6));
-        lineupGrid.Columns.Add(Column("ASSIGNMENT", nameof(TacticalLineupRow.Assignment), .8));
-        root.Children.Add(Card(lineupGrid, 14));
         root.Children.Add(status);
 
         async Task AnalyseAsync()
@@ -522,97 +495,6 @@ public partial class MainWindow
                 status.Text = "Role fit analysis failed: " + ex.Message;
             }
             finally { run.IsEnabled = true; }
-        }
-
-        async Task BuildLineupAsync()
-        {
-            var selectedFormation = formation.SelectedItem as string;
-            if (string.IsNullOrWhiteSpace(selectedFormation)) { status.Text = "Choose a formation."; return; }
-            var slots = SquadArchitectService.GetFormationSlots(selectedFormation);
-            var profileLookup = profiles.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
-            var missingProfiles = slots.Select(x => x.RoleProfileName).Distinct(StringComparer.OrdinalIgnoreCase)
-                .Where(x => !profileLookup.ContainsKey(x)).ToArray();
-            if (missingProfiles.Length > 0)
-            {
-                status.Text = "Formation cannot be built because these Atlas role profiles are missing: " + string.Join(", ", missingProfiles);
-                return;
-            }
-
-            buildLineup.IsEnabled = false;
-            run.IsEnabled = false;
-            lineupGrid.ItemsSource = null;
-            status.Text = $"Calculating source-backed role and position ratings for {selectedFormation}…";
-            try
-            {
-                var roleNames = slots.Select(x => x.RoleProfileName).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-                var roleResults = await Task.WhenAll(roleNames.Select(async roleName =>
-                {
-                    var roleProfile = profileLookup[roleName];
-                    var candidates = await RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(roleProfile, 500));
-                    return (Role: roleName, Candidates: candidates);
-                }));
-
-                var roleCandidates = roleResults.ToDictionary(
-                    x => x.Role,
-                    x => (IReadOnlyList<RoleFitCandidate>)x.Candidates,
-                    StringComparer.OrdinalIgnoreCase);
-                var sourceIds = roleResults.SelectMany(x => x.Candidates)
-                    .Select(x => x.SourceId)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-                var positionRatings = await RunDatabaseAsync(() => _database.GetPlayerPositionRatingsAsync(sourceIds));
-                var architect = SquadArchitectService.Optimize(selectedFormation, roleCandidates, positionRatings);
-
-                var candidateLookup = roleResults.SelectMany(x => x.Candidates)
-                    .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
-
-                var displayRows = architect.Selection.Assignments.Select(assignment =>
-                {
-                    if (assignment.Candidate is null)
-                        return new TacticalLineupRow(assignment.Slot.DisplayName, "—", "—", "—", "—", "—", "—", "No verified position-rating candidate");
-                    var sourceId = assignment.Candidate.SourceId;
-                    var source = candidateLookup[sourceId];
-                    architect.ScoreBreakdown.TryGetValue(
-                        SquadArchitectService.GetBreakdownKey(sourceId, slots.Single(x => x.DisplayName == assignment.Slot.DisplayName).SlotId),
-                        out var breakdown);
-                    return new TacticalLineupRow(
-                        assignment.Slot.DisplayName,
-                        source.Name,
-                        source.Club ?? "—",
-                        source.Position ?? "—",
-                        breakdown?.RoleFitScore.ToString("0.00", CultureInfo.InvariantCulture) ?? "—",
-                        breakdown?.PositionRating.ToString("0.##", CultureInfo.InvariantCulture) ?? "—",
-                        breakdown?.CompositeScore.ToString("0.00", CultureInfo.InvariantCulture) ?? assignment.Score?.ToString("0.00", CultureInfo.InvariantCulture) ?? "—",
-                        "Selected · source-backed");
-                }).ToArray();
-
-                lineupGrid.ItemsSource = displayRows;
-                status.Text = $"{architect.Selection.FilledSlots}/11 slots filled · composite Atlas score {architect.Selection.TotalScore:0.00} · {selectedFormation}. Each player is assigned once. Eligibility requires a source-backed 15-position rating and sufficient attribute coverage for the selected role. Composite = role-fit estimate × position rating / 20; this is not FM's hidden tactical formula, tactical familiarity or buy-in.";
-            }
-            catch (Exception ex)
-            {
-                AtlasLog.Error("Tactical formation builder failed.", ex);
-                status.Text = "Formation builder failed: " + ex.Message;
-            }
-            finally
-            {
-                buildLineup.IsEnabled = true;
-                run.IsEnabled = true;
-            }
-        }
-
-            catch (Exception ex)
-            {
-                AtlasLog.Error("Tactical formation builder failed.", ex);
-                status.Text = "Formation builder failed: " + ex.Message;
-            }
-            finally
-            {
-                buildLineup.IsEnabled = true;
-                run.IsEnabled = true;
-            }
         }
 
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
