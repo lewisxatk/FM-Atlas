@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -1297,7 +1298,8 @@ public partial class MainWindow : Window
         bestXiGrid.Columns.Add(Column("ROLE FIT", "RoleFit", .7));
         bestXiGrid.Columns.Add(Column("ATLAS SCORE", "AtlasScore", .8));
         var bestXiStatus = Txt("Choose one club and build an XI. Position eligibility requires a registered save build and imported position ratings; unverified builds remain ineligible.", 9, false, Muted, wrap: true);
-        var buildXiButton = PrimaryButton("Build best XI", async (_, _) => await BuildBestXiAsync());
+        Button buildXiButton = null!;
+        buildXiButton = PrimaryButton("Build best XI", async (_, _) => await BuildBestXiAsync());
         formationPicker.SelectionChanged += (_, _) =>
         {
             bestXiGrid.ItemsSource = null;
