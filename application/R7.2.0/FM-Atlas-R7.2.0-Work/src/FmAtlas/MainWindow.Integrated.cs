@@ -219,6 +219,7 @@ public partial class MainWindow
         Button refreshBoardButton = null!;
         ComboBox shortlistPicker = null!;
         ComboBox projectStatus = null!;
+        ComboBox rolePicker = null!;
         TextBox projectOwner = null!;
         TextBox projectTags = null!;
         TextBox transferBudget = null!;
@@ -292,7 +293,7 @@ public partial class MainWindow
         var candidateRow = new WrapPanel();
         var candidateSearch = Input("Find candidate by name or club"); candidateSearch.Width = 250;
         var searchButton = PrimaryButton("Search candidates", async (_, _) => await SearchCandidatesAsync());
-        var rolePicker = new ComboBox { Width = 245, Height = 35, Margin = new Thickness(3), ItemsSource = RoleFitService.GetProfiles(), DisplayMemberPath = nameof(RoleFitProfile.Name), IsTextSearchEnabled = true };
+        rolePicker = new ComboBox { Width = 245, Height = 35, Margin = new Thickness(3), ItemsSource = RoleFitService.GetProfiles(), DisplayMemberPath = nameof(RoleFitProfile.Name), IsTextSearchEnabled = true };
         if (rolePicker.Items.Count > 0) rolePicker.SelectedIndex = 0;
         var roleRankButton = SoftButton("Rank role fits", async (_, _) => await SearchRoleFitCandidatesAsync());
         var addButton = SoftButton("Add selected candidate", async (_, _) => await AddCandidateAsync());
