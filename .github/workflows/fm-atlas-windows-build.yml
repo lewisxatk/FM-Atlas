@@ -16,6 +16,10 @@ on:
       - '.github/workflows/fm-atlas-windows-build.yml'
   workflow_dispatch:
 
+concurrency:
+  group: fm-atlas-windows-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
