@@ -325,3 +325,21 @@ These services are domain foundations, not fully delivered screens. Squad Archit
 | Modding research catalogue | `Models/ModResearchEntry.cs`, `Services/ModResearchCatalog.cs`, `MainWindow.Integrated.cs` | Presents source, recorded licence note, relevant Atlas use and explicit limitations for research targets. | Catalogue boundary test added; awaiting build/test. | Re-check licences and exact program/build compatibility before any source reuse or execution. |
 
 The build check is performed by a draft validation-only PR targeting `overhaul/monolith-full-platform`. It is not a PR into `main` and is not intended to be merged. No latest-head build/test pass is claimed until a run for the current code completes. No WPF runtime, user-save or live-memory acceptance is implied.
+
+## Integrated Stage 3–7 implementation evidence update — 2026-11-13
+
+The following source additions are present on overhaul/monolith-full-platform; they remain subject to the status distinctions above.
+
+| Area | Current implementation evidence | Boundary / acceptance still required |
+|---|---|---|
+| Player DNA | Search local save/player records, compare up to three selected players' stored attributes | No complete similar-player model or field-level provenance panel; Windows runtime acceptance required |
+| Scouting Matrix | Create/select named shortlists, search candidates, add/remove candidates, retain notes and export | No full kanban/radar, role-gap or budget-aware recruitment project workflow |
+| Moneyball Scout | Select one imported numeric metric, choose raw/per-90 where supported, apply minutes/sample floors, rank current observations and display percentile/sample basis | No position/age/league cohort segmentation or cross-league calibration; current latest fixes for indexed/raw/CSV fallback are awaiting Windows CI |
+| Tactical Studio | Rank save-backed players against transparent Atlas role-fit profiles with coverage | Not SI Tactical Effectiveness, tactical complexity or buy-in; no inferred proprietary formula |
+| Match Lab | Retrieve stored aggregate performance facts for a selected player | No verified event timeline, shot map or match outcome model |
+| Development | Display current save facts and Atlas-local edit history | No longitudinal trend from one snapshot; multiple dated, identity-linked snapshots required |
+| Save Inspector | Read-only last-import summary, retained table counts and field registry | Real copied-save parser coverage and validation report need acceptance |
+| Graphics & Skins | Read-only config.xml indexer with bounded traversal, duplicate/missing/path rejection reporting | User's configured Game Pass graphics root, pack precedence, large-pack cache and FaceDrop provider need validation; skin install/restore not implemented |
+| Modding Workbench | Research catalogue with licence and compatibility boundaries | Static research only; no unknown third-party EXE/DLL execution or automatic installation |
+
+The latest completed Windows test checkpoint remains commit 4c588147 with 81/81 tests, 0 warnings and 0 errors. Subsequent Moneyball query and integration-test changes are not marked verified until the latest-head Windows workflow completes.
