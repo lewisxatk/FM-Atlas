@@ -20,9 +20,9 @@ public sealed record PositionSuitabilityRating(
 
 /// <summary>
 /// Normalises the 15 position ratings exposed by the reviewed fmsave player record.
-/// The numeric rating uses the same 1–20 display scale as player attributes.
-/// Natural (18–20) and Accomplished (15–17) mirror fmsave's documented classifier;
-/// lower visual bands are Atlas presentation groupings, not FM role labels.
+/// Natural (18+) and Accomplished (15–17) mirror fmsave's documented classifier.
+/// The 0–14 bands and 0–20 display bound are Atlas presentation assumptions, not
+/// documented FM labels or a claim about the game's hidden suitability formula.
 /// </summary>
 public static class PositionSuitabilityService
 {
