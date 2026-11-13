@@ -99,7 +99,12 @@ public partial class MainWindow : Window
         Closed += (_, _) => AtlasLog.Info("Main window closed.");
         PreviewKeyDown += (_, e) =>
         {
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.F)
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.K)
+            {
+                e.Handled = true;
+                ShowGlobalSearch();
+            }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.F)
             {
                 e.Handled = true;
                 ShowGlobalSearch();
