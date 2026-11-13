@@ -362,8 +362,8 @@ public sealed class SavedSearchProfileStore
         if (profile.Conditions is null || profile.Conditions.Count is < 1 or > MaximumConditions)
             throw new ArgumentException($"A saved profile must contain 1–{MaximumConditions} conditions.", nameof(profile));
 
-        if (profile.Kind == SavedSearchKind.Attributes && (profile.MatchAny || profile.Per90))
-            throw new ArgumentException("Attribute profiles use ALL matching and do not support per-90.", nameof(profile));
+        if (profile.Kind == SavedSearchKind.Attributes && profile.Per90)
+            throw new ArgumentException("Attribute profiles do not support per-90.", nameof(profile));
 
         if (profile.Kind == SavedSearchKind.Statistics
             && (profile.MinimumMinutes is < 1 or > 10000))
