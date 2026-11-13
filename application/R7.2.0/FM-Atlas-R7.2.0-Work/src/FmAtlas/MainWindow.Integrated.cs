@@ -346,8 +346,8 @@ public partial class MainWindow
             try
             {
                 var rows = per90.IsChecked == true
-                    ? await RunDatabaseAsync(() => _database.SearchSeasonMetricPer90Async(selected.Key, null, null, mins, 5000))
-                    : await RunDatabaseAsync(() => _database.SearchSeasonMetricAsync(selected.Key, null, null, 5000, mins));
+                    ? await RunDatabaseAsync(() => _database.SearchSeasonMetricPer90Async(selected.Key, null, null, mins, 50000))
+                    : await RunDatabaseAsync(() => _database.SearchSeasonMetricAsync(selected.Key, null, null, 50000, mins));
                 var indexedRows = rows.Select((row, index) => new
                 {
                     Key = row.SourceId + "|" + row.Season + "|" + index.ToString(CultureInfo.InvariantCulture),
@@ -367,7 +367,7 @@ public partial class MainWindow
                 currentMetricKey = selected.Key;
                 grid.ItemsSource = displayRows;
                 export.IsEnabled = displayRows.Length > 0;
-                status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within these returned rows only; no cross-league strength adjustment or parser field-level certification is implied.";
+                status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within up to 50,000 returned rows only; no cross-league strength adjustment or parser field-level certification is implied.";
             }
             catch (Exception ex)
             {
