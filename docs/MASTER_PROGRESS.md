@@ -188,7 +188,7 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Report and log text are passed through the redaction pipeline; README, preview and manifest state personal-details opt-in and always-redacted categories consistently.
 - [x] Manifest records SHA-256 and byte length for every payload file other than the manifest itself; the archive is built from the same exact in-memory package shown in the preview.
 - [x] Added five automated tests for allowlisted ZIP entries, archive round-trip, manifest hashes/sizes, redaction and path-traversal rejection.
-- [ ] Windows CI run `43475232418` for exact code commit `a3efdb57115475c6d7693a26f85928910664fdee` is still in progress; do not claim this extraction verified until it completes successfully.
+- [x] Windows Actions run 43476085012 tested application commit 6c18e36fdc706fc49ad74ce15fe1ee73c43ce991: .NET 8 WPF Release build succeeded with 0 warnings / 0 errors; 64/64 tests passed, 0 failed/skipped. This includes the support-bundle composer and saved-search profile store/UI.
 - [ ] Manual Windows export inspection remains required; automated composer tests cover archive entries, hashes, redaction and traversal rejection.
 - Current tree inventory at the tested source: 41 application source files and 11 test-project files (including the project file).
 - Earlier run `43474815591` failed compilation due malformed C# report strings introduced during the privacy-copy edit. The syntax was corrected in `d60206a`; the corrected source is included in the later pending run. Keep the failed run visible in the audit trail rather than treating it as a passing build.
@@ -216,3 +216,18 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Key gaps documented: save-import field provenance is not yet joined to every normalized player/stat field; Transfers can hide live records when any local rows exist; Tactical Lab is informational; Squad Architect is not yet a validated Best XI optimizer; Global Search/Assistant are narrow; live Apply/Undo remains disabled.
 - [ ] Remaining user-environment acceptance: launch the WPF app, smoke-test all 21 routes, inspect actual support ZIPs, import a disposable FM27 save copy, check Obsidian/Warm Light and DPI, and identify the installed Game Pass build/graphics root.
 - Stage 3–7 remain paused pending the user's review and explicit approval. No broad overhaul implementation has started.
+
+## Latest integrated Search Profiles + Support Bundle checkpoint — 2026-11-13 17:50 UTC
+
+- [x] Added SavedSearchProfile domain models and a local, schema-versioned SavedSearchProfileStore at %LOCALAPPDATA%/FmAtlas/search-profiles.json.
+- [x] Stats Search and Attribute Search now provide New / Save / Load / Delete profile controls. Statistics profiles preserve named metric conditions, ALL/ANY, per-90 and minimum minutes; attribute profiles preserve named 1–20 conditions and their text filter.
+- [x] Profiles contain criteria only, never player records or save contents. Writes use a temporary file and atomic replacement; the store validates bounds, duplicate names, condition count, profile count and schema. Missing field keys are not silently substituted when loading.
+- [x] Added profile-store tests for round-trip, update/create timestamp, duplicate names, delete, invalid numeric/attribute limits and corrupt-file preservation.
+- [x] Extracted support ZIP creation into SupportBundleComposer with a strict filename allow-list, path-traversal rejection, redacted report/log inputs, preview text, payload size/SHA-256 manifest, and deterministic ZIP creation.
+- [x] Added support-bundle tests for allow-listed entries, manifest hashes/sizes, archive round-trip, redaction and arbitrary-path rejection.
+- [x] Exact tested source commit: 6c18e36fdc706fc49ad74ce15fe1ee73c43ce991; Windows Actions run 43476085012: Release build 0 warnings / 0 errors, 64/64 tests passed, 0 skipped.
+- [x] Uploaded Windows Release artifact 14062557163 and test-results artifact 14062892033. The TRX independently records 64 passed and 0 failed. The downloaded Release ZIP contains FmAtlas.exe, .NET runtime dependencies, SQLite and save-bridge tools.
+- [ ] Windows runtime acceptance remains outstanding: launch both search screens, create/save/load/update/delete profiles, restart the app and confirm persistence; verify missing-field handling, ALL/ANY and per-90 application, and that no player/save data is stored in the profile file.
+- [ ] Manually generate default and personal-details-opt-in support ZIPs from the running app; inspect exact entries, preview, README, manifest hashes and always-redacted content.
+- [ ] The user has reiterated that the full roadmap should continue as one integrated programme. Internal engineering checkpoints and CI are retained for safety, but this is not a sequence of separate user-facing mini-releases. Continue Stage 3–7 scope on the same protected overhaul branch.
+- [ ] Still outstanding from the user's Windows/Game Pass environment: launch all 21 routes, visual/theme/DPI acceptance, real copied-save import, exact Game Pass build/field certification and GraphicsResolver validation against the actual configured folder. Live Apply/Undo remains disabled pending field-level proof and disposable-save rollback acceptance.
