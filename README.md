@@ -2,21 +2,19 @@
 
 FM Atlas is a Windows desktop application for Football Manager scouting, player analysis, editing, analytics, database inspection and modding research.
 
-> **Repository status (2026-11-13):** The private repository contains the project-control documentation, archive inventories and R7.2.0 recovery checkpoint notes. The complete application source trees from R7.0.2, R7.1.0 and R7.2.0 have **not yet been imported**. No Windows build or in-game acceptance test has been verified from this repository.
+> **Repository status (2026-11-13):** The complete R7.2.0 application source has been imported on the isolated branch `recovery/r7.2.0-source-import`. GitHub's recursive tree confirms 106 tracked files in the application source directory and all required solution/project/source paths. The branch has not been merged into `main`. The Windows .NET 8 build, WPF startup, save import and in-game acceptance tests have **not** yet been run.
 
 ## Current source candidate
 
-**R7.2.0 is the newest supplied candidate** (106 files; SHA-256 recorded in `recovery/RECOVERY-INVENTORY.md`). R7.1.0 (95 files) and R7.0.2 (83 files) are historical comparison baselines. Keep all three intact. Do not continue feature work until the R7.2.0 source is imported and its baseline build is tested.
+**R7.2.0 is the current working source candidate** (106 files; SHA-256 recorded in `recovery/RECOVERY-INVENTORY.md`). R7.1.0 (95 files) and R7.0.2 (83 files) remain documented historical comparison baselines; keep their original ZIP archives immutable offline. Their full application source trees have not been separately imported into this branch.
 
 ## Current priority
 
-1. Import all three source checkpoints on a dedicated recovery branch without changing `main`.
-2. Inspect the imported solution, project files, version metadata and file provenance.
-3. Build the R7.2.0 WPF app on Windows with .NET 8 and capture the full log.
-4. Fix compile/startup defects before feature development.
-5. Run the R7.2.0 data/search/graphics acceptance checks.
-6. Test narrow live Apply/Undo only on a disposable offline career after exact process-profile and field-baseline checks.
-7. Resume the remaining roadmap in `docs/ROADMAP.md`.
+1. Build the imported R7.2.0 solution on Windows with .NET 8 and capture the full log.
+2. Fix compile/startup defects before feature development.
+3. Run R7.2.0 data/search/graphics acceptance checks on copies of user data and career saves.
+4. Keep live Apply/Undo disabled until exact process-profile and field mappings are independently validated on a disposable offline career.
+5. Resume the agreed MONOLITH design-system and FMRTE-style Advanced Search development sequence.
 
 ## Start here
 
@@ -25,6 +23,7 @@ FM Atlas is a Windows desktop application for Football Manager scouting, player 
 - [Next steps](docs/NEXT_STEPS.md)
 - [Recovery inventory](recovery/RECOVERY-INVENTORY.md)
 - [R7.2.0 checkpoint notes](recovery/R7.2.0-CHECKPOINT.md)
+- [R7.2.0 static audit](recovery/R7.2.0-STATIC-AUDIT.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Changelog](docs/CHANGELOG.md)
 - [Known issues](docs/KNOWN_ISSUES.md)
@@ -38,8 +37,4 @@ FM Atlas is a Windows desktop application for Football Manager scouting, player 
 - Treat R7.2.0 live writing as implemented in source but unverified until exact build matching, identity checks, byte preflight, Apply/read-back, career-switch blocking and Undo pass on a disposable offline save.
 - Hidden attributes and unsupported structural edits remain blocked.
 - Do not invent game structures, offsets, formulas, hidden attributes or data mappings. Record evidence and uncertainty.
-- Keep secrets, personal data, career saves and licensed game assets out of the repository unless explicitly necessary and safe.
-
-## Working baseline
-
-The current GitHub main branch is a documentation/recovery-control baseline, not yet the application source baseline. The R7.2.0 import branch is the next milestone.
+- Keep secrets, personal settings, career saves and licensed third-party assets out of Git.
