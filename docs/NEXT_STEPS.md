@@ -14,6 +14,18 @@
 
 The script does not force-push and does not alter `main`. Keep the original ZIPs untouched.
 
+## Backup and import safety — read before running
+
+- Keep the original R7.2.0, R7.1.0 and R7.0.2 ZIP files in their current location. Do not rename, delete or edit them.
+- Make a second copy of the recovery bundle to a separate folder or external drive if available.
+- Extract the bundle to a short, simple path such as `C:\FMAtlas-Recovery\` (avoid running it from inside the ZIP).
+- Confirm the bundle contains `IMPORT-TO-GITHUB.ps1` and the R7.2.0 source archive before running.
+- The import script is designed to clone the existing repo and push a new recovery branch; it should not force-push or alter `main`.
+- If PowerShell reports an error, stop and copy the full error text. Do not repeatedly rerun it or manually delete the cloned repository until we inspect the result.
+- After the push, verify the branch exists on GitHub and that the R7.2.0 source tree is present before any merge.
+- Keep the source ZIPs and recovery bundle as offline backups even after GitHub import. GitHub is an additional versioned copy, not the only backup.
+- Do not upload FM career saves, personal settings, passwords, API tokens, licensed facepacks/logos or generated build output unless specifically required and safe.
+
 ## After source import — developer sequence
 
 ### Gate 1: source integrity
@@ -55,11 +67,12 @@ Only after Gates 1–3 pass:
 
 1. Complete saved searches, named presets, AND/OR groups, exclusions and custom result columns.
 2. Build the universal field registry and field-level search across player/staff/club/competition/nation data.
-3. Improve analytics with competition/position/age cohorts, weighted per-90 aggregation and confidence/provenance.
+3. Build the Wyscout-style Performance & Moneyball Scout: season-stat ingestion, per-90 filters, position/league percentiles, attribute + performance filters, multi-league comparison with honest strength caveats, price/value filters, bargain profiles, trend charts and recruitment shortlists.
 4. Calibrate Value & Upside Finder with age, league, position, wage/contract and availability context.
-5. Expand staff/club/squad planning, tactic explorer, Match Lab and player development only where source data supports them.
-6. Complete graphics conflict auditing and asynchronous thumbnail handling.
-7. Finish theme/accessibility/resolution QA, packaging, installer and update workflow.
+5. Audit FM27 Tactical Effectiveness/Tactical Understanding data, then build Tactical Intelligence Studio only around data we can actually read and validate.
+6. Expand staff/club/squad planning, Match Lab and player development only where source data supports them.
+7. Complete graphics conflict auditing and asynchronous thumbnail handling.
+8. Finish theme/accessibility/resolution QA, packaging, installer and update workflow.
 
 ## Checkpoint rule
 
