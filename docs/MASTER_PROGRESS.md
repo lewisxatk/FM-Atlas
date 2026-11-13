@@ -180,3 +180,15 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Launch all 21 routes on Windows and record smoke-test results, visual defects and data-dependent states.
 - [ ] Confirm exact Game Pass process/build and actual graphics root on the user's Windows installation; cannot be proven by static source review.
 - **Stage boundary:** Stage 3–7 remain paused. Do not start the combined product/design implementation until the user reviews the Stage 1/2 report and approves.
+
+## Support bundle composer extraction — 2026-11-13
+
+- [x] Extracted support ZIP composition from the Diagnostics window into `Services/SupportBundleComposer.cs`.
+- [x] The composer accepts only the diagnostic report and specifically named current/rotated log files; arbitrary filenames and path traversal are rejected.
+- [x] Report and log text are passed through the redaction pipeline; README, preview and manifest state personal-details opt-in and always-redacted categories consistently.
+- [x] Manifest records SHA-256 and byte length for every payload file other than the manifest itself; the archive is built from the same exact in-memory package shown in the preview.
+- [x] Added five automated tests for allowlisted ZIP entries, archive round-trip, manifest hashes/sizes, redaction and path-traversal rejection.
+- [ ] Windows CI run `43475232418` for exact code commit `a3efdb57115475c6d7693a26f85928910664fdee` is still in progress; do not claim this extraction verified until it completes successfully.
+- [ ] Manual Windows export inspection remains required.
+- Current tree inventory: 41 application source files and 11 test-project files (including the project file).
+- Earlier run `43474815591` failed compilation due malformed C# report strings introduced during the privacy-copy edit. The syntax was corrected in `d60206a`; the corrected source is included in the later pending run. Keep the failed run visible in the audit trail rather than treating it as a passing build.
