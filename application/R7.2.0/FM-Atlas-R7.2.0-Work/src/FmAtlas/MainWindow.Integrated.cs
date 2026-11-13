@@ -112,7 +112,7 @@ public partial class MainWindow
         root.Children.Add(header);
 
         var profileRow = new WrapPanel();
-        var shortlistPicker = new ComboBox { Width = 230, Height = 35, Margin = new Thickness(3), DisplayMemberPath = null };
+        var shortlistPicker = new ComboBox { Width = 230, Height = 35, Margin = new Thickness(3) };
         var newName = Input("New shortlist name"); newName.Width = 200;
         var create = SoftButton("Create shortlist", async (_, _) =>
         {
