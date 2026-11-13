@@ -25,11 +25,11 @@
 | Boundary | Current files | Observed responsibility / limitations |
 |---|---|---|
 | WPF host/startup | `App.xaml`, `App.xaml.cs`, `MainWindow.xaml`, `MainWindow.xaml.cs` | Startup hooks, global logging, dynamic shell, navigation and page composition. MainWindow is a large code-behind class, not an MVVM-separated shell. |
-| UI feature partials | `MainWindow.AdvancedSearch.cs`, `MainWindow.Diagnostics.cs`, `MainWindow.R7.cs`, `MainWindow.RoleLab.cs`, `MainWindow.ValueFinder.cs` | Search, Tester & Logs, analytics/mass edit, Role Lab and Value Finder surfaces. Partial class structure; not a clean presentation/application boundary yet. |
+| UI feature partials | `MainWindow.AdvancedSearch.cs`, `MainWindow.Diagnostics.cs`, `MainWindow.R7.cs`, `MainWindow.RoleLab.cs`, `MainWindow.ValueFinder.cs` | Search (including saved Stats/Attribute profiles), Tester & Logs, analytics/mass edit, Role Lab and Value Finder surfaces. Partial class structure; not a clean presentation/application boundary yet. |
 | Secondary windows | `GlobalSearchWindow.cs`, `PlayerIntelligenceReportWindow.xaml(.cs)` | Global search and player intelligence report presentation. |
-| Domain/view models | `Models/PlayerRecord.cs`, `Models/AdvancedSearchModels.cs`, `Models/ValueFinderModels.cs` | Player, shortlist, statistic and Value Finder records. Registry/provenance metadata remains distributed across persistence/services. |
+| Domain/view models | `Models/PlayerRecord.cs`, `Models/AdvancedSearchModels.cs`, `Models/SavedSearchProfile.cs`, `Models/ValueFinderModels.cs` | Player, shortlist, statistic, saved-search profile and Value Finder records. Registry/provenance metadata remains distributed across persistence/services. |
 | Persistence/data | `Data/ScoutDatabase.cs` | SQLite schema, migrations, imports, search, metrics, player facts, shortlists and edit history. This file is a refactoring/testability hotspot. |
-| Logging/diagnostics | `Services/AtlasLog.cs`, `MainWindow.Diagnostics.cs` | Local rolling logs, health checks, support report and ZIP export. Current format is tab-delimited and some correlation/context fields remain absent. |
+| Logging/diagnostics | `Services/AtlasLog.cs`, `Services/SupportBundleComposer.cs`, `MainWindow.Diagnostics.cs` | Local rolling logs, health checks, support report and allow-listed ZIP composition. The composer validates log entry names, redacts report/log text, hashes payload entries and produces the preview/archive package. Current log format is tab-delimited and some correlation/context fields remain absent. |
 | Theme | `Services/MonolithTheme.cs` | Obsidian/Warm Light palettes, Inter fallback, persistent mode and legacy palette resolver. Full shared controls and screen migration are incomplete. |
 | Field evidence | `Services/FieldEvidencePolicy.cs`, `Data/ScoutDatabase.cs` | Unverified/Candidate/ProfileMatchedProvisional/FieldVerified states. A module profile match is not field verification. |
 | Game build/process | `Services/Fm27BuildProfiles.cs`, `Services/GameProcessDetector.cs`, `Services/GameModuleDiagnostics.cs` | Process and module identification, separate Game Pass/Steam build profile records and diagnostics. User-specific exact build acceptance is not established. |
@@ -62,3 +62,9 @@ A route being visible in navigation does not prove completeness. Search, Analyti
 4. Separate UI composition from query/import/domain services so screen redesign does not silently alter data correctness.
 5. Create a canonical field registry with source, version, units, visibility, confidence and verified-use status.
 6. Keep the live memory adapter behind read-only/field-level certification boundaries.
+
+## Subsequent Stage 1/2 source additions — 2026-11-13
+
+- `Services/SavedSearchProfileStore.cs` and `Models/SavedSearchProfile.cs` provide local-only, atomic JSON persistence for named Stats Search and Attribute Search profiles. Profiles store query criteria only, not player or save rows. The UI has save/load/delete controls in both search workspaces, and persistence tests cover round-trip, updates, duplicate names, deletion, validation and corrupt-file preservation.
+- `Services/SupportBundleComposer.cs` extracts support ZIP composition from the Diagnostics UI. It accepts only named report/log text entries, rejects arbitrary/path-traversal filenames, redacts text, creates the manifest and preview, and serializes the exact package used for ZIP output. Automated tests cover archive round-trip, allowlisting, hashes/sizes and privacy redaction.
+- The additions are build-verified only when the latest exact Windows Actions run completes successfully; they are not WPF runtime acceptance.
