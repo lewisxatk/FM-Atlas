@@ -2876,7 +2876,7 @@ public sealed class ScoutDatabase
                 var club = reader.IsDBNull(2) ? null : reader.GetString(2);
                 var season = GetFirstJsonString(row, "season", "season_name", "year")
                     ?? (reader.IsDBNull(3) ? "FM View Export" : reader.GetString(3));
-                var primaryPosition = GetFirstJsonString(row, "position", "primary_position", "natural_position");
+                var primaryPosition = GetFirstJsonString(row, "position", "Position", "primary_position", "Primary Position", "natural_position");
                 results.Add(new AnalyticsMetricResult(sourceId, name, club, season, value, primaryPosition));
             }
             catch (JsonException)
