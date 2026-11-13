@@ -128,6 +128,15 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Added visible per-role weighted-attribute chips to `MainWindow.RoleLab.cs`; every selected profile now displays its named inputs and exact Atlas weight factors, sorted by weight.
 - [x] Added a plain-language method note: only finite FM attribute values in the 1–20 range contribute; the score is a weighted mean of available inputs; at least 50% of requested attributes must be present; missing values are not treated as zero.
 - [x] Kept the distinction from FM's proprietary internal role formula explicit. These are Atlas model weights, not claimed SI weights.
-- [ ] Windows build/test and WPF visual acceptance for this UI change remain pending.
-- Source change: `4b4ddfcb7299a0fad5dc2ea60658d895a48127df`; automated Windows run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43471187844.
-- The last fully verified code checkpoint remains `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`: Windows .NET 8 Release build, 0 warnings/errors and 47/47 MSTest passed.
+- [x] Windows .NET 8 WPF Release build for this UI change passed with **0 warnings, 0 errors**; MSTest passed **47/47** (0 failed/skipped). Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43471187844.
+- [x] Windows Release artifact ID `14061656624` and test-results artifact ID `14061910345` uploaded.
+- [ ] WPF runtime visual acceptance remains pending; CI compilation does not prove layout, readability or behaviour in the running app.
+- Source change: `4b4ddfcb7299a0fad5dc2ea60658d895a48127df`.
+
+
+## Latest Role Lab Windows verification — 2026-11-13 17:18 UTC
+
+- [x] Exact application source commit: `4b4ddfcb7299a0fad5dc2ea60658d895a48127df`.
+- [x] Windows Actions run `43471187844`: WPF Release build succeeded with 0 warnings/0 errors; 47/47 tests passed.
+- [x] Role Lab now exposes the selected profile's weighted inputs and scoring/missing-value method note in the UI source.
+- [ ] Launch and visually inspect Role Lab on Windows at supported DPI/resolutions; confirm chips wrap/read clearly and role selection refreshes the inputs.
