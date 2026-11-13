@@ -1436,15 +1436,15 @@ public partial class MainWindow : Window
                     x => (IReadOnlyList<RoleFitCandidate>)x.Value.Result,
                     StringComparer.OrdinalIgnoreCase);
                 var positionRatings = await positionsTask;
-                if (positionRatings.Count == 0)
-                {
-                    bestXiStatus.Text = "No registered position ratings are available for this club. Import a save from a registered build; unknown builds are not used for position eligibility.";
-                    return;
-                }
                 if (!string.Equals(clubPicker.SelectedItem?.ToString(), selectedClub, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(formationPicker.SelectedItem?.ToString(), formation, StringComparison.OrdinalIgnoreCase))
                 {
                     bestXiStatus.Text = "Club or formation changed while calculating. Build again using the current selection.";
+                    return;
+                }
+                if (positionRatings.Count == 0)
+                {
+                    bestXiStatus.Text = "No registered position ratings are available for this club. Import a save from a registered build; unknown builds are not used for position eligibility.";
                     return;
                 }
                 var result = SquadArchitectService.Optimize(formation, roleCandidates, positionRatings);
