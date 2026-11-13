@@ -1,0 +1,13 @@
+<Application x:Class="FmAtlas.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" StartupUri="MainWindow.xaml">
+ <Application.Resources>
+  <SolidColorBrush x:Key="Bg" Color="#0D1117"/>
+  <SolidColorBrush x:Key="Panel" Color="#171F28"/>
+  <SolidColorBrush x:Key="PanelRaised" Color="#202A35"/>
+  <SolidColorBrush x:Key="Accent" Color="#C6F36B"/>
+  <SolidColorBrush x:Key="TextPrimary" Color="#E8EEF4"/>
+  <SolidColorBrush x:Key="Muted" Color="#9EADB9"/>
+  <SolidColorBrush x:Key="Border" Color="#303943"/>
+  <SolidColorBrush x:Key="Warning" Color="#E6C477"/>
+  <SolidColorBrush x:Key="Danger" Color="#F08C96"/>
+ </Application.Resources>
+</Application>

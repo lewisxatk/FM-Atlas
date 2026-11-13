@@ -1,0 +1,36 @@
+FM ATLAS 27 — VERSION 7.1.0 BUILD STATUS
+Prepared: 13 November 2026
+Codename: Aurora Intelligence Upgrade
+
+PACKAGE TYPE
+This is an integrated Windows WPF SOURCE package. It is not a precompiled EXE or installer.
+
+SOURCE VALIDATION COMPLETED HERE
+- FmAtlas.csproj, App.xaml, MainWindow.xaml and PlayerIntelligenceReportWindow.xaml parse as valid XML.
+- All 16 C# files passed a lexical delimiter/string/comment structure scan.
+- Role-fit SQL was executed against a representative SQLite schema; the 50% attribute-coverage rule excluded an incomplete candidate as intended.
+- Per-90 formula test: 12 goals / 900 minutes = 1.20 per 90; the 450-minute floor and duplicate player-season suppression behaved as intended.
+- Source wiring checks covered Analytics CSV export, per-90, Role Fit Lab, local Set/Add/Scale edits, guarded Undo, safe diagnostics, support ZIP export, editor OFF-by-default and version metadata.
+
+NOT VERIFIED IN THIS ENVIRONMENT
+- A real .NET 8 WPF compile: the preparation environment does not have the .NET SDK/MSBuild installed.
+- Launching the app on Windows 10/11.
+- Importing and validating the user's real FM27 save.
+- FM27 Game Pass or Steam process adapter fingerprints.
+- Live in-game writes. Live FM memory writes are deliberately not implemented or enabled.
+
+WINDOWS BUILD STEPS
+1. Extract the complete package to a writable folder.
+2. Install the .NET 8 SDK for Windows 10/11 x64.
+3. Run Build-FM-Atlas-27.bat.
+4. Read build-logs\latest-build.log. A successful build reports BUILD SUCCEEDED and creates:
+   src\FmAtlas\bin\Release\net8.0-windows\FmAtlas.exe
+5. If restore/build fails, send build-logs\latest-build.log. Do not send the original career save.
+
+FIRST TEST
+Open FM Atlas -> Tester & Logs -> Run quick checks.
+Use a COPY of an FM27 career save. The Editor Studio edits the Atlas SQLite database only; it does not edit the game or career save.
+For a problem, use Copy safe diagnostics or Export support ZIP. The default support ZIP excludes the career save and Atlas SQLite database. Review any exported details before sharing.
+
+KNOWN SCOPE LIMITS
+The 7.1.0 integration adds season analytics/per-90, CSV exports, 23 transparent role-fit profiles, local editor safeguards, bulk Set/Add/Scale, guarded Undo, logging and diagnostics. The larger roadmap is not all complete. Match Lab, complete role coverage, full staff/development/club/nation planners, graphics management, optional mod integrations and verified Game Pass/Steam live adapters remain staged in docs\R7\EXTENDED-RESEARCH-AND-BACKLOG.md. Live editor writes remain disabled until independently verified and tested.
