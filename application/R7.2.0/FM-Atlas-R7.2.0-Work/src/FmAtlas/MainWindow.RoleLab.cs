@@ -23,15 +23,19 @@ public partial class MainWindow
         var controls = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         var role = new ComboBox { Width = 270, Height = 36, Margin = new Thickness(0, 0, 8, 8), DisplayMemberPath = nameof(RoleFitProfile.Name), ItemsSource = RoleFitService.GetProfiles() };
         role.SelectedIndex = 0;
-        var find = PrimaryButton("Find best fits", async (_, _) => await SearchAsync()); find.Margin = new Thickness(0, 0, 8, 8);
+        Button find = null!;
+        TextBlock status = null!;
+        DataGrid grid = null!;
+        var results = new List<RoleFitCandidate>();
+        find = PrimaryButton("Find best fits", async (_, _) => await SearchAsync()); find.Margin = new Thickness(0, 0, 8, 8);
         var export = SoftButton("Export results CSV", (_, _) => ExportResults()); export.Margin = new Thickness(0, 0, 8, 8);
         controls.Children.Add(role); controls.Children.Add(find); controls.Children.Add(export);
         hs.Children.Add(controls);
         var description = Txt("", 9, false, Muted, wrap: true); hs.Children.Add(description);
-        var status = Txt("Choose a role and search the latest imported player snapshot.", 10, false, Muted); status.Margin = new Thickness(0, 8, 0, 0); hs.Children.Add(status);
+        status = Txt("Choose a role and search the latest imported player snapshot.", 10, false, Muted); status.Margin = new Thickness(0, 8, 0, 0); hs.Children.Add(status);
         Grid.SetRow(header, 0); root.Children.Add(header);
 
-        var grid = CreateGrid();
+        grid = CreateGrid();
         grid.Columns.Add(Column("PLAYER", nameof(RoleFitCandidate.Name), 1.35));
         grid.Columns.Add(Column("CLUB", nameof(RoleFitCandidate.Club), 1.15));
         grid.Columns.Add(Column("AGE", nameof(RoleFitCandidate.Age), .45));
@@ -43,7 +47,6 @@ public partial class MainWindow
         grid.Columns.Add(Column("PA", nameof(RoleFitCandidate.PotentialAbility), .4));
         var card = Card(grid, 14); Grid.SetRow(card, 1); root.Children.Add(card);
 
-        var results = new List<RoleFitCandidate>();
         void UpdateDescription()
         {
             if (role.SelectedItem is RoleFitProfile selected)
