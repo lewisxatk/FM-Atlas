@@ -540,6 +540,7 @@ public partial class MainWindow
         var status = Txt("No player selected.", 10, false, Muted, wrap: true);
         ComboBox picker = null!;
         DataGrid facts = null!;
+        DataGrid developmentHistory = null!;
         DataGrid history = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
@@ -560,6 +561,22 @@ public partial class MainWindow
         facts.Columns.Add(Column("FIELD", nameof(AtlasFactRecord.Field), 1));
         facts.Columns.Add(Column("CURRENT SNAPSHOT", nameof(AtlasFactRecord.Value), 1));
         root.Children.Add(Card(facts, 14, new Thickness(0, 0, 0, 10)));
+
+        var developmentHeading = Txt("LONGITUDINAL PLAYER DEVELOPMENT", 9, true, Teal);
+        developmentHeading.Margin = new Thickness(0, 0, 0, 5);
+        root.Children.Add(developmentHeading);
+        var developmentNote = Txt("Values are compared only between consecutive imported snapshots linked by the persistent player identity. Missing values are not treated as zero; the first observation has no calculated change.", 9, false, Muted, wrap: true);
+        developmentNote.Margin = new Thickness(0, 0, 0, 6);
+        root.Children.Add(developmentNote);
+        developmentHistory = CreateGrid();
+        developmentHistory.Columns.Add(Column("IMPORTED", "Imported", 1.1));
+        developmentHistory.Columns.Add(Column("IN-GAME DATE", "GameDate", .9));
+        developmentHistory.Columns.Add(Column("FIELD", "Field", 1.1));
+        developmentHistory.Columns.Add(Column("VALUE", "Value", .55));
+        developmentHistory.Columns.Add(Column("CHANGE", "Change", .55));
+        developmentHistory.Columns.Add(Column("BUILD", "Build", .8));
+        developmentHistory.Columns.Add(Column("SOURCE FILE", "SourceFile", 1.2));
+        root.Children.Add(Card(developmentHistory, 14, new Thickness(0, 0, 0, 10)));
 
         history = CreateGrid();
         history.Columns.Add(Column("DATE", nameof(AtlasHistoryRecord.ChangedUtc), 1));
@@ -589,13 +606,31 @@ public partial class MainWindow
                 var groups = new[] { "general", "positions", "reputation", "state", "contract", "traits" };
                 var factsTasks = groups.Select(group => RunDatabaseAsync(() => _database.GetFmsavePlayerFactsAsync(player.SourceId, group))).ToArray();
                 var performanceTask = RunDatabaseAsync(() => _database.GetPlayerPerformanceFactsAsync(player.SourceId));
+                var developmentTask = RunDatabaseAsync(() => _database.GetPlayerDevelopmentHistoryAsync(player.SourceId));
                 var historyTask = RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync(1000));
-                await Task.WhenAll(factsTasks.Cast<Task>().Append(performanceTask).Append(historyTask));
+                await Task.WhenAll(factsTasks.Cast<Task>().Append(performanceTask).Append(developmentTask).Append(historyTask));
                 var currentFacts = factsTasks.SelectMany(t => t.Result).Concat(await performanceTask).ToArray();
+                var developmentRows = await developmentTask;
                 var edits = (await historyTask).Where(x => x.SourceId.Equals(player.SourceId, StringComparison.OrdinalIgnoreCase)).ToArray();
                 facts.ItemsSource = currentFacts;
+                developmentHistory.ItemsSource = developmentRows
+                    .OrderByDescending(x => x.SnapshotId)
+                    .ThenBy(x => x.FieldName, StringComparer.OrdinalIgnoreCase)
+                    .Select(x => new
+                    {
+                        Imported = x.ImportedUtc,
+                        GameDate = x.GameDate ?? "—",
+                        Field = x.FieldName,
+                        Value = x.Value.ToString("0.##", CultureInfo.InvariantCulture),
+                        Change = x.Delta.HasValue
+                            ? (x.Delta.Value > 0 ? "+" : string.Empty) + x.Delta.Value.ToString("0.##", CultureInfo.InvariantCulture)
+                            : "—",
+                        Build = x.GameBuild ?? "—",
+                        SourceFile = x.SourceFileName
+                    }).ToArray();
                 history.ItemsSource = edits;
-                status.Text = $"{currentFacts.Length:N0} current snapshot facts · {edits.Length:N0} Atlas-local edit history rows. Longitudinal development remains unavailable until multiple dated snapshots are linked to the same player identity.";
+                var snapshots = developmentRows.Select(x => x.SnapshotId).Distinct().Count();
+                status.Text = $"{currentFacts.Length:N0} current snapshot facts · {snapshots:N0} linked save snapshots · {developmentRows.Count:N0} dated development observations · {edits.Length:N0} Atlas-local edit history rows. Trends are source-backed comparisons, not predictions.";
             }
             catch (Exception ex)
             {
