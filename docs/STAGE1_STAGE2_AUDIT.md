@@ -126,7 +126,7 @@ No manual ZIP inspection is claimed yet.
 | 18 | Atlas Assistant | Rule-based local query composer supporting a small set of age/attribute/position interpretations. It is not an external generative AI analyst. | Narrow implementation |
 | 19 | Settings | Obsidian/Warm Light selection, save bridge status/setup, local DB information and graphics-root selection/rescan. | Partial; visual and Game Pass folder acceptance pending |
 | 20 | Tester & Logs | Health checks, local logs, redacted diagnostics and reviewed support ZIP export. | Source present; Stage 1 acceptance outstanding |
-| 21 | Help & Tutorial | Static in-app guide describing import, search, data limitations and safety. Some guide copy requires alignment with the corrected Diagnostics privacy policy. | Source present; documentation consistency review required |
+| 21 | Help & Tutorial | Static in-app guide describing import, search, data limitations and safety. Help/Tutorial copy is aligned to the corrected Diagnostics privacy policy. | Source present; documentation consistency review required |
 
 The route switch has a Dashboard fallback for unknown route strings. Navigation is locked while a page is being built; failed route construction is caught and shown as an error pane. This is useful defensive behaviour but does not replace route smoke testing.
 
@@ -168,7 +168,7 @@ The active source now treats LIVE: rows as a separate read-only identity source 
 
 Global Search and Squad Architect still include live identities by deliberately querying SearchLivePlayersAsync separately and merging by exact provider-specific source ID; there is no implicit LIVE/FMSAVE fuzzy merge. The live CA/PA and attribute values used in decision filters remain subject to exact canonical field evidence.
 
-The SQLite integration fixture seeds deliberately high provisional mirror values (CA 199, PA 200, Passing 20) alongside separate verified/provisional rows, then asserts that the generic local search, local player count, Attribute Search, Role Lab and Mass Edit do not consume those mirrored rows. The dedicated live query still returns identity records, but only canonical verified facts can influence CA/PA/attribute filtering. This exact new fixture is part of the current pending Windows CI run; it must pass before the guard is considered test-verified.
+The SQLite integration fixture seeds deliberately high provisional mirror values (CA 199, PA 200, Passing 20) alongside separate verified/provisional rows, then asserts that the generic local search, local player count, Attribute Search, Role Lab and Mass Edit do not consume those mirrored rows. The dedicated live query still returns identity records, but only canonical verified facts can influence CA/PA/attribute filtering. This fixture passed in Windows CI run `43476085012` at commit `6c18e36`; the source-exclusion guard is build- and integration-test verified.
 
 This change is important because a field can be correctly labelled provisional in the live registry yet still become dangerous if a downstream consumer reads a flattened generic table without consulting provenance.
 
@@ -222,7 +222,7 @@ These are recommendations for the user's later Stage 3–7 approval, not work be
 
 ## Stage 1 & 2 completion checklist
 
-<badge>Source audit complete; Windows CI passed</badge>
+**Status:** Source audit complete; Windows CI passed.
 
 - [x] Inspected the actual Diagnostics health checks, report builder, ZIP allowlist, manifest, preview and temporary-file save flow.
 - [x] Corrected the personal-details opt-in copy: only player names and recent edit history are opt-in; credentials/tokens, absolute paths and career-save filenames remain always redacted.
