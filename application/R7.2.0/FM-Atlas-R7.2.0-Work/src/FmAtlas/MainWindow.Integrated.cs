@@ -223,6 +223,22 @@ public partial class MainWindow
         hs.Children.Add(Txt("Turn your existing saved shortlists into an active recruitment board. Candidates are sourced from the imported save snapshot; this view does not infer availability or transfer asking prices.", 11, false, Muted, wrap: true));
         root.Children.Add(header);
 
+        var projectBoard = new System.Windows.Controls.Primitives.UniformGrid
+        {
+            Columns = 4,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var projectBoardStatus = Txt("Loading recruitment projects…", 9, false, Muted, wrap: true);
+        var refreshBoardButton = SoftButton("Refresh projects", async (_, _) => await LoadProjectsBoardAsync());
+        var projectBoardHeading = new WrapPanel();
+        projectBoardHeading.Children.Add(Txt("RECRUITMENT PROJECT BOARD", 9, true, Teal));
+        projectBoardHeading.Children.Add(refreshBoardButton);
+        var projectBoardStack = new StackPanel();
+        projectBoardStack.Children.Add(projectBoardHeading);
+        projectBoardStack.Children.Add(projectBoard);
+        projectBoardStack.Children.Add(projectBoardStatus);
+        root.Children.Add(Card(projectBoardStack, 15, new Thickness(0, 0, 0, 10)));
+
         var profileRow = new WrapPanel();
         var shortlistPicker = new ComboBox { Width = 230, Height = 35, Margin = new Thickness(3) };
         ComboBox projectStatus = null!;
@@ -318,6 +334,7 @@ public partial class MainWindow
             else if (names.Count > 0 && shortlistPicker.SelectedItem is null) shortlistPicker.SelectedIndex = 0;
             await LoadSavedRowsAsync();
             await LoadProjectDetailsAsync();
+            await LoadProjectsBoardAsync();
         }
         async Task LoadProjectDetailsAsync()
         {
@@ -341,6 +358,59 @@ public partial class MainWindow
                 status.Text = $"{project.Name} · {project.CandidateCount:N0} candidates · {project.Status}"
                     + (string.IsNullOrWhiteSpace(project.Owner) ? "" : $" · Owner: {project.Owner}");
         }
+        async Task LoadProjectsBoardAsync()
+        {
+            refreshBoardButton.IsEnabled = false;
+            try
+            {
+                var projects = await RunDatabaseAsync(() => _database.GetRecruitmentProjectsAsync());
+                projectBoard.Children.Clear();
+                var stages = new[] { "Planning", "Active", "Monitoring", "Closed" };
+                foreach (var stage in stages)
+                {
+                    var stageProjects = projects
+                        .Where(x => x.Status.Equals(stage, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+                    var columnContent = new StackPanel();
+                    columnContent.Children.Add(Txt(stage.ToUpperInvariant() + " · " + stageProjects.Length.ToString("N0"), 9, true, Teal));
+                    if (stageProjects.Length == 0)
+                    {
+                        columnContent.Children.Add(Txt("No projects", 9, false, Muted));
+                    }
+                    else
+                    {
+                        foreach (var project in stageProjects)
+                        {
+                            var projectContent = new StackPanel();
+                            var open = SoftButton(project.Name, async (_, _) => await LoadShortlistsAsync(project.Name));
+                            open.HorizontalContentAlignment = HorizontalAlignment.Left;
+                            open.ToolTip = "Open recruitment project";
+                            projectContent.Children.Add(open);
+                            AddDetailRow(projectContent, "Candidates", project.CandidateCount.ToString("N0"));
+                            AddDetailRow(projectContent, "Owner", project.Owner ?? "Unassigned");
+                            AddDetailRow(projectContent, "Tags", project.Tags.Count == 0 ? "—" : string.Join(", ", project.Tags));
+                            AddDetailRow(projectContent, "Transfer", project.TransferBudget?.ToString("C0", CultureInfo.GetCultureInfo("en-GB")) ?? "Not set");
+                            AddDetailRow(projectContent, "Weekly wages", project.WeeklyWageBudget?.ToString("C0", CultureInfo.GetCultureInfo("en-GB")) ?? "Not set");
+                            columnContent.Children.Add(Card(projectContent, 10, new Thickness(0, 4, 0, 5)));
+                        }
+                    }
+                    projectBoard.Children.Add(Card(columnContent, 12, new Thickness(3)));
+                }
+
+                projectBoardStatus.Text = $"{projects.Count:N0} recruitment projects · Select a project name to open its candidate list and update its details. Financial budgets are planning limits only; candidate affordability remains unavailable until asking-price and wage source fields are mapped.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Recruitment project board refresh failed.", ex);
+                projectBoardStatus.Text = "Could not load recruitment projects: " + ex.Message;
+            }
+            finally
+            {
+                refreshBoardButton.IsEnabled = true;
+            }
+        }
+
         async Task SaveProjectDetailsAsync()
         {
             if (shortlistPicker.SelectedItem is not string name)
@@ -366,6 +436,7 @@ public partial class MainWindow
                 await RunDatabaseAsync(() => _database.SaveRecruitmentProjectAsync(
                     name, selectedStatus, projectOwner.Text, tags, transfer, wages));
                 await LoadProjectDetailsAsync();
+                await LoadProjectsBoardAsync();
                 status.Text = $"Saved project details for '{name}'.";
             }
             catch (Exception ex)
@@ -433,6 +504,7 @@ public partial class MainWindow
             {
                 await RunDatabaseAsync(() => _database.AddToShortlistAsync(player, name));
                 await LoadSavedRowsAsync();
+                await LoadProjectsBoardAsync();
                 status.Text = $"{player.Name} added to '{name}'.";
             }
             catch (Exception ex) { status.Text = "Could not add candidate: " + ex.Message; }
@@ -446,6 +518,7 @@ public partial class MainWindow
                 await RunDatabaseAsync(() => _database.RemoveFromShortlistAsync(selected.SourceId, name));
                 notesInput.Text = "";
                 await LoadSavedRowsAsync();
+                await LoadProjectsBoardAsync();
                 status.Text = $"Removed {selected.PlayerName} from '{name}'.";
             }
             catch (Exception ex) { status.Text = "Could not remove candidate: " + ex.Message; }

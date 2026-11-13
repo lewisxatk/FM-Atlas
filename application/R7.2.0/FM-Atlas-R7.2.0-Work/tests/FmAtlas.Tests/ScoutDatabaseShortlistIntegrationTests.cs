@@ -118,4 +118,77 @@ public sealed class ScoutDatabaseShortlistIntegrationTests
         }
     }
 
+    [TestMethod]
+    public async Task RecruitmentProjectBoard_ListsProjectsByStageWithCandidateCounts()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas-Recruitment-Board-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var database = new ScoutDatabase(Path.Combine(folder, "scouting.db"), pooling: false);
+            await database.InitialiseAsync();
+            await database.CreateShortlistAsync("Zeta planning");
+            await database.CreateShortlistAsync("Alpha active");
+            await database.CreateShortlistAsync("Closed project");
+            await database.AddToShortlistAsync(new PlayerRecord { SourceId = "SAVE:1" }, "Alpha active");
+            await database.AddToShortlistAsync(new PlayerRecord { SourceId = "SAVE:2" }, "Alpha active");
+            await database.SaveRecruitmentProjectAsync("Zeta planning", "Planning", "Scout A", Array.Empty<string>(), 1000000m, null);
+            await database.SaveRecruitmentProjectAsync("Alpha active", "Active", "Scout B", new[] { "Priority" }, 2000000m, 15000m);
+            await database.SaveRecruitmentProjectAsync("Closed project", "Closed", null, Array.Empty<string>(), null, null);
+
+            var projects = await database.GetRecruitmentProjectsAsync();
+
+            CollectionAssert.AreEqual(
+                new[] { "Planning", "Active", "Closed" },
+                projects.Select(x => x.Status).ToArray());
+            Assert.AreEqual("Alpha active", projects[1].Name);
+            Assert.AreEqual(2, projects[1].CandidateCount);
+            Assert.AreEqual(1, projects[1].Tags.Count);
+            Assert.AreEqual(0, projects[0].CandidateCount);
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task RecruitmentProjectMigration_BackfillsLegacyShortlistsWithoutOverwritingThem()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas-Recruitment-Migration-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+        try
+        {
+            var database = new ScoutDatabase(databasePath, pooling: false);
+            await database.InitialiseAsync();
+            await using (var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder { DataSource = databasePath, Pooling = false }.ToString()))
+            {
+                await connection.OpenAsync();
+                var insert = connection.CreateCommand();
+                insert.CommandText = """
+                    INSERT INTO Shortlists(SourceId,ShortlistName,Notes,AddedUtc)
+                    VALUES('LEGACY:1','Legacy imported shortlist','Keep this note','2026-01-01T00:00:00Z');
+                    """;
+                await insert.ExecuteNonQueryAsync();
+            }
+
+            await database.InitialiseAsync();
+
+            var project = (await database.GetRecruitmentProjectsAsync())
+                .Single(x => x.Name == "Legacy imported shortlist");
+            var savedCandidate = (await database.GetShortlistAsync("Legacy imported shortlist")).Single();
+
+            Assert.AreEqual("Active", project.Status);
+            Assert.AreEqual(1, project.CandidateCount);
+            Assert.AreEqual("Keep this note", savedCandidate.Notes);
+            Assert.AreEqual("LEGACY:1", savedCandidate.SourceId);
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
 }

@@ -265,6 +265,15 @@ public sealed class ScoutDatabase
         await EnsureColumnAsync(db, "ShortlistGroups", "TransferBudget", "REAL NULL");
         await EnsureColumnAsync(db, "ShortlistGroups", "WeeklyWageBudget", "REAL NULL");
         await EnsureColumnAsync(db, "ShortlistGroups", "UpdatedUtc", "TEXT NULL");
+        var legacyProjectGroups = db.CreateCommand();
+        legacyProjectGroups.CommandText = """
+            INSERT OR IGNORE INTO ShortlistGroups(ShortlistName,CreatedUtc)
+            SELECT ShortlistName,MIN(AddedUtc)
+            FROM Shortlists
+            WHERE TRIM(COALESCE(ShortlistName,'')) <> ''
+            GROUP BY ShortlistName;
+            """;
+        await legacyProjectGroups.ExecuteNonQueryAsync();
         var clubIndex = db.CreateCommand();
         clubIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Players_SaveClubUid ON Players(SaveClubUid);";
         await clubIndex.ExecuteNonQueryAsync();
@@ -849,6 +858,59 @@ public sealed class ScoutDatabase
         command.Parameters.AddWithValue("$wage", weeklyWageBudget.HasValue ? (object)(double)weeklyWageBudget.Value : DBNull.Value);
         command.Parameters.AddWithValue("$updated", now);
         await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+
+    public async Task<List<RecruitmentProjectRecord>> GetRecruitmentProjectsAsync()
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT g.ShortlistName,COALESCE(g.Status,'Active'),g.Owner,g.TagsJson,
+                   g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc,COUNT(s.Id)
+            FROM ShortlistGroups g
+            LEFT JOIN Shortlists s ON s.ShortlistName=g.ShortlistName
+            GROUP BY g.ShortlistName,g.Status,g.Owner,g.TagsJson,g.TransferBudget,g.WeeklyWageBudget,g.CreatedUtc
+            ORDER BY CASE COALESCE(g.Status,'Active')
+                WHEN 'Planning' THEN 0
+                WHEN 'Active' THEN 1
+                WHEN 'Monitoring' THEN 2
+                WHEN 'Closed' THEN 3
+                ELSE 4 END,
+                g.ShortlistName COLLATE NOCASE;
+            """;
+
+        var projects = new List<RecruitmentProjectRecord>();
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            IReadOnlyList<string> tags;
+            try
+            {
+                tags = reader.IsDBNull(3)
+                    ? Array.Empty<string>()
+                    : JsonSerializer.Deserialize<string[]>(reader.GetString(3)) ?? Array.Empty<string>();
+            }
+            catch (JsonException)
+            {
+                tags = Array.Empty<string>();
+            }
+
+            var createdText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);
+            projects.Add(new RecruitmentProjectRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                tags,
+                reader.IsDBNull(4) ? null : Convert.ToDecimal(reader.GetDouble(4)),
+                reader.IsDBNull(5) ? null : Convert.ToDecimal(reader.GetDouble(5)),
+                DateTime.TryParse(createdText, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var created)
+                    ? created : DateTime.MinValue,
+                reader.GetInt32(7)));
+        }
+
+        return projects;
     }
 
     public async Task<RecruitmentProjectRecord?> GetRecruitmentProjectAsync(string shortlistName)
