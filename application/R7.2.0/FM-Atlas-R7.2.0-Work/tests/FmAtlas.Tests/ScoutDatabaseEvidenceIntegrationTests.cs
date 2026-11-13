@@ -28,9 +28,12 @@ public sealed class ScoutDatabaseEvidenceIntegrationTests
                 run.CommandText = """
                     INSERT INTO LiveImportRuns(GameVersion,ModuleSha256,StartedUtc,Status)
                     VALUES('FM27-test','test-hash', '2026-11-13T00:00:00Z','Completed');
-                    SELECT last_insert_rowid();
                     """;
-                var runId = Convert.ToInt64(await run.ExecuteScalarAsync());
+                await run.ExecuteNonQueryAsync();
+
+                var lastRun = connection.CreateCommand();
+                lastRun.CommandText = "SELECT last_insert_rowid();";
+                var runId = Convert.ToInt64(await lastRun.ExecuteScalarAsync());
 
                 var club = connection.CreateCommand();
                 club.CommandText = """
