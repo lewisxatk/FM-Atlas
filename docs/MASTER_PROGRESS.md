@@ -152,3 +152,12 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Artifacts uploaded: Windows Release `14061643285` and test results `14061143387`.
 - [ ] WPF visual/runtime acceptance remains pending: inspect the contribution panel at real Windows resolutions/DPI and test selection changes/CSV output with an imported FM27 save copy.
 - Note: intermediate commit `2f978f3` failed compilation because local UI variables were captured before assignment; fixed in `0c6546a`, and the final `91bd772` run passed. Do not treat the intermediate failure as the current source state.
+
+## Diagnostics privacy hardening — 2026-11-13 17:30 UTC
+
+- [x] Extended the support redaction pipeline to handle quoted JSON/config secrets (including values containing spaces), Basic authorization credentials, client secrets, private keys and query-string access tokens.
+- [x] Added MSTest regression rows for quoted JSON secrets, Basic auth, client-secret assignments and URL query tokens.
+- [x] Extended the in-app Diagnostics privacy self-check with the same new cases, so the runtime health check and automated test suite cover the same formats.
+- [ ] Latest Windows CI is pending for the final source commit `8cfe5b3f276770179e8cb77db7a02912f2336bdb`. Do not claim this change verified until its exact run passes.
+- [ ] After CI, inspect actual support ZIP contents and test the opt-in personal-details path, including the guarantee that the ZIP contains only the explicitly enumerated report/log files.
+- Existing last verified checkpoint remains Role Fit contribution commit `91bd7728c555a0c0e54cfd8d02706467fdafdb89`: Windows Release 0 warnings/0 errors, 48/48 tests passed (run `43472380514`).
