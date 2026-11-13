@@ -2553,7 +2553,10 @@ public sealed class ScoutDatabase
                 estimate.Score,
                 estimate.AttributesAvailable,
                 estimate.AttributesExpected,
-                estimate.Coverage));
+                estimate.Coverage)
+            {
+                Contributions = estimate.Contributions
+            });
         }
         return results.OrderByDescending(x => x.Score).ThenByDescending(x => x.Coverage).Take(250).ToList();
     }
