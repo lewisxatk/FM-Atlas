@@ -8,7 +8,7 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Confirmed repository was empty before initial documentation.
 - Added project README, master handover, roadmap, provisional architecture, known issues, next steps and research register.
 - Captured previous-session R7.0.2/R7.1.0 package findings and reported implementation milestones.
-- No application source code imported and no build/test performed in this repository.
+- At creation time no application source code had been imported; that status was later superseded by the R7.2.0 recovery import documented below.
 
 ## Historical milestones reported in prior ChatGPT work (dates/source commits to be recovered)
 
@@ -26,7 +26,7 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Found 16 changed shared files and 12 files added in R7.1.0; no files were removed.
 - Confirmed R7.1.0 package notes say live FM memory writes are not implemented and Windows build/runtime testing remains outstanding.
 - Added `recovery/RECOVERY-INVENTORY.md`.
-- Full source-tree import remains pending; no claim is made that ZIP contents are already in GitHub.
+- At this checkpoint only R7.0.2 and R7.1.0 archive inventory had been recorded; their full source trees were not yet committed to GitHub.
 
 ## 2026-11-13 — R7.2.0 checkpoint received
 
@@ -34,7 +34,7 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - SHA-256: `34d985a39526698026b1e09855d7f37e9f6a00dfba4863cf6f4d467aafedc2c8`.
 - Compared with R7.1.0: 19 shared files changed, 11 added, none removed.
 - R7.2.0 is the newest supplied candidate. Its guarded live writer is source implementation only and remains unverified on Windows and in-game.
-- Full source import remains pending.
+- At this checkpoint R7.2.0 had been received but not yet imported; import was completed later on the integrated overhaul branch.
 
 ## 2026-11-13 — Research and proposed evolution added
 
@@ -43,3 +43,13 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Added Tactical Intelligence Studio research gate for FM27 Tactical Effectiveness and Tactical Understanding, with no promise to reproduce hidden FM formulas.
 - Confirmed no BepInEx/injector dependency in the current roadmap; standalone app focus retained.
 - Added backup/import safety steps to Next Steps.
+
+## 2026-11-13 — Integrated overhaul branch and source recovery
+
+- Created/continued `overhaul/monolith-full-platform` while leaving `main` untouched.
+- Imported repaired R7.2.0 app source under `application/R7.2.0/FM-Atlas-R7.2.0-Work/` (source-import commit `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`).
+- Reconciled stale source-import status in the master handover, master programme, roadmap, architecture, recovery inventory and root README.
+- Added `docs/SOURCE_ARCHITECTURE_AUDIT.md` with observed project/startup/UI/data/service boundaries and explicit runtime unknowns.
+- Corrected credential redaction and complete Windows/UNC path redaction in `AtlasLog`; added a Diagnostics privacy self-check and documented pending Windows execution.
+- Added `.github/workflows/fm-atlas-windows-build.yml` for reproducible Windows .NET 8 restore/build and Release artifact upload. A workflow run has not yet been reported.
+- Current application build/runtime acceptance remains pending after these branch changes.
