@@ -1,8 +1,8 @@
 namespace FmAtlas.Services;
 
-public sealed record MetricObservation(string Id, string Name, double Value);
+public sealed record CohortMetricObservation(string Id, string Name, double Value);
 
-public sealed record MetricPercentileResult(
+public sealed record CohortPercentileResult(
     string Id,
     string Name,
     double Value,
@@ -16,8 +16,8 @@ public sealed record MetricPercentileResult(
 /// </summary>
 public static class CohortPercentileService
 {
-    public static IReadOnlyList<MetricPercentileResult> Calculate(
-        IReadOnlyList<MetricObservation> observations,
+    public static IReadOnlyList<CohortPercentileResult> Calculate(
+        IReadOnlyList<CohortMetricObservation> observations,
         int minimumSampleSize = 5)
     {
         ArgumentNullException.ThrowIfNull(observations);
@@ -40,7 +40,7 @@ public static class CohortPercentileService
                     ? 100d * (below + (tied / 2d)) / sampleSize
                     : null;
 
-                return new MetricPercentileResult(
+                return new CohortPercentileResult(
                     item.Id,
                     item.Name,
                     item.Value,
