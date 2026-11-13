@@ -242,3 +242,15 @@ This list is a route inventory only. Each route must be opened and acceptance-te
 
 ### Explicit integration boundary
 These services are domain foundations, not fully delivered screens. Squad Architect still shows source-preserving roster/age/position summaries and does not yet expose the optimizer. Moneyball/Statistics still need their UI workflow, cohort construction, metric registry and verified season/competition/position inputs before the new math service should drive a recommendation.
+
+
+## 16. Advanced Statistics Search ALL/ANY logic
+
+- Database API: `SearchSeasonStatCriteriaAsync(..., bool matchAny = false)`.
+- Shared evaluator: `Services/StatConditionMatcher.cs`.
+- UI: `MainWindow.AdvancedSearch.cs` now exposes **Match ALL (AND)** and **Match ANY (OR)**.
+- AND requires every requested metric on the same player-period row to exist and satisfy its bounds.
+- OR requires at least one available metric on that same row to satisfy its bounds.
+- Missing metric fields are non-matches and are never converted to zero. Per-90 still uses that row's actual minutes and respects the sample floor.
+- Unit tests: `tests/FmAtlas.Tests/StatConditionMatcherTests.cs` covers AND, OR, missing fields, non-zero-denominator per-90 and invalid bounds.
+- Nested condition groups and saved-search persistence are not implemented yet. This is the first useful ALL/ANY layer, not the complete universal query builder.
