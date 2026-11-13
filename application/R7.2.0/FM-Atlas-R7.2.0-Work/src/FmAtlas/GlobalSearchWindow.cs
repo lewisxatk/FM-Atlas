@@ -245,17 +245,7 @@ public sealed class GlobalSearchWindow : Window
                     minCa: minCa, maxCa: maxCa, minPa: minPa, maxPa: maxPa, limit: 350, offset: 0));
                 var live = await Task.Run(() => _database.SearchLivePlayersAsync(query, 350, attributeName, minAttribute, maxAttribute, minAge, maxAge, DateTime.Today,
                     minCa: minCa, maxCa: maxCa, minPa: minPa, maxPa: maxPa));
-                static string IdentityKey(PlayerRecord person) =>
-                    $"{person.Name.Trim().ToUpperInvariant()}|{(person.Club ?? string.Empty).Trim().ToUpperInvariant()}|{person.Age?.ToString() ?? "?"}";
-                static int Completeness(PlayerRecord person) =>
-                    (person.Age.HasValue ? 1 : 0) + (person.Nation is not null ? 1 : 0) +
-                    (person.League is not null ? 1 : 0) + (person.Position is not null ? 1 : 0) +
-                    (person.CurrentAbility.HasValue ? 1 : 0) + (person.PotentialAbility.HasValue ? 1 : 0) +
-                    (person.Value.HasValue ? 1 : 0) + (person.PreferredFoot is not null ? 1 : 0) +
-                    (person.LeftFoot.HasValue ? 1 : 0) + (person.RightFoot.HasValue ? 1 : 0);
-                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var person in local.Concat(live).GroupBy(IdentityKey, StringComparer.OrdinalIgnoreCase)
-                             .Select(group => group.OrderByDescending(Completeness).First()))
+                foreach (var person in PlayerIdentityResolver.DeduplicateExactSourceIds(local.Concat(live)))
                 {
                     if (minCa.HasValue && (!person.CurrentAbility.HasValue || person.CurrentAbility < minCa)) continue;
                     if (maxCa.HasValue && (!person.CurrentAbility.HasValue || person.CurrentAbility > maxCa)) continue;
@@ -270,10 +260,8 @@ public sealed class GlobalSearchWindow : Window
                     if (!string.IsNullOrWhiteSpace(preferredFoot) && !string.Equals(person.PreferredFoot, preferredFoot, StringComparison.OrdinalIgnoreCase)) continue;
                     if (!string.IsNullOrWhiteSpace(homeGrown) && !(homeGrown == "Club" ? person.HomeGrownClub == true : person.HomeGrownNation == true)) continue;
                     if (position is not null && !MatchesPositionFilter(person.Position, position)) continue;
-                    var personKey = $"{person.Name.Trim().ToUpperInvariant()}|{(person.Club ?? string.Empty).Trim().ToUpperInvariant()}|{person.Age?.ToString() ?? "?"}";
-                    if (!seen.Add(personKey)) continue;
                     hits.Add(new GlobalSearchHit("Player", person.Name,
-                        $"{person.Club ?? "Club unavailable"} · {person.Age?.ToString() ?? "Age —"} · {person.Position ?? "Position —"} · CA {person.DisplayAbility} / PA {person.DisplayPotential}", person));
+                        $"{person.Club ?? "Club unavailable"} · {person.Age?.ToString() ?? "Age —"} · {person.Position ?? "Position —"} · CA {person.DisplayAbility} / PA {person.DisplayPotential} · {person.DataOrigin}", person));
                 }
             }
             if (loadStaff)
