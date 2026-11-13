@@ -28,3 +28,9 @@ public sealed record SavedSearchProfile(
     IReadOnlyList<SavedSearchCondition> Conditions,
     DateTime CreatedUtc,
     DateTime UpdatedUtc);
+
+/// <summary>Result of merging a portable search-profile file into the local profile store.</summary>
+public sealed record SavedSearchProfileImportResult(
+    int Added,
+    int Skipped,
+    IReadOnlyList<string> Conflicts);
