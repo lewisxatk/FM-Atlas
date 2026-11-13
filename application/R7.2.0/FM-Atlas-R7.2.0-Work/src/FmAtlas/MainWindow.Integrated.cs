@@ -307,11 +307,6 @@ public partial class MainWindow
             export.IsEnabled = false;
             status.Text = "Criteria changed. Rank the cohort again before exporting.";
         }
-        field.SelectionChanged += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
-        per90.Checked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
-        per90.Unchecked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
-        minimumMinutes.TextChanged += (_, _) => InvalidateResults();
-        minimumSample.TextChanged += (_, _) => InvalidateResults();
         UpdatePer90Availability();
         run = PrimaryButton("Rank cohort", async (_, _) => await RankAsync());
         export = SoftButton("Export CSV", (_, _) => ExportRows());
@@ -330,6 +325,13 @@ public partial class MainWindow
         root.Children.Add(Card(grid, 14));
         status.Text = metrics.Count == 0 ? "No seasonal metric fields found. Import a copied career save with season statistics or an FM View CSV first." : $"{metrics.Count:N0} seasonal metrics available from the latest imports.";
         root.Children.Add(status);
+
+        // Attach invalidation handlers only after the results grid and export button exist.
+        field.SelectionChanged += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
+        per90.Checked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
+        per90.Unchecked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
+        minimumMinutes.TextChanged += (_, _) => InvalidateResults();
+        minimumSample.TextChanged += (_, _) => InvalidateResults();
 
         async Task RankAsync()
         {
