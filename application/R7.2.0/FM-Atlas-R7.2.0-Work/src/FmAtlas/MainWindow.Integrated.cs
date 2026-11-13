@@ -275,7 +275,7 @@ public partial class MainWindow
             {
                 var rows = per90.IsChecked == true
                     ? await RunDatabaseAsync(() => _database.SearchSeasonMetricPer90Async(selected.Key, null, null, mins, 5000))
-                    : await RunDatabaseAsync(() => _database.SearchSeasonMetricAsync(selected.Key, null, null, 5000));
+                    : await RunDatabaseAsync(() => _database.SearchSeasonMetricAsync(selected.Key, null, null, 5000, mins));
                 var indexedRows = rows.Select((row, index) => new
                 {
                     Key = row.SourceId + "|" + row.Season + "|" + index.ToString(CultureInfo.InvariantCulture),
