@@ -2206,7 +2206,7 @@ public sealed class ScoutDatabase
         return results.OrderByDescending(x => x.ValueIndex).ThenByDescending(x => x.PotentialUpside).ThenBy(x => x.Player.Value).Take(Math.Clamp(limit, 1, 5000)).ToList();
     }
 
-    public async Task<List<PlayerRecord>> SearchPlayerAttributeCriteriaAsync(string? search, IReadOnlyList<AttributeSearchCriterion> criteria, int limit = 500)
+    public async Task<List<PlayerRecord>> SearchPlayerAttributeCriteriaAsync(string? search, IReadOnlyList<AttributeSearchCriterion> criteria, int limit = 500, bool matchAny = false)
     {
         if (criteria.Count == 0) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 attribute conditions in one search.");
@@ -2232,7 +2232,7 @@ public sealed class ScoutDatabase
             SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,p.CurrentAbility,p.PotentialAbility,p.Value,p.HomeGrownClub,p.HomeGrownNation,p.DataOrigin,p.PreferredFoot,p.LeftFoot,p.RightFoot
             FROM Players p
             WHERE ($q='' OR p.Name LIKE $pattern OR COALESCE(p.Club,'') LIKE $pattern OR COALESCE(p.Nation,'') LIKE $pattern OR p.SourceId LIKE $pattern)
-              AND ({string.Join(" AND ", predicates)})
+              AND ({string.Join(matchAny ? " OR " : " AND ", predicates)})
               AND p.SourceId NOT LIKE 'LIVE:%'
               AND (p.SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=p.SourceId))
             ORDER BY CASE WHEN $q<>'' AND p.Name LIKE $prefix THEN 0 ELSE 1 END,p.Name COLLATE NOCASE LIMIT $limit;
