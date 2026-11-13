@@ -119,3 +119,9 @@ The user requested Stage 1 and Stage 2 to be completed together first, then rece
 - Stage 1: finish exact-commit CI for the Diagnostics privacy-copy/manifest correction; manually generate and inspect both support ZIP variants on Windows; verify manifest hashes and excluded files.
 - Stage 2: finish static source/feature traceability for all 21 routes; run Windows route smoke tests and capture actual Game Pass build, save import and graphics folder acceptance evidence.
 - Once both stages pass, return the report with confirmed findings, incomplete features, risk boundaries and proposed unified Stage 3–7 scope. Wait for the user's approval before beginning it.
+## Stage 1/2 engineering result — 2026-11-13
+
+- Automated engineering gate passed at exact source commit `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`: Windows WPF Release build 0 warnings/0 errors and 64/64 tests passed. CI: https://github.com/lewisxatk/FM-Atlas/actions/runs/43476085012.
+- The combined report and all 21 route findings are in `docs/STAGE1_STAGE2_AUDIT.md`. Detailed third-party source findings are in `research/RESEARCH_REGISTER.md`.
+- Remaining acceptance requires the user's PC: launch the app, smoke-test routes, inspect actual support ZIPs, import a disposable save copy, check themes/DPI and confirm exact Game Pass build/graphics path.
+- After the user reviews the report and decides whether to proceed, combine Stage 3–7 into one integrated implementation. Do not begin that implementation before explicit approval.
