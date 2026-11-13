@@ -254,3 +254,12 @@ See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
 - Added multi-snapshot player development history with source evidence labels and protection against detected fmsave unique-ID reuse.
 - Added read-only squad planner slot display, gated to fmsave's documented FM27 build, with same-snapshot player UID resolution and unknown slot semantics preserved.
 - Still pending: broader age/league cohorts, integrated best-XI optimizer, tactical effectiveness/buy-in, graphics/mod workflows, complete MONOLITH migration and final installer/release. User-side runtime testing is deferred until the user is on PC and more implementation is complete.
+
+
+## Squad Architect best-XI integration — 2026-11-13
+
+- Tested source `5ff275d534245880242a7280f95837f6ee3a3b0d`; Windows run [43511883115](https://github.com/lewisxatk/FM-Atlas/actions/runs/43511883115): 0 warnings, 0 errors, 103/103 tests passed.
+- Added 4-2-3-1, 4-3-3, 4-4-2 and 3-4-2-1 formation templates with a global one-player-per-slot assignment.
+- Role fit is combined with the registered save's position rating using a transparent Atlas heuristic; no SI hidden formula is claimed.
+- Latest-snapshot and registered-build gates prevent stale or unverified position data from entering profile maps, Moneyball cohorts or XI eligibility.
+- Remaining programme includes age/league Moneyball normalisation where source evidence permits, deeper tactical and match intelligence, graphics/mod management, shared MONOLITH migration and final release engineering. User-PC acceptance remains deferred.
