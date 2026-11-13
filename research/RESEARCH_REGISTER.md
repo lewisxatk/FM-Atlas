@@ -305,3 +305,13 @@ The public fmsave `pyproject.toml` and `CHANGELOG.md` were checked on 13 Novembe
 The 0.12.3 change log says an available FM27 layout may be tried when a section schema is unfamiliar, with a warning when another schema is borrowed. This is a compatibility attempt, not verified support. The 0.12.1 change log also documents a specific training/mentoring layout adjustment for FM27 build `27.0.1+2494687`. The current FM27 layout registry still identifies `27.0.0+2486695` as its registered build; other builds remain unverified and must be checked via the parser's validation report.
 
 Atlas implication: keep the exact 0.12.3 version pin, expose parser validation warnings and per-reader coverage to the user, and record the actual save build/schema in the imported snapshot. Never translate “parser opened the save” or “known build” into “all imported fields verified.”
+
+### FMSuperScout valuation-model review
+
+The public `docs/value-model.md` was inspected. It distinguishes three different concepts that many tools blur together:
+
+- **Observed FM transfer value:** used directly when the scanner reads a concrete value from memory.
+- **Estimated market value:** a calibrated reputation/age/contract-length model for records without an observed value. The project documents a model revision after a CA-driven model materially overshot mid-range players; it also states that the model underestimates strong, low-fame players and gives teenage estimates a wider uncertainty band (about ±55%).
+- **Estimated asking/transfer fee and interest:** separate buyer/seller heuristics. Asking price depends on listing status, contract, buyer club reputation and a wage-rank squad-status proxy; interest is explicitly heuristic because ambition/loyalty/playing time are not available in the dump.
+
+Atlas implication: do not make the Transfers route or Value Finder present an estimated fee/value as a real FM value. If valuation modelling is added later, use observed values first, a separately named estimate second, explain its inputs/cohort and sample size, show an uncertainty band, and state unavailable inputs. Do not use CA alone as a value proxy or infer exact asking price/interest from missing data.
