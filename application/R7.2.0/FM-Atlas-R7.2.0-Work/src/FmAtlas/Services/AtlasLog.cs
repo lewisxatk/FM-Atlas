@@ -52,6 +52,9 @@ public static class AtlasLog
     private static string Redact(string value)
     {
         var text = value.Replace('\r', ' ').Replace('\n', ' ');
+        // Scrub common credential/token formats before a log can enter a support bundle.
+        text = Regex.Replace(text, @"(?i)\\b(Bearer\\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]");
+        text = Regex.Replace(text, @"(?i)\\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|authorization)\\s*[:=]\\s*[^;\\s,]+", "$1=[redacted]");
         text = Regex.Replace(text, @"(?i)[A-Z]:\\Users\\[^\\\s]+", "%USERPROFILE%");
         text = Regex.Replace(text, @"(?i)\\\\[^\\]+\\Users\\[^\\\s]+", "%USERPROFILE%");
         // Import exceptions can mention saves stored outside the user profile. Redact absolute Windows paths
