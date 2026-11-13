@@ -17,7 +17,7 @@ public sealed class AtlasLogRedactionTests
             "Redaction regression failures: " + string.Join(", ", failures));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("Authorization: Bearer atlas-test-token-123", "atlas-test-token-123")]
     [DataRow("api_key=atlas-test-api-key-456", "atlas-test-api-key-456")]
     [DataRow("password: atlas-test-password-789", "atlas-test-password-789")]
