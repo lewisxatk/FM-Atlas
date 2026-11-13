@@ -10,3 +10,4 @@ internal static class IntegratedStagesValidationProbe
 }
 // Re-trigger validation against the corrected cohort-specific DTOs and current base.
 // Refresh validation after WPF captured-control initialization fixes.
+// Queue validation against the latest advanced-search initialization and import bounds.
