@@ -41,6 +41,11 @@ public partial class MainWindow
             "DataOrigin", "RegenStatus", "RegenConfidence"
         };
         var root = new StackPanel();
+        AdvancedGroupUi rootGroup = null!;
+        TextBlock status = Txt("Add a condition or nested group, then run the search.", 10, false, Muted, wrap: true);
+        var profiles = new List<AdvancedFilterProfile>();
+        DataGrid results = CreateGrid();
+        Button runSearch = new Button();
         var heading = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)heading.Child;
         hs.Children.Add(Txt("UNIVERSAL PLAYER SEARCH", 9, true, Teal));
@@ -61,13 +66,11 @@ public partial class MainWindow
         profileRow.Children.Add(SoftButton("Export", (_, _) => ExportProfiles()));
         root.Children.Add(Card(profileRow, 13, new Thickness(0, 0, 0, 10)));
 
-        AdvancedGroupUi rootGroup = null!;
-        TextBlock status = null!;
         var quickSearch = Input("Optional quick text filter (player / club / nation)"); quickSearch.Width = 320;
         var conditionActions = new WrapPanel();
         var addCondition = PrimaryButton("＋ Add condition", (_, _) => AddCondition(rootGroup));
         var addGroup = SoftButton("＋ Add nested group", (_, _) => AddNestedGroup(rootGroup));
-        var runSearch = PrimaryButton("Run advanced search", async (_, _) => await RunSearchAsync());
+        runSearch = PrimaryButton("Run advanced search", async (_, _) => await RunSearchAsync());
         var clear = SoftButton("Clear filters", (_, _) => { ClearGroup(rootGroup); AddCondition(rootGroup); status.Text = "Filter conditions cleared."; });
         conditionActions.Children.Add(quickSearch);
         conditionActions.Children.Add(addCondition);
@@ -81,10 +84,9 @@ public partial class MainWindow
         groupHost.Children.Add(rootGroup.Container);
         root.Children.Add(groupHost);
 
-        status = Txt("Add a condition or nested group, then run the search.", 10, false, Muted, wrap: true);
         root.Children.Add(status);
 
-        var results = CreateGrid();
+        results = CreateGrid();
         results.Columns.Add(Column("PLAYER", nameof(UniversalSearchResult.Player.Name), 1.3));
         results.Columns.Add(Column("CLUB", nameof(UniversalSearchResult.Player.Club), .9));
         results.Columns.Add(Column("POSITION", nameof(UniversalSearchResult.Player.Position), .7));
@@ -93,7 +95,6 @@ public partial class MainWindow
         results.Columns.Add(Column("REASON", nameof(UniversalSearchResult.Explanation), 1.6));
         root.Children.Add(Card(results, 14, new Thickness(0, 0, 0, 10)));
 
-        var profiles = new List<AdvancedFilterProfile>();
         void RefreshProfiles(string? id = null)
         {
             profiles.Clear();
