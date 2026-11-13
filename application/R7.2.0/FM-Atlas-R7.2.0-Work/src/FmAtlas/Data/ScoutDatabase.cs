@@ -1975,6 +1975,9 @@ public sealed class ScoutDatabase
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 metric conditions in one search.");
         if (criteria.Any(x => string.IsNullOrWhiteSpace(x.Key) || (!x.Minimum.HasValue && !x.Maximum.HasValue)))
             throw new ArgumentException("Each metric condition needs a field and at least one numeric boundary.", nameof(criteria));
+        if (criteria.Any(x => (x.Minimum.HasValue && !double.IsFinite(x.Minimum.Value))
+            || (x.Maximum.HasValue && !double.IsFinite(x.Maximum.Value))))
+            throw new ArgumentOutOfRangeException(nameof(criteria), "Metric boundaries must be finite numbers.");
         if (criteria.Any(x => x.Minimum.HasValue && x.Maximum.HasValue && x.Minimum > x.Maximum))
             throw new ArgumentException("A metric minimum cannot exceed its maximum.", nameof(criteria));
 
