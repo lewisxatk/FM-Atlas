@@ -243,3 +243,15 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Windows runtime acceptance remains outstanding: launch both search screens, verify all profile buttons, export/import between app instances, check skipped conflicts and verify no player/save contents are included in the JSON.
 - The branch head at this checkpoint is the tested application commit. Main remains untouched at 2051bbee042fb8e7203b7855e833e391ccee9ecb.
 - Continue the complete roadmap as one integrated programme; this feature tranche is not the full product release.
+
+## Latest Attribute Search ALL/ANY verification — 2026-11-13 18:04 UTC
+
+- Exact tested application source commit: `0fbd5fa5162b89798aa55e96669a01b26cd2ddbd`.
+- Windows Actions run `43478483715`: .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; **68/68 MSTest tests passed**, 0 failed, 0 skipped.
+- Release artifact `14064057973`; test-results artifact `14064172732`. Downloaded and inspected the Release ZIP; it contains `FmAtlas.exe`, `FmAtlas.dll`, SQLite and both save-bridge tools. Downloaded TRX independently confirms 68 total, 68 passed, 0 failed.
+- Attribute Search now exposes `ALL conditions (AND)` and `ANY condition (OR)`; ALL remains the default. The selected logic is passed to the SQLite candidate query and saved/restored with attribute profiles.
+- SQL keeps the free-text player/club/nation/source filter outside the parenthesized criterion group, so it remains ANDed with either ALL or ANY matching. Existing callers preserve ALL behaviour via the default `matchAny=false`.
+- Added disposable SQLite integration coverage with four player fixtures: ALL matches only the player meeting every threshold; ANY returns players meeting at least one; free-text filtering still narrows the ANY result. Saved profile round-trip now asserts MatchAny=true persists.
+- Branch head is the tested source commit. Protected `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- [ ] Windows runtime acceptance remains outstanding: verify the toggle, saved-profile round-trip and result rows in the running app using an imported copy of an FM27 save; test ALL/ANY on real imported data and ensure missing attributes stay non-matches.
+- The full product roadmap remains active; this is another verified integrated tranche, not the final FM Atlas release. Continue the remaining Advanced Search grouping, Player DNA, Scouting Matrix, Moneyball cohorts/percentiles, Tactical Intelligence, Match Lab, development, Save Inspector/editor, Game Pass adapter, Graphics/Skin Studio, mod workbench and release engineering.
