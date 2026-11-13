@@ -164,3 +164,19 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] WPF app launch, route-by-route UI acceptance, real imported FM27 save-copy test, theme/DPI visual checks and actual support-ZIP manual inspection remain outstanding.
 - All changes after the tested application source `8cfe5b3` are documentation-only checkpoint updates; no application source changed after the 53-test run. The protected `main` branch remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`. Check the live branch ref before resuming.
 - Live memory Apply/Undo remains disabled until exact Game Pass build/field certification and disposable-save read-back/undo acceptance.
+
+
+## Combined Stage 1 + Stage 2 audit — 2026-11-13
+
+- [x] Created `docs/STAGE1_STAGE2_AUDIT.md` as the authoritative combined report for reliability/Diagnostics and reverse-engineering/source audit.
+- [x] Audited the actual Tester & Logs implementation: health checks, report builder, explicit ZIP file allowlist, log collection, SHA-256 manifest, preview, local save dialog and temporary-file write/move flow.
+- [x] Found and corrected a privacy-copy mismatch: personal-details opt-in previously claimed to include save filenames and local absolute paths, but the final redaction policy removes those. Opt-in now covers player names and recent edit history only; credentials/tokens, absolute paths and career save filenames are always redacted. Manifest and preview declare the always-redacted categories.
+- [x] Updated Help & Tutorial privacy wording to match the Diagnostics page and support README.
+- [x] Mapped all 21 navigation destinations to their actual route handlers and implementation scope. The report distinguishes implemented, shared, narrow, informational and safety-blocked routes.
+- [x] Audited the 38-file application source tree, 9-file MSTest project, WPF shell, SQLite data layer, save bridge, live-memory adapter, field evidence, identity, role fit, search, assistant and graphics resolver.
+- [x] Recorded reverse-engineering findings, external reference projects and licence cautions in `docs/STAGE1_STAGE2_AUDIT.md`.
+- [ ] Windows CI for the post-privacy-copy code changes must pass on the exact latest application source commit before this correction is marked verified.
+- [ ] Launch Tester & Logs on Windows and inspect default and opt-in ZIPs, entries, report/README, hashes and excluded data.
+- [ ] Launch all 21 routes on Windows and record smoke-test results, visual defects and data-dependent states.
+- [ ] Confirm exact Game Pass process/build and actual graphics root on the user's Windows installation; cannot be proven by static source review.
+- **Stage boundary:** Stage 3–7 remain paused. Do not start the combined product/design implementation until the user reviews the Stage 1/2 report and approves.
