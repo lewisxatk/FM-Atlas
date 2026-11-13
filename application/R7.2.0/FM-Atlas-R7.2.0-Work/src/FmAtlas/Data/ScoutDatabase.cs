@@ -14,7 +14,7 @@ public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club
 public sealed record AtlasClubRecord(string SourceId, string Name, string? Nation, int PlayerCount, string DataSource);
 public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerName, string FieldName, string? OldValue, string? NewValue, string ChangedUtc, string ChangeSource);
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
-public sealed record AtlasDevelopmentHistoryRecord(int SnapshotId, string ImportedUtc, string? GameDate, string? GameBuild, string SourceFileName, string FieldName, double Value, double? PreviousValue, double? Delta);
+public sealed record AtlasDevelopmentHistoryRecord(int SnapshotId, string ImportedUtc, string? GameDate, string? GameBuild, string SourceFileName, string FieldName, double Value, double? PreviousValue, double? Delta, bool IdentityBoundary);
 public sealed record SquadPlannerSlotRecord(int SeasonOffset, int Slot, string PlayerNames, int ResolvedPlayers, int UnresolvedPlayers);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
 public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value, string? PrimaryPosition = null);
@@ -1477,6 +1477,9 @@ public sealed class ScoutDatabase
 
         var results = new List<AtlasDevelopmentHistoryRecord>();
         var previousValues = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        string? previousBirthDate = null;
+        string? previousName = null;
+        var hasPreviousSnapshot = false;
         await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
@@ -1489,6 +1492,20 @@ public sealed class ScoutDatabase
 
             using var document = JsonDocument.Parse(rawJson);
             var player = document.RootElement;
+            var currentBirthDate = GetFirstJsonString(player, "birth_date", "date_of_birth");
+            var currentName = GetFirstJsonString(player, "name", "display_name", "common_name");
+            // fmsave documents that a deleted person's unique_id can be assigned to a new
+            // person. A changed DOB, or a changed name when DOB evidence is missing, starts
+            // a new identity segment instead of generating a false development delta.
+            var identityBoundary = hasPreviousSnapshot
+                && ((previousBirthDate is not null && currentBirthDate is not null
+                        && !previousBirthDate.Equals(currentBirthDate, StringComparison.OrdinalIgnoreCase))
+                    || ((previousBirthDate is null || currentBirthDate is null)
+                        && previousName is not null && currentName is not null
+                        && !previousName.Equals(currentName, StringComparison.OrdinalIgnoreCase)));
+            if (identityBoundary)
+                previousValues.Clear();
+
             var values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
 
             if (GetNumeric(player, "current_ability") is double ca && double.IsFinite(ca) && ca >= 0 && ca <= 200)
@@ -1520,7 +1537,8 @@ public sealed class ScoutDatabase
                     pair.Key,
                     pair.Value,
                     hasPrevious ? previous : null,
-                    hasPrevious ? pair.Value - previous : null));
+                    hasPrevious ? pair.Value - previous : null,
+                    identityBoundary));
             }
 
             // A field absent from this snapshot is deliberately removed from the comparison
@@ -1528,6 +1546,9 @@ public sealed class ScoutDatabase
             previousValues.Clear();
             foreach (var pair in values)
                 previousValues[pair.Key] = pair.Value;
+            previousBirthDate = currentBirthDate;
+            previousName = currentName;
+            hasPreviousSnapshot = true;
         }
 
         return results;
