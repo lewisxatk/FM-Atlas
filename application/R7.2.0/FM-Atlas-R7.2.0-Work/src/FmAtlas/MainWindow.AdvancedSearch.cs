@@ -44,6 +44,14 @@ public partial class MainWindow
         var options = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
         var per90 = new CheckBox { Content = "Calculate per 90 minutes", Foreground = Brush("#DCE5ED"), FontSize = 11, Margin = new Thickness(0, 5, 18, 0), VerticalAlignment = VerticalAlignment.Center };
         var minMinutes = Input("Minimum minutes"); minMinutes.Text = "450"; minMinutes.Width = 135; minMinutes.Margin = new Thickness(0, 0, 8, 0);
+        var matchMode = new ComboBox
+        {
+            Width = 170, Height = 34, Margin = new Thickness(0, 0, 8, 0),
+            Padding = new Thickness(8, 4, 8, 4),
+            ItemsSource = new[] { "Match ALL (AND)", "Match ANY (OR)" },
+            SelectedIndex = 0
+        };
+        options.Children.Add(matchMode);
         options.Children.Add(per90);
         options.Children.Add(FilterControl("PER-90 SAMPLE FLOOR", minMinutes, 150));
         Button findButton = null!;
@@ -56,7 +64,7 @@ public partial class MainWindow
         importViewButton = SoftButton("Import FM View CSV", async (_, _) => await ImportViewCsvAsync());
         options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton);
         controlStack.Children.Add(options);
-        controlStack.Children.Add(Txt("CONDITIONS · ALL CONDITIONS MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
+        controlStack.Children.Add(Txt("CONDITIONS · CHOOSE WHETHER ALL OR ANY CONDITION MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
         controlStack.Children.Add(Txt("The catalogue combines every numeric metric found in the latest imported save plus any FM View Exporter CSV you import. To capture more columns, add them to an in-game player view before exporting; FM's own view export has a practical column ceiling.", 9, false, Muted, wrap: true));
         controlStack.Children.Add(filterPanel);
         controlStack.Children.Add(status);
@@ -126,10 +134,11 @@ public partial class MainWindow
             status.Text = "Searching imported player-season and player-match records…";
             try
             {
-                resultRows = await RunDatabaseAsync(() => _database.SearchSeasonStatCriteriaAsync(criteria, per90.IsChecked == true, minSample, 5000));
+                var matchAny = matchMode.SelectedIndex == 1;
+                resultRows = await RunDatabaseAsync(() => _database.SearchSeasonStatCriteriaAsync(criteria, per90.IsChecked == true, minSample, 5000, matchAny));
                 grid.ItemsSource = resultRows;
-                status.Text = $"{resultRows.Count:N0} matching player-period rows · {criteria.Count} condition(s) · {(per90.IsChecked == true ? $"per 90, minimum {minSample:N0} minutes" : "raw source values")} · source fields retained with their original metric keys.";
-                AtlasLog.Info($"Advanced stats search completed: fields={criteria.Count}; per90={per90.IsChecked == true}; results={resultRows.Count}.");
+                status.Text = $"{resultRows.Count:N0} matching player-period rows · {criteria.Count} condition(s) · {(matchAny ? "ANY condition (OR)" : "ALL conditions (AND)")} · {(per90.IsChecked == true ? $"per 90, minimum {minSample:N0} minutes" : "raw source values")} · source fields retained with their original metric keys.";
+                AtlasLog.Info($"Advanced stats search completed: fields={criteria.Count}; matchAny={matchAny}; per90={per90.IsChecked == true}; results={resultRows.Count}.");
             }
             catch (Exception ex) { AtlasLog.Error("Advanced stats search failed.", ex); status.Text = "Statistics search failed: " + ex.Message; }
             finally { findButton.IsEnabled = true; Mouse.OverrideCursor = null; }
