@@ -1,3 +1,4 @@
+using System.IO;
 using FmAtlas.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
