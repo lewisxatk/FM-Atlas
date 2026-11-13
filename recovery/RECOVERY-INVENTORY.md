@@ -59,13 +59,13 @@ The archives share 83 relative file paths. 16 shared files differ. R7.1.0 contai
 - The package explicitly says live FM memory writes are not implemented; the live process reader is read-only.
 - The package states Windows WPF compilation, Windows startup, real save import and Steam/Game Pass process checks still require testing. Its preparation environment lacked .NET SDK/MSBuild.
 
-## Recovery decision
+## Historical recovery decision
 
-R7.1.0 is the newest supplied source package and is the candidate working baseline. R7.0.2 is retained as the comparison baseline. This is a version-order decision, not a claim that R7.1.0 has passed a Windows build or runtime acceptance test.
+At the time of the R7.1.0 upload, it was the newest source package and was selected as the comparison baseline. R7.2.0 was subsequently supplied and supersedes it as the active candidate. R7.0.2 and R7.1.0 remain historical comparison packages; their full source trees have not yet been separately committed as immutable repository baselines.
 
-## Next technical action
+## Superseded technical action
 
-Import the R7.1.0 source tree without discarding the R7.0.2 comparison. Keep package provenance, hashes and the exact source diff available. Then build on Windows and record the real output before further feature work.
+The earlier instruction to import R7.1.0 as the active working source was superseded by the later R7.2.0 source checkpoint. R7.1.0 remains useful as a historical comparison only.
 
 ## R7.2.0 checkpoint archive received and inspected (2026-11-13)
 
@@ -82,3 +82,13 @@ Archive: `FM-Atlas-27-R7.2.0-Source-Checkpoint(1).zip`
 - R7.2.0 is the newest supplied source candidate and should be the primary import target; R7.1.0 and R7.0.2 remain preserved as historical baselines.
 
 See [R7.2.0 source checkpoint notes](R7.2.0-CHECKPOINT.md) for the detailed comparison and acceptance boundaries.
+
+## Integrated branch import status — 2026-11-13
+
+- [x] Repaired R7.2.0 application source imported under `application/R7.2.0/FM-Atlas-R7.2.0-Work/` on `overhaul/monolith-full-platform` (commit `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`).
+- [x] Eight changed source files were reconciled against the later successful-build package and matched the corresponding source blobs from the recovery branch; the package matching is recorded in `docs/MASTER_PROGRESS.md`.
+- [x] Original uploaded ZIPs remain unchanged; their hashes and comparison details remain recorded above.
+- [ ] Complete separate GitHub source baselines for R7.0.2 and R7.1.0, with tags and exact manifests.
+- [ ] Build and launch the current integrated branch after the new Diagnostics privacy changes. The prior user-provided R7.2.0 build log is baseline evidence, not proof of the later branch head.
+
+See `docs/SOURCE_ARCHITECTURE_AUDIT.md` and `docs/MASTER_PROGRESS.md` for the current engineering checkpoint.
