@@ -265,7 +265,7 @@ Current verified application checkpoint remains commit 6c18e36fdc706fc49ad74ce15
 - The latest tested package includes the MONOLITH palette/navigation updates, nested universal Advanced Search and local profiles, Player DNA, shortlist matrix with editable candidate notes, Moneyball season/CSV fallback and 50,000-row cohort support, transparent Tactical Studio, Match Lab, Development, Save Inspector, Graphics indexing and Modding Workbench.
 - Do not describe this as the fully completed roadmap or a user-accepted release. Remaining implementation gaps and exact runtime acceptance list are in `docs/MASTER_PROGRESS.md` and `docs/FEATURE_TRACEABILITY.md`.
 - Next action is manual acceptance on the user's Windows machine using a disposable copy of the FM27 Game Pass career, then report any visible issues/logs for the integrated fix pass. Do not use the original only-save.
-- `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`; no feature branch merge has occurred. Live Apply/Undo remains disabled.
+- `main`'s content tree matches baseline `2051bbee042fb8e7203b7855e833e391ccee9ecb`; no application feature merge has occurred. Live Apply/Undo remains disabled.
 
 
 ## Latest combined development handover — 2026-11-13 21:22 UTC
@@ -291,3 +291,11 @@ Current verified application checkpoint remains commit 6c18e36fdc706fc49ad74ce15
 - Position data is gated on registered builds for the profile pitch, Moneyball position cohorts and best-XI selection. If the latest import is unregistered, the app does not silently fall back to stale previous-snapshot position ratings.
 - Latest code still needs user-side runtime acceptance. Wait until the user is on PC; test a disposable copy of FM27 Game Pass career, never the only save.
 - `main` remains untouched; Live Apply/Undo remains disabled.
+
+
+## Repository safety correction — 2026-11-13 21:39 UTC
+
+- A test-only commit was accidentally sent to the default `main` branch while creating integration-test files. It added three files only: two test files and `docs/MASTER_PROGRESS.md`; no application source was merged.
+- All three additions were deleted from `main` in sequential revert commits. Current `main` ref: `05a0928e82cb3b3e99f58a5ae4ebe19479c9bb35`.
+- Verified with GitHub compare: `2051bbee042fb8e7203b7855e833e391ccee9ecb...main` returns **zero changed files**. The current `main` content tree is therefore identical to the original baseline, although its commit history contains the add/revert commits.
+- The integrated application work remains on `overhaul/monolith-full-platform`; no application code or feature merge is present on `main`.
