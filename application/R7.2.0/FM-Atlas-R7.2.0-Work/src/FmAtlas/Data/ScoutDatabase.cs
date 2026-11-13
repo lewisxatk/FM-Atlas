@@ -3041,7 +3041,48 @@ public sealed class ScoutDatabase
             .ToList();
     }
 
-    public async Task<List<RoleFitCandidate>> SearchRoleFitCandidatesAsync(RoleFitProfile profile, int limit = 5000)
+    public async Task<Dictionary<string, Dictionary<string, double>>> GetPlayerPositionRatingsForClubAsync(string clubName)
+    {
+        if (string.IsNullOrWhiteSpace(clubName))
+            throw new ArgumentException("Choose one club before loading position ratings.", nameof(clubName));
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT f.PlayerSourceId,f.FieldKey,f.NumericValue
+            FROM FmsavePlayerFacts f
+            INNER JOIN Players p ON p.SourceId=f.PlayerSourceId
+            WHERE f.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND f.FactGroup='positions'
+              AND p.Club=$club COLLATE NOCASE
+              AND f.NumericValue IS NOT NULL
+              AND f.NumericValue >= 0 AND f.NumericValue <= 20;
+            """;
+        command.Parameters.AddWithValue("$club", clubName.Trim());
+
+        var results = new Dictionary<string, Dictionary<string, double>>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            if (reader.IsDBNull(0) || reader.IsDBNull(1) || reader.IsDBNull(2))
+                continue;
+            var sourceId = reader.GetString(0);
+            var field = reader.GetString(1);
+            var value = reader.GetDouble(2);
+            if (!double.IsFinite(value)) continue;
+            if (!results.TryGetValue(sourceId, out var ratings))
+            {
+                ratings = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                results[sourceId] = ratings;
+            }
+            ratings[field] = value;
+        }
+
+        return results;
+    }
+
+    public async Task<List<RoleFitCandidate>> SearchRoleFitCandidatesAsync(RoleFitProfile profile, int limit = 5000, string? clubFilter = null, int resultLimit = 250)
     {
         var weights = profile.Weights.ToDictionary(x => NormalizeAttributeKey(x.Key), x => x.Value, StringComparer.OrdinalIgnoreCase);
         if (weights.Count == 0) return new();
@@ -3058,10 +3099,13 @@ public sealed class ScoutDatabase
             cmd.Parameters.AddWithValue(parameter, names[i]);
         }
         cmd.Parameters.AddWithValue("$limit", maxPlayers);
+        cmd.Parameters.AddWithValue("$club", string.IsNullOrWhiteSpace(clubFilter) ? DBNull.Value : clubFilter.Trim());
         cmd.CommandText = $"""
             SELECT p.SourceId,p.Name,p.Club,p.Age,p.Position,p.CurrentAbility,p.PotentialAbility,a.AttributeName,a.AttributeValue
-            FROM (SELECT * FROM Players WHERE SourceId NOT LIKE 'LIVE:%' AND (SourceId NOT LIKE 'FMSAVE:%' OR SourceId IN
-                (SELECT PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)))
+            FROM (SELECT * FROM Players WHERE SourceId NOT LIKE 'LIVE:%'
+                AND (SourceId NOT LIKE 'FMSAVE:%' OR SourceId IN
+                    (SELECT PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)))
+                AND ($club IS NULL OR Club=$club COLLATE NOCASE)
                 ORDER BY Name COLLATE NOCASE LIMIT $limit) p
             LEFT JOIN PlayerAttributes a ON a.SourceId=p.SourceId AND LOWER(REPLACE(REPLACE(REPLACE(a.AttributeName,'_',''),' ',''),'-','')) IN ({string.Join(",", parameterNames)})
             ORDER BY p.Name COLLATE NOCASE;
@@ -3099,7 +3143,7 @@ public sealed class ScoutDatabase
                 Contributions = estimate.Contributions
             });
         }
-        return results.OrderByDescending(x => x.Score).ThenByDescending(x => x.Coverage).Take(250).ToList();
+        return results.OrderByDescending(x => x.Score).ThenByDescending(x => x.Coverage).Take(Math.Clamp(resultLimit, 1, 5000)).ToList();
     }
 
     private static string NormalizeAttributeKey(string value)
