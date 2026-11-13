@@ -132,7 +132,7 @@ public partial class MainWindow
             var ls = (StackPanel)locked.Child;
             ls.Children.Add(Txt("EDITOR SAFETY LOCK", 9, true, Brush("#A06B24")));
             ls.Children.Add(Txt("Mass Edit is OFF", 23, true, Ink));
-            ls.Children.Add(Txt("Atlas editing starts disabled every time the program launches. Enable Editor Studio for local edits and the narrow, separately confirmed live player-write path. Current live-write scope is CA, PA and 47 visible standard attributes only; five hidden attributes and all staff, club, contract and structural edits remain blocked. Back up your career and test on an offline copied save before relying on live edits.", 11, false, Muted, wrap: true));
+            ls.Children.Add(Txt("Atlas editing starts disabled every time the program launches. Enable Editor Studio for local FM Atlas database edits only. Live Football Manager Apply and Undo are disabled by the build-wide certification gate; no in-game values can be written in this build. The source contains experimental guarded CA/PA and standard-attribute code, but it is not certified or available.", 11, false, Muted, wrap: true));
             ls.Children.Add(PrimaryButton("Open Editor Studio", async (_, _) => await NavigateAsync("Live Editor")));
             root.Children.Add(locked);
             return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -241,7 +241,7 @@ public partial class MainWindow
         var legend = new WrapPanel();
         legend.Children.Add(Txt("1–4 Red",9,true,Brush("#B94A48"))); legend.Children.Add(Txt("   5–9 Orange",9,true,Brush("#C47B32"))); legend.Children.Add(Txt("   10–14 Yellow",9,true,Brush("#9C8B28"))); legend.Children.Add(Txt("   15–17 Green",9,true,Brush("#37875A"))); legend.Children.Add(Txt("   18–20 Natural",9,true,Brush("#176B46")));
         stack.Children.Add(legend);
-        if (values.Count == 0) stack.Children.Add(Txt("No verified position ratings were found in this record. The FM27 Steam mapping is documented, but this R6 live importer has not yet been upgraded to extract those bytes. The map will populate when a supported source provides them.", 10, false, Muted, wrap: true));
+        if (values.Count == 0) stack.Children.Add(Txt("No field-verified position ratings were found in this record. The live importer can retain position-rating candidates, but profile-matched values stay hidden from this decision view until an independent in-game UI witness confirms the field meaning and value.", 10, false, Muted, wrap: true));
         panel.Children.Add(card);
     }
 
