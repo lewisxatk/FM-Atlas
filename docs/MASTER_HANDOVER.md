@@ -118,3 +118,11 @@ Both original ZIP uploads were successfully inspected. See [Recovery Inventory](
 - The package says WPF compile, app startup, real save import and Steam/Game Pass checks remain outstanding.
 
 **Important:** The ZIP archives have been inventoried but the full source tree has not yet been committed to this repository. Do not treat the documentation baseline as a source-code backup.
+
+## 11. Newer R7.2.0 source checkpoint recovered (2026-11-13)
+
+A third archive arrived after the initial recovery bundle: R7.2.0 Source Checkpoint. It is newer than R7.1.0 and contains 106 files. Its SHA-256, size and 7.1-to-7.2 file diff are recorded in [Recovery Inventory](../recovery/RECOVERY-INVENTORY.md) and [R7.2.0 Checkpoint](../recovery/R7.2.0-CHECKPOINT.md).
+
+**Important correction to the earlier handover:** R7.1.0 said live FM writes were not implemented. R7.2.0 introduces a separate narrow live writer for CA/PA and 47 visible standard player attributes, with guarded preview/apply/read-back/undo and hidden-field exclusions. This is source implementation only. R7.2.0 itself says Windows WPF build, startup, save import, process fingerprint and real Apply/Undo tests have not yet passed. Treat it as unverified until tested on Windows against a disposable offline save.
+
+R7.2.0 is now the latest candidate baseline. R7.1.0 and R7.0.2 must remain intact as comparison points. Do not continue feature development against R7.1.0 unless the R7.2.0 diff shows a specific regression requiring it.
