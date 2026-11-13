@@ -130,6 +130,24 @@ public sealed class IntegratedIntelligenceTests
     }
 
     [TestMethod]
+    public void CohortPercentiles_ScaleToFiveThousandRowsWithStableTieRanks()
+    {
+        var observations = Enumerable.Range(0, 5000)
+            .Select(index => new CohortMetricObservation(
+                "player-" + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "Player " + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                index % 100))
+            .ToArray();
+
+        var results = CohortPercentileService.Calculate(observations, minimumSampleSize: 5000);
+
+        Assert.AreEqual(5000, results.Count);
+        Assert.AreEqual(99.5d, results.First().Percentile!.Value, 0.0001);
+        Assert.AreEqual(0.5d, results.Last().Percentile!.Value, 0.0001);
+        Assert.IsTrue(results.All(x => x.SampleSize == 5000));
+    }
+
+    [TestMethod]
     public void GraphicsIndexer_IndexesExistingTargetsAndRejectsTraversal()
     {
         var root = Path.Combine(Path.GetTempPath(), "FmAtlas-Graphics-" + Guid.NewGuid().ToString("N"));
