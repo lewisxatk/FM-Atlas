@@ -255,3 +255,14 @@ Current verified application checkpoint remains commit 6c18e36fdc706fc49ad74ce15
 - This commit is the current branch head; main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
 - Remaining: run the app on Windows, validate row layout, save/load row order, duplicate and edge-row behavior, then implement nested AND/OR groups and include/exclude semantics.
 - Continue the wider programme as one integrated product; do not treat this checkpoint as the final release.
+
+
+## Latest combined Stage 3–7 handover — 2026-11-13 18:52 UTC
+
+- Active branch: `overhaul/monolith-full-platform`; exact tested head `c51f80574d9131cb9caa1b25a44541ae370df553`.
+- Latest Windows CI: [run 43486407442](https://github.com/lewisxatk/FM-Atlas/actions/runs/43486407442). .NET 8 WPF Release: **0 warnings / 0 errors**; MSTest **87/87 passed**, 0 failed/skipped.
+- Release artifact: `14066379269`; test-results artifact: `14067926212`. Download from the Actions run page; artifacts expire 27 November 2026.
+- The latest tested package includes the MONOLITH palette/navigation updates, nested universal Advanced Search and local profiles, Player DNA, shortlist matrix with editable candidate notes, Moneyball season/CSV fallback and 50,000-row cohort support, transparent Tactical Studio, Match Lab, Development, Save Inspector, Graphics indexing and Modding Workbench.
+- Do not describe this as the fully completed roadmap or a user-accepted release. Remaining implementation gaps and exact runtime acceptance list are in `docs/MASTER_PROGRESS.md` and `docs/FEATURE_TRACEABILITY.md`.
+- Next action is manual acceptance on the user's Windows machine using a disposable copy of the FM27 Game Pass career, then report any visible issues/logs for the integrated fix pass. Do not use the original only-save.
+- `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`; no feature branch merge has occurred. Live Apply/Undo remains disabled.
