@@ -1,40 +1,53 @@
-# Known Issues and Verification Gaps
+# FM Atlas — Known Issues and Verification Gaps
 
-## Critical — source recovery
+This list replaces the earlier recovery-era issue list. It distinguishes code present in the recovered R7.2.0 tree from features accepted at runtime.
 
-- **Application source not yet in this repository.** R7.0.2 archive and R7.1.0 package/source need to be supplied and inventoried.
-- **No reproducible build baseline.** The previous session reported WPF compilation had not been run for R7.1.0.
-- **Live writes are unverified / reportedly unavailable in R7.1.0.** Do not describe the feature as operational until the adapter is inspected and tested safely.
+## Critical verification gates
 
-## Search and analytics
+- **Current overhaul branch not freshly built:** the user supplied a successful R7.2.0 baseline build log (0 errors, 15 warnings), but later branch changes need a new Windows .NET 8 build. A Windows GitHub Actions workflow has been added, but no run is currently reported.
+- **Application launch/runtime not evidenced:** navigation, database startup, themes and each feature route still need Windows smoke tests.
+- **Diagnostics privacy hardening not yet run in the app:** `AtlasLog` token/password and full Windows/UNC path redaction have been corrected in source; `ValidateRedaction()` appears in quick Diagnostics. Pattern-level tests passed locally, but the .NET self-check needs Windows execution.
+- **Historical baseline trees incomplete:** R7.0.2 and R7.1.0 ZIPs are inventoried and compared, but only R7.2.0 is currently imported as the active app tree. Commit/tag older complete source baselines separately before claiming all versions are preserved as Git trees.
 
-Previous session source audit reported:
-- numeric statistics discovered as flat leaf names;
-- discovery capped at 500;
-- Analytics screen applied one metric at a time;
-- player attributes stored in a separate indexed table.
+## Architecture and UI
 
-These findings need source/schema verification. The intended improvement is multi-condition search and analytics without breaking the existing indexed attribute path.
+- MainWindow is a large code-behind class; application, presentation, data and adapter responsibilities are not yet separated cleanly.
+- Many navigation routes are present, but route presence does not prove each page is complete. Every route needs acceptance and dead-control review.
+- MONOLITH theme service supports Obsidian and Warm Light, but semantic token coverage, reusable controls, typography/spacing/radius tokens and migration of all screens remain incomplete.
+- Current shell uses Ctrl+F global search, not the planned Ctrl+K command palette. Notifications, responsive workspace layouts and polished icon navigation remain pending.
+- Root App.xaml/MainWindow.xaml still contain legacy R7 palette defaults; ensure theme resources become authoritative without regressions.
 
-## UI / theme
+## Search, data and analytics
 
-- Previous work discussed both Aurora Frost and Obsidian.
-- The latest screenshots describe making Obsidian consistent across the application.
-- The current default theme and completion status need confirmation from the actual source/package.
+- Advanced Search source has attribute/stat filtering with up to 60 AND conditions, but full universal field registry, grouped AND/OR logic, saved search profiles, nested groups, explanations and cross-entity search remain incomplete.
+- Player position/suitability visuals, full profile coverage, Player DNA and comparison workflows need implementation/acceptance.
+- Stats/Analytics use imported metrics and optional per-90 calculations. Known-answer tests for totals, per-90, minutes floors, season joins, missing values and duplicate identities remain outstanding.
+- Value Finder is a relative cohort ranking of CA/PA versus value percentile, not FM's hidden valuation formula. Fee, asking price, market value and wage must remain separate concepts.
+- RoleFitService contains 23 weighted coaching-style profiles; it is not the game's internal role suitability formula. Validate weights, coverage and position restrictions against fixtures.
+- Cross-league normalization and competition-strength adjustments are not defensible until the source and calibration data are proven; show raw league-relative results meanwhile.
 
-## Import / database
+## Save import and database
 
-- FM26/FM27 mappings and schema compatibility require repeatable validation.
-- Parsing and import fixes are reported, but source-level regression tests are not yet available in this repository.
+- Fmsave bridge requires exact version/layout validation against representative FM27 saves and known-answer table counts.
+- Preserve raw rows and missing/unknown values; never turn missing values into zero.
+- Full entity/field metadata registry across player, staff, club, competition, nation, finance, contract, injury and tactical entities remains pending.
+- Schema migration, import transaction recovery, idempotency, duplicate identities and rollback need fixture testing.
 
-## Evidence discipline
+## Live game adapter
 
-Do not close an issue based only on a screenshot of a progress message. Require source inspection, build/test evidence and (where applicable) runtime verification.
+- Build profile matches are based on PE size/timestamp records. A profile match is not field-level certification and does not prove the user's exact Game Pass binary.
+- FieldEvidencePolicy distinguishes unverified/candidate/profile-matched provisional/field-verified records.
+- `LiveWriteCertification.IsCertified` currently returns false. Apply and Undo are blocked. Do not change this until exact build, per-field witnesses and disposable offline-save acceptance exist.
+- Read-only acquisition, session invalidation, identity matching and UI witness collection require independent verification.
 
-## Recovery gaps discovered from the actual packages
+## Graphics, skins and modding
 
-- R7.1.0 contains more project history/specification than was captured in the earlier conversation-only handover.
-- The full R7.1.0 Master Specification and Extended Research & Backlog must be retained in the GitHub source of truth.
-- The two ZIPs are inventoried, but their complete source trees are not yet present in GitHub.
-- R7.1.0's own build-status file says the preparation environment lacked .NET SDK/MSBuild; a successful Windows compile is not evidenced.
-- Live FM memory writes are explicitly out of scope / not implemented in this package. Do not present local SQLite editing as live game editing.
+- GraphicsResolver supports configured folders and config.xml parsing, but user's actual Game Pass graphics root, duplicate precedence, cache invalidation and FaceDrop separation need acceptance.
+- Skin discovery/install/restore workflow and FM27 compatibility lab remain future work.
+- Unknown executables, DLLs and plugin packages must be inspected statically only; never run them automatically.
+- GPL-licensed repositories remain research-only unless the user makes a deliberate licensing/distribution decision.
+
+## Packaging and release
+
+- Installer and publish scripts exist in source; reproducible publish, upgrade/migration, rollback, code-signing decision, hashes and clean-machine install remain unverified.
+- Accessibility, high-DPI, performance and regression coverage are not yet complete.
