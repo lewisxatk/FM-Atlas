@@ -235,6 +235,20 @@ public partial class MainWindow
         var per90 = new CheckBox { Content = "Per 90", Margin = new Thickness(10, 9, 8, 3), Foreground = Ink, VerticalAlignment = VerticalAlignment.Center };
         var minimumMinutes = Input("Minimum minutes"); minimumMinutes.Text = "450"; minimumMinutes.Width = 130;
         var minimumSample = Input("Minimum cohort size"); minimumSample.Text = "5"; minimumSample.Width = 140;
+        void UpdatePer90Availability()
+        {
+            var supportsPer90 = field.SelectedItem is StatMetricField selectedMetric && selectedMetric.SupportsPer90;
+            per90.IsEnabled = supportsPer90;
+            if (!supportsPer90) per90.IsChecked = false;
+            minimumMinutes.IsEnabled = supportsPer90 && per90.IsChecked == true;
+            per90.ToolTip = supportsPer90
+                ? "Convert a cumulative count to a per-90 rate. Existing rates and percentages cannot be converted again."
+                : "This field is already a rate/percentage or is not suitable for per-90 conversion.";
+        }
+        field.SelectionChanged += (_, _) => UpdatePer90Availability();
+        per90.Checked += (_, _) => UpdatePer90Availability();
+        per90.Unchecked += (_, _) => UpdatePer90Availability();
+        UpdatePer90Availability();
         run = PrimaryButton("Rank cohort", async (_, _) => await RankAsync());
         options.Children.Add(field); options.Children.Add(per90); options.Children.Add(minimumMinutes); options.Children.Add(minimumSample); options.Children.Add(run);
         root.Children.Add(Card(options, 13, new Thickness(0, 0, 0, 10)));
@@ -246,6 +260,7 @@ public partial class MainWindow
         grid.Columns.Add(Column("VALUE", nameof(MoneyballRow.Value), .6));
         grid.Columns.Add(Column("PERCENTILE", nameof(MoneyballRow.Percentile), .7));
         grid.Columns.Add(Column("SAMPLE", nameof(MoneyballRow.SampleSize), .5));
+        grid.Columns.Add(Column("BASIS", nameof(MoneyballRow.Basis), 1.4));
         root.Children.Add(Card(grid, 14));
         status.Text = metrics.Count == 0 ? "No numeric metric fields found. Import a copied career save or FM View CSV first." : $"{metrics.Count:N0} metrics available from the latest imports.";
         root.Children.Add(status);
@@ -277,7 +292,7 @@ public partial class MainWindow
                         x.Percentile, x.SampleSize, x.Basis);
                 }).ToArray();
                 grid.ItemsSource = displayRows;
-                status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")}. Percentile is relative only to these returned rows; source metrics may not yet have field-level parser coverage joined.";
+                status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within these returned rows only; no cross-league strength adjustment or parser field-level certification is implied.";
             }
             catch (Exception ex)
             {
