@@ -999,7 +999,7 @@ public partial class MainWindow
                 currentCompositeRows = projected;
                 compositeGrid.ItemsSource = projected;
                 compositeExport.IsEnabled = projected.Length > 0;
-                compositeStatus.Text = $"{projected.Length:N0} player-season composites · {selectedMetrics.Length} selected metrics · {minimumMetricCount} minimum valid percentiles · {(higherIsBetter ? "higher" : "lower")} is better · {cohortMode}. {per90.IsChecked == true ? "Per-90 rates" : "Raw values"} are ranked first; the composite combines only valid, sample-qualified percentiles. No FM hidden formula or league-strength adjustment is used.";
+                compositeStatus.Text = $"{projected.Length:N0} player-season composites · {selectedMetrics.Length} selected metrics · {minimumMetricCount} minimum valid percentiles · {(higherIsBetter ? "higher" : "lower")} is better · {cohortMode}. {(per90.IsChecked == true ? "Per-90 rates" : "Raw values")} are ranked first; the composite combines only valid, sample-qualified percentiles. No FM hidden formula or league-strength adjustment is used.";
             }
             catch (Exception ex)
             {
