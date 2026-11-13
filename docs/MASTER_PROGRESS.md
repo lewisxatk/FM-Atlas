@@ -442,3 +442,14 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Windows Actions run [43522432752](https://github.com/lewisxatk/FM-Atlas/actions/runs/43522432752) passed for commit `be456adeebcd944f8c61a47eb5ec25f412a93aa3`: Release build 0 warnings, 0 errors; 126/126 tests passed; Release and test-results artifacts uploaded.
 - No code changes from this development pass were written to main. All integrated work remains on the dedicated overhaul branch.
 - [ ] Remaining acceptance: user-PC WPF launch, visual/theme/DPI review, copied FM27 Game Pass save import and comparison against in-game data. Do not use the original career save for destructive tests; live Apply/Undo remains disabled.
+
+
+## Moneyball multi-metric engine continuation — 2026-11-13
+
+- Added `Services/MoneyballCompositeService.cs`: a deterministic Atlas composite over already-calculated within-cohort percentiles. Equal weights are the default; optional positive finite weights are supported.
+- Composite identity is provider-specific player source ID plus season/period. Different seasons are never merged. Duplicate player-period-metric observations are rejected.
+- Missing/invalid percentiles are excluded; a player must meet the configured minimum metric count. Group metadata is only retained when every contributing metric agrees on the same non-empty group.
+- Added six regression tests for equal-weight ranking, configured weights, period separation, missing/invalid percentile handling, duplicate observations, invalid weights/minimums and group consistency.
+- This is a tested-intent backend component only until the Windows workflow passes; it is not yet wired into the Moneyball screen or a radar visualization. It does not infer metric desirability, FM hidden ratings or cross-league strength.
+- Latest code checkpoint for this work: `9e2d583074e53e67da1cc39072415b2b180e6d7d`; Windows run [43522880667](https://github.com/lewisxatk/FM-Atlas/actions/runs/43522880667) was pending at documentation time.
+- User-PC WPF/theme/DPI and copied FM27 Game Pass save acceptance remain open. Live Apply/Undo remains disabled; main remains untouched.
