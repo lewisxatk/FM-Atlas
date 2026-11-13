@@ -40,4 +40,75 @@ public static class RoleFitService
     };
 
     public static IReadOnlyList<RoleFitProfile> GetProfiles() => Profiles;
+
+    /// <summary>
+    /// Calculates an explainable weighted estimate from source-provided FM attributes.
+    /// Missing, non-finite and out-of-range (not 1..20) attributes are excluded from both
+    /// the numerator and denominator. A score is withheld when coverage is below the
+    /// requested threshold. This is not the game's hidden role formula or star rating.
+    /// </summary>
+    public static RoleFitCandidateScore? CalculateEstimate(
+        RoleFitProfile profile,
+        IReadOnlyDictionary<string, double> attributes,
+        double minimumCoverage = 0.5)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(attributes);
+
+        if (!double.IsFinite(minimumCoverage) || minimumCoverage < 0 || minimumCoverage > 1)
+            throw new ArgumentOutOfRangeException(nameof(minimumCoverage), "Coverage must be a finite value from 0 to 1.");
+
+        if (profile.Weights is null || profile.Weights.Count == 0)
+            return null;
+
+        var normalizedWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in profile.Weights)
+        {
+            var key = NormalizeAttributeKey(pair.Key);
+            if (key.Length == 0 || !double.IsFinite(pair.Value) || pair.Value <= 0)
+                throw new ArgumentException("Role weights must have a named attribute and a finite positive weight.", nameof(profile));
+            if (!normalizedWeights.TryAdd(key, pair.Value))
+                throw new ArgumentException($"Role profile contains duplicate normalized attribute '{pair.Key}'.", nameof(profile));
+        }
+
+        var normalizedAttributes = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in attributes)
+        {
+            var key = NormalizeAttributeKey(pair.Key);
+            if (key.Length > 0 && double.IsFinite(pair.Value) && pair.Value >= 1 && pair.Value <= 20)
+                normalizedAttributes[key] = pair.Value;
+        }
+
+        var weightedTotal = 0d;
+        var availableWeight = 0d;
+        var available = 0;
+        foreach (var weight in normalizedWeights)
+        {
+            if (!normalizedAttributes.TryGetValue(weight.Key, out var value))
+                continue;
+
+            weightedTotal += value * weight.Value;
+            availableWeight += weight.Value;
+            available++;
+        }
+
+        var coverage = available / (double)normalizedWeights.Count;
+        if (available == 0 || availableWeight <= 0 || coverage < minimumCoverage)
+            return null;
+
+        return new RoleFitCandidateScore(
+            weightedTotal / availableWeight,
+            available,
+            normalizedWeights.Count,
+            coverage);
+    }
+
+    private static string NormalizeAttributeKey(string value)
+        => new((value ?? string.Empty).Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 }
+
+public sealed record RoleFitCandidateScore(
+    double Score,
+    int AttributesAvailable,
+    int AttributesExpected,
+    double Coverage);
