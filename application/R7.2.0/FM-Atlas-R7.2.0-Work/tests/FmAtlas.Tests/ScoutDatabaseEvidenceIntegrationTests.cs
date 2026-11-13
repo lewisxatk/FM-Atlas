@@ -16,11 +16,11 @@ public sealed class ScoutDatabaseEvidenceIntegrationTests
 
         try
         {
-            var database = new ScoutDatabase(databasePath);
+            var database = new ScoutDatabase(databasePath, pooling: false);
             await database.InitialiseAsync();
 
             await using (var connection = new SqliteConnection(
-                new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+                new SqliteConnectionStringBuilder { DataSource = databasePath, Pooling = false }.ToString()))
             {
                 await connection.OpenAsync();
 
