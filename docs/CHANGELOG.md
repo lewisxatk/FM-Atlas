@@ -69,3 +69,6 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Added tested squad one-to-one assignment optimizer and FootballMetricMath calculation helpers. These remain separate services until integrated with validated data/UI flows.
 - Corrected fail-closed evidence classification and consumers; preserved the global live-write kill switch.
 - Removed 11 unused private MainWindow filter declarations after confirming no references in any seven MainWindow partial files; replaced an obsolete `AtlasLog.Warn` call with `AtlasLog.Warning`. New Windows run required to verify post-cleanup warning count.
+
+- Windows Actions run `43469077009` passed at commit `1022078`: .NET 8 WPF Release build with 0 warnings/0 errors; 40/40 MSTest tests passed.
+- Added test-isolated `ScoutDatabase(string databasePath, bool pooling = true)` constructor and SQLite integration coverage for live field evidence query consumers; missing test-file IO import was corrected, Windows execution pending.
