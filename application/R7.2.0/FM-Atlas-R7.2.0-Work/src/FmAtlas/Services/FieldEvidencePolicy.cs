@@ -24,19 +24,31 @@ public static class FieldEvidencePolicy
     public static FieldEvidenceAssessment Assess(string? validationStatus, string? evidence = null)
     {
         var status = (validationStatus ?? string.Empty).Trim();
-        var normalized = status.ToLowerInvariant();
+        var normalized = status
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(".", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
 
         FieldEvidenceLevel level;
         string label;
-        if (normalized.StartsWith("verified", StringComparison.Ordinal)
-            && !normalized.Contains("unverified", StringComparison.Ordinal)
-            && !normalized.Contains("provisional", StringComparison.Ordinal))
+        // Explicitly fail closed when a status contains "unverified", even if it
+        // also contains words such as "profile matched" or "provisional".
+        if (normalized.Contains("unverified", StringComparison.Ordinal)
+            || normalized.Contains("unknown", StringComparison.Ordinal)
+            || normalized.Length == 0)
+        {
+            level = FieldEvidenceLevel.Unverified;
+            label = "Unverified";
+        }
+        else if (normalized.StartsWith("fieldverified", StringComparison.Ordinal)
+            || normalized.StartsWith("verified", StringComparison.Ordinal))
         {
             level = FieldEvidenceLevel.FieldVerified;
             label = "Field verified";
         }
         else if (normalized.Contains("profilematched", StringComparison.Ordinal)
-            || normalized.Contains("profile matched", StringComparison.Ordinal)
             || normalized.Contains("provisional", StringComparison.Ordinal))
         {
             level = FieldEvidenceLevel.ProfileMatchedProvisional;
