@@ -104,3 +104,17 @@ For each development checkpoint record:
 - next safe action.
 
 Never mark work complete solely because code was drafted or a package was generated.
+
+## 10. Uploaded archive recovery (2026-11-13)
+
+Both original ZIP uploads were successfully inspected. See [Recovery Inventory](../recovery/RECOVERY-INVENTORY.md) for exact sizes, SHA-256 hashes and the file-level comparison.
+
+- R7.0.2 archive: 83 files.
+- R7.1.0 archive: 95 files.
+- 16 shared paths differ; R7.1.0 adds 12 files and removes none.
+- R7.1.0 is the newest supplied source candidate, not yet a Windows-verified release.
+- The full R7.1.0 package documentation includes a Master Specification and Extended Research & Backlog that were not represented in the initial conversation-only handover.
+- R7.1.0 explicitly states live FM memory writes are not implemented; its editor is Atlas-local SQLite only.
+- The package says WPF compile, app startup, real save import and Steam/Game Pass checks remain outstanding.
+
+**Important:** The ZIP archives have been inventoried but the full source tree has not yet been committed to this repository. Do not treat the documentation baseline as a source-code backup.
