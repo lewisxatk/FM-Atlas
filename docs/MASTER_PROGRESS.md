@@ -4,7 +4,7 @@ Last updated: 2026-11-13
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
 Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`  
-Latest source-code checkpoint: `6fc46757688be84af497e13c3d27e40877da3f92`
+Latest source-code checkpoint: `5aa82c27117b4badf63e19d88681b12eb0c4db30`
 
 ## Verified progress
 
@@ -35,6 +35,9 @@ Latest source-code checkpoint: `6fc46757688be84af497e13c3d27e40877da3f92`
 - [x] Confirmed startup initialises AtlasLog, applies MonolithTheme and registers dispatcher, AppDomain and unobserved-task exception logging.
 - [x] Mapped the dynamic MainWindow shell, partial UI files, core models, database service and game-adapter services. See docs/SOURCE_ARCHITECTURE_AUDIT.md.
 - [x] Confirmed an initial MONOLITH theme service and Obsidian/Warm Light preference already exist; full shared-control and screen migration is incomplete.
+- [x] Updated MONOLITH theme token brushes to refresh in place, remap tracked legacy page brushes, and bind main window surfaces to theme tokens.
+- [x] Migrated Player Intelligence report XAML surfaces/styles to DynamicResource theme tokens; remaining pages still need migration.
+- [ ] Windows theme-switch, high-DPI and accessibility contrast acceptance still required.
 - [x] Confirmed exact Game Pass and Steam profile records exist in source, while field-level and user-installation acceptance remain unverified.
 - [x] Confirmed Apply and Undo call the global live-write certification gate; IsCertified is hard-coded false, so live memory writes remain blocked.
 - [x] Confirmed GraphicsResolver supports a configurable root and config.xml scanning, but has not been tested against the user's actual folders.
@@ -74,3 +77,5 @@ Only mark a feature complete when the source change exists on this branch and it
 - 2026-11-13: Corrected credential-redaction patterns, switched to complete drive-letter/UNC path redaction (including paths with spaces), added self-check cases and surfaced the check in Diagnostics. Code commits: `05d2c77`, `f7b9f4c`, `9c90953`, `6fc4675`. Not yet built or run in Windows.
 
 - 2026-11-13: Added the initial Windows MSTest project and CI test execution; committed test code, solution inclusion and workflow updates. Seven sensitive-value pattern cases passed the local pattern-level check; C# tests and WPF build remain unexecuted on Windows.
+
+- 2026-11-13: Improved MONOLITH theme switching so token and legacy brushes update existing controls in place; bound MainWindow and Player Intelligence report surfaces to the theme. Commits: `0929483`, `e9fe226`, `5aa82c2`. Windows UI validation pending.
