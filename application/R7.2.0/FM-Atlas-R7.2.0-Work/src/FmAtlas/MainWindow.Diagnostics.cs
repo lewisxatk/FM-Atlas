@@ -191,8 +191,8 @@ public partial class MainWindow
         sb.AppendLine("OS: " + Environment.OSVersion.VersionString + " · 64-bit OS: " + Environment.Is64BitOperatingSystem);
         sb.AppendLine("Runtime: " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
         sb.AppendLine("Process architecture: " + System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture);
-        sb.AppendLine("Application base directory: [redacted]);
-        sb.AppendLine("Database: %LOCALAPPDATA%\\FmAtlas\\scouting.db · [absolute path redacted] · {dbSize:N0} bytes);
+        sb.AppendLine("Application base directory: [redacted]");
+        sb.AppendLine($"Database: %LOCALAPPDATA%\\FmAtlas\\scouting.db · [absolute path redacted] · {dbSize:N0} bytes");
         sb.AppendLine("FM process check: " + AtlasLog.RedactForSupport(process.Detail));
         try
         {
