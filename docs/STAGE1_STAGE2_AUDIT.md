@@ -254,3 +254,7 @@ These are recommendations for the user's later Stage 3–7 approval, not work be
 3. **Route presence is not feature completeness:** the navigation's Transfers and Tactical Lab pages deliberately disclose missing transfer/tactic mappings; the position suitability UI shows an evidence legend but hides values without field-verified position ratings. Do not interpret a visible page or coloured legend as populated intelligence.
 4. **Search profile boundary:** Stats Search and Attribute Search now have local named-profile persistence (criteria only), but the query model still lacks nested Boolean groups, include/exclude sets and match/unavailable-field explanations.
 5. **Game Pass profile boundary:** Atlas has a Game Pass profile for package 0.9.2435.0, but the user's currently installed binary and all field offsets have not been independently witnessed. The profile match remains a selector only; live Apply/Undo stays blocked.
+
+### Game Pass profile cross-reference
+
+Atlas's Game Pass 0.9.2435.0 profile matches the published FMLibreEditor 10-November-2026 observation for PE image size, timestamp, players/staff/clubs array RVAs and in-game date RVA. This corroborates the profile's build-identification anchors for that exact package. It does **not** certify every field offset or write, and it does not prove that the user's installed Game Pass binary is 0.9.2435.0. Exact local binary identification and field-level witnesses remain required.
