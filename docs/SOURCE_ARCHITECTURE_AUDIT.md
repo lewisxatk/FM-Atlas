@@ -1,0 +1,132 @@
+# FM Atlas — Source Architecture Audit
+
+Audit date: 2026-11-13  
+Branch: overhaul/monolith-full-platform  
+Recovered source root: application/R7.2.0/FM-Atlas-R7.2.0-Work/  
+Purpose: record what is actually present in the imported application before broad implementation. This is an initial architecture pass, not a complete review of every method or runtime capability.
+
+## 1. Project and build shape
+
+- Windows desktop application built with WPF on .NET 8 (net8.0-windows).
+- Project file: src/FmAtlas/FmAtlas.csproj.
+- SQLite dependency: Microsoft.Data.Sqlite 8.0.11.
+- Project enables nullable reference types and implicit usings.
+- Root solution: FmAtlas.sln.
+- Build scripts, installer configuration, graphics assets, historical archives, docs and a Python save-export bridge are included in the recovered application tree.
+- User-provided Windows Release build evidence dated 2026-11-13 reports 0 errors and 15 warnings. That is evidence of a build on the user's PC, not a build performed during this audit.
+
+## 2. Startup and application shell
+
+- App.xaml.cs initialises AtlasLog and applies MonolithTheme before the main window is constructed.
+- App.xaml.cs registers logging for WPF dispatcher exceptions, AppDomain unhandled exceptions and unobserved task exceptions.
+- MainWindow.xaml is a minimal WPF Window containing the RootGrid host; most UI is composed dynamically in C#.
+- MainWindow.xaml.cs is the largest UI file (approximately 1,980 source lines in the inspected revision). It builds the sidebar, header, career status strip and page host, and contains most navigation and shared visual helper methods.
+- Current shell actions include global search, reload game, Save Atlas, Save Game guidance, Import Save and Diagnostics.
+- Existing global-search keyboard shortcut is Ctrl+F. The planned Ctrl+K command palette is not implemented in the inspected shell.
+- Navigation is a dynamically built list of text-glyph buttons. A polished icon system, command palette, notifications centre and full responsive workspace system remain outstanding.
+- Navigation includes Dashboard, Players, Recruitment, Value Finder, Attribute Search, Stats Search, Squad Architect, Clubs, Staff, Transfers, Analytics, Tactical Lab, Role Lab, Shortlists, Live Editor, Mass Edit, Edit History, Atlas Assistant, Settings, Tester & Logs and Help & Tutorial. Presence in navigation does not prove each page is complete.
+
+## 3. MONOLITH theme status
+
+- Services/MonolithTheme.cs provides central colour roles, an Inter/Segoe UI font fallback, Obsidian and Warm Light modes, local theme preference persistence and a legacy palette resolver.
+- App.xaml.cs calls MonolithTheme.Apply at startup.
+- SettingsPageAsync provides an Obsidian/Warm Light selector.
+- MainWindow.xaml.cs routes many legacy hex colours through MonolithTheme.ResolveLegacy.
+- App.xaml and MainWindow.xaml still declare the earlier R7 palette and fixed dark window defaults. Many page implementations continue to create one-off controls and hard-coded colours.
+- Current status: theme service and initial mode switch exist; a complete semantic resource dictionary, typography/spacing/radius tokens, reusable button/input/table/dialog components and migration of every page are not complete.
+- Authoritative design remains MONOLITH: Obsidian/graphite, Warm Light secondary mode, Atlas orange, Inter and restrained motion. Aurora Frost is not the primary direction.
+
+## 4. Main code areas
+
+### UI partials
+- MainWindow.AdvancedSearch.cs: attribute and statistical filter pages; the inspected implementation is narrower than the planned universal AND/OR query builder.
+- MainWindow.Diagnostics.cs: Tester & Logs page, system checks, report generation, support ZIP preview and export.
+- MainWindow.R7.cs: additional R7 pages and UI flows.
+- MainWindow.RoleLab.cs: role-fit interface.
+- MainWindow.ValueFinder.cs: value and upside finder UI.
+- GlobalSearchWindow.cs: separate global-search window.
+- PlayerIntelligenceReportWindow.xaml and its code-behind: player intelligence report surface.
+
+### Data and models
+- Data/ScoutDatabase.cs: the main SQLite persistence, import, search and metric-query layer (approximately 2,665 lines in the inspected revision).
+- Models/PlayerRecord.cs: player model.
+- Models/AdvancedSearchModels.cs: statistical and attribute search models.
+- Models/ValueFinderModels.cs: Value Finder model records.
+- The database exposes records for live field evidence, save imports, performance facts, history and workspace metrics. Schema and migration coverage still need a full audit and fixture testing.
+
+### Services
+- AtlasLog.cs: local rolling logs, severity, UTC timestamp and session ID; maximum active log size 2 MB with rotated backups.
+- FieldEvidencePolicy.cs: maps statuses into Unverified, Candidate, ProfileMatchedProvisional and FieldVerified. A profile match is not treated as field verification.
+- Fm27BuildProfiles.cs: contains separate Game Pass and Steam module fingerprint/profile records. A matching profile is not proof that every field mapping is correct or that the user's installed build is supported.
+- LiveMemoryEditService.cs: read-only staging plus guarded ApplyBatch/UndoBatch pathways, player identity re-resolution, stale-save generation checks, original-byte preflight, read-back and undo checks.
+- LiveWriteCertification.cs: global certification switch currently returns IsCertified = false. ApplyBatch and UndoBatch call EnsureWritesEnabled, so live memory writes remain blocked.
+- GraphicsResolver.cs: configurable graphics root, Documents/OneDrive default discovery, config.xml scanning, image indexing and path containment checks. It has not been tested against the user's actual Game Pass graphics folder.
+- FmsaveBridgeService.cs: optional local Python Launcher adapter; expected fmsave package version is 0.12.3.
+- PlayerAttributeSchema.cs: field-key/attribute layout definitions with provenance comments; source comments are not independent field witnesses.
+- RoleFitService.cs: 23 transparent coaching-style role profiles weighted from available 1–20 attributes. It explicitly does not claim to reproduce the game's hidden role formula or star ratings.
+- GameProcessDetector.cs and GameModuleDiagnostics.cs: process/module discovery and diagnostics.
+- LiveDataImporter.cs: live snapshot acquisition and payload mapping.
+- Other data and analytics behaviour remains subject to per-module traceability and tests.
+
+## 5. Diagnostics and privacy audit
+
+Existing implementation found:
+- Tester & Logs page with quick local checks.
+- Local rolling logs and log-folder access.
+- Copy diagnostics and copy recent log actions.
+- Support ZIP generation with a bundle ID, manifest and SHA-256 hashes for included files.
+- Preview window listing archive contents and diagnostic report, with explicit confirmation before a Save File dialog.
+- Local export only; no automatic transmission.
+- ZIP excludes career saves, SQLite database, FM installation files and arbitrary user files by design. Personal details are an explicit opt-in in the Diagnostics UI.
+
+Defect found and corrected:
+- Two credential-redaction expressions were over-escaped, so common bearer-token and key/password patterns could fail to match.
+- The original absolute-path expression stopped at spaces, leaving the remainder of some Windows paths visible.
+- Current AtlasLog redaction corrects those patterns, replaces full drive-letter paths (including spaces), replaces UNC paths and retains standalone save-filename redaction.
+- ValidateRedaction supplies deterministic examples for bearer token, API key, password, user profile path, spaced drive path, UNC path and standalone save filename.
+- MainWindow.Diagnostics.cs runs this check as part of quick diagnostics.
+
+Verification boundary:
+- Equivalent pattern-level test cases passed locally.
+- The actual C# self-check has not yet been run in the Windows app.
+- No .NET build was performed during this audit. Build and runtime acceptance must be recorded separately after execution on Windows.
+
+Remaining Diagnostics work:
+- Current log format is tab-delimited text, not the planned complete structured schema with correlation IDs, feature/module and operation fields.
+- Bundle preview is present, but broader privacy tests and export-size/rotation tests are still required.
+- Add automated tests around redaction, log rotation, manifest integrity, cancellation, temp-file cleanup and export failure handling.
+
+## 6. Search, scouting and role intelligence status
+
+- Player search and filter pages exist in the shell and database.
+- Advanced attribute/stat search partials exist, but full universal field registry coverage, grouped AND/OR conditions, persisted profiles, match explanations and all-field traceability are not proven complete.
+- RoleFitService contains 23 profiles with transparent weights and available-attribute coverage fields.
+- Do not describe those results as the game's internal role ratings.
+- Per-90 metrics, percentiles, cohort sizes, league adjustment and Moneyball ranking require known-answer fixtures before being accepted.
+
+## 7. Safety and compatibility boundaries
+
+- FM27 Game Pass and Steam fingerprints are represented separately in source.
+- Exact match of size and timestamp is a profile-selection step only; it does not certify individual fields.
+- Live Apply and Undo are disabled globally by LiveWriteCertification.IsCertified = false.
+- Unknown builds must remain read-only. No field should be promoted to verified without independent evidence and a reproducible witness.
+- Save import, statistics, graphics and local editor require tests against disposable copies and fixture data.
+- Never test live writes against the user's only career save.
+
+## 8. Next engineering sequence
+
+1. Build the recovered project on Windows and run the Diagnostics redaction check; record all warnings and failures.
+2. Finish a per-module source audit and requirement-to-file traceability matrix.
+3. Add automated fixture tests for redaction, database schema/imports, search query correctness, role-fit calculations and graphics config resolution.
+4. Complete shared MONOLITH resources and reusable WPF controls; migrate the shell first, then each page.
+5. Implement the universal field registry and advanced query engine before adding more search UI.
+6. Integrate remaining scouting, analytics, tactical, career, save inspection, editor and graphics modules behind clear evidence states.
+7. Keep live write support blocked until exact build, field-level witnesses, disposable-save Apply/read-back/Undo and rollback acceptance are documented.
+
+## 9. Evidence ledger
+
+- Repository: private lewisxatk/FM-Atlas.
+- Programme branch: overhaul/monolith-full-platform.
+- Source import commit: 6069c20abb8ab85881da1f5c10860de9b2a8e0f1.
+- Diagnostics privacy hardening code checkpoint: 6fc46757688be84af497e13c3d27e40877da3f92.
+- This audit is static source inspection. It is not a runtime acceptance report.
