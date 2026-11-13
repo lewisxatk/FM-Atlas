@@ -30,3 +30,11 @@ These findings need source/schema verification. The intended improvement is mult
 ## Evidence discipline
 
 Do not close an issue based only on a screenshot of a progress message. Require source inspection, build/test evidence and (where applicable) runtime verification.
+
+## Recovery gaps discovered from the actual packages
+
+- R7.1.0 contains more project history/specification than was captured in the earlier conversation-only handover.
+- The full R7.1.0 Master Specification and Extended Research & Backlog must be retained in the GitHub source of truth.
+- The two ZIPs are inventoried, but their complete source trees are not yet present in GitHub.
+- R7.1.0's own build-status file says the preparation environment lacked .NET SDK/MSBuild; a successful Windows compile is not evidenced.
+- Live FM memory writes are explicitly out of scope / not implemented in this package. Do not present local SQLite editing as live game editing.
