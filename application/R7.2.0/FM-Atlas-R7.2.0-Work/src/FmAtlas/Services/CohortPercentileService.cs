@@ -1,6 +1,6 @@
 namespace FmAtlas.Services;
 
-public sealed record CohortMetricObservation(string Id, string Name, double Value);
+public sealed record CohortMetricObservation(string Id, string Name, double Value, string? GroupKey = null);
 
 public sealed record CohortPercentileResult(
     string Id,
@@ -17,6 +17,29 @@ public sealed record CohortPercentileResult(
 /// </summary>
 public static class CohortPercentileService
 {
+    /// <summary>
+    /// Calculates independent percentile distributions for each non-empty, source-backed group.
+    /// Observations without a group key are excluded rather than silently pooled into an unknown cohort.
+    /// </summary>
+    public static IReadOnlyList<CohortPercentileResult> CalculateByGroup(
+        IReadOnlyList<CohortMetricObservation> observations,
+        int minimumSampleSize = 5)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        if (minimumSampleSize < 1 || minimumSampleSize > 100000)
+            throw new ArgumentOutOfRangeException(nameof(minimumSampleSize));
+
+        return observations
+            .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.GroupKey) && double.IsFinite(x.Value))
+            .GroupBy(x => x.GroupKey!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .SelectMany(group => Calculate(group.ToArray(), minimumSampleSize)
+                .Select(result => result with { Basis = $"Primary-position cohort '{group.Key}': {result.Basis}" }))
+            .OrderByDescending(x => x.Percentile ?? double.MinValue)
+            .ThenByDescending(x => x.Value)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     public static IReadOnlyList<CohortPercentileResult> Calculate(
         IReadOnlyList<CohortMetricObservation> observations,
         int minimumSampleSize = 5)
