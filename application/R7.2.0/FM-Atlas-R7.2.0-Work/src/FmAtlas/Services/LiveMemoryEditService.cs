@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -320,7 +321,7 @@ public static class LiveMemoryEditService
         ulong found = 0; var matches = 0;
         for (ulong i = 0; i < count; i++)
         {
-            var address = U64(handle, (nint)(data + i * 8));
+            var address = U64(handle, data + i * 8);
             if (!Pointer(address)) continue;
             uint candidateUid;
             try { candidateUid = BitConverter.ToUInt32(Read(handle, (nint)(address + PlayerUidOffset), 4), 0); }
