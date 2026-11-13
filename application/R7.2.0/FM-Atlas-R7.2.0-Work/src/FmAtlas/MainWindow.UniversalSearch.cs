@@ -338,6 +338,9 @@ public partial class MainWindow
             {
                 var dialog = new OpenFileDialog { Title = "Import FM Atlas advanced-search profiles", Filter = "JSON files (*.json)|*.json", CheckFileExists = true };
                 if (dialog.ShowDialog(this) != true) return;
+                var importFile = new FileInfo(dialog.FileName);
+                if (importFile.Length > 1024 * 1024)
+                    throw new InvalidDataException("The advanced-search profile file exceeds the 1 MB import limit.");
                 var imported = store.ImportJson(File.ReadAllText(dialog.FileName));
                 RefreshProfiles();
                 status.Text = $"Imported {imported.Added:N0} profiles · skipped {imported.Skipped:N0} conflicts. Existing profile IDs and names were not overwritten.";
