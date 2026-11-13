@@ -103,6 +103,52 @@ public sealed class SavedSearchProfileStore
         }
     }
 
+    /// <summary>Create a new independent profile using a selected profile's criteria.</summary>
+    public SavedSearchProfile Duplicate(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("A saved profile ID is required.", nameof(id));
+
+        lock (_gate)
+        {
+            var profiles = ReadDocument().ToList();
+            var source = profiles.FirstOrDefault(x => string.Equals(x.Id, id, StringComparison.Ordinal))
+                ?? throw new KeyNotFoundException("The selected saved-search profile no longer exists.");
+
+            if (profiles.Count >= MaximumProfiles)
+                throw new InvalidOperationException($"A maximum of {MaximumProfiles} saved search profiles is supported.");
+
+            var copyNumber = 1;
+            string copyName;
+            do
+            {
+                var suffix = copyNumber == 1 ? " (Copy)" : $" (Copy {copyNumber})";
+                var maximumBaseLength = Math.Max(1, 80 - suffix.Length);
+                var baseName = source.Name.Trim();
+                if (baseName.Length > maximumBaseLength)
+                    baseName = baseName[..maximumBaseLength];
+                copyName = baseName + suffix;
+                copyNumber++;
+            }
+            while (profiles.Any(x => x.Kind == source.Kind
+                && string.Equals(x.Name, copyName, StringComparison.OrdinalIgnoreCase)));
+
+            var now = DateTime.UtcNow;
+            var copy = source with
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = copyName,
+                CreatedUtc = now,
+                UpdatedUtc = now,
+                Conditions = source.Conditions.ToArray()
+            };
+
+            profiles.Add(copy);
+            WriteDocument(profiles);
+            return copy;
+        }
+    }
+
     public bool Delete(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -115,6 +161,109 @@ public sealed class SavedSearchProfileStore
             if (removed)
                 WriteDocument(profiles);
             return removed;
+        }
+    }
+
+    /// <summary>Export all profiles, or one category, as a versioned portable JSON document.</summary>
+    public string ExportJson(SavedSearchKind? kind = null)
+    {
+        lock (_gate)
+        {
+            var profiles = ReadDocument()
+                .Where(x => !kind.HasValue || x.Kind == kind.Value)
+                .OrderBy(x => x.Kind)
+                .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(x => x.Id, StringComparer.Ordinal)
+                .ToList();
+
+            return JsonSerializer.Serialize(
+                new SavedSearchProfileDocument(CurrentSchemaVersion, profiles),
+                JsonOptions);
+        }
+    }
+
+    /// <summary>
+    /// Merge a portable profile document into the local store. Existing IDs and names are never
+    /// overwritten; conflicts are returned to the UI for transparent reporting.
+    /// </summary>
+    public SavedSearchProfileImportResult ImportJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            throw new InvalidDataException("The imported saved-search profile document is empty.");
+        if (json.Length > 1_000_000)
+            throw new InvalidDataException("The imported saved-search profile document exceeds the 1 MB safety limit.");
+
+        SavedSearchProfileDocument document;
+        try
+        {
+            document = JsonSerializer.Deserialize<SavedSearchProfileDocument>(json, JsonOptions)
+                ?? throw new InvalidDataException("The imported profile document is empty or invalid.");
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("The imported profile document is not valid JSON.", ex);
+        }
+
+        if (document.SchemaVersion != CurrentSchemaVersion)
+            throw new InvalidDataException($"Imported profile schema {document.SchemaVersion} is not supported.");
+
+        if (document.Profiles is null || document.Profiles.Count > MaximumProfiles)
+            throw new InvalidDataException($"An import may contain at most {MaximumProfiles} profiles.");
+
+        foreach (var profile in document.Profiles)
+            Validate(profile);
+
+        var duplicateId = document.Profiles
+            .GroupBy(x => x.Id, StringComparer.Ordinal)
+            .FirstOrDefault(x => x.Count() > 1);
+        if (duplicateId is not null)
+            throw new InvalidDataException("The imported document contains duplicate profile IDs.");
+
+        var duplicateName = document.Profiles
+            .GroupBy(x => (x.Kind, NormalizedName: x.Name.Trim()), new ProfileNameComparer())
+            .FirstOrDefault(x => x.Count() > 1);
+        if (duplicateName is not null)
+            throw new InvalidDataException("The imported document contains duplicate names in one category.");
+
+        lock (_gate)
+        {
+            var profiles = ReadDocument().ToList();
+            var conflicts = new List<string>();
+            var added = 0;
+            var skipped = 0;
+
+            foreach (var imported in document.Profiles)
+            {
+                if (profiles.Any(x => string.Equals(x.Id, imported.Id, StringComparison.Ordinal)))
+                {
+                    skipped++;
+                    conflicts.Add($"Skipped '{imported.Name}': a profile with the same ID already exists.");
+                    continue;
+                }
+
+                if (profiles.Any(x => x.Kind == imported.Kind
+                    && string.Equals(x.Name, imported.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
+                {
+                    skipped++;
+                    conflicts.Add($"Skipped '{imported.Name}': the same name already exists in {imported.Kind}.");
+                    continue;
+                }
+
+                if (profiles.Count >= MaximumProfiles)
+                {
+                    skipped++;
+                    conflicts.Add($"Skipped '{imported.Name}': the local store is at its {MaximumProfiles}-profile limit.");
+                    continue;
+                }
+
+                profiles.Add(imported with { Name = imported.Name.Trim() });
+                added++;
+            }
+
+            if (added > 0)
+                WriteDocument(profiles);
+
+            return new SavedSearchProfileImportResult(added, skipped, conflicts);
         }
     }
 
