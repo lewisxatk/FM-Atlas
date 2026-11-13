@@ -201,3 +201,20 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - Detailed findings: `docs/STAGE1_STAGE2_AUDIT.md`; external source research: `research/RESEARCH_REGISTER.md`; updated feature matrix: `docs/FEATURE_TRACEABILITY.md`.
 - Still requires the user's Windows environment: actual WPF launch and route smoke tests, real support ZIP inspection, disposable FM27 save import, visual/DPI checks and exact Game Pass build/graphics-root identification.
 - Stage 3–7 remain paused. Do not start the combined overhaul until the user reviews the findings and approves.
+
+## Final Stage 1 + Stage 2 code/CI handover — 2026-11-13 17:49 UTC
+
+- Authoritative findings and route map: `docs/STAGE1_STAGE2_AUDIT.md`.
+- Exact tested source commit: `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`.
+- Windows Actions run `43476085012`: .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; MSTest **64/64 passed**, 0 skipped. [Run 43476085012](https://github.com/lewisxatk/FM-Atlas/actions/runs/43476085012).
+- Artifacts: Windows Release `14062557163`; test results `14062892033`.
+- Current source inventory at the tested tree: **41 application source files** and **11 files in the MSTest project** (10 C# test files plus the csproj).
+- Diagnostics now uses `SupportBundleComposer` for the same allowlisted in-memory package shown in preview and written locally. Five tests verify exact entries, ZIP round-trip, manifest hashes/sizes, redaction and path-traversal rejection. Absolute paths, career-save filenames and credentials/tokens remain always redacted; personal names and recent edit history require opt-in.
+- Saved named profiles are implemented for Stats Search and Attribute Search. They persist criteria/options only in a versioned local JSON file, validate up to 200 profiles and 60 conditions each, use atomic replacement, and preserve corrupt originals. Six tests cover validation/persistence. Nested Boolean groups and match explanations remain missing.
+- The SQLite live-evidence leak is closed in the generic save/local decision/edit consumers: LIVE mirrors are excluded from ordinary search/count, club-roster, Attribute Search, Role Lab and Mass Edit. The live identity route remains separate; verified live facts are still governed by the canonical field-evidence allowlist. The new isolated SQLite regression passed.
+- Stage 2 static review maps all 21 routes and records the actual narrow/shared/informational/blocked behaviour. Key gaps: Recruitment reuses Players; Transfers is not a real transfer-list/asking-price engine and has a save/live source asymmetry; Tactical Lab is a data-coverage view, not a decoded tactic-analysis engine; Atlas Assistant is rule-based; Role Lab is an Atlas weighted estimate, not SI's hidden role rating; Squad Architect is not a validated Best XI optimizer.
+- Reverse-engineering findings and legal boundaries are in `docs/STAGE1_STAGE2_AUDIT.md` and `research/RESEARCH_REGISTER.md`. Third-party binaries were not executed and no GPL code or proprietary offsets were copied.
+- **Remaining user-side acceptance:** launch the WPF app; smoke-test all 21 routes; test themes at 100/125/150% DPI; create and inspect default and opt-in ZIPs from the actual UI; validate import against a copied FM27 Game Pass save; identify the user's exact installed build; validate the configured graphics root. CI build/tests cannot establish these runtime behaviours.
+- **Critical follow-on data requirement:** fmsave's reader/field status and coverage are exported, but normalized player and season-stat values are not consistently joined to individual field provenance at query time. Until that is addressed, imported values must retain parser warnings and must not be described as individually verified.
+- Main remains preserved. Live memory Apply/Undo remains disabled by `LiveWriteCertification.IsCertified = false`.
+- The user explicitly requested Stage 3–7 remain on hold until reviewing Stage 1/2 findings and approving the combined implementation. Do not begin those stages without that approval.
