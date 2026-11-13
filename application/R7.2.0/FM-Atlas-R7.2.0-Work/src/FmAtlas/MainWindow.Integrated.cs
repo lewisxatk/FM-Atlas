@@ -157,7 +157,14 @@ public partial class MainWindow
         saved.Columns.Add(Column("CLUB", nameof(ShortlistRecord.DisplayClub), 1));
         saved.Columns.Add(Column("POSITION", nameof(ShortlistRecord.DisplayPosition), .7));
         saved.Columns.Add(Column("NOTES", nameof(ShortlistRecord.Notes), 1.4));
-        root.Children.Add(Card(saved, 14));
+        root.Children.Add(Card(saved, 14, new Thickness(0, 0, 0, 10)));
+
+        var notesRow = new WrapPanel();
+        var notesInput = Input("Recruitment notes for selected player"); notesInput.Width = 360;
+        var saveNotesButton = SoftButton("Save notes", async (_, _) => await SaveNotesAsync());
+        notesRow.Children.Add(notesInput);
+        notesRow.Children.Add(saveNotesButton);
+        root.Children.Add(Card(notesRow, 12, new Thickness(0, 0, 0, 10)));
         root.Children.Add(status);
 
         async Task LoadShortlistsAsync(string? selectName = null)
@@ -204,13 +211,43 @@ public partial class MainWindow
             try
             {
                 await RunDatabaseAsync(() => _database.RemoveFromShortlistAsync(selected.SourceId, name));
+                notesInput.Text = "";
                 await LoadSavedRowsAsync();
                 status.Text = $"Removed {selected.PlayerName} from '{name}'.";
             }
             catch (Exception ex) { status.Text = "Could not remove candidate: " + ex.Message; }
         }
 
-        shortlistPicker.SelectionChanged += async (_, _) => await LoadSavedRowsAsync();
+        async Task SaveNotesAsync()
+        {
+            if (shortlistPicker.SelectedItem is not string name || saved.SelectedItem is not ShortlistRecord selected)
+            { status.Text = "Select a saved shortlist candidate before editing notes."; return; }
+            var note = notesInput.Text.Trim();
+            if (note.Length > 2000)
+            { status.Text = "Recruitment notes are limited to 2,000 characters."; return; }
+            try
+            {
+                // AddToShortlistAsync is an UPSERT keyed only by provider-specific SourceId
+                // and shortlist name; passing the selected identity safely updates its notes.
+                var noteOnlyRecord = new PlayerRecord { SourceId = selected.SourceId };
+                await RunDatabaseAsync(() => _database.AddToShortlistAsync(noteOnlyRecord, name, note.Length == 0 ? null : note));
+                await LoadSavedRowsAsync();
+                saved.SelectedItem = ((IEnumerable<ShortlistRecord>)saved.ItemsSource!)
+                    .FirstOrDefault(x => x.SourceId.Equals(selected.SourceId, StringComparison.OrdinalIgnoreCase));
+                status.Text = $"Notes saved for {selected.PlayerName}.";
+            }
+            catch (Exception ex) { status.Text = "Could not save recruitment notes: " + ex.Message; }
+        }
+
+        saved.SelectionChanged += (_, _) =>
+        {
+            notesInput.Text = saved.SelectedItem is ShortlistRecord selected ? selected.Notes ?? "" : "";
+        };
+        shortlistPicker.SelectionChanged += async (_, _) =>
+        {
+            notesInput.Text = "";
+            await LoadSavedRowsAsync();
+        };
         await LoadShortlistsAsync();
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
