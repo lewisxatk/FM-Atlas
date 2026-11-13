@@ -303,6 +303,13 @@ public partial class MainWindow
             preview.AppendLine();
             preview.AppendLine("DIAGNOSTIC REPORT PREVIEW");
             preview.AppendLine(report);
+            foreach (var logFile in files.Where(x => x.Key.EndsWith(".log", StringComparison.OrdinalIgnoreCase)))
+            {
+                preview.AppendLine();
+                preview.AppendLine("LOG CONTENT PREVIEW · " + logFile.Key);
+                var logText = Encoding.UTF8.GetString(logFile.Value);
+                preview.AppendLine(logText.Length > 5000 ? logText[^5000..] : logText);
+            }
 
             var previewWindow = new Window
             {
