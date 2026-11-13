@@ -65,6 +65,20 @@ public sealed class ScoutDatabaseEvidenceIntegrationTests
                     insert.Parameters.AddWithValue("$name", player.Name);
                     insert.Parameters.AddWithValue("$run", runId);
                     await insert.ExecuteNonQueryAsync();
+
+                    // The live importer also mirrors candidate values into the generic
+                    // Players/PlayerAttributes tables for profile display. Those mirrors
+                    // must not leak into save/local decision queries without field evidence.
+                    var mirror = connection.CreateCommand();
+                    mirror.CommandText = """
+                        INSERT INTO Players(SourceId,Name,Club,CurrentAbility,PotentialAbility,DataOrigin,UpdatedUtc)
+                        VALUES($source,$name,'Evidence Test FC',199,200,'FM27 Live · field-level provisional','2026-11-13T00:00:00Z');
+                        INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc)
+                        VALUES($source,'Passing','attributes:Technical',20,'2026-11-13T00:00:00Z');
+                        """;
+                    mirror.Parameters.AddWithValue("$source", "LIVE:" + player.Id);
+                    mirror.Parameters.AddWithValue("$name", player.Name);
+                    await mirror.ExecuteNonQueryAsync();
                 }
 
                 await InsertFact(connection, runId, 100, "Ability.Current Ability", 180, "Verified");
@@ -102,6 +116,21 @@ public sealed class ScoutDatabaseEvidenceIntegrationTests
                 Assert.IsNull(byId[$"LIVE:{playerId}"].CurrentAbility, $"Untrusted CA leaked for player {playerId}.");
                 Assert.IsNull(byId[$"LIVE:{playerId}"].PotentialAbility, $"Untrusted PA leaked for player {playerId}.");
             }
+
+            // The generic Players table is an identity/profile mirror, not an
+            // authority for provisional live CA/PA or attribute values.
+            Assert.AreEqual(0, (await database.SearchAsync("Player", null, null, null)).Count,
+                "Save/local search must not read provisional LIVE mirror records.");
+            Assert.AreEqual(0, await database.CountLocalPlayersAsync(),
+                "Live identities must not inflate the save/local player count.");
+            Assert.AreEqual(0, (await database.SearchPlayerAttributeCriteriaAsync(
+                null, new[] { new FmAtlas.Models.AttributeSearchCriterion("Passing", 19, null, "Passing") })).Count,
+                "Attribute Search must not rank provisional live PlayerAttributes mirrors.");
+            var roleProfile = new FmAtlas.Services.RoleFitProfile(
+                "Live safety fixture", "Both", "Any", "Provisional live facts are not role-fit inputs.",
+                new Dictionary<string, double> { ["Passing"] = 1 });
+            Assert.AreEqual(0, (await database.SearchRoleFitCandidatesAsync(roleProfile)).Count,
+                "Role Lab must not score provisional live PlayerAttributes mirrors.");
 
             var caFiltered = await database.SearchLivePlayersAsync(null, minCa: 170);
             CollectionAssert.AreEqual(
