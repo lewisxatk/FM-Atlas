@@ -61,6 +61,38 @@ public sealed class FieldEvidencePolicyTests
             Assert.IsFalse(result.CanWriteToGame);
         }
     }
+
+    [TestMethod]
+    public void Assess_OnlyExplicitUserWitnessStatusesAreDecisionReady()
+    {
+        foreach (var status in new[] { "Verified", "FieldVerified", "Verified-UserUIWitness-ReadBack" })
+        {
+            var result = FieldEvidencePolicy.Assess(status);
+            Assert.AreEqual(FieldEvidenceLevel.FieldVerified, result.Level, $"Expected explicit witness status '{status}'.");
+            Assert.IsTrue(result.CanUseAsVerifiedDecisionInput);
+            Assert.IsFalse(result.CanWriteToGame, "The global live-write certification gate must remain closed.");
+        }
+    }
+
+    [TestMethod]
+    public void Assess_VerifiedPrefixesAndMixedStatusesFailClosed()
+    {
+        foreach (var status in new[]
+        {
+            "Verified-Provisional",
+            "Verified-Needs-UI-Witness",
+            "FieldVerified-Provisional",
+            "Unverified-Verified",
+            "VerifiedButUnconfirmed",
+            "Candidate-Verified"
+        })
+        {
+            var result = FieldEvidencePolicy.Assess(status);
+            Assert.AreEqual(FieldEvidenceLevel.Unverified, result.Level, $"Unsafe status was accepted: '{status}'.");
+            Assert.IsFalse(result.CanUseAsVerifiedDecisionInput);
+            Assert.IsFalse(result.CanWriteToGame);
+        }
+    }
 }
 
 [TestClass]
