@@ -112,13 +112,13 @@ public sealed class FootballMetricMathTests
     [TestMethod]
     public void CalculatePercentiles_RejectsDuplicateProviderIdsAndBadInput()
     {
-        Assert.ThrowsException<ArgumentException>(() => FootballMetricMath.CalculatePercentiles(new[]
+        Assert.ThrowsExactly<ArgumentException>(() => FootballMetricMath.CalculatePercentiles(new[]
         {
             new MetricObservation("P1", 1, 900),
             new MetricObservation("p1", 2, 900)
         }));
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => FootballMetricMath.CalculatePercentiles(new[]
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => FootballMetricMath.CalculatePercentiles(new[]
         {
             new MetricObservation("P1", 1, -1)
         }));
