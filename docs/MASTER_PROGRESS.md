@@ -453,3 +453,17 @@ Only mark a feature complete when the source change exists on this branch and it
 - This is a tested-intent backend component only until the Windows workflow passes; it is not yet wired into the Moneyball screen or a radar visualization. It does not infer metric desirability, FM hidden ratings or cross-league strength.
 - Latest code checkpoint for this work: `9e2d583074e53e67da1cc39072415b2b180e6d7d`; Windows run [43522880667](https://github.com/lewisxatk/FM-Atlas/actions/runs/43522880667) was pending at documentation time.
 - User-PC WPF/theme/DPI and copied FM27 Game Pass save acceptance remain open. Live Apply/Undo remains disabled; main remains untouched.
+
+
+## Moneyball multi-metric Scout — integrated UI checkpoint — 2026-11-13 23:03 UTC
+
+- Added `Services/MoneyballCompositeService.cs` to combine already-ranked, within-cohort percentiles into a transparent Atlas composite. Equal weights are the default; optional positive finite weights are supported.
+- Moneyball Scout now includes a multi-select composite panel (2–12 seasonal metrics), minimum metric coverage, optional `metricKey=weight` entries, shared cohort/minutes/per-90/direction criteria, ranked player-season output and CSV export.
+- Each metric is ranked independently against the same selected cohort rules before combining percentiles. Missing or sample-withheld metrics do not contribute; players must meet the configured minimum. Different seasons and provider-specific source IDs remain separate. Group labels are only carried through when all contributing metrics agree.
+- The interface explicitly warns users to choose metrics with the same desirability direction. The score is an Atlas percentile composite, not FM's hidden player rating and not a cross-league strength adjustment.
+- Added seven service regression tests covering equal and configured weights, season separation, missing/invalid values, duplicate observations, duplicate normalized weight keys, invalid configuration and group consistency.
+- Windows Actions run [43523809681](https://github.com/lewisxatk/FM-Atlas/actions/runs/43523809681) passed exact source commit `b7b885daf5ec9e89e919792ce06dce7c68321ac9`: Release build **0 warnings / 0 errors**; MSTest **133 passed / 133 total**, 0 failed/skipped. Windows Release artifact `14083917898`; test-results artifact `14085005439`.
+- Source integration includes the 2–12 selection cap, bounded concurrent metric queries and cached group-key lookup. The duplicate status control and interpolated conditional syntax issues found during the first build attempts were corrected before this green checkpoint.
+- [ ] User-PC acceptance remains: launch the WPF app, open Moneyball Scout, select multiple metrics, compare cohort/per-90/direction settings, verify results and export CSV. Use a disposable FM27 Game Pass save copy.
+- [ ] Broader user-PC gates remain: full route smoke test, MONOLITH theme/DPI review, import comparison against in-game data, diagnostics/support ZIP inspection and Graphics/Skin path validation.
+- Live Apply/Undo remains disabled. The `main` content tree still matches baseline `2051bbee042fb8e7203b7855e833e391ccee9ecb`; all active application work remains on `overhaul/monolith-full-platform`.
