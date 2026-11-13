@@ -111,4 +111,20 @@ public sealed class MoneyballCompositeServiceTests
         Assert.AreEqual("STC", results.Single(x => x.SourceId == "P1").GroupKey);
         Assert.IsNull(results.Single(x => x.SourceId == "P2").GroupKey);
     }
+    [TestMethod]
+    public void Calculate_RejectsDuplicateWeightKeysAfterNormalisation()
+    {
+        var observations = new[]
+        {
+            new MoneyballMetricPercentileObservation("P1", "Player One", "2025/26", "goals", 80)
+        };
+        var weights = new Dictionary<string, double>(StringComparer.Ordinal)
+        {
+            ["goals"] = 1,
+            [" Goals "] = 2
+        };
+
+        Assert.ThrowsException<ArgumentException>(() => MoneyballCompositeService.Calculate(observations, weights));
+    }
+
 }
