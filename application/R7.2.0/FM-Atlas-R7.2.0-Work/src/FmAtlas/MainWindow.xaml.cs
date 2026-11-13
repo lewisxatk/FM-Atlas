@@ -2090,9 +2090,24 @@ public partial class MainWindow : Window
 
     private static DataGrid CreateGrid()
     {
-        var grid = new DataGrid { AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false, CanUserSortColumns = true, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, HorizontalGridLinesBrush = Brush("#E1E9EF"), Background = Brush("#171F28"), RowBackground = Brush("#171F28"), AlternatingRowBackground = Brush("#202A35"), BorderThickness = new Thickness(0), RowHeight = 38, FontSize = 11, Foreground = Brush("#25435E"), SelectionMode = DataGridSelectionMode.Single, SelectionUnit = DataGridSelectionUnit.FullRow, EnableRowVirtualization = true, EnableColumnVirtualization = true, FontFamily = new FontFamily(MonolithTheme.FontFamilyName) };
-        VirtualizingPanel.SetIsVirtualizing(grid, true); VirtualizingPanel.SetVirtualizationMode(grid, VirtualizationMode.Recycling); ScrollViewer.SetCanContentScroll(grid, true);
-        grid.ColumnHeaderHeight = 36; grid.Margin = new Thickness(0, 2, 0, 0);
+        var grid = new DataGrid
+        {
+            Style = AtlasStyle("Atlas.DataGrid"),
+            AutoGenerateColumns = false,
+            CanUserSortColumns = true,
+            RowHeight = 38,
+            FontSize = 11,
+            SelectionMode = DataGridSelectionMode.Single,
+            SelectionUnit = DataGridSelectionUnit.FullRow,
+            EnableRowVirtualization = true,
+            EnableColumnVirtualization = true,
+            FontFamily = new FontFamily(MonolithTheme.FontFamilyName)
+        };
+        VirtualizingPanel.SetIsVirtualizing(grid, true);
+        VirtualizingPanel.SetVirtualizationMode(grid, VirtualizationMode.Recycling);
+        ScrollViewer.SetCanContentScroll(grid, true);
+        grid.ColumnHeaderHeight = 36;
+        grid.Margin = new Thickness(0, 2, 0, 0);
         ScrollViewer.SetIsDeferredScrollingEnabled(grid, true);
         return grid;
     }
@@ -2101,31 +2116,72 @@ public partial class MainWindow : Window
         => new() { Header = header, Binding = new Binding(property), Width = new DataGridLength(weight, DataGridLengthUnitType.Star), ElementStyle = new Style(typeof(TextBlock)) { Setters = { new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center), new Setter(TextBlock.MarginProperty, new Thickness(7, 0, 5, 0)), new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis) } } };
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
-        => new() { Background = Brush("#F8FCFA"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(radius), Padding = new Thickness(15), Margin = margin ?? new Thickness(0), Child = child };
+        => new()
+        {
+            Style = AtlasStyle("Atlas.Card"),
+            CornerRadius = new CornerRadius(radius),
+            Padding = new Thickness(15),
+            Margin = margin ?? new Thickness(0),
+            Child = child
+        };
 
     private static TextBlock Txt(string text, double size, bool bold, Brush foreground, bool wrap = false)
         => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily(MonolithTheme.FontFamilyName) };
 
     private static TextBox Input(string placeholder)
-        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#FBFDFF"), Foreground = Brush("#1A3851"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 12 };
+        => new()
+        {
+            Style = AtlasStyle("Atlas.TextBox"),
+            Text = "",
+            Tag = placeholder,
+            ToolTip = placeholder,
+            Height = 35,
+            Padding = new Thickness(9, 7, 9, 7),
+            Margin = new Thickness(0, 3, 0, 8),
+            FontSize = 12
+        };
 
     private static TextBlock FieldLabel(string label) => Txt(label, 9, true, Muted);
 
     private static Button SoftButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(13, 8, 13, 8), Margin = new Thickness(3), Background = Brush("#EFF5FA"), Foreground = Brush("#365F83"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button
+        {
+            Style = AtlasStyle("Atlas.ButtonSecondary"),
+            Content = content,
+            Padding = new Thickness(13, 8, 13, 8),
+            Margin = new Thickness(3),
+            FontSize = 11,
+            Cursor = Cursors.Hand
+        };
         button.Click += click; return button;
     }
 
     private static Button PrimaryButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = MonolithTheme.GetBrush("Accent"), Foreground = new SolidColorBrush(Color.FromRgb(16, 18, 22)), BorderBrush = MonolithTheme.GetBrush("Accent"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button
+        {
+            Style = AtlasStyle("Atlas.ButtonPrimary"),
+            Content = content,
+            Padding = new Thickness(15, 9, 15, 9),
+            Margin = new Thickness(3),
+            FontSize = 11,
+            Cursor = Cursors.Hand
+        };
         button.Click += click; return button;
     }
 
     private static Button WhiteButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(13, 9, 13, 9), Margin = new Thickness(3), Background = Brush("#F6FCFA"), Foreground = Brush("#205F91"), BorderBrush = Brush("#D3E9E4"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button
+        {
+            Style = AtlasStyle("Atlas.ButtonSecondary"),
+            Content = content,
+            Padding = new Thickness(13, 9, 13, 9),
+            Margin = new Thickness(3),
+            FontSize = 11,
+            Cursor = Cursors.Hand
+        };
         button.Click += click; return button;
     }
 
@@ -2135,6 +2191,26 @@ public partial class MainWindow : Window
         var border = new FrameworkElementFactory(typeof(Border)); border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
         border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty)); border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty)); border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Control.BorderThicknessProperty)); border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(Control.PaddingProperty));
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center); presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center); border.AppendChild(presenter); template.VisualTree = border; return template;
+    }
+
+    private static Style? AtlasStyle(string key)
+    {
+        var resources = Application.Current?.Resources;
+        if (resources is null) return null;
+
+        static Style? Find(ResourceDictionary dictionary, string resourceKey)
+        {
+            if (dictionary.Contains(resourceKey) && dictionary[resourceKey] is Style style)
+                return style;
+            foreach (var merged in dictionary.MergedDictionaries.Reverse())
+            {
+                var match = Find(merged, resourceKey);
+                if (match is not null) return match;
+            }
+            return null;
+        }
+
+        return Find(resources, key);
     }
 
     private static Brush Brush(string hex) => MonolithTheme.ResolveLegacy(hex);

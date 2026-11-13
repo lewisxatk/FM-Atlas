@@ -98,6 +98,13 @@
         <Setter Property="RowHeaderWidth" Value="0"/>
     </Style>
 
+
+    <!-- Apply MONOLITH defaults across existing shell pages; explicitly keyed variants remain available. -->
+    <Style TargetType="{x:Type Button}" BasedOn="{StaticResource Atlas.ButtonSecondary}"/>
+    <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource Atlas.TextBox}"/>
+    <Style TargetType="{x:Type ComboBox}" BasedOn="{StaticResource Atlas.ComboBox}"/>
+    <Style TargetType="{x:Type DataGrid}" BasedOn="{StaticResource Atlas.DataGrid}"/>
+
     <Style x:Key="Atlas.SectionTitle" TargetType="{x:Type TextBlock}">
         <Setter Property="Foreground" Value="{DynamicResource Atlas.TextPrimary}"/>
         <Setter Property="FontSize" Value="18"/>
