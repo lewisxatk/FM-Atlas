@@ -361,7 +361,7 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Still outstanding: age-band and league-normalised Moneyball cohorts; a verified competition-strength mapping; a formation/role-aware best-XI optimiser connected to validated player-slot eligibility; SI tactical effectiveness/player buy-in reconstruction; full graphics provider/cache/install/restore workflows; wider mod management; full shared MONOLITH control migration; final installer/publish/release process.
 - [ ] User-PC acceptance remains outstanding. When the user is ready, test only with a copy of the FM27 Game Pass career; compare player values/positions to the in-game UI, inspect the pitch map and planner slots, test Moneyball group results/CSV and multi-snapshot history, smoke-test every route/theme/DPI, verify graphics roots and review diagnostics/support exports.
 - [ ] Do not test against the user's only career save. Live Apply/Undo remains disabled; unknown or unregistered builds remain read-only.
-- Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- Main's content tree has been restored to baseline `2051bbee042fb8e7203b7855e833e391ccee9ecb`; see the repository safety correction below for the add/revert history.
 
 
 ## Squad Architect best-XI integration and verified-build data gate — 2026-11-13 21:37 UTC
@@ -378,3 +378,11 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] User-PC acceptance remains deferred until the user is on PC and more implementation is complete. Then test only with a copy of the FM27 Game Pass career; compare player values/positions to the in-game UI, inspect all four formations, best-XI eligibility and planner slots, test Moneyball group results/CSV and multi-snapshot history, smoke-test routes/themes/DPI, verify graphics roots and review diagnostics/support exports.
 - [ ] Do not test against the user's only career save. Live Apply/Undo remains disabled; unknown/unregistered builds remain read-only.
 - Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+
+
+## Repository safety correction — 2026-11-13 21:39 UTC
+
+- A test-only commit was accidentally sent to the default `main` branch while creating integration-test files. It added three files only: two test files and `docs/MASTER_PROGRESS.md`; no application source was merged.
+- All three additions were deleted from `main` in sequential revert commits. Current `main` ref: `05a0928e82cb3b3e99f58a5ae4ebe19479c9bb35`.
+- Verified with GitHub compare: `2051bbee042fb8e7203b7855e833e391ccee9ecb...main` returns **zero changed files**. The current `main` content tree is therefore identical to the original baseline, although its commit history contains the add/revert commits.
+- The integrated application work remains on `overhaul/monolith-full-platform`; no application code or feature merge is present on `main`.
