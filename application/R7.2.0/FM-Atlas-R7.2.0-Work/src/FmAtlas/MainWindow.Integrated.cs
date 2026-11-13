@@ -587,7 +587,7 @@ public partial class MainWindow
         var developmentHeading = Txt("LONGITUDINAL PLAYER DEVELOPMENT", 9, true, Teal);
         developmentHeading.Margin = new Thickness(0, 0, 0, 5);
         root.Children.Add(developmentHeading);
-        var developmentNote = Txt("Values are compared only between consecutive imported snapshots. A changed birth date, or a changed name when birth-date evidence is missing, starts a new identity segment to guard against recycled FM unique IDs. Missing values are not treated as zero.", 9, false, Muted, wrap: true);
+        var developmentNote = Txt("Values are compared only between consecutive imported snapshots. Player attributes are parser-verified; CA, PA, age and birth-date identity fields are marked unconfirmed by fmsave. A changed birth date, or a changed name when birth-date evidence is missing, starts a new identity segment. Same-name ID reuse without DOB evidence cannot be ruled out.", 9, false, Muted, wrap: true);
         developmentNote.Margin = new Thickness(0, 0, 0, 6);
         root.Children.Add(developmentNote);
         developmentHistory = CreateGrid();
@@ -595,7 +595,8 @@ public partial class MainWindow
         developmentHistory.Columns.Add(Column("IN-GAME DATE", "GameDate", .9));
         developmentHistory.Columns.Add(Column("FIELD", "Field", 1.1));
         developmentHistory.Columns.Add(Column("VALUE", "Value", .55));
-        developmentHistory.Columns.Add(Column("CHANGE", "Change", .55));
+        developmentHistory.Columns.Add(Column("CHANGE", "Change", .75));
+        developmentHistory.Columns.Add(Column("EVIDENCE", "Evidence", 1.0));
         developmentHistory.Columns.Add(Column("BUILD", "Build", .8));
         developmentHistory.Columns.Add(Column("SOURCE FILE", "SourceFile", 1.2));
         root.Children.Add(Card(developmentHistory, 14, new Thickness(0, 0, 0, 10)));
@@ -649,6 +650,9 @@ public partial class MainWindow
                             : x.Delta.HasValue
                                 ? (x.Delta.Value > 0 ? "+" : string.Empty) + x.Delta.Value.ToString("0.##", CultureInfo.InvariantCulture)
                                 : "—",
+                        Evidence = x.FieldName is "Current Ability" or "Potential Ability" or "Age"
+                            ? "Unconfirmed source field"
+                            : "Parser-verified attribute",
                         Build = x.GameBuild ?? "—",
                         SourceFile = x.SourceFileName
                     }).ToArray();
