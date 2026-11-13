@@ -42,7 +42,7 @@ Status labels: **Source implemented** = present in the supplied R7.2.0 package b
 - [ ] Saved searches and reusable filter profiles.
 - [ ] Performance testing on realistic database sizes.
 
-## Phase 3 — Attributes and analytics
+## Phase 3 — Analytics and Moneyball scouting
 
 - [x] R7.2.0 source: indexed statistic facts and dynamic metric catalogue.
 - [x] R7.2.0 source: multi-condition stats search and optional per-90/minutes floor.
@@ -51,6 +51,26 @@ Status labels: **Source implemented** = present in the supplied R7.2.0 package b
 - [ ] Compare, rank and shortlist players.
 - [ ] Role-fit calculations with documented inputs and uncertainty.
 - [ ] Exportable reports and saved analysis views.
+
+### New feature programme — Wyscout-style Performance & Moneyball Scout
+
+**Goal:** Find undervalued players using actual in-save season performance, per-90 output, positional/league percentiles and FM player attributes. This is an FM-career-data scouting system, not a claim to provide Wyscout's proprietary worldwide real-football database.
+
+- [ ] Audit R7.2.0 source for existing statistic ingestion, metric catalogue, player-season linkage, competition IDs, minutes, transfer value and attribute indexes. Reuse before adding new pipelines.
+- [ ] Establish exactly which season statistics can be extracted from FM27 saves and which are unavailable or masked by scouting knowledge.
+- [ ] Build a canonical metric registry: raw totals, per-90 metrics, rates/percentages, units, source, season, competition, position and availability.
+- [ ] Add statistical screener filters: price/value ceiling, age, position, minutes floor, per-90 output, totals, rates and FM attributes (e.g. Dribbling >= 12).
+- [ ] Add percentile engine for position-specific cohorts, with configurable competition, age and minutes cohorts.
+- [ ] Display both attribute ratings and observed performance separately (e.g. Dribbling attribute 12 vs successful dribbles per 90 and league percentile).
+- [ ] Add multi-league comparison with explicit competition-strength adjustment only where a defensible calibration exists; otherwise show raw league-relative percentiles and mark cross-league estimates.
+- [ ] Add value-for-performance ranking using transfer value/asking price where actually available; distinguish estimated value, asking price, wage and fee.
+- [ ] Add bargain profiles and saved searches: Cheap Dribblers, Creative Midfielders, High-Output Strikers, Ball-Winning Midfielders, Progressive Defenders and custom user definitions.
+- [ ] Add player performance profiles: season-by-season trends, per-90 output, percentile bands, minutes/sample size, role/position context and data freshness.
+- [ ] Add shortlist, side-by-side comparisons, CSV/report export and recruitment radar against the user's squad/tactical needs.
+- [ ] Validate percentile math, sample thresholds, missing values, duplicate player IDs, loan/transfer season splits and competition changes with test fixtures.
+- [ ] Clearly label evidence: **Observed in save**, **Calculated by Atlas**, **Estimated**, or **Unavailable**. Never invent missing statistics or claim a calculated score is FM's internal rating.
+
+**Acceptance criteria:** A user can select an FM27 career, set (for example) transfer value under £1m, age 18–24, winger/attacking-midfield positions, Dribbling attribute >= 12, minimum minutes and a performance percentile threshold, then receive traceable player results showing the actual values, cohort, percentile, sample size and source. The search must not silently treat a high attribute as proof of high match performance.
 
 ## Phase 4 — Import and database pipeline
 
@@ -96,7 +116,24 @@ Status labels: **Source implemented** = present in the supplied R7.2.0 package b
 - [ ] Add filters, sorting and export.
 - [ ] Add user-facing diagnostics and safe settings backup/restore.
 
-## Phase 9 — Release engineering
+## Phase 9 — Tactical Intelligence Studio
+
+- [ ] Audit available FM27 tactical effectiveness and tactical understanding data in save/live sources.
+- [ ] Display the four effectiveness areas only where actual source data is accessible: Tactical Understanding, Player Ability, Player Buy-In and Next Match Information.
+- [ ] Add tactical complexity analysis using documented inputs.
+- [ ] Link player attributes, role suitability and squad composition to tactical recommendations.
+- [ ] Distinguish observed FM values from Atlas calculations and estimates.
+- [ ] Do not claim to reproduce FM's hidden effectiveness formula without evidence.
+- [ ] Keep all tactical editing separate, opt-in and guarded; no injector/BepInEx dependency in the current plan.
+
+## Phase 10 — Recruitment and squad intelligence
+
+- [ ] Compare players and find similar profiles/replacements.
+- [ ] Build squad depth, age, contract and wage-risk views.
+- [ ] Add budget-aware upgrade planning and recruitment fit.
+- [ ] Connect Moneyball findings to the user's tactical and squad requirements.
+
+## Phase 11 — Release engineering
 
 - [ ] Versioned release process and changelog.
 - [ ] Reproducible publish/package scripts.
