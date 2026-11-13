@@ -147,7 +147,8 @@ A later source review found that the original substring checks `LIKE '%Verified%
 
 - Latest fully verified application checkpoint: `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`, Windows Actions run `43470501984`: WPF Release build 0 warnings/0 errors; 47/47 MSTest passed; Release and TRX artifacts uploaded.
 - Follow-on source change `4b4ddfcb7299a0fad5dc2ea60658d895a48127df` updates `MainWindow.RoleLab.cs` so selecting a role shows every weighted attribute as a labelled chip, along with the model's input range, missing-value rule and minimum-coverage method note.
-- The new UI change is not yet runtime-accepted. Its Windows workflow is recorded at https://github.com/lewisxatk/FM-Atlas/actions/runs/43471187844; inspect the completed run before claiming that source revision is build-verified.
+- The new UI change passed Windows Actions run https://github.com/lewisxatk/FM-Atlas/actions/runs/43471187844: WPF Release build 0 warnings/0 errors, 47/47 tests passed. Release artifact `14061656624` and TRX artifact `14061910345` were uploaded.
+- It is compile/test verified only. Its rendered layout, role-selection refresh and readability at real Windows DPI/resolutions still require manual runtime acceptance.
 - The Role Lab scores remain Atlas weighted estimates, not Sports Interactive's internal role formula or star rating. Position familiarity and player-by-player contribution explanations remain future work.
 - Do not integrate the squad optimizer into a Best XI screen until player-to-slot eligibility is backed by validated position suitability data and duplicate LIVE/FMSAVE identities are handled with a verified crosswalk.
 - All changes remain on `overhaul/monolith-full-platform`; `main` is preserved. Continue from the current branch head and exact file history, not from this text alone.
