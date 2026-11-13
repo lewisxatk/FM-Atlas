@@ -43,6 +43,18 @@ jobs:
       - name: Build Release
         run: dotnet build "application/R7.2.0/FM-Atlas-R7.2.0-Work/FmAtlas.sln" --configuration Release --no-restore --verbosity minimal
 
+      - name: Run automated tests
+        run: dotnet test "application/R7.2.0/FM-Atlas-R7.2.0-Work/FmAtlas.sln" --configuration Release --no-build --results-directory TestResults --logger "trx;LogFileName=FMAtlas.Tests.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FM-Atlas-Test-Results
+          path: TestResults/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Record artifact metadata
         if: success()
         shell: pwsh
