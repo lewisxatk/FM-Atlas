@@ -102,3 +102,14 @@ The authoritative integrated feature scope and acceptance gates are in [OVERHAUL
 - Release artifact size: 14,591,556 bytes.
 - This is the first automated Windows build/test acceptance for this source branch. Later source commits need their own workflow result. App launch, route coverage, actual support ZIP content, theme switching at different DPI and Game Pass/FM runtime integration remain untested.
 - Latest source change after that successful run adds Ctrl+K and global-search canvas token at `830cedc`; its separate Actions run was still in progress at the time of this update.
+
+## Field-evidence hardening follow-up
+
+A later source review found that the original substring checks `LIKE '%Verified%'` and `Contains("Verified")` could match `Unverified`. This was corrected in the active branch:
+
+- All nine occurrences in `ScoutDatabase.cs` now use a normalized exact allowlist of canonical verified statuses.
+- Both known UI consumers now call `FieldEvidencePolicy.CanUseForDecision`.
+- `FieldEvidencePolicy.Assess` accepts only exact normalized verified statuses; provisional/ambiguous/mixed values fail closed.
+- New MSTest cases cover allowed canonical statuses, misleading prefixes, cross-provider ID separation and exact-ID duplicate resolution.
+- Latest source commit: `fd40df08c8f8194881be56a1e5198dfcfa1ca1d2`. The expanded Windows workflow run is `43466693498` and was still running during this handover update.
+- Do not promote these changes to runtime-verified until the latest Actions run completes and the UI/data flows are tested with a representative, disposable dataset.
