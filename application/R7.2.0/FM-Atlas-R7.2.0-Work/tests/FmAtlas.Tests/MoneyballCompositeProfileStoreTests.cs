@@ -93,6 +93,16 @@ public sealed class MoneyballCompositeProfileStoreTests
                 {
                     MetricWeights = new Dictionary<string, double> { ["not_selected"] = 1 }
                 }));
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                store.Save(CreateProfile("padded-key", "Padded Key") with
+                {
+                    MetricKeys = new[] { "goals", " assists", "key_passes" }
+                }));
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                store.Save(CreateProfile("padded-weight", "Padded Weight") with
+                {
+                    MetricWeights = new Dictionary<string, double> { [" goals "] = 2 }
+                }));
         }
         finally { DeleteFolder(folder); }
     }
