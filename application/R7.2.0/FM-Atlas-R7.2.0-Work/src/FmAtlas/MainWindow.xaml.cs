@@ -1350,7 +1350,7 @@ public partial class MainWindow : Window
                     {
                         var names = slot.PlayerNames;
                         if (slot.UnresolvedPlayers > 0)
-                            names += $" · {slot.UnresolvedPlayers} unresolved UID(s)";
+                            names += $" · {slot.UnresolvedPlayers} unresolved reference(s)";
                         AddDetailRow(slotPanel, $"Stored slot {slot.Slot}", names);
                     }
                     expander.Content = slotPanel;
