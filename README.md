@@ -9,7 +9,7 @@ FM Atlas is a Windows Football Manager intelligence and modding workspace. The i
 - Main branch is preserved and has not been modified by this overhaul.
 - Repaired R7.2.0 application source is present at `application/R7.2.0/FM-Atlas-R7.2.0-Work/`. Source import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`.
 - R7.0.2 and R7.1.0 archives have been inventoried and compared. Their complete source trees still need separate immutable GitHub baselines; they are not the current working code.
-- Windows CI run `43469077009` at commit `1022078` completed .NET 8 restore and WPF Release build with **0 warnings, 0 errors**, and passed **40/40 MSTest tests**. A new SQLite evidence-consumer integration test has since been added and awaits its own current-branch run. Runtime UI and Game Pass acceptance remain outstanding.
+- Windows CI run `43470501984` at commit `b8bad3a` completed .NET 8 restore and WPF Release build with **0 warnings, 0 errors**, and passed **47/47 MSTest tests**. The suite includes actual SQLite evidence-consumer integration and RoleFit scoring coverage. WPF app launch, visual and Game Pass runtime acceptance remain outstanding. Runtime UI and Game Pass acceptance remain outstanding.
 - A Windows .NET 8 Release build/test workflow is active at `.github/workflows/fm-atlas-windows-build.yml`; see the master progress/handover for the latest exact tested commit.
 - Diagnostics privacy hardening, source/feature traceability, Windows MSTest tests, ALL/ANY statistics logic, field-evidence safeguards, provider identity handling, theme updates and CI build automation are committed. See `docs/MASTER_PROGRESS.md` for exact build and test evidence; app/game runtime acceptance remains outstanding.
 
