@@ -288,5 +288,5 @@ These services are domain foundations, not fully delivered screens. Squad Archit
 - Release artifact `14061763980`; test-results artifact `14062007740`.
 - The suite includes `ScoutDatabaseRoleFitIntegrationTests`, which uses an isolated SQLite database and verifies that the real Role Lab query returns the weighted score, coverage, readable attribute contribution names, raw values, Atlas weights and additive contribution points.
 - It also includes expanded Diagnostics redaction cases for quoted JSON/config values, Basic authorization, client secrets, private keys and query-string access tokens.
-- The tested commit is the latest application-code checkpoint. The subsequent branch change `28958fd4` only updates `docs/MASTER_PROGRESS.md`; `main` remains untouched.
+- The tested commit is the latest application-code checkpoint. All follow-on commits after `8cfe5b3` are documentation-only checkpoint updates; `main` remains untouched.
 - Build/test evidence does not constitute WPF runtime visual acceptance or actual FM27 Game Pass field certification.
