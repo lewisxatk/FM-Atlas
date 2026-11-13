@@ -15,33 +15,31 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Advanced player search, statistics and attribute discovery.
 - FM27 graphics, live import, player editing, metrics, database and search integrations.
 - Guarded live-memory editing scaffolding, importer mappings, persistence, undo and profile graphics resolution.
-- Indexed storage, expanded search and profile support.
+- Indexed storage, expanded search, profile support and R7.1.0 analytics / role-fit / editor-local / logging package pass (reported).
 - FM Atlas value finder with database safeguards.
 - C# database parsing, UI imports and search logic inspection/repairs.
-- R7.1.0 analytics / role-fit / editor-local / logging package pass (reported).
 
 ## 2026-11-13 — Recovery archives inspected
 
-- Inspected both user-uploaded archives: R7.0.2 (83 files) and R7.1.0 (95 files).
+- Inspected user-uploaded R7.0.2 (83 files) and R7.1.0 (95 files) archives.
 - Recorded SHA-256 hashes and compared all relative paths.
-- Found 16 changed shared files and 12 files added in R7.1.0; no files were removed from the later package.
+- Found 16 changed shared files and 12 files added in R7.1.0; no files were removed.
 - Confirmed R7.1.0 package notes say live FM memory writes are not implemented and Windows build/runtime testing remains outstanding.
 - Added `recovery/RECOVERY-INVENTORY.md`.
-- Full source-tree import remains pending; no claim is made that the ZIP contents are already in GitHub.
+- Full source-tree import remains pending; no claim is made that ZIP contents are already in GitHub.
 
 ## 2026-11-13 — R7.2.0 checkpoint received
 
-- Inspected the newly supplied R7.2.0 ZIP (106 files, 3,610,671 uncompressed bytes).
-- SHA-256 recorded: `34d985a39526698026b1e09855d7f37e9f6a00dfba4863cf6f4d467aafedc2c8`.
+- Inspected the R7.2.0 ZIP (106 files, 3,610,671 uncompressed bytes).
+- SHA-256: `34d985a39526698026b1e09855d7f37e9f6a00dfba4863cf6f4d467aafedc2c8`.
 - Compared with R7.1.0: 19 shared files changed, 11 added, none removed.
-- Recorded the R7.2.0 implementation status, roadmap and user-test gates.
-- Corrected the live-editing status: R7.1.0 had no live writer; R7.2.0 contains a narrow guarded writer in source, but Windows compile and live acceptance are still unverified.
-- R7.2.0 is the newest supplied candidate; full source import remains pending.
+- R7.2.0 is the newest supplied candidate. Its guarded live writer is source implementation only and remains unverified on Windows and in-game.
+- Full source import remains pending.
 
+## 2026-11-13 — Research and proposed evolution added
 
-## 2026-11-13 — Repository status and roadmap corrected
-
-- Verified current GitHub `main` tree: documentation and recovery notes are present; application source trees are not yet present.
-- Corrected README and next-step instructions to identify R7.2.0 as the latest supplied candidate.
-- Reframed roadmap around source import, Windows build, data acceptance and guarded live editor acceptance.
-- Kept all R7.2.0 source features marked as source-implemented/unverified rather than runtime-verified.
+- Added Wyscout-style Performance & Moneyball Scout to the roadmap: season stats, per-90 metrics, position/league percentiles, attribute + performance filters, value ceiling, multi-league comparisons, bargain profiles and recruitment shortlists.
+- Added explicit data provenance and confidence labels; FM save data availability and cross-league calibration must be verified before claims are made.
+- Added Tactical Intelligence Studio research gate for FM27 Tactical Effectiveness and Tactical Understanding, with no promise to reproduce hidden FM formulas.
+- Confirmed no BepInEx/injector dependency in the current roadmap; standalone app focus retained.
+- Added backup/import safety steps to Next Steps.
