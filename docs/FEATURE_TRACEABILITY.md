@@ -332,17 +332,18 @@ The following source additions are present on overhaul/monolith-full-platform; t
 
 | Area | Current implementation evidence | Boundary / acceptance still required |
 |---|---|---|
-| Player DNA | Search local save/player records, compare up to three selected players' stored attributes | No complete similar-player model or field-level provenance panel; Windows runtime acceptance required |
+| Player DNA | Search local save/player records, compare up to three selected players' stored attributes; player profile renders all 15 source position ratings on a pitch with five transparent Atlas display bands | No complete similar-player model; lower three position bands are Atlas-only groupings; Windows runtime acceptance required |
 | Scouting Matrix | Create/select named shortlists, search candidates, add/remove candidates, retain notes and export | No full kanban/radar, role-gap or budget-aware recruitment project workflow |
-| Moneyball Scout | Select one imported numeric metric, choose raw/per-90 where supported, apply minutes/sample floors, rank current observations and display percentile/sample basis | No position/age/league cohort segmentation or cross-league calibration; current latest fixes for indexed/raw/CSV fallback are awaiting Windows CI |
+| Moneyball Scout | Select one imported numeric metric, choose raw/per-90 where supported, apply minutes/sample floors, rank the full cohort or independent primary-position groups, and export provenance-rich CSV | No age-band or league-normalised cohorts; no validated cross-league strength calibration; primary-position grouping excludes unclassified rows |
 | Tactical Studio | Rank save-backed players against transparent Atlas role-fit profiles with coverage | Not SI Tactical Effectiveness, tactical complexity or buy-in; no inferred proprietary formula |
 | Match Lab | Retrieve stored aggregate performance facts for a selected player | No verified event timeline, shot map or match outcome model |
-| Development | Display current save facts and Atlas-local edit history | No longitudinal trend from one snapshot; multiple dated, identity-linked snapshots required |
+| Development | Display current facts, dated multi-snapshot attribute/CA/PA/age history, source/build provenance and identity-reset markers | CA/PA/age and birth-date evidence are fmsave-unconfirmed; same-name ID reuse without DOB evidence cannot be ruled out; runtime save acceptance required |
 | Save Inspector | Read-only last-import summary, retained table counts and field registry | Real copied-save parser coverage and validation report need acceptance |
+| Squad Architect | Existing squad metrics plus read-only latest-save squad_planner slots with same-snapshot player UID resolution | Slot meanings remain unconfirmed; planner reader is gated to FM27 build 27.0.0+2486695 with registered build; no best-XI optimiser integration yet |
 | Graphics & Skins | Read-only config.xml indexer with bounded traversal, duplicate/missing/path rejection reporting | User's configured Game Pass graphics root, pack precedence, large-pack cache and FaceDrop provider need validation; skin install/restore not implemented |
 | Modding Workbench | Research catalogue with licence and compatibility boundaries | Static research only; no unknown third-party EXE/DLL execution or automatic installation |
 
-Superseded: the latest-head combined Stage 3–7 Windows checkpoint is commit `c51f80574d9131cb9caa1b25a44541ae370df553`, run `43486407442`, with 87/87 tests and 0 warnings/errors. The current build/test evidence is code-level only; WPF runtime and user-save acceptance remain outstanding.
+Superseded: latest code-level Windows verification is source commit `4fdd17c344a00c64754218a4770e97c33a19f5eb`, run `43509771993`, with 95/95 tests and 0 warnings/errors. WPF runtime and user-save acceptance remain outstanding.
 
 ## Scouting Matrix notes update — 2026-11-13
 
@@ -360,3 +361,16 @@ Superseded: the latest-head combined Stage 3–7 Windows checkpoint is commit `c
 - MONOLITH initial resources and active navigation now use semantic orange tokens; dashboard legacy product label removed.
 - This is an automated build/test checkpoint, not WPF manual acceptance. The app still needs to be launched and inspected at supported sizes/DPI; save parsing, source provenance completeness, position suitability, tactical proprietary metrics, Game Pass fingerprint compatibility and configured graphics roots must be validated against a COPY of the user's actual FM27 environment.
 - No live-memory Apply/Undo is certified or enabled. Unknown builds remain read-only.
+
+
+## Latest integrated verification — 2026-11-13 21:22 UTC
+
+- Exact tested source: `4fdd17c344a00c64754218a4770e97c33a19f5eb`; Windows run [43509771993](https://github.com/lewisxatk/FM-Atlas/actions/runs/43509771993).
+- .NET 8 WPF Release build: **0 warnings / 0 errors**. MSTest: **95 passed, 0 failed, 0 skipped**.
+- Artifacts: Windows Release `14077394002`; TRX `14078735267`.
+- Position profile map is built from the 15 fmsave player-position ratings, not the tactical/per-match position mask. Natural (18+) and Accomplished (15–17) are fmsave classifier labels; lower colour tiers are explicitly Atlas-only.
+- Moneyball now supports independent primary-position cohorts for save and FM View observations. It does not claim age/league normalisation or league-strength adjustment.
+- Development uses dated snapshots, reports per-field evidence class and suppresses deltas across detected unique-ID identity boundaries. fmsave warns that a deleted person's unique_id may be reused; DOB/name checks reduce but cannot eliminate ambiguity.
+- Squad Architect displays raw numbered squad-planner slots only for the documented FM27 build gate, resolves UIDs against the same imported snapshot, preserves unresolved references and does not infer slot meanings.
+- This is build and automated-test evidence only. No WPF launch, visual acceptance, copied-save import, Game Pass compatibility acceptance or live-memory write has been performed.
+- Live Apply/Undo remains disabled. Unknown/unregistered builds remain read-only.
