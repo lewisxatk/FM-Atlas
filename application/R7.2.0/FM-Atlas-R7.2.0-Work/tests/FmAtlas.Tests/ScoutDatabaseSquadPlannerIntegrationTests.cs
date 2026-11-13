@@ -54,7 +54,7 @@ public sealed class ScoutDatabaseSquadPlannerIntegrationTests
             Assert.AreEqual(3, slots.Count);
 
             var currentFirst = slots.Single(x => x.SeasonOffset == 0 && x.Slot == 1);
-            Assert.AreEqual("Planner Player One, Unresolved UID 999", currentFirst.PlayerNames);
+            Assert.AreEqual("Planner Player One, Unresolved UID 999, Unresolved player reference", currentFirst.PlayerNames);
             Assert.AreEqual(1, currentFirst.ResolvedPlayers);
             Assert.AreEqual(2, currentFirst.UnresolvedPlayers);
 
