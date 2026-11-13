@@ -11,19 +11,15 @@ public sealed record CohortPercentileResult(
     string Basis);
 
 /// <summary>
-/// Calculates a transparent mid-rank percentile within the exact supplied cohort.
-/// It does not adjust for competition strength or claim to reproduce FM's own rating.
-/// Sorting and tie grouping keep this practical for several thousand observations.
+/// Calculates transparent mid-rank percentiles within the exact supplied cohort.
+/// Direction is explicit; no league-strength adjustment or Football Manager formula is inferred.
 /// </summary>
 public static class CohortPercentileService
 {
-    /// <summary>
-    /// Calculates independent percentile distributions for each non-empty, source-backed group.
-    /// Observations without a group key are excluded rather than silently pooled into an unknown cohort.
-    /// </summary>
     public static IReadOnlyList<CohortPercentileResult> CalculateByGroup(
         IReadOnlyList<CohortMetricObservation> observations,
-        int minimumSampleSize = 5)
+        int minimumSampleSize = 5,
+        bool higherIsBetter = true)
     {
         ArgumentNullException.ThrowIfNull(observations);
         if (minimumSampleSize < 1 || minimumSampleSize > 100000)
@@ -32,17 +28,18 @@ public static class CohortPercentileService
         return observations
             .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.GroupKey) && double.IsFinite(x.Value))
             .GroupBy(x => x.GroupKey!.Trim(), StringComparer.OrdinalIgnoreCase)
-            .SelectMany(group => Calculate(group.ToArray(), minimumSampleSize)
+            .SelectMany(group => Calculate(group.ToArray(), minimumSampleSize, higherIsBetter)
                 .Select(result => result with { Basis = $"Primary-position cohort '{group.Key}': {result.Basis}" }))
             .OrderByDescending(x => x.Percentile ?? double.MinValue)
-            .ThenByDescending(x => x.Value)
+            .ThenByDescending(x => higherIsBetter ? x.Value : -x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 
     public static IReadOnlyList<CohortPercentileResult> Calculate(
         IReadOnlyList<CohortMetricObservation> observations,
-        int minimumSampleSize = 5)
+        int minimumSampleSize = 5,
+        bool higherIsBetter = true)
     {
         ArgumentNullException.ThrowIfNull(observations);
         if (minimumSampleSize < 1 || minimumSampleSize > 100000)
@@ -58,14 +55,12 @@ public static class CohortPercentileService
             .OrderBy(x => x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        var results = new List<CohortPercentileResult>(sampleSize);
+        var direction = higherIsBetter ? "higher values rank higher" : "lower values rank higher";
         var basis = hasReliableSample
-            ? $"Mid-rank within {sampleSize:N0} returned rows; not league-strength adjusted."
-            : $"Insufficient sample: {sampleSize:N0}/{minimumSampleSize:N0} minimum rows.";
+            ? $"Mid-rank within {sampleSize:N0} returned rows; {direction}; not league-strength adjusted."
+            : $"Insufficient sample: {sampleSize:N0}/{minimumSampleSize:N0} minimum rows; {direction}.";
 
-        // All equal values share the midpoint of their occupied rank interval.
-        // This is O(n log n) for sorting plus O(n) for grouping, rather than
-        // recounting the full cohort once for every player.
+        var results = new List<CohortPercentileResult>(sampleSize);
         for (var start = 0; start < ordered.Length;)
         {
             var end = start + 1;
@@ -75,6 +70,8 @@ public static class CohortPercentileService
             double? percentile = hasReliableSample
                 ? 100d * (start + ((end - start) / 2d)) / sampleSize
                 : null;
+            if (percentile.HasValue && !higherIsBetter)
+                percentile = 100d - percentile.Value;
 
             for (var index = start; index < end; index++)
             {
@@ -93,7 +90,7 @@ public static class CohortPercentileService
 
         return results
             .OrderByDescending(x => x.Percentile ?? double.MinValue)
-            .ThenByDescending(x => x.Value)
+            .ThenByDescending(x => higherIsBetter ? x.Value : -x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }

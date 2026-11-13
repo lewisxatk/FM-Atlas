@@ -392,3 +392,42 @@ Superseded: latest code-level Windows verification is source commit `4fdd17c344a
 - All three additions were deleted from `main` in sequential revert commits. Current `main` ref: `05a0928e82cb3b3e99f58a5ae4ebe19479c9bb35`.
 - Verified with GitHub compare: `2051bbee042fb8e7203b7855e833e391ccee9ecb...main` returns **zero changed files**. The current `main` content tree is therefore identical to the original baseline, although its commit history contains the add/revert commits.
 - The integrated application work remains on `overhaul/monolith-full-platform`; no application code or feature merge is present on `main`.
+
+
+## Combined development pass: workstreams 1–4 — 2026-11-13
+
+**Status: source and UI changes prepared on the overhaul branch; fresh Windows CI acceptance pending.**
+
+### 1. MONOLITH shared controls
+- Added src/FmAtlas/Themes/MonolithControls.xaml as an opt-in resource dictionary for cards, primary/secondary buttons, text boxes, combo boxes, data grids and section headings.
+- Styles reference the existing Atlas.* dynamic theme tokens so Obsidian and Warm Light can update the same controls.
+- Styles are explicitly keyed: untouched legacy views are not silently restyled. Full view migration and WPF visual acceptance remain outstanding.
+
+### 2. Moneyball Scout
+- Added a user-selected Higher is better / Lower is better ranking direction to the Moneyball workspace.
+- The direction is included in the results table and CSV export and is applied consistently to full-save and primary-position mid-rank percentiles.
+- Added a lower-is-better tie/ranking regression test.
+- Age-band and competition cohorts remain gated because the current metric-result schema does not yet carry verified age and competition fields. No league-strength adjustment is claimed.
+
+### 3. Recruitment Intelligence
+- The Scouting Matrix now has a role-profile selector and Rank role fits action. It ranks source-backed Atlas role estimates and lets the selected candidate be added to a shortlist.
+- Added RecruitmentIntelligenceService for replacement lift and separate fee/wage budget assessment when those fields are actually supplied.
+- Market value is informational only. It is never substituted for asking price; absent asking price or wage is DataUnavailable, and unconfigured budgets remain distinct.
+- The current save metric/player query does not expose a complete asking-price and weekly-wage contract, so the new budget service is tested independently and those live UI values are not fabricated. Multi-project boards, tags, owner/status fields and full recruitment radar remain outstanding.
+
+### 4. Tactical Intelligence
+- Tactical Studio now filters its role catalogue by All phases, In Possession or Out of Possession.
+- Added TacticalSquadAnalysisService with separate 4-3-3 in-possession and 4-4-2 out-of-possession templates, per-phase role/position scoring, one-player-per-slot assignment and a shared-player comparison.
+- The new Tactical Studio panel uses the selected club's latest registered position snapshot and shows explicit unfilled slots. It does not claim FM-native tactical effectiveness, tactical understanding, cohesion or buy-in.
+- Added service tests for phase separation, incompatible phase rejection and both 11-slot templates.
+
+### Added regression coverage
+- One lower-is-better cohort test.
+- Four recruitment-engine tests.
+- Three dual-phase tactical-engine tests.
+- Baseline was 103 passing MSTest cases at 5ff275d; this pass adds eight tests. The resulting total and build warning count must be taken from the next Windows Actions run, not assumed here.
+
+### Acceptance boundary
+- These edits are code and UI integration, not user-PC runtime acceptance.
+- Fresh Windows Release build and automated tests are pending.
+- No FM27 copied-save acceptance, Game Pass UI verification or live-memory write test has been performed. Live Apply/Undo stays blocked; main is not part of this development pass.

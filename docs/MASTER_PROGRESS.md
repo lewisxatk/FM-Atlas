@@ -386,3 +386,19 @@ Only mark a feature complete when the source change exists on this branch and it
 - All three additions were deleted from `main` in sequential revert commits. Current `main` ref: `05a0928e82cb3b3e99f58a5ae4ebe19479c9bb35`.
 - Verified with GitHub compare: `2051bbee042fb8e7203b7855e833e391ccee9ecb...main` returns **zero changed files**. The current `main` content tree is therefore identical to the original baseline, although its commit history contains the add/revert commits.
 - The integrated application work remains on `overhaul/monolith-full-platform`; no application code or feature merge is present on `main`.
+
+
+## Combined development pass — 2026-11-13 — workstreams 1–4
+
+- [x] Added opt-in shared MONOLITH WPF style resources for cards, buttons, text inputs, combo boxes, data grids and section headings.
+- [x] Added explicit higher-/lower-is-better Moneyball ranking and exported direction metadata; added a regression test for lower-is-better tied percentiles.
+- [x] Added role-profile-based candidate ranking to the Scouting Matrix and shortlist handoff.
+- [x] Added a tested recruitment opportunity engine that separates role improvement, market value, asking price, weekly wage and their budget assessments.
+- [x] Added phase-specific Tactical Studio filtering and an in-possession/out-of-possession squad comparison panel with two 11-slot templates.
+- [x] Added standalone regression tests for recruitment budget semantics and two-phase tactical shape behaviour.
+- [ ] Fresh Windows CI build/test verification for this combined commit.
+- [ ] Migrate the remaining legacy WPF screens onto keyed MONOLITH styles and complete contrast/DPI/theme visual checks.
+- [ ] Add verified age/competition cohort data to the statistics schema before implementing those Moneyball groupings.
+- [ ] Add a field-backed asking-price/wage provider before exposing transfer affordability in the live recruitment UI.
+- [ ] Validate tactical shape templates and selection results against the user's copied FM27 Game Pass save and in-game tactical screen.
+- Live Apply/Undo remains blocked; no original career save is to be modified. main is not targeted by this pass.

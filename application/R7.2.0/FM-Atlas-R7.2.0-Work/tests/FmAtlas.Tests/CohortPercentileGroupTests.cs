@@ -49,4 +49,26 @@ public sealed class CohortPercentileGroupTests
         Assert.IsTrue(results.All(x => x.SampleSize < 3));
         Assert.IsFalse(results.Any(x => x.Id is "unknown" or "blank"));
     }
+
+    [TestMethod]
+    public void CalculateByGroup_LowerIsBetterRanksSmallerValuesHigherAndPreservesTies()
+    {
+        var observations = new[]
+        {
+            new CohortMetricObservation("low", "Low value", 10, "STC"),
+            new CohortMetricObservation("middle-a", "Middle A", 20, "STC"),
+            new CohortMetricObservation("middle-b", "Middle B", 20, "STC"),
+            new CohortMetricObservation("high", "High value", 30, "STC")
+        };
+
+        var results = CohortPercentileService.CalculateByGroup(observations, minimumSampleSize: 4, higherIsBetter: false);
+
+        var lowPercentile = results.Single(x => x.Id == "low").Percentile!.Value;
+        var highPercentile = results.Single(x => x.Id == "high").Percentile!.Value;
+        Assert.AreEqual(100d - highPercentile, lowPercentile, 0.0001);
+        Assert.IsTrue(lowPercentile > highPercentile);
+        Assert.AreEqual(results.Single(x => x.Id == "middle-a").Percentile!.Value, results.Single(x => x.Id == "middle-b").Percentile!.Value, 0.0001);
+        Assert.IsTrue(results.All(x => x.Basis.Contains("lower values rank higher", StringComparison.Ordinal)));
+    }
+
 }

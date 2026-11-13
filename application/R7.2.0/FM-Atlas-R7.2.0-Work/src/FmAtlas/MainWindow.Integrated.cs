@@ -14,8 +14,10 @@ namespace FmAtlas;
 public partial class MainWindow
 {
     private sealed record DnaAttributeRow(string Category, string Attribute, double Value);
-    private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, string Period, double Value, double? Percentile, int SampleSize, string Basis);
+    private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, string Period, string Direction, double Value, double? Percentile, int SampleSize, string Basis);
+    private sealed record RecruitmentCandidateRow(string SourceId, string Name, string? Club, string? Position, int? Age, string Value, double? AtlasFit, string Coverage);
     private sealed record TacticalCandidateRow(int Rank, string Name, string Club, string Position, double Score, string Coverage);
+    private sealed record TacticalShapeCandidateRow(string Phase, string Slot, string Player, string RoleFit, string PositionRating, string AtlasScore);
     private sealed record GraphicsMappingRow(string Id, string Pack, string Target, string Status);
 
     private async Task<UIElement> PlayerDnaPageAsync()
@@ -141,19 +143,27 @@ public partial class MainWindow
 
         TextBox notesInput = null!;
         var candidateRow = new WrapPanel();
-        var candidateSearch = Input("Find candidate by name or club"); candidateSearch.Width = 280;
+        var candidateSearch = Input("Find candidate by name or club"); candidateSearch.Width = 250;
         var searchButton = PrimaryButton("Search candidates", async (_, _) => await SearchCandidatesAsync());
+        var rolePicker = new ComboBox { Width = 245, Height = 35, Margin = new Thickness(3), ItemsSource = RoleFitService.GetProfiles(), DisplayMemberPath = nameof(RoleFitProfile.Name), IsTextSearchEnabled = true };
+        if (rolePicker.Items.Count > 0) rolePicker.SelectedIndex = 0;
+        var roleRankButton = SoftButton("Rank role fits", async (_, _) => await SearchRoleFitCandidatesAsync());
         var addButton = SoftButton("Add selected candidate", async (_, _) => await AddCandidateAsync());
         var removeButton = SoftButton("Remove from shortlist", async (_, _) => await RemoveCandidateAsync());
-        candidateRow.Children.Add(candidateSearch); candidateRow.Children.Add(searchButton); candidateRow.Children.Add(addButton); candidateRow.Children.Add(removeButton);
+        candidateRow.Children.Add(candidateSearch); candidateRow.Children.Add(searchButton);
+        candidateRow.Children.Add(rolePicker); candidateRow.Children.Add(roleRankButton);
+        candidateRow.Children.Add(addButton); candidateRow.Children.Add(removeButton);
+        root.Children.Add(Txt("Role-fit rankings are Atlas estimates from imported attributes, not FM's hidden role stars. Transfer availability, asking price and wages are not inferred.", 9, false, Muted, wrap: true));
         root.Children.Add(Card(candidateRow, 13, new Thickness(0, 0, 0, 10)));
 
         candidates = CreateGrid();
-        candidates.Columns.Add(Column("PLAYER", nameof(PlayerRecord.Name), 1.3));
-        candidates.Columns.Add(Column("CLUB", nameof(PlayerRecord.Club), 1));
-        candidates.Columns.Add(Column("POSITION", nameof(PlayerRecord.Position), .7));
-        candidates.Columns.Add(Column("AGE", nameof(PlayerRecord.Age), .4));
-        candidates.Columns.Add(Column("VALUE", nameof(PlayerRecord.DisplayValue), .6));
+        candidates.Columns.Add(Column("PLAYER", nameof(RecruitmentCandidateRow.Name), 1.3));
+        candidates.Columns.Add(Column("CLUB", nameof(RecruitmentCandidateRow.Club), 1));
+        candidates.Columns.Add(Column("POSITION", nameof(RecruitmentCandidateRow.Position), .7));
+        candidates.Columns.Add(Column("AGE", nameof(RecruitmentCandidateRow.Age), .4));
+        candidates.Columns.Add(Column("VALUE", nameof(RecruitmentCandidateRow.Value), .6));
+        candidates.Columns.Add(Column("ATLAS FIT", nameof(RecruitmentCandidateRow.AtlasFit), .6));
+        candidates.Columns.Add(Column("COVERAGE", nameof(RecruitmentCandidateRow.Coverage), .7));
         root.Children.Add(Card(candidates, 14, new Thickness(0, 0, 0, 10)));
 
         saved = CreateGrid();
@@ -191,15 +201,50 @@ public partial class MainWindow
             {
                 var rows = await RunDatabaseAsync(() => _database.SearchAsync(candidateSearch.Text.Trim(), null, null,
                     null, null, null, null, limit: 200));
-                candidates.ItemsSource = rows;
+                candidates.ItemsSource = rows.Select(player => new RecruitmentCandidateRow(
+                    player.SourceId, player.Name, player.Club, player.Position, player.Age,
+                    player.DisplayValue, null, "Not ranked")).ToArray();
                 status.Text = $"{rows.Count:N0} candidate records found. Select a row to add it to the active shortlist.";
             }
             catch (Exception ex) { status.Text = "Candidate search failed: " + ex.Message; }
         }
+        async Task SearchRoleFitCandidatesAsync()
+        {
+            if (rolePicker.SelectedItem is not RoleFitProfile selectedRole)
+            {
+                status.Text = "Choose a tactical role before ranking candidates.";
+                return;
+            }
+            try
+            {
+                var rows = await RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(selectedRole, 5000, resultLimit: 5000));
+                candidates.ItemsSource = rows
+                    .OrderByDescending(x => x.Score)
+                    .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(x => new RecruitmentCandidateRow(
+                        x.SourceId, x.Name, x.Club, x.Position, x.Age, "—",
+                        Math.Round(x.Score, 2), $"{x.AttributesAvailable}/{x.AttributesExpected} · {x.Coverage:P0}"))
+                    .ToArray();
+                status.Text = $"{rows.Count:N0} {selectedRole.Name} candidates ranked by Atlas role-fit estimate. Fees, wages, availability and FM-native role stars are not supplied by this query.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Recruitment role-fit search failed.", ex);
+                status.Text = "Could not rank role-fit candidates: " + ex.Message;
+            }
+        }
         async Task AddCandidateAsync()
         {
             if (shortlistPicker.SelectedItem is not string name) { status.Text = "Create or select a shortlist first."; return; }
-            if (candidates.SelectedItem is not PlayerRecord player) { status.Text = "Select a candidate first."; return; }
+            if (candidates.SelectedItem is not RecruitmentCandidateRow selected) { status.Text = "Select a candidate first."; return; }
+            var player = new PlayerRecord
+            {
+                SourceId = selected.SourceId,
+                Name = selected.Name,
+                Club = selected.Club,
+                Position = selected.Position,
+                Age = selected.Age
+            };
             try
             {
                 await RunDatabaseAsync(() => _database.AddToShortlistAsync(player, name));
@@ -293,6 +338,15 @@ public partial class MainWindow
             SelectedIndex = 0,
             ToolTip = "Position-normalised cohorts use the imported primary-position label. Players without a usable position are excluded from those groups."
         };
+        var direction = new ComboBox
+        {
+            Width = 175,
+            Height = 35,
+            Margin = new Thickness(3),
+            ItemsSource = new[] { "Higher is better", "Lower is better" },
+            SelectedIndex = 0,
+            ToolTip = "Set the ranking direction for this statistic. Atlas does not guess whether a metric is desirable."
+        };
         var per90 = new CheckBox { Content = "Per 90", Margin = new Thickness(10, 9, 8, 3), Foreground = Ink, VerticalAlignment = VerticalAlignment.Center };
         var minimumMinutes = Input("Minimum minutes"); minimumMinutes.Text = "450"; minimumMinutes.Width = 130;
         var minimumSample = Input("Minimum cohort size"); minimumSample.Text = "5"; minimumSample.Width = 140;
@@ -320,7 +374,7 @@ public partial class MainWindow
         run = PrimaryButton("Rank cohort", async (_, _) => await RankAsync());
         export = SoftButton("Export CSV", (_, _) => ExportRows());
         export.IsEnabled = false;
-        options.Children.Add(field); options.Children.Add(cohort); options.Children.Add(per90); options.Children.Add(minimumMinutes); options.Children.Add(minimumSample); options.Children.Add(run); options.Children.Add(export);
+        options.Children.Add(field); options.Children.Add(cohort); options.Children.Add(direction); options.Children.Add(per90); options.Children.Add(minimumMinutes); options.Children.Add(minimumSample); options.Children.Add(run); options.Children.Add(export);
         root.Children.Add(Card(options, 13, new Thickness(0, 0, 0, 10)));
 
         grid = CreateGrid();
@@ -328,6 +382,7 @@ public partial class MainWindow
         grid.Columns.Add(Column("CLUB", nameof(MoneyballRow.Club), .9));
         grid.Columns.Add(Column("PRIMARY POSITION", nameof(MoneyballRow.Position), .7));
         grid.Columns.Add(Column("PERIOD", nameof(MoneyballRow.Period), .8));
+        grid.Columns.Add(Column("DIRECTION", nameof(MoneyballRow.Direction), .7));
         grid.Columns.Add(Column("VALUE", nameof(MoneyballRow.Value), .6));
         grid.Columns.Add(Column("PERCENTILE", nameof(MoneyballRow.Percentile), .7));
         grid.Columns.Add(Column("SAMPLE", nameof(MoneyballRow.SampleSize), .5));
@@ -339,6 +394,7 @@ public partial class MainWindow
         // Attach invalidation handlers only after the results grid and export button exist.
         field.SelectionChanged += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
         cohort.SelectionChanged += (_, _) => InvalidateResults();
+        direction.SelectionChanged += (_, _) => InvalidateResults();
         per90.Checked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
         per90.Unchecked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
         minimumMinutes.TextChanged += (_, _) => InvalidateResults();
@@ -349,6 +405,8 @@ public partial class MainWindow
             if (field.SelectedItem is not StatMetricField selected) { status.Text = "No metric is selected."; return; }
             var mins = int.TryParse(minimumMinutes.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMinutes) ? Math.Clamp(parsedMinutes, 1, 10000) : 450;
             var sample = int.TryParse(minimumSample.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedSample) ? Math.Clamp(parsedSample, 1, 100000) : 5;
+            var higherIsBetter = !string.Equals(direction.SelectedItem as string, "Lower is better", StringComparison.Ordinal);
+            var directionLabel = higherIsBetter ? "Higher is better" : "Lower is better";
             run.IsEnabled = false;
             export.IsEnabled = false;
             currentRows = Array.Empty<MoneyballRow>();
@@ -371,13 +429,13 @@ public partial class MainWindow
                     x.Row.PrimaryPosition)).ToArray();
                 var positionNormalised = string.Equals(cohort.SelectedItem as string, "Same primary position", StringComparison.Ordinal);
                 var ranked = positionNormalised
-                    ? CohortPercentileService.CalculateByGroup(observations, sample)
-                    : CohortPercentileService.Calculate(observations, sample);
+                    ? CohortPercentileService.CalculateByGroup(observations, sample, higherIsBetter)
+                    : CohortPercentileService.Calculate(observations, sample, higherIsBetter);
                 var byId = indexedRows.ToDictionary(x => x.Key, x => x.Row, StringComparer.OrdinalIgnoreCase);
                 var displayRows = ranked.Select(x =>
                 {
                     var row = byId[x.Id];
-                    return new MoneyballRow(row.SourceId, row.Name, row.Club ?? "—", row.PrimaryPosition ?? "Unclassified", row.Season, row.Value,
+                    return new MoneyballRow(row.SourceId, row.Name, row.Club ?? "—", row.PrimaryPosition ?? "Unclassified", row.Season, directionLabel, row.Value,
                         x.Percentile, x.SampleSize, x.Basis);
                 }).ToArray();
                 currentRows = displayRows;
@@ -388,7 +446,7 @@ public partial class MainWindow
                 var cohortDescription = positionNormalised
                     ? $"independent primary-position groups; {unclassified:N0} rows without a usable primary-position label excluded"
                     : "the full returned cohort";
-                status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")} · {cohortDescription}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within each displayed sample of up to 50,000 rows; no cross-league strength adjustment or parser field-level certification is implied.";
+                status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")} · {directionLabel} · {cohortDescription}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within each displayed sample of up to 50,000 rows; no cross-league strength adjustment or parser field-level certification is implied.";
             }
             catch (Exception ex)
             {
@@ -417,10 +475,11 @@ public partial class MainWindow
             static string Q(string? value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
             var lines = new List<string>
             {
-                "Metric,PlayerSourceId,Player,Club,PrimaryPosition,Period,Value,Percentile,SampleSize,EvidenceBasis"
+                "Metric,Direction,PlayerSourceId,Player,Club,PrimaryPosition,Period,Value,Percentile,SampleSize,EvidenceBasis"
             };
             lines.AddRange(currentRows.Select(row => string.Join(",",
                 Q(currentMetricKey),
+                Q(row.Direction),
                 Q(row.SourceId),
                 Q(row.Name),
                 Q(row.Club),
@@ -460,10 +519,36 @@ public partial class MainWindow
         root.Children.Add(header);
 
         var profiles = RoleFitService.GetProfiles();
-        var profile = new ComboBox { Width = 300, Height = 36, Margin = new Thickness(3), ItemsSource = profiles, DisplayMemberPath = nameof(RoleFitProfile.Name), IsTextSearchEnabled = true };
-        if (profiles.Count > 0) profile.SelectedIndex = 0;
+        var phasePicker = new ComboBox
+        {
+            Width = 190,
+            Height = 36,
+            Margin = new Thickness(3),
+            ItemsSource = new[] { "All phases", "In Possession", "Out of Possession" },
+            SelectedIndex = 0,
+            ToolTip = "Filter role profiles by their documented tactical phase."
+        };
+        var profile = new ComboBox { Width = 300, Height = 36, Margin = new Thickness(3), DisplayMemberPath = nameof(RoleFitProfile.Name), IsTextSearchEnabled = true };
+        void RefreshRoleProfiles()
+        {
+            var previous = (profile.SelectedItem as RoleFitProfile)?.Name;
+            var phase = phasePicker.SelectedItem as string ?? "All phases";
+            var available = profiles.Where(x => phase == "All phases"
+                || x.Phase.Equals("Both", StringComparison.OrdinalIgnoreCase)
+                || x.Phase.Equals(phase, StringComparison.OrdinalIgnoreCase)).ToArray();
+            profile.ItemsSource = available;
+            profile.SelectedItem = available.FirstOrDefault(x => x.Name.Equals(previous, StringComparison.OrdinalIgnoreCase));
+            if (profile.SelectedItem is null && available.Length > 0) profile.SelectedIndex = 0;
+        }
+        RefreshRoleProfiles();
+        phasePicker.SelectionChanged += (_, _) =>
+        {
+            RefreshRoleProfiles();
+            grid.ItemsSource = null;
+            status.Text = "Role phase changed. Analyse again to refresh the candidate ranking.";
+        };
         run = PrimaryButton("Analyse role fit", async (_, _) => await AnalyseAsync());
-        var controls = new WrapPanel(); controls.Children.Add(profile); controls.Children.Add(run);
+        var controls = new WrapPanel(); controls.Children.Add(phasePicker); controls.Children.Add(profile); controls.Children.Add(run);
         root.Children.Add(Card(controls, 13, new Thickness(0, 0, 0, 10)));
 
         grid = CreateGrid();
@@ -495,6 +580,142 @@ public partial class MainWindow
                 status.Text = "Role fit analysis failed: " + ex.Message;
             }
             finally { run.IsEnabled = true; }
+        }
+
+        // A second tactical view compares two distinct tactical phases with phase-compatible
+        // role profiles. It is deliberately separate from the single-role ranking above.
+        var phasePlanStack = new StackPanel();
+        phasePlanStack.Children.Add(Txt("DUAL-PHASE SQUAD ANALYSIS", 9, true, Teal));
+        phasePlanStack.Children.Add(Txt("In-possession and out-of-possession shapes", 18, true, Ink));
+        phasePlanStack.Children.Add(Txt("Atlas builds two separate one-player-per-slot selections from registered position ratings and transparent role-fit estimates. The sample shapes are starting templates, not imported FM tactics or SI effectiveness scores.", 10, false, Muted, wrap: true));
+
+        var phasePlayers = await RunDatabaseAsync(() => _database.SearchAsync("", null, null, null, null, null, null, limit: 50000));
+        var phaseClubs = phasePlayers.Select(x => x.Club)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var phaseClubPicker = new ComboBox
+        {
+            Width = 300,
+            Height = 36,
+            Margin = new Thickness(3),
+            ItemsSource = phaseClubs,
+            IsTextSearchEnabled = true
+        };
+        if (phaseClubs.Length > 0) phaseClubPicker.SelectedIndex = 0;
+        var compareShapesButton = PrimaryButton("Compare both shapes", async (_, _) => await CompareShapesAsync());
+        var phaseControls = new WrapPanel();
+        phaseControls.Children.Add(phaseClubPicker);
+        phaseControls.Children.Add(compareShapesButton);
+        phasePlanStack.Children.Add(phaseControls);
+
+        var phaseGrid = CreateGrid();
+        phaseGrid.Columns.Add(Column("PHASE", nameof(TacticalShapeCandidateRow.Phase), .8));
+        phaseGrid.Columns.Add(Column("SLOT", nameof(TacticalShapeCandidateRow.Slot), 1));
+        phaseGrid.Columns.Add(Column("PLAYER", nameof(TacticalShapeCandidateRow.Player), 1.2));
+        phaseGrid.Columns.Add(Column("ROLE FIT", nameof(TacticalShapeCandidateRow.RoleFit), .6));
+        phaseGrid.Columns.Add(Column("POSITION", nameof(TacticalShapeCandidateRow.PositionRating), .6));
+        phaseGrid.Columns.Add(Column("ATLAS SCORE", nameof(TacticalShapeCandidateRow.AtlasScore), .7));
+        phasePlanStack.Children.Add(phaseGrid);
+        var phaseStatus = Txt("Choose a club and compare the two sample tactical shapes. The latest registered snapshot is required for position eligibility.", 9, false, Muted, wrap: true);
+        phasePlanStack.Children.Add(phaseStatus);
+        root.Children.Add(Card(phasePlanStack, 15, new Thickness(0, 14, 0, 0)));
+
+        async Task CompareShapesAsync()
+        {
+            if (phaseClubPicker.SelectedItem is not string selectedClub || string.IsNullOrWhiteSpace(selectedClub))
+            {
+                phaseStatus.Text = "No imported club is available. Import a save snapshot first.";
+                return;
+            }
+
+            compareShapesButton.IsEnabled = false;
+            phaseGrid.ItemsSource = null;
+            phaseStatus.Text = "Calculating separate in-possession and out-of-possession selections…";
+            try
+            {
+                var inShape = TacticalSquadAnalysisService.GetDefaultInPossessionShape();
+                var outShape = TacticalSquadAnalysisService.GetDefaultOutOfPossessionShape();
+                var profileMap = RoleFitService.GetProfiles()
+                    .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+                var requiredProfiles = inShape.Slots.Concat(outShape.Slots)
+                    .Select(x => x.RoleProfileName)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                var roleTasks = requiredProfiles.ToDictionary(
+                    name => name,
+                    name => RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(
+                        profileMap[name], 50000, selectedClub, resultLimit: 5000)),
+                    StringComparer.OrdinalIgnoreCase);
+                var positionsTask = RunDatabaseAsync(() => _database.GetPlayerPositionRatingsForClubAsync(selectedClub));
+                await Task.WhenAll(roleTasks.Values.Cast<Task>().Append(positionsTask));
+
+                if (!string.Equals(phaseClubPicker.SelectedItem?.ToString(), selectedClub, StringComparison.OrdinalIgnoreCase))
+                {
+                    phaseStatus.Text = "Club selection changed while analysis was running. Compare again using the selected club.";
+                    return;
+                }
+
+                var positions = await positionsTask;
+                if (positions.Count == 0)
+                {
+                    phaseStatus.Text = "No registered position ratings are available for this club. Unknown or unregistered game builds are not used for position eligibility.";
+                    return;
+                }
+
+                var roleCandidates = roleTasks.ToDictionary(
+                    x => x.Key,
+                    x => (IReadOnlyList<RoleFitCandidate>)x.Value.Result,
+                    StringComparer.OrdinalIgnoreCase);
+                var comparison = TacticalSquadAnalysisService.Compare(inShape, outShape, roleCandidates, positions);
+
+                static IEnumerable<TacticalShapeCandidateRow> ToRows(TacticalPhaseSquadResult result)
+                {
+                    foreach (var assignment in result.Selection.Assignments)
+                    {
+                        if (assignment.Candidate is null)
+                        {
+                            yield return new TacticalShapeCandidateRow(result.Phase, assignment.Slot.DisplayName,
+                                "No eligible player", "—", "—", "—");
+                            continue;
+                        }
+
+                        var key = SquadArchitectService.GetBreakdownKey(
+                            assignment.Candidate.SourceId, assignment.Slot.SlotId);
+                        var detail = result.ScoreBreakdown[key];
+                        yield return new TacticalShapeCandidateRow(
+                            result.Phase,
+                            assignment.Slot.DisplayName,
+                            assignment.Candidate.Name,
+                            detail.RoleFitScore.ToString("0.0", CultureInfo.InvariantCulture),
+                            detail.PositionRating.ToString("0.0", CultureInfo.InvariantCulture),
+                            detail.CompositeScore.ToString("0.0", CultureInfo.InvariantCulture));
+                    }
+                }
+
+                phaseGrid.ItemsSource = ToRows(comparison.InPossession)
+                    .Concat(ToRows(comparison.OutOfPossession))
+                    .ToArray();
+                phaseStatus.Text = comparison.InPossession.ShapeName + ": "
+                    + comparison.InPossession.Selection.FilledSlots + "/"
+                    + comparison.InPossession.Selection.TotalSlots + " slots · "
+                    + comparison.OutOfPossession.ShapeName + ": "
+                    + comparison.OutOfPossession.Selection.FilledSlots + "/"
+                    + comparison.OutOfPossession.Selection.TotalSlots + " slots · "
+                    + comparison.SharedPlayerSourceIds.Count + " player(s) selected in both phases. "
+                    + "Shared-player count is descriptive only; FM tactical cohesion, familiarity and player buy-in are not calculated.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Dual-phase tactical analysis failed.", ex);
+                phaseStatus.Text = "Could not compare the tactical shapes: " + ex.Message;
+            }
+            finally
+            {
+                compareShapesButton.IsEnabled = true;
+            }
         }
 
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };

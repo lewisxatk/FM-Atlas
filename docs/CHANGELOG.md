@@ -80,3 +80,14 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Added six RoleFit tests for weighted means, coverage, normalized attribute keys, missing values, out-of-range/nonfinite values and profile validation.
 - Windows run `43470501984` at `b8bad3a`: Release build 0 warnings/0 errors; **47/47 tests passed**; Release and TRX artifacts uploaded.
 - Main branch preserved; 163 commits ahead/0 behind at this checkpoint.
+
+
+## 2026-11-13 — Integrated development pass, workstreams 1–4
+
+- Added opt-in MONOLITH WPF control styles bound to the existing Obsidian/Warm Light dynamic tokens.
+- Added a Moneyball metric direction selector so lower-is-better metrics can be ranked correctly; direction is visible and exported.
+- Extended Scouting Matrix with role-profile candidate ranking and add-to-shortlist flow.
+- Added an independent recruitment opportunity engine with incumbent-score lift and separate asking-price/weekly-wage budget checks; missing financial fields stay unavailable.
+- Added independent in-possession/out-of-possession squad analysis with 11-slot starter templates and phase-compatible role validation.
+- Added eight regression tests across cohort direction, recruitment budgeting and dual-phase tactics.
+- The new combined branch checkpoint still requires Windows Actions build/test verification and user-PC acceptance. No runtime or copied-save validation is claimed by this changelog entry.
