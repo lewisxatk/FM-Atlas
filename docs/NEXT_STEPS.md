@@ -109,3 +109,13 @@ Stop and inspect the evidence before proceeding if a build changes the database 
 - Next required user-environment acceptance: launch the WPF app, route-by-route smoke check, test Role Lab selection and CSV on an imported copy of an FM27 Game Pass save, theme/DPI screenshots, inspect support ZIP entries and validate GraphicsResolver against actual folders.
 - Continue the broader programme: Advanced Search full profiles and nested groups, Player DNA, Scouting Matrix/recruitment, Moneyball cohort percentiles, Tactical Intelligence, Match Lab, development assistant, Save Inspector, local editor, Game Pass read-only adapter, Graphics/Skin Studio, mod workbench, installer and release/rollback.
 - Preserve read-only behaviour for unsupported builds. Live Apply/Undo remains disabled until field-level certification and disposable-save read-back/rollback acceptance passes.
+
+
+## Agreed execution order — 2026-11-13
+
+The user requested Stage 1 and Stage 2 to be completed together first, then receive a findings report. After that review, the user will decide whether to combine the remaining stages into one integrated implementation and test it. Do not begin Stage 3–7 before that approval.
+
+- Combined findings and route map: `docs/STAGE1_STAGE2_AUDIT.md`.
+- Stage 1: finish exact-commit CI for the Diagnostics privacy-copy/manifest correction; manually generate and inspect both support ZIP variants on Windows; verify manifest hashes and excluded files.
+- Stage 2: finish static source/feature traceability for all 21 routes; run Windows route smoke tests and capture actual Game Pass build, save import and graphics folder acceptance evidence.
+- Once both stages pass, return the report with confirmed findings, incomplete features, risk boundaries and proposed unified Stage 3–7 scope. Wait for the user's approval before beginning it.
