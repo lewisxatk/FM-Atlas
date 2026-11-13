@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 using FmAtlas.Data;
 using FmAtlas.Models;
 using FmAtlas.Services;
@@ -11,7 +14,7 @@ namespace FmAtlas;
 public partial class MainWindow
 {
     private sealed record DnaAttributeRow(string Category, string Attribute, double Value);
-    private sealed record MoneyballRow(string Name, string Club, string Period, double Value, double? Percentile, int SampleSize, string Basis);
+    private sealed record MoneyballRow(string SourceId, string Name, string Club, string Period, double Value, double? Percentile, int SampleSize, string Basis);
     private sealed record TacticalCandidateRow(int Rank, string Name, string Club, string Position, double Score, string Coverage);
     private sealed record GraphicsMappingRow(string Id, string Pack, string Target, string Status);
 
@@ -257,7 +260,9 @@ public partial class MainWindow
     {
         var root = new StackPanel();
         Button run = null!;
+        Button export = null!;
         DataGrid grid = null!;
+        MoneyballRow[] currentRows = Array.Empty<MoneyballRow>();
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PERFORMANCE SCOUTING", 9, true, Teal));
@@ -298,7 +303,9 @@ public partial class MainWindow
         per90.Unchecked += (_, _) => UpdatePer90Availability();
         UpdatePer90Availability();
         run = PrimaryButton("Rank cohort", async (_, _) => await RankAsync());
-        options.Children.Add(field); options.Children.Add(per90); options.Children.Add(minimumMinutes); options.Children.Add(minimumSample); options.Children.Add(run);
+        export = SoftButton("Export CSV", (_, _) => ExportRows());
+        export.IsEnabled = false;
+        options.Children.Add(field); options.Children.Add(per90); options.Children.Add(minimumMinutes); options.Children.Add(minimumSample); options.Children.Add(run); options.Children.Add(export);
         root.Children.Add(Card(options, 13, new Thickness(0, 0, 0, 10)));
 
         grid = CreateGrid();
@@ -336,10 +343,12 @@ public partial class MainWindow
                 var displayRows = ranked.Select(x =>
                 {
                     var row = byId[x.Id];
-                    return new MoneyballRow(row.Name, row.Club ?? "—", row.Season, row.Value,
+                    return new MoneyballRow(row.SourceId, row.Name, row.Club ?? "—", row.Season, row.Value,
                         x.Percentile, x.SampleSize, x.Basis);
                 }).ToArray();
+                currentRows = displayRows;
                 grid.ItemsSource = displayRows;
+                export.IsEnabled = displayRows.Length > 0;
                 status.Text = $"{displayRows.Length:N0} observations · {selected.DisplayName}{(per90.IsChecked == true ? " per 90" : "")}. Source tables: {selected.SourceTables}. Percentiles are mid-ranks within these returned rows only; no cross-league strength adjustment or parser field-level certification is implied.";
             }
             catch (Exception ex)
@@ -348,6 +357,50 @@ public partial class MainWindow
                 status.Text = "Could not rank the cohort: " + ex.Message;
             }
             finally { run.IsEnabled = true; }
+        }
+
+        void ExportRows()
+        {
+            if (currentRows.Length == 0)
+            {
+                status.Text = "Rank a cohort before exporting.";
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Export Moneyball cohort",
+                FileName = "FM-Atlas-moneyball-cohort.csv",
+                Filter = "CSV files (*.csv)|*.csv"
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            static string Q(string? value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
+            var lines = new List<string>
+            {
+                "Metric,PlayerSourceId,Player,Club,Period,Value,Percentile,SampleSize,EvidenceBasis"
+            };
+            lines.AddRange(currentRows.Select(row => string.Join(",",
+                Q(field.SelectedItem is StatMetricField metric ? metric.Key : string.Empty),
+                Q(row.SourceId),
+                Q(row.Name),
+                Q(row.Club),
+                Q(row.Period),
+                row.Value.ToString("0.####", CultureInfo.InvariantCulture),
+                row.Percentile?.ToString("0.0", CultureInfo.InvariantCulture) ?? string.Empty,
+                row.SampleSize.ToString(CultureInfo.InvariantCulture),
+                Q(row.Basis))));
+
+            try
+            {
+                File.WriteAllLines(dialog.FileName, lines, new UTF8Encoding(true));
+                status.Text = $"Exported {currentRows.Length:N0} Moneyball observations with source identity and evidence basis.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Moneyball CSV export failed.", ex);
+                status.Text = "Could not export Moneyball cohort: " + ex.Message;
+            }
         }
 
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
