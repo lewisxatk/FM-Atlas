@@ -1454,6 +1454,75 @@ public sealed class ScoutDatabase
     }
 
     /// <summary>
+    /// Returns the latest imported, source-backed 15-position rating values for the requested
+    /// player identities. A per-player latest snapshot is used so players absent from a later
+    /// partial import do not silently lose their previous position evidence.
+    /// </summary>
+    public async Task<Dictionary<string, Dictionary<string, double>>> GetPlayerPositionRatingsAsync(
+        IEnumerable<string> sourceIds)
+    {
+        ArgumentNullException.ThrowIfNull(sourceIds);
+        var requested = sourceIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var results = new Dictionary<string, Dictionary<string, double>>(StringComparer.OrdinalIgnoreCase);
+        if (requested.Length == 0) return results;
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+
+        await using (var create = db.CreateCommand())
+        {
+            create.CommandText = "CREATE TEMP TABLE RequestedPositionPlayers(SourceId TEXT PRIMARY KEY);";
+            await create.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+
+        await using (var insert = db.CreateCommand())
+        {
+            insert.CommandText = "INSERT OR IGNORE INTO RequestedPositionPlayers(SourceId) VALUES($source);";
+            var parameter = insert.Parameters.Add("$source", SqliteType.Text);
+            foreach (var sourceId in requested)
+            {
+                parameter.Value = sourceId;
+                await insert.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+        }
+
+        await using var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT f.PlayerSourceId,f.FieldKey,f.NumericValue
+            FROM FmsavePlayerFacts f
+            INNER JOIN RequestedPositionPlayers requested ON requested.SourceId=f.PlayerSourceId
+            INNER JOIN (
+                SELECT facts.PlayerSourceId,MAX(facts.SnapshotId) AS SnapshotId
+                FROM FmsavePlayerFacts facts
+                INNER JOIN RequestedPositionPlayers selected ON selected.SourceId=facts.PlayerSourceId
+                WHERE facts.FactGroup='positions'
+                GROUP BY facts.PlayerSourceId
+            ) latest ON latest.PlayerSourceId=f.PlayerSourceId AND latest.SnapshotId=f.SnapshotId
+            WHERE f.FactGroup='positions' AND f.NumericValue IS NOT NULL
+            ORDER BY f.PlayerSourceId,f.FieldKey;
+            """;
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            var sourceId = reader.GetString(0);
+            var field = reader.GetString(1);
+            var value = reader.GetDouble(2);
+            if (!double.IsFinite(value) || value < 0 || value > 20) continue;
+            if (!results.TryGetValue(sourceId, out var playerRatings))
+            {
+                playerRatings = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                results[sourceId] = playerRatings;
+            }
+            playerRatings[field] = value;
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Builds a longitudinal, source-backed development history from every retained save
     /// snapshot linked to the same persistent Atlas player identity. Missing observations
     /// are not treated as zero and each value retains its import/build/date provenance.
