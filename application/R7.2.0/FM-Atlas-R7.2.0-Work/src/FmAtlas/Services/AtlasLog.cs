@@ -29,6 +29,8 @@ public static class AtlasLog
 
     public static void Info(string message) => Write("INFO", message);
     public static void Warning(string message) => Write("WARN", message);
+    [Obsolete("Use Warning instead.")]
+    public static void Warn(string message) => Warning(message);
     public static void Error(string message, Exception? exception = null)
         => Write("ERROR", exception is null ? message : message + Environment.NewLine + exception);
 
