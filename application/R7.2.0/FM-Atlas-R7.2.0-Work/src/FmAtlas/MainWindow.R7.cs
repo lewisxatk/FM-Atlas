@@ -229,16 +229,34 @@ public partial class MainWindow
         var stack = (StackPanel)card.Child;
         stack.Children.Add(Txt("POSITION SUITABILITY MAP", 9, true, Teal));
         stack.Children.Add(Txt("15 FM position ratings · 0–20", 17, true, Ink));
-        var compact = new UniformGrid { Columns = 5, Rows = 3, Margin = new Thickness(0, 5, 0, 5) };
+        var pitch = new Grid { Height = 252, Margin = new Thickness(0, 7, 0, 7) };
+        for (var row = 0; row < 7; row++)
+            pitch.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        for (var column = 0; column < 5; column++)
+            pitch.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var pitchLocations = new Dictionary<string, (int Row, int Column)>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["stc"] = (0, 2),
+            ["aml"] = (1, 1), ["amc"] = (1, 2), ["amr"] = (1, 3),
+            ["ml"] = (2, 1), ["mc"] = (2, 2), ["mr"] = (2, 3),
+            ["wbl"] = (3, 0), ["dm"] = (3, 2), ["wbr"] = (3, 4),
+            ["dl"] = (4, 1), ["dc"] = (4, 2), ["dr"] = (4, 3),
+            ["sw"] = (5, 2),
+            ["gk"] = (6, 2)
+        };
+
         foreach (var position in positions)
         {
+            if (!pitchLocations.TryGetValue(position.Key, out var location))
+                continue;
             var has = position.Rating.HasValue;
             var rating = position.Rating ?? 0;
             var label = has ? $"{position.Key.ToUpperInvariant()}\\n{rating:0}" : $"{position.Key.ToUpperInvariant()}\\n—";
             var tile = new Border
             {
                 Margin = new Thickness(3),
-                Padding = new Thickness(5),
+                Padding = new Thickness(4, 3, 4, 3),
                 CornerRadius = new CornerRadius(7),
                 Background = has ? PositionRatingBrush(rating) : Brush("#E8EEF2"),
                 BorderBrush = Brush("#D5E0E7"),
@@ -246,11 +264,32 @@ public partial class MainWindow
                 ToolTip = has
                     ? $"{position.Label}: source rating {rating:0.##}/20 · {position.BandLabel}"
                     : $"{position.Label}: no position rating supplied by this source",
-                Child = Txt(label, 11, true, has && rating >= 15 ? Brushes.White : Ink)
+                Child = new TextBlock
+                {
+                    Text = label,
+                    FontSize = 10,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = has && rating >= 15 ? Brushes.White : Ink,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextAlignment = TextAlignment.Center
+                }
             };
-            compact.Children.Add(tile);
+            Grid.SetRow(tile, location.Row);
+            Grid.SetColumn(tile, location.Column);
+            pitch.Children.Add(tile);
         }
-        stack.Children.Add(compact);
+
+        var pitchFrame = new Border
+        {
+            Background = Brush("#173F32"),
+            BorderBrush = Brush("#A8C6B3"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(7),
+            Child = pitch
+        };
+        stack.Children.Add(pitchFrame);
 
         var legend = new WrapPanel();
         legend.Children.Add(Txt("0–4 Low", 9, true, Brush("#B94A48")));
