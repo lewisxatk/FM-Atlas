@@ -73,6 +73,27 @@ public sealed class IntegratedIntelligenceTests
     }
 
     [TestMethod]
+    public void AdvancedFilterEvaluator_RejectsMalformedEnumsAndNullClauses()
+    {
+        var validCondition = AdvancedFilterClause.ForCondition(
+            new AdvancedFilterCondition("Age", AdvancedFilterOperator.GreaterThan, "18"));
+
+        var invalidLogic = new AdvancedFilterGroup((AdvancedFilterLogic)99, new[] { validCondition });
+        Assert.ThrowsExactly<ArgumentException>(() => AdvancedFilterEvaluator.Validate(invalidLogic));
+
+        var invalidOperator = new AdvancedFilterGroup(AdvancedFilterLogic.All, new[]
+        {
+            AdvancedFilterClause.ForCondition(new AdvancedFilterCondition("Age", (AdvancedFilterOperator)99, "18"))
+        });
+        Assert.ThrowsExactly<ArgumentException>(() => AdvancedFilterEvaluator.Validate(invalidOperator));
+
+        var nullClause = new AdvancedFilterGroup(
+            AdvancedFilterLogic.All,
+            new AdvancedFilterClause[] { null! });
+        Assert.ThrowsExactly<ArgumentException>(() => AdvancedFilterEvaluator.Validate(nullClause));
+    }
+
+    [TestMethod]
     public void AdvancedFilterEvaluator_InvalidNumericInputDoesNotPassNotEquals()
     {
         var group = new AdvancedFilterGroup(AdvancedFilterLogic.All, new[]
