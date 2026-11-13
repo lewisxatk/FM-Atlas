@@ -19,3 +19,12 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - FM Atlas value finder with database safeguards.
 - C# database parsing, UI imports and search logic inspection/repairs.
 - R7.1.0 analytics / role-fit / editor-local / logging package pass (reported).
+
+## 2026-11-13 — Recovery archives inspected
+
+- Inspected both user-uploaded archives: R7.0.2 (83 files) and R7.1.0 (95 files).
+- Recorded SHA-256 hashes and compared all relative paths.
+- Found 16 changed shared files and 12 files added in R7.1.0; no files were removed from the later package.
+- Confirmed R7.1.0 package notes say live FM memory writes are not implemented and Windows build/runtime testing remains outstanding.
+- Added `recovery/RECOVERY-INVENTORY.md`.
+- Full source-tree import remains pending; no claim is made that the ZIP contents are already in GitHub.
