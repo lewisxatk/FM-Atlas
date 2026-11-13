@@ -149,6 +149,19 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - Follow-on source change `4b4ddfcb7299a0fad5dc2ea60658d895a48127df` updates `MainWindow.RoleLab.cs` so selecting a role shows every weighted attribute as a labelled chip, along with the model's input range, missing-value rule and minimum-coverage method note.
 - The new UI change passed Windows Actions run https://github.com/lewisxatk/FM-Atlas/actions/runs/43471187844: WPF Release build 0 warnings/0 errors, 47/47 tests passed. Release artifact `14061656624` and TRX artifact `14061910345` were uploaded.
 - It is compile/test verified only. Its rendered layout, role-selection refresh and readability at real Windows DPI/resolutions still require manual runtime acceptance.
-- The Role Lab scores remain Atlas weighted estimates, not Sports Interactive's internal role formula or star rating. Position familiarity and player-by-player contribution explanations remain future work.
+- The Role Lab scores remain Atlas weighted estimates, not Sports Interactive's internal role formula or star rating. Per-player contributions are now shown; position familiarity remains unavailable until source-backed.
 - Do not integrate the squad optimizer into a Best XI screen until player-to-slot eligibility is backed by validated position suitability data and duplicate LIVE/FMSAVE identities are handled with a verified crosswalk.
 - All changes remain on `overhaul/monolith-full-platform`; `main` is preserved. Continue from the current branch head and exact file history, not from this text alone.
+
+## Latest continuation point — Role Fit contributions (2026-11-13)
+
+- Exact verified application source commit: `91bd7728c555a0c0e54cfd8d02706467fdafdb89`.
+- Windows Actions run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43472380514.
+- .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; MSTest **48/48 passed**, 0 failed/skipped.
+- Windows Release artifact: `14061643285`; test-results artifact: `14061143387`.
+- RoleFitService now returns one contribution record per available valid role attribute. Each record carries a readable label, source value, Atlas role weight and additive score points. The points sum to the displayed weighted mean.
+- ScoutDatabase propagates these records from the latest imported player attribute data. Role Lab displays the selected player's contribution chips beneath the result table; role changes clear stale results; CSV export includes the contribution terms.
+- Numeric stability is tested for extreme finite weights. The regression suite verifies contribution sums and readable attribute-name preservation.
+- The intermediate compile failure on `2f978f3` was corrected by declaring contribution panel locals before the search-button callback and assigning them later. The final `91bd772` Windows run passed; do not resume from the intermediate source.
+- Remaining acceptance: launch the WPF app, visually validate Role Lab layout and selection changes at 100/125/150% DPI, export and inspect CSV using a copied FM27 Game Pass save. Actual FM27 Game Pass field certification remains unverified; live Apply/Undo remains disabled.
+- `main` remains preserved. Continue only on `overhaul/monolith-full-platform`.
