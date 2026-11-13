@@ -472,3 +472,13 @@ Superseded: latest code-level Windows verification is source commit `4fdd17c344a
 - Recruitment project target roles now persist with status/owner/tags/budgets and restore when projects are reopened.
 - No code changes from this development pass were written to `main`; the integrated work stays on `overhaul/monolith-full-platform`.
 - Manual WPF appearance/theme/DPI checks and copied FM27 Game Pass save acceptance still need the user's PC. Live Apply/Undo remains disabled.
+
+
+## Moneyball composite UI integration — 2026-11-13
+
+- `MainWindow.Integrated.cs` now hosts the multi-metric Moneyball composite panel: select 2–12 seasonal metrics, choose minimum valid metric coverage, optionally supply per-metric weights, calculate and rank player-season composites, and export a traceable CSV.
+- Each metric uses the shared Moneyball cohort, minimum minutes, per-90 and higher/lower settings; it is ranked separately before the percentile composite is calculated. Missing/withheld metric observations are excluded, and minimum coverage is enforced.
+- The UI and service preserve provider-specific player source identity and season. Group labels are retained only when all metric observations share the same group. A warning requires users to select metrics with a common desirability direction.
+- Service tests: seven new cases for equal/weighted averages, period separation, invalid/missing values, duplicate rows/weight keys, configuration validation and group consistency.
+- Windows Actions [43523809681](https://github.com/lewisxatk/FM-Atlas/actions/runs/43523809681), exact source `b7b885daf5ec9e89e919792ce06dce7c68321ac9`: Release build 0 warnings/0 errors; MSTest 133/133 passed. Release artifact `14083917898`, test results `14085005439`.
+- Remaining acceptance is WPF visual/interaction testing on the user's Windows PC and a copied FM27 Game Pass save; no live memory writes are enabled.
