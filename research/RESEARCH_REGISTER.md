@@ -170,3 +170,22 @@ These are research references, not dependencies. We must check licences and comp
 - https://github.com/nyongrand/fmm-editor
 - https://www.fmrte.com/
 - https://docs.fmrte.com/
+
+
+## 8. FM27 tools, memory reading and graphics integration (13 November 2026)
+
+A detailed follow-on review of user-supplied links and uploaded files is recorded in [FM27-TOOLS-AND-GRAPHICS-REVERSE-ENGINEERING.md](FM27-TOOLS-AND-GRAPHICS-REVERSE-ENGINEERING.md).
+
+Key additions:
+- FMSuperScout source documents a read-only Windows scanner using OpenProcess, VirtualQueryEx and ReadProcessMemory, versioned field layouts, cached module images, bounded parallel reads and optional PSS snapshot retry. Its scan speed claims remain unverified by Atlas.
+- FMLibreEditor source documents FM27 Game Pass/Steam profiles and conservative live-write checks: save identity, object identity, value range, expected old value, read-back, and write suspension across save reloads. GPL-3.0; no code copied.
+- FM Player Analyzer 2.2.3 source ZIP was inspected. It contains an FM27 save parser (container/trailer/Zstandard sections), scouting-knowledge-aware import, save watcher and GraphicsIndex implementation. GPL-3.0; no code copied.
+- The GraphicsIndex design recursively parses pack config.xml files and maps person/club/nation IDs to image filenames, with a compact cache invalidated by config file size/mtime. Atlas should implement an independent read-only graphics library and preserve the user's pack files.
+- FaceDrop uses a separate Documents/.../facedrop location; standard graphics packs and FaceDrop should be modelled as different providers.
+- SEGA's official guidance confirms the Sports Interactive user-data folder is configurable in FM and that the Steam/Epic --user_data_location override is unavailable for Microsoft Store/Xbox FM. Game Pass must not inherit a hard-coded Steam path.
+- TalentSeer 27.1.2 upload contains a README and closed executable but no source. Its hidden-stat, role-rating and editing claims remain product claims pending independent tests.
+- Teknik Oda, FaceDrop, Scout Reporter and Customize Editor pages were reviewed. Scout Reporter is CSV/browser-local; Teknik Oda is a BepInEx match-analysis route; Customize Editor is an alpha Pre-Game Editor skin/mod; FaceDrop is a separate face provider.
+- FM Dossier documentation confirms an external, read-only live-memory reader with local processing; its source is proprietary.
+- SaveMyTime ZIP contains a .NET/Mono DLL and two .fmf schedule templates. Static strings suggest substantial training-schedule discovery/verification logic, but behaviour is not established.
+- All supplied EXE files were statically identified only and were not executed or installed. No user save or live game process was inspected.
+- Exact FM27 Game Pass build/profile compatibility remains unverified for Atlas. The R7.2.0 source import remains a prerequisite for comparing Atlas's existing reader and LiveMemoryEditService against these projects.
