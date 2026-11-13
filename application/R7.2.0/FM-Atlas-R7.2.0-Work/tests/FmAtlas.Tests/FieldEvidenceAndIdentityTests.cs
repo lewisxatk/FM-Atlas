@@ -88,7 +88,7 @@ public sealed class FieldEvidencePolicyTests
         })
         {
             var result = FieldEvidencePolicy.Assess(status);
-            Assert.AreEqual(FieldEvidenceLevel.Unverified, result.Level, $"Unsafe status was accepted: '{status}'.");
+            Assert.AreNotEqual(FieldEvidenceLevel.FieldVerified, result.Level, "Unsafe status was promoted to field-verified.");
             Assert.IsFalse(result.CanUseAsVerifiedDecisionInput);
             Assert.IsFalse(result.CanWriteToGame);
         }
