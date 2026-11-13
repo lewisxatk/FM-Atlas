@@ -140,3 +140,15 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Windows Actions run `43471187844`: WPF Release build succeeded with 0 warnings/0 errors; 47/47 tests passed.
 - [x] Role Lab now exposes the selected profile's weighted inputs and scoring/missing-value method note in the UI source.
 - [ ] Launch and visually inspect Role Lab on Windows at supported DPI/resolutions; confirm chips wrap/read clearly and role selection refreshes the inputs.
+
+## Latest Role Fit contribution checkpoint — 2026-11-13 17:27 UTC
+
+- [x] Extended `RoleFitService` to return an auditable contribution for every available, valid role attribute: readable attribute name, source value, Atlas weight and additive score points.
+- [x] Contribution points are calculated as terms of the weighted mean and sum back to the displayed score. The calculation scales weights before summing to avoid overflow from extreme finite inputs.
+- [x] Propagated contribution records through `ScoutDatabase.SearchRoleFitCandidatesAsync` to the Role Lab candidate rows.
+- [x] Added a selected-player contribution panel beneath the result grid; changing role clears stale results, selecting a player refreshes the detail, and CSV export includes all contribution terms.
+- [x] Preserved readable attribute labels through normalization and added a regression assertion for `Off The Ball`.
+- [x] Windows Release and test checkpoint: exact source commit `91bd7728c555a0c0e54cfd8d02706467fdafdb89`; Actions run `43472380514`; build **0 warnings / 0 errors**, **48/48 tests passed**.
+- [x] Artifacts uploaded: Windows Release `14061643285` and test results `14061143387`.
+- [ ] WPF visual/runtime acceptance remains pending: inspect the contribution panel at real Windows resolutions/DPI and test selection changes/CSV output with an imported FM27 save copy.
+- Note: intermediate commit `2f978f3` failed compilation because local UI variables were captured before assignment; fixed in `0c6546a`, and the final `91bd772` run passed. Do not treat the intermediate failure as the current source state.
