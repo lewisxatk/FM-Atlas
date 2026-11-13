@@ -1253,7 +1253,7 @@ public partial class MainWindow : Window
         var title = new StackPanel();
         title.Children.Add(Txt("SQUAD ARCHITECT", 9, true, Teal));
         title.Children.Add(Txt("Squad structure & succession", 21, true, Ink));
-        title.Children.Add(Txt("Inspect imported club records, age profile and positional cover. Provider-specific identities are kept separate unless Atlas has a verified cross-provider identity link. Team slot IDs are retained, but senior/reserve/youth labels are not guessed.", 10, false, Muted, wrap: true));
+        title.Children.Add(Txt("Inspect club squads, build an Atlas-estimated best XI from imported role attributes and position ratings, and inspect raw in-game squad-planner slots. Provider-specific identities and unknown team-slot meanings are preserved.", 10, false, Muted, wrap: true));
         headerGrid.Children.Add(title);
         var filter = new StackPanel { Width = 245, VerticalAlignment = VerticalAlignment.Center };
         filter.Children.Add(Txt("CLUB", 8, true, Teal));
@@ -1281,6 +1281,28 @@ public partial class MainWindow : Window
 
         var insightCard = Card(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = new StackPanel() }, 15);
         var insight = (StackPanel)((ScrollViewer)insightCard.Child).Content;
+        var formationPicker = new ComboBox
+        {
+            ItemsSource = SquadArchitectService.GetFormationNames(),
+            SelectedItem = "4-2-3-1",
+            MinWidth = 125,
+            Padding = new Thickness(7),
+            Margin = new Thickness(0, 3, 5, 4)
+        };
+        var bestXiGrid = CreateGrid();
+        bestXiGrid.Height = 300;
+        bestXiGrid.Columns.Add(Column("SLOT", "Slot", .9));
+        bestXiGrid.Columns.Add(Column("PLAYER", "Player", 1.2));
+        bestXiGrid.Columns.Add(Column("POSITION", "PositionRating", .7));
+        bestXiGrid.Columns.Add(Column("ROLE FIT", "RoleFit", .7));
+        bestXiGrid.Columns.Add(Column("ATLAS SCORE", "AtlasScore", .8));
+        var bestXiStatus = Txt("Choose one club and build an XI. Only imported position and attribute evidence is eligible.", 9, false, Muted, wrap: true);
+        var buildXiButton = PrimaryButton("Build best XI", async (_, _) => await BuildBestXiAsync());
+        formationPicker.SelectionChanged += (_, _) =>
+        {
+            bestXiGrid.ItemsSource = null;
+            bestXiStatus.Text = "Formation changed. Build the XI again to recalculate.";
+        };
         Grid.SetColumn(insightCard, 1); Grid.SetRow(insightCard, 0); body.Children.Add(insightCard);
         root.Children.Add(body); Grid.SetRow(body, 2);
 
@@ -1320,6 +1342,17 @@ public partial class MainWindow : Window
             foreach (var position in snapshot.Positions) AddDetailRow(insight, position.Position, position.Count.ToString("N0") + " players");
             insight.Children.Add(Txt("AGE PROFILE", 9, true, Teal) is var ageTitle ? Configure(ageTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
             foreach (var band in snapshot.AgeBands) AddDetailRow(insight, band.Label, band.Count.ToString("N0"));
+
+            bestXiGrid.ItemsSource = null;
+            bestXiStatus.Text = "Select one club above, then build an Atlas-estimated XI.";
+            insight.Children.Add(Txt("ATLAS BEST XI", 9, true, Teal) is var xiTitle ? Configure(xiTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
+            insight.Children.Add(Txt("Global one-player-per-slot assignment. Composite score = weighted role-fit estimate × source position rating / 20. This is not FM's hidden role score and does not model fitness, injuries, suspensions, tactical familiarity or availability.", 9, false, Muted, wrap: true));
+            var xiControls = new WrapPanel();
+            xiControls.Children.Add(formationPicker);
+            xiControls.Children.Add(buildXiButton);
+            insight.Children.Add(xiControls);
+            insight.Children.Add(bestXiGrid);
+            insight.Children.Add(bestXiStatus);
 
             insight.Children.Add(Txt("IN-GAME SQUAD PLANNER", 9, true, Teal) is var plannerTitle ? Configure(plannerTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
             insight.Children.Add(Txt("Imported from the save's human-manager planner; this section is independent of the club filter above.", 9, false, Muted, wrap: true));
@@ -1363,6 +1396,88 @@ public partial class MainWindow : Window
             insight.Children.Add(Txt("This view merges the live identity index and save/local player rows. Live-only records can lack positions, abilities, contracts and other fields. Team slot labels (Senior, B-team, Reserve or U21) are not guessed unless the source mapping is validated.", 9, false, Muted, wrap: true));
             if (snapshot.Squad.Count == 0) insight.Children.Add(Txt("No players are linked to this club in the current imported sources.", 10, false, Muted));
         }
+        async Task BuildBestXiAsync()
+        {
+            var selectedClub = clubPicker.SelectedItem?.ToString();
+            if (string.IsNullOrWhiteSpace(selectedClub) || selectedClub.Equals("All clubs", StringComparison.OrdinalIgnoreCase))
+            {
+                bestXiStatus.Text = "Choose one club first. Cross-club selection is disabled to avoid mixing unrelated squads.";
+                return;
+            }
+
+            if (formationPicker.SelectedItem is not string formation)
+            {
+                bestXiStatus.Text = "Choose a supported formation.";
+                return;
+            }
+
+            buildXiButton.IsEnabled = false;
+            bestXiGrid.ItemsSource = null;
+            bestXiStatus.Text = "Calculating role estimates and source position eligibility…";
+            try
+            {
+                var profiles = RoleFitService.GetProfiles()
+                    .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+                var requiredProfiles = SquadArchitectService.GetFormationSlots(formation)
+                    .Select(x => x.RoleProfileName)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                var roleTasks = requiredProfiles.ToDictionary(
+                    name => name,
+                    name => RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(
+                        profiles[name], 50000, selectedClub, resultLimit: 5000)),
+                    StringComparer.OrdinalIgnoreCase);
+                var positionsTask = RunDatabaseAsync(() => _database.GetPlayerPositionRatingsForClubAsync(selectedClub));
+
+                await Task.WhenAll(roleTasks.Values.Cast<Task>().Append(positionsTask));
+                var roleCandidates = roleTasks.ToDictionary(
+                    x => x.Key,
+                    x => (IReadOnlyList<RoleFitCandidate>)x.Value.Result,
+                    StringComparer.OrdinalIgnoreCase);
+                var positionRatings = await positionsTask;
+                var result = SquadArchitectService.Optimize(formation, roleCandidates, positionRatings);
+
+                bestXiGrid.ItemsSource = result.Selection.Assignments.Select(assignment =>
+                {
+                    if (assignment.Candidate is null)
+                        return new
+                        {
+                            Slot = assignment.Slot.DisplayName,
+                            Player = "No eligible player",
+                            PositionRating = "—",
+                            RoleFit = "—",
+                            AtlasScore = "—"
+                        };
+
+                    var detail = result.ScoreBreakdown[SquadArchitectService.GetBreakdownKey(
+                        assignment.Candidate.SourceId, assignment.Slot.SlotId)];
+                    return new
+                    {
+                        Slot = assignment.Slot.DisplayName,
+                        Player = assignment.Candidate.Name,
+                        PositionRating = detail.PositionRating.ToString("0.0", CultureInfo.InvariantCulture),
+                        RoleFit = detail.RoleFitScore.ToString("0.0", CultureInfo.InvariantCulture),
+                        AtlasScore = detail.CompositeScore.ToString("0.0", CultureInfo.InvariantCulture)
+                    };
+                }).ToArray();
+
+                var unfilled = result.Selection.UnfilledSlots.Count == 0
+                    ? string.Empty
+                    : " · Unfilled: " + string.Join(", ", result.Selection.UnfilledSlots.Select(x => x.DisplayName));
+                bestXiStatus.Text = $"{result.Selection.FilledSlots}/{result.Selection.TotalSlots} slots filled · {result.Selection.SelectedCandidates.Count:N0} unique players · {result.Selection.TotalScore.ToString("0.0", CultureInfo.InvariantCulture)} total Atlas score{unfilled}. Only the selected club's latest save-snapshot role attributes and position ratings are used.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Squad Architect best-XI calculation failed.", ex);
+                bestXiStatus.Text = "Could not build the XI: " + ex.Message;
+            }
+            finally
+            {
+                buildXiButton.IsEnabled = true;
+            }
+        }
+
         clubPicker.SelectionChanged += async (_, _) => await RefreshSquad();
         await RefreshSquad();
         return root;
