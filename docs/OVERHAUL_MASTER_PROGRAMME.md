@@ -33,6 +33,18 @@ FM Atlas is a premium Windows Football Manager intelligence and modding suite, n
 - Aurora Frost is not the primary direction and must not override MONOLITH.
 - Design tokens and reusable components precede feature-screen migration.
 
+
+### Built-in Diagnostics & Support Centre
+- Persistent structured application logs with severity, timestamp, correlation ID, feature/module, operation and exception details.
+- User-facing Diagnostics page reachable from the main shell and from startup/recovery paths; must remain accessible when a feature module fails.
+- One-click Run Diagnostics covering app configuration, required files, data-provider health, import status, cache/database integrity, permissions, dependency/runtime information and feature availability.
+- Export Support Bundle to a single ZIP containing redacted logs, diagnostic results, app/build version, OS/.NET details, relevant configuration with secrets removed, and a manifest describing included files.
+- Preview bundle contents and explicitly confirm export; never include career-save contents, personal documents, credentials, tokens, or arbitrary user files by default.
+- Provide Copy Error Details and a human-readable diagnostic summary, plus a stable support-bundle ID to match reports to logs.
+- Log rotation, size limits, retention settings, crash/restart recovery, and safeguards against logging player personal data or sensitive memory contents.
+- Local-first export: no automatic upload or transmission. The user chooses where to save and how to share the ZIP.
+- Diagnostics must report unavailable/unsupported checks honestly and must not claim a repair occurred unless it was performed and verified.
+
 ## Reverse-engineering workstream
 
 ### Research targets and current evidence
