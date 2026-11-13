@@ -191,3 +191,13 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - Current source inventory: 41 application source files and 11 test-project files including the csproj.
 - Stage 2 route audit is documented in `docs/STAGE1_STAGE2_AUDIT.md`; Stats Search and Attribute Search also now contain a local saved-profile UI backed by `SavedSearchProfileStore`, with persistence tests. Saved profiles persist criteria only, not player/save data.
 - Stage 3–7 remain paused. Wait for current CI, then Windows app/ZIP/route acceptance and the user's review.
+## Latest verified Stage 1/2 source handover — 2026-11-13 17:49 UTC
+
+- Exact tested application source: `6c18e36fdc706fc49ad74ce15fe1ee73c43ce991`.
+- Windows Actions run `43476085012` passed: .NET 8 WPF Release build 0 warnings/0 errors; MSTest 64/64 passed. Link: https://github.com/lewisxatk/FM-Atlas/actions/runs/43476085012.
+- This passing run includes the corrected Diagnostics privacy policy, SupportBundleComposer and its ZIP/manifest/redaction tests, SavedSearchProfileStore and its persistence tests, and expanded SQLite evidence-isolation integration.
+- The failed intermediate runs are historical and documented: `43475232418` had missing IO imports and an outdated search test call; `43475788525` had further test compile issues. The imports, MSTest assertion API and test call were corrected before the passing `43476085012` run.
+- The source-level Stage 2 audit maps all 21 routes and records a critical missing per-field provenance join between fmsave validation and normalized save/stat fields. It also identifies the Transfers local/live fallback asymmetry.
+- Detailed findings: `docs/STAGE1_STAGE2_AUDIT.md`; external source research: `research/RESEARCH_REGISTER.md`; updated feature matrix: `docs/FEATURE_TRACEABILITY.md`.
+- Still requires the user's Windows environment: actual WPF launch and route smoke tests, real support ZIP inspection, disposable FM27 save import, visual/DPI checks and exact Game Pass build/graphics-root identification.
+- Stage 3–7 remain paused. Do not start the combined overhaul until the user reviews the findings and approves.
