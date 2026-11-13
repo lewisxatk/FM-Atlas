@@ -53,3 +53,6 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Corrected credential redaction and complete Windows/UNC path redaction in `AtlasLog`; added a Diagnostics privacy self-check and documented pending Windows execution.
 - Added `.github/workflows/fm-atlas-windows-build.yml` for reproducible Windows .NET 8 restore/build and Release artifact upload. A workflow run has not yet been reported.
 - Current application build/runtime acceptance remains pending after these branch changes.
+
+- Added an initial Windows .NET 8 MSTest project for Diagnostics redaction and supporting input-sanitisation behaviour; included it in the solution and wired it into Windows CI. First Windows execution remains pending.
+- Added `docs/FEATURE_TRACEABILITY.md` covering source locations, current coverage and implementation/acceptance gaps across the integrated programme.
