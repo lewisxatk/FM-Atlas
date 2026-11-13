@@ -631,15 +631,22 @@ public partial class MainWindow
         var minimumSample = Input("Minimum cohort size"); minimumSample.Text = "5"; minimumSample.Width = 140;
         void UpdatePer90Availability()
         {
-            var supportsPer90 = field.SelectedItem is StatMetricField selectedMetric && selectedMetric.SupportsPer90;
+            var supportsSingleMetric = field.SelectedItem is StatMetricField selectedMetric && selectedMetric.SupportsPer90;
+            var selectedCompositeMetrics = compositeMetrics is null
+                ? Array.Empty<StatMetricField>()
+                : compositeMetrics.SelectedItems.Cast<StatMetricField>().ToArray();
+            var supportsComposite = selectedCompositeMetrics.Length >= 2 && selectedCompositeMetrics.All(x => x.SupportsPer90);
+            var supportsPer90 = supportsSingleMetric || supportsComposite;
             per90.IsEnabled = supportsPer90;
             if (!supportsPer90) per90.IsChecked = false;
             // The sample-size floor applies to raw totals and per-90 rates alike.
             minimumMinutes.IsEnabled = field.SelectedItem is StatMetricField;
             minimumMinutes.ToolTip = "Minimum playing minutes required for a player to enter this cohort.";
-            per90.ToolTip = supportsPer90
-                ? "Convert a cumulative count to a per-90 rate. Existing rates and percentages cannot be converted again."
-                : "This field is already a rate/percentage or is not suitable for per-90 conversion.";
+            per90.ToolTip = supportsComposite && !supportsSingleMetric
+                ? "Per 90 is enabled for the selected composite metrics. The single-metric ranking still requires a per-90-compatible field."
+                : supportsPer90
+                    ? "Convert a cumulative count to a per-90 rate. Existing rates and percentages cannot be converted again."
+                    : "The selected field(s) are already rates/percentages or are not suitable for per-90 conversion.";
         }
         void InvalidateResults()
         {
@@ -770,6 +777,7 @@ public partial class MainWindow
         minimumSample.TextChanged += (_, _) => InvalidateResults();
         compositeMetrics.SelectionChanged += (_, _) =>
         {
+            UpdatePer90Availability();
             currentCompositeRows = Array.Empty<MoneyballCompositeRow>();
             compositeGrid.ItemsSource = null;
             compositeExport.IsEnabled = false;
@@ -1029,6 +1037,7 @@ public partial class MainWindow
         async Task RankAsync()
         {
             if (field.SelectedItem is not StatMetricField selected) { status.Text = "No metric is selected."; return; }
+            if (per90.IsChecked == true && !selected.SupportsPer90) { status.Text = "The selected single metric does not support per-90 conversion. Choose a compatible metric or untick Per 90."; return; }
             var mins = int.TryParse(minimumMinutes.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMinutes) ? Math.Clamp(parsedMinutes, 1, 10000) : 450;
             var sample = int.TryParse(minimumSample.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedSample) ? Math.Clamp(parsedSample, 1, 100000) : 5;
             var higherIsBetter = !string.Equals(direction.SelectedItem as string, "Lower is better", StringComparison.Ordinal);
