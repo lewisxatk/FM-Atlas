@@ -283,3 +283,14 @@ The following supersedes older build-status statements above where they conflict
 - This improves the Role Lab implementation, but does not complete the role/scouting workstream. Position familiarity, role suitability evidence, player-level UI visual acceptance and exact FM27 Game Pass runtime verification remain open.
 - The intermediate compile failure on `2f978f3` was corrected in `0c6546a`; the final tested commit is `91bd772`.
 - WPF runtime, route-by-route UI acceptance, actual save-copy import acceptance, graphics folder validation, and Game Pass build/field certification remain outstanding. Live memory Apply/Undo remains disabled.
+
+## Latest integrated Windows acceptance checkpoint — 2026-11-13 17:33 UTC
+
+- Exact tested source commit: `8cfe5b3f276770179e8cb77db7a02912f2336bdb`.
+- Actions run `43473487285`: .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; **53/53 tests passed**, 0 failed/skipped. Release artifact `14061763980`; test-results artifact `14062007740`.
+- The latest Role Fit implementation now exposes each selected candidate's available input values, readable labels, Atlas role weights and additive contributions; CSV export carries the breakdown. Unit tests prove contributions sum to the weighted estimate and guard extreme finite weights.
+- SQLite integration test `ScoutDatabaseRoleFitIntegrationTests` seeds a disposable test DB and exercises the real Role Lab query; it verifies score, count coverage, named inputs, weights and additive contributions from stored player attributes. The FM save importer writes these attributes to PlayerAttributes, which the query consumes; FMSAVE candidates remain scoped to the latest snapshot.
+- Diagnostics redaction now covers quoted JSON/config secrets, Basic authorization, client/private secrets, query-token values, Windows and UNC paths, and save filenames. Both unit regressions and the in-app Diagnostics self-check exercise these formats.
+- The branch head after the tested source commit is `28958fd4bc07c1f54462ec0e829dd22402eed922`; this is a docs-only update. The protected `main` branch remains at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- Still not verified: WPF startup/route acceptance, visual theme and DPI acceptance, the user's exact FM27 Game Pass build/profile, actual save-copy import behaviour and a manual inspection of exported support ZIPs. The whole overhaul is not complete.
+- The next integrated engineering gates remain Advanced Search, player intelligence, Moneyball cohorts/percentiles, recruitment workflows, Tactical Intelligence, Match Lab, development, Save Inspector/local editor, Game Pass read-only adapter, graphics/skin/mod workbench and release packaging. Live Apply/Undo remains disabled until field-level certification and safe read-back/rollback evidence.
