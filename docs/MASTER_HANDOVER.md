@@ -279,3 +279,15 @@ Current verified application checkpoint remains commit 6c18e36fdc706fc49ad74ce15
 - Next work remains the broader programme: age/league Moneyball cohorts where source mapping permits, formation/role-aware XI selection with validated eligibility, deeper tactical intelligence, graphics and mod-management workflows, shared MONOLITH control migration and release engineering.
 - User-PC acceptance is deliberately deferred until the user is at the PC and more work is complete. Use a disposable copy of the FM27 Game Pass career; never use the only save.
 - `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`; no merge has occurred. Live Apply/Undo remains disabled.
+
+
+## Squad Architect best-XI handover — 2026-11-13 21:37 UTC
+
+- Exact tested source: `5ff275d534245880242a7280f95837f6ee3a3b0d`; Windows run [43511883115](https://github.com/lewisxatk/FM-Atlas/actions/runs/43511883115).
+- Release build: **0 warnings / 0 errors**; **103/103 MSTest passed**.
+- Artifacts: Windows Release `14079346029`; test results `14077554786`.
+- Squad Architect supports 4-2-3-1, 4-3-3, 4-4-2 and 3-4-2-1. It queries role-fit candidates by selected club and latest snapshot, obtains position ratings from the same latest registered snapshot, and runs a global one-player-per-slot optimiser.
+- Composite formula: `role-fit estimate × source position rating / 20`. This is an Atlas heuristic, not SI's hidden score. It does not include fitness, injury, suspension, availability, tactical familiarity, duty or player-trait effects.
+- Position data is gated on registered builds for the profile pitch, Moneyball position cohorts and best-XI selection. If the latest import is unregistered, the app does not silently fall back to stale previous-snapshot position ratings.
+- Latest code still needs user-side runtime acceptance. Wait until the user is on PC; test a disposable copy of FM27 Game Pass career, never the only save.
+- `main` remains untouched; Live Apply/Undo remains disabled.
