@@ -124,6 +124,11 @@ public partial class MainWindow
 
         var profileRow = new WrapPanel();
         var shortlistPicker = new ComboBox { Width = 230, Height = 35, Margin = new Thickness(3) };
+        ComboBox projectStatus = null!;
+        TextBox projectOwner = null!;
+        TextBox projectTags = null!;
+        TextBox transferBudget = null!;
+        TextBox weeklyWageBudget = null!;
         var newName = Input("New shortlist name"); newName.Width = 200;
         var create = SoftButton("Create shortlist", async (_, _) =>
         {
@@ -142,7 +147,7 @@ public partial class MainWindow
         root.Children.Add(Card(profileRow, 13, new Thickness(0, 0, 0, 10)));
 
         var projectSettings = new WrapPanel();
-        var projectStatus = new ComboBox
+        projectStatus = new ComboBox
         {
             Width = 155,
             Height = 35,
@@ -150,10 +155,10 @@ public partial class MainWindow
             ItemsSource = new[] { "Planning", "Active", "Monitoring", "Closed" },
             SelectedItem = "Active"
         };
-        var projectOwner = Input("Owner"); projectOwner.Width = 155;
-        var projectTags = Input("Tags (comma separated)"); projectTags.Width = 250;
-        var transferBudget = Input("Transfer budget"); transferBudget.Width = 145;
-        var weeklyWageBudget = Input("Weekly wage budget"); weeklyWageBudget.Width = 160;
+        projectOwner = Input("Owner"); projectOwner.Width = 155;
+        projectTags = Input("Tags (comma separated)"); projectTags.Width = 250;
+        transferBudget = Input("Transfer budget"); transferBudget.Width = 145;
+        weeklyWageBudget = Input("Weekly wage budget"); weeklyWageBudget.Width = 160;
         var saveProject = SoftButton("Save project details", async (_, _) => await SaveProjectDetailsAsync());
         projectSettings.Children.Add(projectStatus);
         projectSettings.Children.Add(projectOwner);
@@ -548,9 +553,9 @@ public partial class MainWindow
                 var missingGroupMetadata = cohortMode switch
                 {
                     "Same primary position" => rows.Count(x => string.IsNullOrWhiteSpace(x.PrimaryPosition)),
-                    "Same age band (5-year)" => rows.Count(x => !AgeBand(x.Age).HasValue),
+                    "Same age band (5-year)" => rows.Count(x => AgeBand(x.Age) is null),
                     "Same league" => rows.Count(x => string.IsNullOrWhiteSpace(x.League)),
-                    "Same position + age band" => rows.Count(x => string.IsNullOrWhiteSpace(x.PrimaryPosition) || !AgeBand(x.Age).HasValue),
+                    "Same position + age band" => rows.Count(x => string.IsNullOrWhiteSpace(x.PrimaryPosition) || AgeBand(x.Age) is null),
                     _ => 0
                 };
                 var cohortDescription = grouped
