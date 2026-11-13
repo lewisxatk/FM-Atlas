@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using FmAtlas.Data;
 using FmAtlas.Models;
+using FmAtlas.Services;
 
 namespace FmAtlas;
 
@@ -17,10 +18,10 @@ public sealed record GlobalSearchHit(string Type, string Name, string Details, o
 /// </summary>
 public sealed class GlobalSearchWindow : Window
 {
-    private static readonly Brush Ink = BrushOf("#E8EEF4");
-    private static readonly Brush Muted = BrushOf("#9EADB9");
-    private static readonly Brush Teal = BrushOf("#C6F36B");
-    private static readonly Brush Line = BrushOf("#303943");
+    private static Brush Ink => MonolithTheme.GetBrush("TextPrimary");
+    private static Brush Muted => MonolithTheme.GetBrush("TextMuted");
+    private static Brush Teal => MonolithTheme.GetBrush("Accent");
+    private static Brush Line => MonolithTheme.GetBrush("Border");
     private readonly ScoutDatabase _database;
     private readonly Action<GlobalSearchHit> _openRecord;
     private readonly ObservableCollection<GlobalSearchHit> _results = new();
@@ -72,7 +73,7 @@ public sealed class GlobalSearchWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = BrushOf("#0D1117");
         Foreground = Ink;
-        FontFamily = new FontFamily("Segoe UI");
+        FontFamily = new FontFamily(MonolithTheme.FontFamilyName);
         Build();
         Loaded += async (_, _) =>
         {
@@ -391,14 +392,5 @@ public sealed class GlobalSearchWindow : Window
         Foreground = foreground, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 1, 0, 3)
     };
 
-    private static SolidColorBrush BrushOf(string hex)
-    {
-        var mapped = hex.ToUpperInvariant() switch
-        {
-            "#EEF4F8" => "#0D1117", "#FFFFFF" => "#171F28", "#F5F9FC" => "#202A35",
-            "#182F45" => "#E8EEF4", "#63778A" => "#9EADB9", "#087F91" => "#C6F36B", "#D7E3EA" => "#303943",
-            _ => hex
-        };
-        return new SolidColorBrush((Color)ColorConverter.ConvertFromString(mapped));
-    }
+    private static Brush BrushOf(string hex) => MonolithTheme.ResolveLegacy(hex);
 }
