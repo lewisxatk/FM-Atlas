@@ -343,3 +343,9 @@ The following source additions are present on overhaul/monolith-full-platform; t
 | Modding Workbench | Research catalogue with licence and compatibility boundaries | Static research only; no unknown third-party EXE/DLL execution or automatic installation |
 
 The latest completed Windows test checkpoint remains commit 4c588147 with 81/81 tests, 0 warnings and 0 errors. Subsequent Moneyball query and integration-test changes are not marked verified until the latest-head Windows workflow completes.
+
+## Scouting Matrix notes update — 2026-11-13
+
+- Scouting Matrix now exposes an editable notes field for the selected saved shortlist candidate, capped at 2,000 characters.
+- Persistence reuses the shortlist UPSERT, which changes only Notes for an existing source ID/shortlist pair and preserves AddedUtc.
+- A disposable SQLite integration test covers create/update/clear and identity preservation. The latest-head Windows workflow is pending; do not mark the UI/test accepted until it passes and the WPF screen is manually inspected.
