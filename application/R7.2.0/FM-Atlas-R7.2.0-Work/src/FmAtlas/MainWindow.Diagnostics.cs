@@ -93,6 +93,14 @@ public partial class MainWindow
                 await File.WriteAllTextAsync(probe, "FM Atlas log write test"); File.Delete(probe);
                 return (true, "Writable · rolling application log enabled");
             });
+            await Add("Support-data redaction", () =>
+            {
+                var failures = AtlasLog.ValidateRedaction();
+                return Task.FromResult((failures.Count == 0,
+                    failures.Count == 0
+                        ? "PASS · bearer tokens, API keys, passwords, personal paths and save filenames are redacted."
+                        : "Redaction regression failures: " + string.Join(", ", failures)));
+            });
             await Add("Python save bridge", async () =>
             {
                 var version = await FmsaveBridgeService.GetInstalledVersionAsync();
