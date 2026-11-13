@@ -2103,26 +2103,9 @@ public sealed class ScoutDatabase
         foreach (var work in rowsByIdentity.Values)
         {
             if (per90 && (!work.Minutes.HasValue || work.Minutes.Value < minMinutes)) continue;
-            var displayValues = new List<string>();
-            var matchedCount = 0;
-            foreach (var criterion in criteria)
-            {
-                // A missing field is a non-match for this condition. Under AND it
-                // rejects the row; under OR another available field can still match.
-                if (!work.Values.TryGetValue(criterion.Key, out var raw)) continue;
-                var value = per90 ? raw * 90d / work.Minutes!.Value : raw;
-                if (!double.IsFinite(value)) continue;
-                var withinBounds =
-                    (!criterion.Minimum.HasValue || value >= criterion.Minimum.Value)
-                    && (!criterion.Maximum.HasValue || value <= criterion.Maximum.Value);
-                if (!withinBounds) continue;
-                matchedCount++;
-                displayValues.Add($"{criterion.DisplayName}: {value:0.##}");
-            }
-
-            var rowMatches = matchAny ? matchedCount > 0 : matchedCount == criteria.Count;
-            if (!rowMatches || !playerMap.TryGetValue(work.PlayerUid, out var player) || string.IsNullOrWhiteSpace(player.SourceId)) continue;
-            results.Add(new StatSearchResult(player.SourceId, player.Name, player.Club, work.Period, work.Minutes, string.Join("  ·  ", displayValues)));
+            var match = StatConditionMatcher.Evaluate(work.Values, criteria, matchAny, per90, work.Minutes);
+            if (!match.Matches || !playerMap.TryGetValue(work.PlayerUid, out var player) || string.IsNullOrWhiteSpace(player.SourceId)) continue;
+            results.Add(new StatSearchResult(player.SourceId, player.Name, player.Club, work.Period, work.Minutes, string.Join("  ·  ", match.MatchedValues)));
         }
         return results.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Take(safeLimit).ToList();
     }
