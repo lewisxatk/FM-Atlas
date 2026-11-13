@@ -119,7 +119,7 @@ public sealed class ScoutDatabaseEvidenceIntegrationTests
 
             // The generic Players table is an identity/profile mirror, not an
             // authority for provisional live CA/PA or attribute values.
-            Assert.AreEqual(0, (await database.SearchAsync("Player", null, null, null)).Count,
+            Assert.AreEqual(0, (await database.SearchAsync("Player", null, null, null, null, null, null)).Count,
                 "Save/local search must not read provisional LIVE mirror records.");
             Assert.AreEqual(0, await database.CountLocalPlayersAsync(),
                 "Live identities must not inflate the save/local player count.");
