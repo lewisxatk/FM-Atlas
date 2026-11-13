@@ -16,7 +16,7 @@ public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerN
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
 public sealed record AtlasDevelopmentHistoryRecord(int SnapshotId, string ImportedUtc, string? GameDate, string? GameBuild, string SourceFileName, string FieldName, double Value, double? PreviousValue, double? Delta);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
-public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value);
+public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value, string? PrimaryPosition = null);
 public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int StaffImported, int ClubsImported, int ExtraRowsImported, IReadOnlyDictionary<string,int> TableCounts, IReadOnlyList<string> Warnings);
 
 public sealed class ScoutDatabase
@@ -2487,14 +2487,14 @@ public sealed class ScoutDatabase
         var snapshotId = snapshotValue is null || snapshotValue == DBNull.Value
             ? (int?)null
             : Convert.ToInt32(snapshotValue);
-        var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club)>(StringComparer.OrdinalIgnoreCase);
+        var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club, string? Position)>(StringComparer.OrdinalIgnoreCase);
         var matches = new List<(string Uid, string Period, string Table, double? Minutes, double Value)>();
 
         if (snapshotId.HasValue)
         {
             var players = db.CreateCommand();
             players.CommandText = """
-                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club
+                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson
                 FROM FmsavePlayerSnapshots s
                 LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId
                 WHERE s.SnapshotId=$s;
@@ -2504,10 +2504,21 @@ public sealed class ScoutDatabase
             {
                 while (await reader.ReadAsync().ConfigureAwait(false))
                 {
+                    string? primaryPosition = null;
+                    try
+                    {
+                        using var playerDocument = JsonDocument.Parse(reader.GetString(4));
+                        primaryPosition = GetDisplayValue(playerDocument.RootElement, "position");
+                    }
+                    catch (JsonException)
+                    {
+                        // Position is optional cohort metadata; a malformed player row remains unclassified.
+                    }
                     playerMap[reader.GetString(0)] = (
                         reader.GetString(1),
                         reader.GetString(2),
-                        reader.IsDBNull(3) ? null : reader.GetString(3));
+                        reader.IsDBNull(3) ? null : reader.GetString(3),
+                        primaryPosition);
                 }
             }
 
@@ -2618,7 +2629,8 @@ public sealed class ScoutDatabase
                 playerMap[x.Uid].Name,
                 playerMap[x.Uid].Club,
                 x.Period,
-                x.Value))
+                x.Value,
+                playerMap[x.Uid].Position))
             .OrderByDescending(x => x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .Take(safeLimit)
@@ -2660,14 +2672,14 @@ public sealed class ScoutDatabase
             ? (int?)null
             : Convert.ToInt32(snapshotValue);
 
-        var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club)>(StringComparer.OrdinalIgnoreCase);
+        var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club, string? Position)>(StringComparer.OrdinalIgnoreCase);
         var matches = new List<(string Uid, string Period, double Minutes, double Value)>();
 
         if (snapshotId.HasValue)
         {
             var players = db.CreateCommand();
             players.CommandText = """
-                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club
+                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson
                 FROM FmsavePlayerSnapshots s
                 LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId
                 WHERE s.SnapshotId=$s;
@@ -2677,10 +2689,21 @@ public sealed class ScoutDatabase
             {
                 while (await reader.ReadAsync().ConfigureAwait(false))
                 {
+                    string? primaryPosition = null;
+                    try
+                    {
+                        using var playerDocument = JsonDocument.Parse(reader.GetString(4));
+                        primaryPosition = GetDisplayValue(playerDocument.RootElement, "position");
+                    }
+                    catch (JsonException)
+                    {
+                        // Position is optional cohort metadata; a malformed player row remains unclassified.
+                    }
                     playerMap[reader.GetString(0)] = (
                         reader.GetString(1),
                         reader.GetString(2),
-                        reader.IsDBNull(3) ? null : reader.GetString(3));
+                        reader.IsDBNull(3) ? null : reader.GetString(3),
+                        primaryPosition);
                 }
             }
 
@@ -2786,7 +2809,8 @@ public sealed class ScoutDatabase
                 playerMap[x.Uid].Name,
                 playerMap[x.Uid].Club,
                 x.Period,
-                x.Value))
+                x.Value,
+                playerMap[x.Uid].Position))
             .OrderByDescending(x => x.Value)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .Take(safeLimit)
@@ -2852,7 +2876,8 @@ public sealed class ScoutDatabase
                 var club = reader.IsDBNull(2) ? null : reader.GetString(2);
                 var season = GetFirstJsonString(row, "season", "season_name", "year")
                     ?? (reader.IsDBNull(3) ? "FM View Export" : reader.GetString(3));
-                results.Add(new AnalyticsMetricResult(sourceId, name, club, season, value));
+                var primaryPosition = GetFirstJsonString(row, "position", "primary_position", "natural_position");
+                results.Add(new AnalyticsMetricResult(sourceId, name, club, season, value, primaryPosition));
             }
             catch (JsonException)
             {
