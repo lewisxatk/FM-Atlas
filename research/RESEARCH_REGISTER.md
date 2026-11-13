@@ -315,3 +315,17 @@ The public `docs/value-model.md` was inspected. It distinguishes three different
 - **Estimated asking/transfer fee and interest:** separate buyer/seller heuristics. Asking price depends on listing status, contract, buyer club reputation and a wage-rank squad-status proxy; interest is explicitly heuristic because ambition/loyalty/playing time are not available in the dump.
 
 Atlas implication: do not make the Transfers route or Value Finder present an estimated fee/value as a real FM value. If valuation modelling is added later, use observed values first, a separately named estimate second, explain its inputs/cohort and sample size, show an uncertainty band, and state unavailable inputs. Do not use CA alone as a value proxy or infer exact asking price/interest from missing data.
+
+### FM27 Game Pass profile cross-reference
+
+The published FMLibreEditor recon note for Game Pass package 0.9.2435.0 (observed 10 November 2026) was compared field by field with Atlas's `Fm27BuildProfiles.cs`. The published observation and Atlas registry agree on:
+- PE image size: `0x17969000`
+- PE timestamp: `0x6AE8CF77`
+- Players pair RVA: `0x53B7DE0`
+- Staff pair RVA: `0x53B7E28`
+- Clubs pair RVA: `0x53B7F98`
+- In-game date RVA: `0x53597C8`
+
+This is a strong cross-reference for the **module fingerprint and those discovery anchors on that exact Store package**. It does not certify every player/staff/club field, any write offset, or the user's currently installed binary. The FMLibreEditor notes also document that nearby Game Pass versions move statics and may change date discovery, so do not generalise the 0.9.2435.0 RVAs to 0.9.2409.0 or later builds.
+
+The same FMLibreEditor investigation records 10,812 players, 9,359 staff and 19,775 clubs in its test save. These are characteristics of that test save, not fixed FM limits or guaranteed Atlas import counts.
