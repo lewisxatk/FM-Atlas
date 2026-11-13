@@ -8,6 +8,7 @@ using FmAtlas.Services;
 namespace FmAtlas.Data;
 
 public sealed record LiveClubSummary(long ClubUid, string Name, string ValidationStatus, int LinkedPlayers);
+public sealed record LiveFieldRegistryRecord(string EntityType, string FieldKey, string DisplayName, string? CandidateOffset, string DataType, string ValidationStatus, string? Evidence, string? LastVerifiedGameVersion, string? LastVerifiedModuleSha256);
 public sealed record WorkspaceMetrics(int LivePlayers, int LiveClubs, int LiveStaff, int SavePlayers, int SaveClubs, int SaveStaff, int LocalAttributeFacts, int LiveFacts, string? LastSaveImportUtc, string? LastLiveImportUtc, string? LastSaveFileName, string? SaveGame, string? SaveBuild, bool? SaveBuildKnown, string? SaveGameDate, string? SaveValidationJson, string? CurrentManager, string? CurrentManagerClub);
 public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club, string? Job, int? Age, string? Nation, string ValidationStatus);
 public sealed record AtlasClubRecord(string SourceId, string Name, string? Nation, int PlayerCount, string DataSource);
@@ -2629,5 +2630,35 @@ public sealed class ScoutDatabase
             else if(property.Value.ValueKind==JsonValueKind.Object) foreach(var nested in FlattenNumeric(property.Value,key)) yield return nested;
         }
     }
+
+    public async Task<List<LiveFieldRegistryRecord>> GetLiveFieldRegistryAsync()
+    {
+        var results = new List<LiveFieldRegistryRecord>();
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            SELECT EntityType, FieldKey, DisplayName, CandidateOffset, DataType,
+                   ValidationStatus, Evidence, LastVerifiedGameVersion, LastVerifiedModuleSha256
+            FROM LiveFieldRegistry
+            ORDER BY EntityType, DisplayName;
+            """;
+        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            results.Add(new LiveFieldRegistryRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.GetString(4),
+                reader.GetString(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6),
+                reader.IsDBNull(7) ? null : reader.GetString(7),
+                reader.IsDBNull(8) ? null : reader.GetString(8)));
+        }
+        return results;
+    }
+
 
 }
