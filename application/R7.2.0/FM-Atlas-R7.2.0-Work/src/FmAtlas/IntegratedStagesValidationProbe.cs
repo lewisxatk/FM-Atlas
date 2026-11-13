@@ -8,3 +8,4 @@ internal static class IntegratedStagesValidationProbe
 {
     internal const string Scope = "FM Atlas integrated stages 3-7 validation";
 }
+// Re-trigger validation after the base overhaul branch received its latest fixes.
