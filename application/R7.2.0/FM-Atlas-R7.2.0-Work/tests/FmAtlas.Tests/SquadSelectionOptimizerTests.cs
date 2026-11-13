@@ -85,8 +85,8 @@ public sealed class SquadSelectionOptimizerTests
             new SquadSelectionCandidate("SAVE:1", "Duplicate Player", new Dictionary<string, double> { ["A"] = 11 })
         };
 
-        Assert.ThrowsException<ArgumentException>(() => SquadSelectionOptimizer.Optimize(slots, candidates));
-        Assert.ThrowsException<ArgumentException>(() => SquadSelectionOptimizer.Optimize(
+        Assert.ThrowsExactly<ArgumentException>(() => SquadSelectionOptimizer.Optimize(slots, candidates));
+        Assert.ThrowsExactly<ArgumentException>(() => SquadSelectionOptimizer.Optimize(
             new[] { new SquadSelectionSlot("A", "One"), new SquadSelectionSlot("A", "Duplicate") },
             Array.Empty<SquadSelectionCandidate>()));
     }
@@ -96,11 +96,11 @@ public sealed class SquadSelectionOptimizerTests
     {
         var slots = new[] { new SquadSelectionSlot("A", "Role A") };
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => SquadSelectionOptimizer.Optimize(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => SquadSelectionOptimizer.Optimize(
             slots,
             new[] { new SquadSelectionCandidate("SAVE:1", "Player", new Dictionary<string, double> { ["A"] = 21 }) }));
 
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => SquadSelectionOptimizer.Optimize(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => SquadSelectionOptimizer.Optimize(
             slots,
             new[] { new SquadSelectionCandidate("SAVE:2", "Player", new Dictionary<string, double> { ["A"] = double.NaN }) }));
     }
