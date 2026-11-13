@@ -402,3 +402,13 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] Add a field-backed asking-price/wage provider before exposing transfer affordability in the live recruitment UI.
 - [ ] Validate tactical shape templates and selection results against the user's copied FM27 Game Pass save and in-game tactical screen.
 - Live Apply/Undo remains blocked; no original career save is to be modified. main is not targeted by this pass.
+
+
+## Verified combined development checkpoint — 2026-11-13 22:02 UTC
+
+- [x] Compile correction committed as 32bc314a12db4868d12f2385e23f00dcc15d8fa5.
+- [x] Windows restore succeeded.
+- [x] .NET 8 WPF Release build: 0 warnings, 0 errors.
+- [x] MSTest: 111 passed, 0 failed, 0 skipped.
+- [x] Release executable and test-results artifacts uploaded in Actions run [43515650093](https://github.com/lewisxatk/FM-Atlas/actions/runs/43515650093).
+- [ ] User-PC visual/theme/DPI, copied FM27 Game Pass save and tactical-shape acceptance remains outstanding.

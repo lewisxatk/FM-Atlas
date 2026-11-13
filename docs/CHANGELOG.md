@@ -91,3 +91,13 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Added independent in-possession/out-of-possession squad analysis with 11-slot starter templates and phase-compatible role validation.
 - Added eight regression tests across cohort direction, recruitment budgeting and dual-phase tactics.
 - The new combined branch checkpoint still requires Windows Actions build/test verification and user-PC acceptance. No runtime or copied-save validation is claimed by this changelog entry.
+
+
+## 2026-11-13 — Combined development Windows verification
+
+- Corrected tactical panel control definite-assignment errors in commit 32bc314.
+- GitHub Actions run [43515650093](https://github.com/lewisxatk/FM-Atlas/actions/runs/43515650093) passed.
+- .NET 8 WPF Release build completed with 0 warnings and 0 errors.
+- MSTest passed 111/111 with 0 skipped.
+- Windows Release and test-result artifacts uploaded.
+- This remains automated CI evidence only; no manual WPF or copied-save acceptance is claimed.

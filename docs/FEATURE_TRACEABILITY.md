@@ -431,3 +431,14 @@ Superseded: latest code-level Windows verification is source commit `4fdd17c344a
 - These edits are code and UI integration, not user-PC runtime acceptance.
 - Fresh Windows Release build and automated tests are pending.
 - No FM27 copied-save acceptance, Game Pass UI verification or live-memory write test has been performed. Live Apply/Undo stays blocked; main is not part of this development pass.
+
+
+## Windows CI verification — 2026-11-13 22:02 UTC
+
+- Application/fix commit: 32bc314a12db4868d12f2385e23f00dcc15d8fa5.
+- GitHub Actions run: [43515650093](https://github.com/lewisxatk/FM-Atlas/actions/runs/43515650093) — **success**.
+- Restore: success.
+- .NET 8 WPF Release build: **0 warnings / 0 errors**.
+- MSTest: **111 passed, 0 failed, 0 skipped**.
+- Both FM-Atlas-Test-Results and FM-Atlas-Windows-Release artifacts uploaded successfully.
+- This verifies the Windows build and automated tests for the commit only. It is not WPF manual visual acceptance, copied FM27 save acceptance or Game Pass/live-memory acceptance.
