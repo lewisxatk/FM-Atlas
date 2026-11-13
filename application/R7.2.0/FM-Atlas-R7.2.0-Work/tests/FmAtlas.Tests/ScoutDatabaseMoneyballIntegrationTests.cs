@@ -37,8 +37,8 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
                 await InsertPlayer(connection, snapshotId, "P2", "FMSAVE:2", "Qualified Player");
 
                 await InsertFact(connection, snapshotId, "P1", "player_season_stats", 0, "2025/26", 100, "goals", 50);
-                await InsertFact(connection, snapshotId, "P2", "player_season_stats", 0, "2025/26", 500, "goals", 30);
-                await InsertFact(connection, snapshotId, "P2", "player_season_stats", 1, "2025/26", 900, "goals", 40);
+                await InsertFact(connection, snapshotId, "P2", "player_season_stats", 1, "2025/26", 500, "goals", 30);
+                await InsertFact(connection, snapshotId, "P2", "player_season_stats", 2, "2025/26", 900, "goals", 40);
             }
 
             var qualified = await database.SearchSeasonMetricAsync("goals", null, null, 5000, 450);
