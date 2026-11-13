@@ -1494,14 +1494,9 @@ public sealed class ScoutDatabase
             SELECT f.PlayerSourceId,f.FieldKey,f.NumericValue
             FROM FmsavePlayerFacts f
             INNER JOIN RequestedPositionPlayers requested ON requested.SourceId=f.PlayerSourceId
-            INNER JOIN (
-                SELECT facts.PlayerSourceId,MAX(facts.SnapshotId) AS SnapshotId
-                FROM FmsavePlayerFacts facts
-                INNER JOIN RequestedPositionPlayers selected ON selected.SourceId=facts.PlayerSourceId
-                WHERE facts.FactGroup='positions'
-                GROUP BY facts.PlayerSourceId
-            ) latest ON latest.PlayerSourceId=f.PlayerSourceId AND latest.SnapshotId=f.SnapshotId
-            WHERE f.FactGroup='positions' AND f.NumericValue IS NOT NULL
+            INNER JOIN FmsaveImportRuns run ON run.SnapshotId=f.SnapshotId AND run.KnownBuild=1
+            WHERE f.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND f.FactGroup='positions' AND f.NumericValue IS NOT NULL
             ORDER BY f.PlayerSourceId,f.FieldKey;
             """;
         await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
