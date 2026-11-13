@@ -1947,11 +1947,29 @@ public sealed class ScoutDatabase
         await db.OpenAsync().ConfigureAwait(false);
 
         var snapshotCommand = db.CreateCommand();
-        snapshotCommand.CommandText = "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;";
-        var snapshotValue = await snapshotCommand.ExecuteScalarAsync().ConfigureAwait(false);
-        if (snapshotValue is null || snapshotValue == DBNull.Value)
-            return new List<SquadPlannerSlotRecord>();
-        var snapshotId = Convert.ToInt32(snapshotValue);
+        snapshotCommand.CommandText = """
+            SELECT SnapshotId,Game,GameBuild,KnownBuild
+            FROM FmsaveImportRuns
+            ORDER BY SnapshotId DESC
+            LIMIT 1;
+            """;
+        int snapshotId;
+        await using (var snapshotReader = await snapshotCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            if (!await snapshotReader.ReadAsync().ConfigureAwait(false))
+                return new List<SquadPlannerSlotRecord>();
+
+            snapshotId = snapshotReader.GetInt32(0);
+            var game = snapshotReader.IsDBNull(1) ? null : snapshotReader.GetString(1);
+            var gameBuild = snapshotReader.IsDBNull(2) ? null : snapshotReader.GetString(2);
+            var knownBuild = !snapshotReader.IsDBNull(3) && snapshotReader.GetInt32(3) == 1;
+            // fmsave 0.12.3 documents squad_planner support only for this FM27 build
+            // with one human manager. Never present planner slots for an unregistered build.
+            if (!string.Equals(game, "FM27", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(gameBuild, "27.0.0+2486695", StringComparison.Ordinal)
+                || !knownBuild)
+                return new List<SquadPlannerSlotRecord>();
+        }
 
         var playerNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var playerCommand = db.CreateCommand();
