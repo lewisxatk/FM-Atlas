@@ -189,3 +189,10 @@ Key additions:
 - SaveMyTime ZIP contains a .NET/Mono DLL and two .fmf schedule templates. Static strings suggest substantial training-schedule discovery/verification logic, but behaviour is not established.
 - All supplied EXE files were statically identified only and were not executed or installed. No user save or live game process was inspected.
 - Exact FM27 Game Pass build/profile compatibility remains unverified for Atlas. The R7.2.0 source import remains a prerequisite for comparing Atlas's existing reader and LiveMemoryEditService against these projects.
+
+
+## 9. Additional FM27 data export research (13 November 2026)
+
+- **FM View Exporter**: https://github.com/ElectroHugin/FM-View-Exporter — open-source GPLv3 BepInEx plugin for FM27 Windows/Steam. It exports currently visible player lists to CSV/HTML via F9, including all rows by scrolling the view. This is a UI-level export, not a hidden-memory reader; unscouted values stay hidden. Large searches take longer and FM's visible result list is capped. Useful as a safe import/test-fixture route, but it is not a replacement for a full database scanner.
+- **FMRTE 27**: https://www.fmrte.com/ and https://docs.fmrte.com/ — current commercial feature benchmark for live editing, search, player stats, transfer terms, mass changes and undo. Public docs establish advertised features only; internal implementation remains proprietary.
+- **FMSuperScout installer verification**: the uploaded `FMSuperScout-Setup(1).exe` SHA-256 exactly matches the GitHub v1.7.3 release asset checksum. It was not executed.
