@@ -4,7 +4,8 @@ Last updated: 2026-11-13
 Active branch: `overhaul/monolith-full-platform`  
 Baseline commit: `2051bbee042fb8e7203b7855e833e391ccee9ecb`  
 Latest source-import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`  
-Latest source-code checkpoint: `fd40df08c8f8194881be56a1e5198dfcfa1ca1d2`
+Latest successful test checkpoint: `ade463712df284034ba475a2f1bc85584e9394d9`  
+Current source head at documentation update: `1022078bd4fd79d21f687feb721f6e6e7f4087d7`
 
 ## Verified progress
 
@@ -27,7 +28,7 @@ Latest source-code checkpoint: `fd40df08c8f8194881be56a1e5198dfcfa1ca1d2`
 - [x] Existing Diagnostics / Tester & Logs page, local rolling logs, health checks, copy/export, support ZIP preview, manifest hashes and local-only export inspected in source.
 - [x] Fixed over-escaped credential redaction and expanded path redaction to cover complete Windows and UNC paths, including spaces (code checkpoint `6fc4675`).
 - [x] Added deterministic support-data redaction regression checks to the Diagnostics health-check list (bearer token, API key, password, user path, spaced drive path, UNC path and standalone save filename).
-- [x] Windows/.NET Release build and 10/10 initial Diagnostics redaction tests passed at commit `5aa82c2`; later identity/evidence tests were added after this checkpoint and require a newer run.
+- [x] Windows .NET 8 Release build and 40/40 expanded MSTest suite passed at commit `ade4637` (Actions run `43468496760`); 0 errors, 12 warnings.
 
 ## Initial source architecture audit — 2026-11-13
 
@@ -88,3 +89,13 @@ Only mark a feature complete when the source change exists on this branch and it
 - 2026-11-13: Added Ctrl+K global-search shortcut and MONOLITH canvas background binding in `GlobalSearchWindow` at source commit `830cedc`; independent workflow run was in progress at this checkpoint.
 
 - 2026-11-13: Found and corrected unsafe substring verification checks. Nine SQLite filters now use a normalized exact status allowlist; two UI consumers use `FieldEvidencePolicy`; policy accepts exact canonical statuses only. Added strict allowlist/misleading-prefix tests. Code commits: `8a2af4d`, `8bf70f9`, `c3a721d`, `f32cacd`, `fd40df0`. Latest expanded Windows run: `43466693498` (in progress at handover).
+
+## Latest Windows verification — 2026-11-13 17:03 UTC
+
+- [x] Exact source commit: `ade463712df284034ba475a2f1bc85584e9394d9`.
+- [x] GitHub Actions Windows .NET 8 restore and WPF Release build succeeded: 0 errors.
+- [x] Automated MSTest suite: 40 executed, 40 passed, 0 failed, 0 skipped.
+- [x] Windows Release output and TRX results uploaded. [Actions run 43468496760](https://github.com/lewisxatk/FM-Atlas/actions/runs/43468496760).
+- [ ] 12 compiler warnings were triaged: 11 were private MainWindow filter fields never referenced in any of seven partial classes; one was a legacy `AtlasLog.Warn` call. Those have been removed/replaced in commits `886a8a5` and `1022078`. A new CI run is checking the warning cleanup; do not assume zero warnings until it completes.
+- Current branch head at this progress update: `1022078bd4fd79d21f687feb721f6e6e7f4087d7`.
+- [ ] Windows application launch/UI smoke tests and actual Game Pass integration remain outstanding; CI build success is not runtime acceptance.
