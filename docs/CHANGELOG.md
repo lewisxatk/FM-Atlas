@@ -28,3 +28,12 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Confirmed R7.1.0 package notes say live FM memory writes are not implemented and Windows build/runtime testing remains outstanding.
 - Added `recovery/RECOVERY-INVENTORY.md`.
 - Full source-tree import remains pending; no claim is made that the ZIP contents are already in GitHub.
+
+## 2026-11-13 — R7.2.0 checkpoint received
+
+- Inspected the newly supplied R7.2.0 ZIP (106 files, 3,610,671 uncompressed bytes).
+- SHA-256 recorded: `34d985a39526698026b1e09855d7f37e9f6a00dfba4863cf6f4d467aafedc2c8`.
+- Compared with R7.1.0: 19 shared files changed, 11 added, none removed.
+- Recorded the R7.2.0 implementation status, roadmap and user-test gates.
+- Corrected the live-editing status: R7.1.0 had no live writer; R7.2.0 contains a narrow guarded writer in source, but Windows compile and live acceptance are still unverified.
+- R7.2.0 is the newest supplied candidate; full source import remains pending.
