@@ -9,6 +9,7 @@ public static class AtlasLog
 {
     private static readonly object Gate = new();
     private static bool _initialised;
+    private static readonly string SessionId = Guid.NewGuid().ToString("N");
     private const long MaxBytes = 2 * 1024 * 1024;
     private static readonly string Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas", "logs");
     public static string LogFolder => Folder;
@@ -29,7 +30,7 @@ public static class AtlasLog
     public static void Info(string message) => Write("INFO", message);
     public static void Warning(string message) => Write("WARN", message);
     public static void Error(string message, Exception? exception = null)
-        => Write("ERROR", exception is null ? message : message + " | " + exception.GetType().Name + ": " + exception.Message);
+        => Write("ERROR", exception is null ? message : message + Environment.NewLine + exception);
 
     private static void Write(string level, string message)
     {
@@ -40,11 +41,13 @@ public static class AtlasLog
                 Directory.CreateDirectory(Folder);
                 RotateIfNeeded();
                 var safe = Redact(message);
-                File.AppendAllText(CurrentLogPath, $"{DateTime.UtcNow:O}\t{level}\t{safe}{Environment.NewLine}", new UTF8Encoding(false));
+                File.AppendAllText(CurrentLogPath, $"{DateTime.UtcNow:O}\t{SessionId}\t{level}\t{safe}{Environment.NewLine}", new UTF8Encoding(false));
             }
         }
         catch { /* Logging must never crash the application. */ }
     }
+
+    public static string RedactForSupport(string value) => Redact(value);
 
     private static string Redact(string value)
     {
@@ -75,15 +78,34 @@ public static class AtlasLog
         catch { }
     }
 
-    public static string ReadRecent(int maxCharacters = 30000)
+    public static IReadOnlyList<string> GetLogFiles()
     {
         try
         {
-            if (!File.Exists(CurrentLogPath)) return "No application log has been written yet.";
-            var text = File.ReadAllText(CurrentLogPath);
+            if (!Directory.Exists(Folder)) return Array.Empty<string>();
+            return Directory.GetFiles(Folder, "fm-atlas*.log")
+                .OrderByDescending(x => string.Equals(x, CurrentLogPath, StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(File.GetLastWriteTimeUtc)
+                .Take(5)
+                .ToArray();
+        }
+        catch { return Array.Empty<string>(); }
+    }
+
+    public static string ReadFileForSupport(string path, int maxCharacters = 60000)
+    {
+        try
+        {
+            if (!File.Exists(path)) return string.Empty;
+            var text = Redact(File.ReadAllText(path));
             if (text.Length > maxCharacters) text = text[^maxCharacters..];
             return text;
         }
         catch (Exception ex) { return "Log read failed: " + ex.GetType().Name; }
     }
+
+    public static string ReadRecent(int maxCharacters = 30000)
+        => File.Exists(CurrentLogPath)
+            ? ReadFileForSupport(CurrentLogPath, maxCharacters)
+            : "No application log has been written yet.";
 }
