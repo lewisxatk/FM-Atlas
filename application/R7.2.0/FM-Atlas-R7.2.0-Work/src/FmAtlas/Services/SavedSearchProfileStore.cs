@@ -62,9 +62,8 @@ public sealed class SavedSearchProfileStore
             if (existingIndex >= 0)
             {
                 var existing = profiles[existingIndex];
-                if (profiles.Any((x, index) =>
-                        index != existingIndex
-                        && x.Kind == profile.Kind
+                if (profiles.Where((x, index) => index != existingIndex).Any(x =>
+                        x.Kind == profile.Kind
                         && string.Equals(x.Name, profile.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new InvalidOperationException("A profile with this name already exists in the same search category.");
