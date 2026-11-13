@@ -227,7 +227,15 @@ public partial class MainWindow
         hs.Children.Add(Txt("Rank players against the currently imported statistical cohort. This first integrated view uses one source metric at a time and displays the sample basis; it does not compare leagues with an invented strength adjustment.", 11, false, Muted, wrap: true));
         root.Children.Add(header);
 
-        var metrics = await RunDatabaseAsync(() => _database.GetSeasonMetricCatalogAsync());
+        var allMetrics = await RunDatabaseAsync(() => _database.GetSeasonMetricCatalogAsync());
+        // The general catalogue also contains match-only fields. Moneyball compares season
+        // observations, so expose only fields backed by season tables or an FM View export.
+        var metrics = allMetrics.Where(metric =>
+            (metric.SourceTables ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Any(source => source.Equals("player_season_stats", StringComparison.OrdinalIgnoreCase)
+                    || source.Equals("player_season_history", StringComparison.OrdinalIgnoreCase)
+                    || source.Equals("FM View Export", StringComparison.OrdinalIgnoreCase)))
+            .ToList();
         var status = Txt("Loading statistical cohort…", 10, false, Muted, wrap: true);
         var options = new WrapPanel();
         var field = new ComboBox { Width = 320, Height = 35, Margin = new Thickness(3), ItemsSource = metrics, DisplayMemberPath = nameof(StatMetricField.PickerLabel), IsTextSearchEnabled = true };
@@ -264,7 +272,7 @@ public partial class MainWindow
         grid.Columns.Add(Column("SAMPLE", nameof(MoneyballRow.SampleSize), .5));
         grid.Columns.Add(Column("BASIS", nameof(MoneyballRow.Basis), 1.4));
         root.Children.Add(Card(grid, 14));
-        status.Text = metrics.Count == 0 ? "No numeric metric fields found. Import a copied career save or FM View CSV first." : $"{metrics.Count:N0} metrics available from the latest imports.";
+        status.Text = metrics.Count == 0 ? "No seasonal metric fields found. Import a copied career save with season statistics or an FM View CSV first." : $"{metrics.Count:N0} seasonal metrics available from the latest imports.";
         root.Children.Add(status);
 
         async Task RankAsync()
