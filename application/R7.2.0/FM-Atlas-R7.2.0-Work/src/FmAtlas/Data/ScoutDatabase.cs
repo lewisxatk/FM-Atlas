@@ -15,6 +15,7 @@ public sealed record AtlasClubRecord(string SourceId, string Name, string? Natio
 public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerName, string FieldName, string? OldValue, string? NewValue, string ChangedUtc, string ChangeSource);
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
 public sealed record AtlasDevelopmentHistoryRecord(int SnapshotId, string ImportedUtc, string? GameDate, string? GameBuild, string SourceFileName, string FieldName, double Value, double? PreviousValue, double? Delta);
+public sealed record SquadPlannerSlotRecord(int SeasonOffset, int Slot, string PlayerNames, int ResolvedPlayers, int UnresolvedPlayers);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
 public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value, string? PrimaryPosition = null);
 public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int StaffImported, int ClubsImported, int ExtraRowsImported, IReadOnlyDictionary<string,int> TableCounts, IReadOnlyList<string> Warnings);
@@ -1935,6 +1936,108 @@ public sealed class ScoutDatabase
         var rows=new List<(string,int)>(); await using var r=await cmd.ExecuteReaderAsync().ConfigureAwait(false); while(await r.ReadAsync().ConfigureAwait(false)) rows.Add((r.GetString(0),r.GetInt32(1))); return rows;
     }
 
+
+    /// <summary>
+    /// Reads the latest save's actual squad-planner slots and resolves only player UIDs
+    /// present in that same snapshot. Slot meanings are intentionally left unlabelled.
+    /// </summary>
+    public async Task<List<SquadPlannerSlotRecord>> GetLatestSquadPlannerSlotsAsync()
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+
+        var snapshotCommand = db.CreateCommand();
+        snapshotCommand.CommandText = "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;";
+        var snapshotValue = await snapshotCommand.ExecuteScalarAsync().ConfigureAwait(false);
+        if (snapshotValue is null || snapshotValue == DBNull.Value)
+            return new List<SquadPlannerSlotRecord>();
+        var snapshotId = Convert.ToInt32(snapshotValue);
+
+        var playerNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var playerCommand = db.CreateCommand();
+        playerCommand.CommandText = """
+            SELECT s.PlayerUid,COALESCE(p.Name,'Unknown player')
+            FROM FmsavePlayerSnapshots s
+            LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId
+            WHERE s.SnapshotId=$snapshot;
+            """;
+        playerCommand.Parameters.AddWithValue("$snapshot", snapshotId);
+        await using (var playerReader = await playerCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await playerReader.ReadAsync().ConfigureAwait(false))
+                playerNames[playerReader.GetString(0)] = playerReader.GetString(1);
+        }
+
+        var rows = new List<SquadPlannerSlotRecord>();
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT RowIndex,RawJson
+            FROM FmsaveExtraTables
+            WHERE SnapshotId=$snapshot AND TableName='squad_planner'
+            ORDER BY RowIndex;
+            """;
+        command.Parameters.AddWithValue("$snapshot", snapshotId);
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(reader.GetString(1));
+                var row = document.RootElement;
+                var offsetValue = GetNumeric(row, "season_offset");
+                var slotValue = GetNumeric(row, "slot");
+                if (!offsetValue.HasValue || !slotValue.HasValue
+                    || offsetValue.Value < 0 || offsetValue.Value > 2
+                    || slotValue.Value < 0 || slotValue.Value > 100
+                    || offsetValue.Value != Math.Truncate(offsetValue.Value)
+                    || slotValue.Value != Math.Truncate(slotValue.Value))
+                    continue;
+
+                var names = new List<string>();
+                var resolved = 0;
+                var unresolved = 0;
+                if (row.TryGetProperty("player_uids", out var playerUids) && playerUids.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var uidElement in playerUids.EnumerateArray())
+                    {
+                        string? uid = uidElement.ValueKind switch
+                        {
+                            JsonValueKind.Number when uidElement.TryGetInt64(out var numericUid)
+                                => numericUid.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            JsonValueKind.String => uidElement.GetString(),
+                            _ => null
+                        };
+                        if (uid is not null && playerNames.TryGetValue(uid, out var name))
+                        {
+                            names.Add(name);
+                            resolved++;
+                        }
+                        else
+                        {
+                            unresolved++;
+                            if (uid is not null) names.Add($"Unresolved UID {uid}");
+                        }
+                    }
+                }
+
+                rows.Add(new SquadPlannerSlotRecord(
+                    (int)offsetValue.Value,
+                    (int)slotValue.Value,
+                    names.Count == 0 ? "Empty slot" : string.Join(", ", names),
+                    resolved,
+                    unresolved));
+            }
+            catch (JsonException)
+            {
+                // A malformed optional slot does not hide the remaining planner rows.
+            }
+        }
+
+        return rows
+            .OrderBy(x => x.SeasonOffset)
+            .ThenBy(x => x.Slot)
+            .ToList();
+    }
 
     public async Task CheckpointAsync()
     {
