@@ -35,7 +35,7 @@ public static class FmsaveBridgeService
             var stdout = await stdoutTask;
             _ = await stderrTask;
             if (process.ExitCode != 0) return null;
-            var version = stdout.Trim().Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+            var version = stdout.Trim().Split(new[] { (char)13, (char)10 }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
             return string.IsNullOrWhiteSpace(version) ? null : version.Trim();
         }
         catch { return null; }
@@ -99,7 +99,7 @@ public static class FmsaveBridgeService
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
         if (process.ExitCode != 0)
-            throw new InvalidOperationException($"The fmsave adapter failed (exit code {process.ExitCode}).\\n{stderr}\\n{stdout}".Trim());
+            throw new InvalidOperationException($"The fmsave adapter failed (exit code {process.ExitCode}).{Environment.NewLine}{stderr}{Environment.NewLine}{stdout}".Trim());
         if (!File.Exists(output) || new FileInfo(output).Length < 32)
             throw new InvalidDataException("The fmsave adapter finished without creating a valid snapshot file.");
 
