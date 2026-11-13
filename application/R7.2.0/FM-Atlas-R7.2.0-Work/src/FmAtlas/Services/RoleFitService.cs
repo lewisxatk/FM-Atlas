@@ -71,13 +71,13 @@ public static class RoleFitService
         if (profile.Weights is null || profile.Weights.Count == 0)
             return null;
 
-        var normalizedWeights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var normalizedWeights = new Dictionary<string, (string DisplayName, double Weight)>(StringComparer.OrdinalIgnoreCase);
         foreach (var pair in profile.Weights)
         {
             var key = NormalizeAttributeKey(pair.Key);
             if (key.Length == 0 || !double.IsFinite(pair.Value) || pair.Value <= 0)
                 throw new ArgumentException("Role weights must have a named attribute and a finite positive weight.", nameof(profile));
-            if (!normalizedWeights.TryAdd(key, pair.Value))
+            if (!normalizedWeights.TryAdd(key, (pair.Key.Trim(), pair.Value)))
                 throw new ArgumentException($"Role profile contains duplicate normalized attribute '{pair.Key}'.", nameof(profile));
         }
 
@@ -91,7 +91,7 @@ public static class RoleFitService
 
         var availableInputs = normalizedWeights
             .Where(weight => normalizedAttributes.ContainsKey(weight.Key))
-            .Select(weight => (Attribute: weight.Key, Value: normalizedAttributes[weight.Key], Weight: weight.Value))
+            .Select(weight => (Attribute: weight.Value.DisplayName, Value: normalizedAttributes[weight.Key], Weight: weight.Value.Weight))
             .ToArray();
 
         var coverage = availableInputs.Length / (double)normalizedWeights.Count;
