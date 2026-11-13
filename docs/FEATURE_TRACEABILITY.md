@@ -29,8 +29,8 @@
 
 | Requirement | Source locations | Current evidence | Status | Remaining work |
 |---|---|---|---|---|
-| Obsidian / Warm Light palettes | `Services/MonolithTheme.cs` | Palette tokens, font fallback and saved theme selection; Settings selector | Source present — partial | Complete semantic resources for all surfaces and states |
-| Legacy colour bridge | `Services/MonolithTheme.cs`, `MainWindow.xaml.cs` | Legacy hex colours can be resolved to current theme roles | Source present — narrow | Remove hard-coded values; audit contrast and semantic meaning |
+| Obsidian / Warm Light palettes | `Services/MonolithTheme.cs`, `MainWindow.xaml.cs`, `PlayerIntelligenceReportWindow.xaml` | Palette tokens and saved mode; token brushes now update in place, legacy page brushes are tracked/remapped, main window uses token surfaces and report XAML uses DynamicResource | Source present — partial | Windows theme-switch test, accessibility contrast, migrate remaining views and XAML styles |
+| Legacy colour bridge | `Services/MonolithTheme.cs`, `MainWindow.xaml.cs` | Legacy hex colours are mapped by semantic families and existing mutable brushes are repainted in place when mode changes | Source present — partial | Audit unmapped colours and semantic contrast; add test coverage and migrate to token resources |
 | Shared WPF component library | — | UI helper factories exist in MainWindow for cards, text, inputs and buttons, but there is no cohesive shared component library | Not present — planned | Buttons, inputs, menus, tabs, chips, dialogs, drawers, tables, pitch, charts and focus states |
 | Full page migration | Feature partials and `MainWindow.xaml.cs` | Theme-aware helpers are used in places; older palette declarations and per-page styling remain | Source present — partial | Migrate every feature page and test both themes/high-DPI |
 | Motion, iconography, responsive shell | `MainWindow.xaml.cs` | Basic glyph navigation and loading pane | Source present — narrow | Consistent icon set, active state, restrained motion, layout scaling and accessibility |
