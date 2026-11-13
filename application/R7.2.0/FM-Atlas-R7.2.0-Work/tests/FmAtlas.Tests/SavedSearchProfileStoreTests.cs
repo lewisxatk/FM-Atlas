@@ -36,7 +36,7 @@ public sealed class SavedSearchProfileStoreTests
                 "Complete Forward",
                 SavedSearchKind.Attributes,
                 null,
-                MatchAny: false,
+                MatchAny: true,
                 Per90: false,
                 MinimumMinutes: 0,
                 new[]
@@ -62,7 +62,7 @@ public sealed class SavedSearchProfileStoreTests
             Assert.AreEqual(SavedSearchKind.Attributes, loadedAttributes.Kind);
             Assert.AreEqual(2, loadedAttributes.Conditions.Count);
             Assert.AreEqual(15, loadedAttributes.Conditions[0].Minimum!.Value, 0.0001);
-            Assert.IsFalse(loadedAttributes.MatchAny);
+            Assert.IsTrue(loadedAttributes.MatchAny, "ANY/OR matching must survive profile persistence.");
             Assert.IsFalse(loadedAttributes.Per90);
             Assert.IsTrue(File.Exists(path));
         }
