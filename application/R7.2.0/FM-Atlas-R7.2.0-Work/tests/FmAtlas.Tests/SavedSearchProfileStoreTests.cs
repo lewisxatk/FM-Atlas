@@ -154,6 +154,102 @@ public sealed class SavedSearchProfileStoreTests
     }
 
     [TestMethod]
+    public void Duplicate_CreatesIndependentCopyWithUniqueNameAndSameCriteria()
+    {
+        var (folder, _, store) = CreateStore();
+        try
+        {
+            var original = store.Save(CreateStatisticsProfile("profile-1", "High Press"));
+            var copy = store.Duplicate(original.Id);
+
+            Assert.AreNotEqual(original.Id, copy.Id);
+            Assert.AreEqual("High Press (Copy)", copy.Name);
+            Assert.AreEqual(original.Kind, copy.Kind);
+            Assert.AreEqual(original.Conditions.Count, copy.Conditions.Count);
+            Assert.AreEqual(original.Conditions[0], copy.Conditions[0]);
+            Assert.IsTrue(copy.CreatedUtc >= original.CreatedUtc);
+            Assert.AreEqual(2, store.Load().Count);
+        }
+        finally
+        {
+            DeleteFolder(folder);
+        }
+    }
+
+    [TestMethod]
+    public void ExportJsonAndImportJson_PreserveProfilesAndMergeWithoutOverwritingConflicts()
+    {
+        var (sourceFolder, _, source) = CreateStore();
+        var (targetFolder, _, target) = CreateStore();
+        try
+        {
+            source.Save(CreateStatisticsProfile("shared-id", "Different Source Name"));
+            source.Save(new SavedSearchProfile(
+                "attribute-2",
+                "Complete Forward",
+                SavedSearchKind.Attributes,
+                "Liverpool",
+                false,
+                false,
+                0,
+                new[] { new SavedSearchCondition("finishing", "Finishing", 16, null) },
+                DateTime.UtcNow,
+                DateTime.UtcNow));
+
+            target.Save(CreateStatisticsProfile("shared-id", "Existing Local Name"));
+            target.Save(CreateStatisticsProfile("local-name", "Existing Name"));
+
+            var exported = source.ExportJson();
+            var result = target.ImportJson(exported);
+
+            Assert.AreEqual(1, result.Added);
+            Assert.AreEqual(1, result.Skipped);
+            Assert.AreEqual(1, result.Conflicts.Count);
+            Assert.IsTrue(result.Conflicts[0].Contains("same ID", StringComparison.OrdinalIgnoreCase));
+            Assert.AreEqual(3, target.Load().Count);
+            Assert.AreEqual("Existing Local Name", target.Load().Single(x => x.Id == "shared-id").Name);
+            Assert.IsTrue(target.Load().Any(x => x.Id == "attribute-2" && x.Kind == SavedSearchKind.Attributes));
+
+            var attributeOnly = source.ExportJson(SavedSearchKind.Attributes);
+            var filteredTarget = new SavedSearchProfileStore(Path.Combine(targetFolder, "attributes-only.json"));
+            var filteredImport = filteredTarget.ImportJson(attributeOnly);
+            Assert.AreEqual(1, filteredImport.Added);
+            Assert.AreEqual(SavedSearchKind.Attributes, filteredTarget.Load().Single().Kind);
+        }
+        finally
+        {
+            DeleteFolder(sourceFolder);
+            DeleteFolder(targetFolder);
+        }
+    }
+
+    [TestMethod]
+    public void ImportJson_SkipsNameConflictsAndRejectsUnsupportedSchema()
+    {
+        var (folder, _, target) = CreateStore();
+        var (sourceFolder, _, source) = CreateStore();
+        try
+        {
+            target.Save(CreateStatisticsProfile("local", "Pressing"));
+            source.Save(CreateStatisticsProfile("incoming", "Pressing"));
+
+            var conflict = target.ImportJson(source.ExportJson());
+            Assert.AreEqual(0, conflict.Added);
+            Assert.AreEqual(1, conflict.Skipped);
+            Assert.IsTrue(conflict.Conflicts.Single().Contains("same name", StringComparison.OrdinalIgnoreCase));
+            Assert.AreEqual(1, target.Load().Count);
+
+            var unsupported = source.ExportJson().Replace("\"SchemaVersion\": 1", "\"SchemaVersion\": 999", StringComparison.Ordinal);
+            Assert.ThrowsExactly<InvalidDataException>(() => target.ImportJson(unsupported));
+        }
+        finally
+        {
+            DeleteFolder(folder);
+            DeleteFolder(sourceFolder);
+        }
+    }
+
+    [TestMethod]
     public void Save_RejectsNonFiniteAndInvalidAttributeBounds()
     {
         var (folder, _, store) = CreateStore();
