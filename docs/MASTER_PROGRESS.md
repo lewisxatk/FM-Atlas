@@ -255,3 +255,13 @@ Only mark a feature complete when the source change exists on this branch and it
 - Branch head is the tested source commit. Protected `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
 - [ ] Windows runtime acceptance remains outstanding: verify the toggle, saved-profile round-trip and result rows in the running app using an imported copy of an FM27 save; test ALL/ANY on real imported data and ensure missing attributes stay non-matches.
 - The full product roadmap remains active; this is another verified integrated tranche, not the final FM Atlas release. Continue the remaining Advanced Search grouping, Player DNA, Scouting Matrix, Moneyball cohorts/percentiles, Tactical Intelligence, Match Lab, development, Save Inspector/editor, Game Pass adapter, Graphics/Skin Studio, mod workbench and release engineering.
+
+## Latest Advanced Search condition-control checkpoint — 2026-11-13 18:09 UTC
+
+- Exact tested application source commit: `eb5d8f2228310459df34713222f6257fc85b171c`.
+- Windows Actions run `43479401387`: .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; **68/68 tests passed**, 0 failed, 0 skipped.
+- Release artifact `14064023817`; test-results artifact `14064766061`. Downloaded and inspected both: TRX counters show 68 executed / 68 passed / 0 failed; release ZIP contains `FmAtlas.exe`, `FmAtlas.dll`, SQLite and both save-bridge tools.
+- Stats Search and Attribute Search now provide per-condition Move Up, Move Down and Duplicate actions alongside Remove. Reordering updates both the visible row order and backing condition list, so saved profile serialization and query execution use the same sequence.
+- The tested commit adds only `MainWindow.AdvancedSearch.cs`; the current branch head equals the tested SHA. `main` remains unchanged at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- [ ] Windows UI acceptance remains pending: visually confirm the extra row controls fit at supported resolutions/DPI, verify order persists after save/load, and duplicate/edit/remove multiple rows on both search screens.
+- This is an internal integration checkpoint, not a separate user-facing release. Continue the full product roadmap on the same overhaul branch.
