@@ -157,7 +157,7 @@ All uploads below were identified/inspected statically. No installer or DLL was 
 | `FM-Player-Analyzer-2.2.3(1).zip` | 419-entry source archive; SHA-256 `3637b5aa1736d89ece8e752a78e73bf6c1a04b379ab933df4211bfe9cd41dd61` | Contains FM27 save parsing and graphics index source; GPL-3.0 |
 | `FMLibreEditor-Setup(1).exe` | PE32 NSIS installer; SHA-256 `5954fc6fce28ac698f03e44c72e7266a37a26ca13bf7257aee9d7f25c6271151` | Not executed; public source/docs are better evidence for internals |
 | `TalentSeer-27.1.2-win-x64(1).zip` | README + `TalentSeer.exe` + third-party notices; SHA-256 `a015be52fcf9891dc7b58e78920fcbf0a8e7afa3084d444dbdcf4e153b3a0fed` | Closed binary in supplied package; README/product claims only |
-| `FMSuperScout-Setup(1).exe` | PE/Inno Setup 6.7; SHA-256 `96ee55a62c05ef7ef4123256a9aaa09410a52bccf979c6c93834fb1ed2738bae` | Not executed; public MIT source inspected instead |
+| `FMSuperScout-Setup(1).exe` | PE/Inno Setup 6.7; SHA-256 `96ee55a62c05ef7ef4123256a9aaa09410a52bccf979c6c93834fb1ed2738bae`; **matches the GitHub v1.7.3 published SHA-256** | Confirms the supplied installer is the published v1.7.3 asset; not executed; public MIT source inspected instead |
 
 ## 6. FM Atlas implementation recommendations
 
