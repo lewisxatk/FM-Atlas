@@ -72,6 +72,9 @@ public sealed class RoleFitServiceTests
         Assert.AreEqual(2, result.AttributesAvailable);
         Assert.AreEqual(3, result.AttributesExpected);
         Assert.AreEqual(2d / 3d, result.Coverage, 0.0001);
+        var readableContribution = result.Contributions.Single(x => x.Attribute == "Off The Ball");
+        Assert.AreEqual(18, readableContribution.Value, 0.0001);
+        Assert.AreEqual(2, readableContribution.Weight, 0.0001);
     }
 
     [TestMethod]
