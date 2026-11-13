@@ -13,19 +13,20 @@ R7.0.2 and R7.1.0 archives are inventoried, hashed and compared, but their compl
 
 ## Current gate: fresh Windows build and diagnostics acceptance
 
-The user-provided R7.2.0 baseline build log reported Windows 10 / .NET SDK 8.0.427, 0 errors and 15 warnings. Later overhaul-branch changes have not yet been built on Windows.
+The user-provided R7.2.0 baseline build log reported Windows 10 / .NET SDK 8.0.427, 0 errors and 15 warnings. In addition, GitHub Actions run `43465739690` passed on Windows at source commit `5aa82c2`: restore, WPF Release build, 10/10 MSTest tests and artifact uploads. The most recent source commit `830cedc` has a separate workflow run in progress.
 
 A repeatable workflow is present at `.github/workflows/fm-atlas-windows-build.yml`. It restores and builds the WPF solution on Windows with .NET 8 and uploads Release output. No workflow run is currently reported; a successful run must be recorded before calling the current branch build-verified.
 
 ### Build acceptance checklist
 
-- [ ] Run the Windows Release workflow for the current overhaul branch.
+- [x] Run the Windows Release workflow for source checkpoint `5aa82c2`; all build and test steps passed (10/10).
+- [ ] Confirm the active workflow run for source checkpoint `830cedc` completes successfully; do not use the earlier run as proof of the later commit.
 - [ ] Confirm the expected `FmAtlas.exe` exists in `src/FmAtlas/bin/Release/net8.0-windows/`.
 - [ ] Record exact commit SHA, runner Windows version, .NET SDK, build output, warnings and artifact.
 - [ ] Triage all warnings; do not hide or suppress warnings without a reason.
 - [ ] If CI cannot be enabled or triggered, run the same restore/build commands on Windows and attach the complete log.
 
-Equivalent regex cases for bearer tokens, keys/passwords, user paths, spaced drive paths, UNC paths and save filenames passed a separate local pattern check. A Windows .NET 8 MSTest project now covers these cases plus line-break, length-cap and safe-text behaviour; the test project has not yet run on Windows. The actual C# `ValidateRedaction()` check still needs to execute inside the Windows Diagnostics page.
+The Windows TRX artifact for `5aa82c2` confirms the .NET tests for bearer tokens, keys/passwords, user paths, spaced drive paths, UNC paths, save filenames, line-break cleanup, length cap and safe-text preservation all passed (10/10). The actual C# `ValidateRedaction()` check still needs to execute inside the Windows Diagnostics page.
 
 ### Runtime smoke checklist
 
