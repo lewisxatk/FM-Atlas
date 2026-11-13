@@ -68,17 +68,6 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, PlayerRecord> _openPlayerRecords = new(StringComparer.OrdinalIgnoreCase);
     private TextBlock? _playerCountText;
     private TextBox? _playerSearch;
-    private TextBox? _playerMinAge;
-    private TextBox? _playerMaxAge;
-    private TextBox? _playerMinCa;
-    private TextBox? _playerMaxCa;
-    private TextBox? _playerMinPa;
-    private TextBox? _playerMaxPa;
-    private TextBox? _attributeMinimum;
-    private TextBox? _attributeMaximum;
-    private TextBox? _leftFootMinimum;
-    private TextBox? _rightFootMinimum;
-    private ComboBox? _attributePicker;
     private ComboBox? _positionPicker;
     private ComboBox? _shortlistPicker;
 
