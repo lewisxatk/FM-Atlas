@@ -236,3 +236,12 @@ Current verified application checkpoint remains commit 6c18e36fdc706fc49ad74ce15
 - [ ] Windows runtime acceptance remains outstanding: launch both search screens, verify all profile buttons, export/import between app instances, check skipped conflicts and verify no player/save contents are included in the JSON.
 - The branch head at this checkpoint is the tested application commit. Fetch the live ref before resuming. Main remains untouched at 2051bbee042fb8e7203b7855e833e391ccee9ecb.
 - Continue the complete roadmap as one integrated programme; this feature tranche is not the full product release.
+
+## Superseding tested source checkpoint — Attribute Search ALL/ANY (2026-11-13)
+
+- Exact current tested application source: `0fbd5fa5162b89798aa55e96669a01b26cd2ddbd`.
+- Windows Actions run `43478483715`: WPF Release build 0 warnings / 0 errors; 68/68 passed, 0 failed, 0 skipped.
+- Release artifact `14064057973`; test-results artifact `14064172732`. The downloaded release contains FmAtlas.exe, FmAtlas.dll, SQLite and save-bridge scripts; the downloaded TRX confirms 68 passed.
+- Attribute Search supports ALL/AND (default) and ANY/OR, persists that choice in Attribute Search profiles, keeps free-text filtering ANDed outside the OR group, and is covered by a real disposable SQLite integration test.
+- This checkpoint supersedes earlier references in this handover to 67/67 or 64/64 as the latest tested source. Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- Remaining user-environment checks: open the WPF app, test actual search results with a copied FM27 Game Pass save, verify saved profile persistence, and complete visual acceptance. Continue the whole integrated roadmap rather than treating this tranche as final.
