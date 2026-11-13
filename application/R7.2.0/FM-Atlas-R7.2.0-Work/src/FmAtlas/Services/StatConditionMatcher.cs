@@ -32,6 +32,10 @@ public static class StatConditionMatcher
                 || (!criterion.Minimum.HasValue && !criterion.Maximum.HasValue))
                 throw new ArgumentException("Each statistical condition needs a field and at least one boundary.", nameof(criteria));
 
+            if ((criterion.Minimum.HasValue && !double.IsFinite(criterion.Minimum.Value))
+                || (criterion.Maximum.HasValue && !double.IsFinite(criterion.Maximum.Value)))
+                throw new ArgumentOutOfRangeException(nameof(criteria), "Statistical boundaries must be finite numbers.");
+
             if (criterion.Minimum.HasValue && criterion.Maximum.HasValue && criterion.Minimum.Value > criterion.Maximum.Value)
                 throw new ArgumentException("A metric minimum cannot exceed its maximum.", nameof(criteria));
 
