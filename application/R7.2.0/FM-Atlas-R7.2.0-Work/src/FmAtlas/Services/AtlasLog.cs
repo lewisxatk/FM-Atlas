@@ -81,13 +81,12 @@ public static class AtlasLog
     private static string Redact(string value)
     {
         var text = value.Replace('\r', ' ').Replace('\n', ' ');
-        // Scrub common credential/token formats before a log can enter a support bundle.
+        // Scrub credential formats before a log can enter a support bundle.
         text = Regex.Replace(text, @"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]");
         text = Regex.Replace(text, @"(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|authorization)\s*[:=]\s*[^;\s,]+", "$1=[redacted]");
         text = Regex.Replace(text, @"(?i)\b[A-Z]:\\[^""<>|,;()\r\n]+", "[path redacted]");
         text = Regex.Replace(text, @"(?i)\\\\[^\\\r\n]+(?:\\[^\\\r\n]+)+", "[path redacted]");
-        // and standalone Football Manager save filenames before writing to the default support log.
-        text = Regex.Replace(text, @"(?i)\b[A-Z]:\\[^\s""<>|]+", "[path redacted]");
+        // Redact standalone Football Manager save filenames as a final safeguard.
         text = Regex.Replace(text, @"(?i)\b[^\\/\s]+\.(?:fm|fmf|dat)\b", "[save-file]");
         return text.Length > 4000 ? text[..4000] + "…" : text;
     }
