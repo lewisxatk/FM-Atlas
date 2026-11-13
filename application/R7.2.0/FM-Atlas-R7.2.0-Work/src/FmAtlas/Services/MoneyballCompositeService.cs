@@ -43,7 +43,8 @@ public static class MoneyballCompositeService
                     throw new ArgumentException("Metric weight keys cannot be blank.", nameof(metricWeights));
                 if (!double.IsFinite(pair.Value) || pair.Value <= 0)
                     throw new ArgumentOutOfRangeException(nameof(metricWeights), "Metric weights must be finite and greater than zero.");
-                validWeights[pair.Key.Trim()] = pair.Value;
+                if (!validWeights.TryAdd(pair.Key.Trim(), pair.Value))
+                    throw new ArgumentException("Metric weight keys must be unique after trimming and case normalisation.", nameof(metricWeights));
             }
         }
 
