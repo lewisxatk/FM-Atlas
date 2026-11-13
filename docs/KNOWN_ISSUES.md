@@ -81,3 +81,7 @@ The following supersedes older build/privacy notes above where they conflict:
 - Game Pass build/profile recognition remains unconfirmed for the user's installed executable. A module fingerprint is not field-level certification.
 - Live memory Apply/Undo remains deliberately disabled. Do not weaken the write certification gate.
 - Manual WPF startup, all-route smoke tests, theme/high-DPI/accessibility checks, imported copied-save acceptance, graphics pack validation, clean-machine installer tests and release rollback remain open.
+
+## Moneyball validation correction — 2026-11-13
+
+Windows run 43484787575 built with zero warnings/errors but had 84/85 tests pass. The only failure was a test-fixture primary-key collision caused by reusing the same FmsaveStatFacts row index for two different players. The fixture row indexes were corrected in commit d863808; this was not evidence of a failing production query. The corrected test and follow-on malformed-filter tests are being re-run in Windows CI. Keep the result pending until the current-head run is green.
