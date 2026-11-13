@@ -123,3 +123,10 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - Build warnings at that tested commit: 12 (11 unused MainWindow private filter declarations and one obsolete AtlasLog.Warn call). A source-only warning cleanup removed the 11 unused declarations after confirming they were referenced nowhere in seven MainWindow partial classes, and changed the legacy call to AtlasLog.Warning. Commits: `886a8a5`, `1022078`.
 - CI run for the first cleanup commit `886a8a5` is in progress; a queued run for current head `1022078` is pending. No zero-warning claim until a completed run is inspected.
 - Application launch, UI screen coverage, actual support ZIP inspection, theme/DPI acceptance and Game Pass runtime compatibility remain untested.
+
+## Warning-free Windows checkpoint and SQLite consumer test
+
+- Windows Actions run `43469077009`, exact tested commit `1022078bd4fd79d21f687feb721f6e6e7f4087d7`: WPF Release build succeeded with **0 warnings / 0 errors**; all **40/40** unit tests passed. Link: https://github.com/lewisxatk/FM-Atlas/actions/runs/43469077009.
+- The warning count was reduced from 12 to zero without suppression: eleven unused private fields were removed after searching every MainWindow partial; one call was changed from obsolete `AtlasLog.Warn` to `AtlasLog.Warning`.
+- New SQLite integration test `tests/FmAtlas.Tests/ScoutDatabaseEvidenceIntegrationTests.cs` seeds a disposable database with canonical verified, read-back verified, unverified, provisional and mixed-status facts, then checks CA/PA values, filters and attribute results. It uses a dedicated test database path and disables SQLite pooling for safe cleanup.
+- The first test build exposed missing `System.IO` imports; corrected in commit `e109eab`. The test has not yet completed a Windows run.
