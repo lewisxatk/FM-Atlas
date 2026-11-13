@@ -587,7 +587,7 @@ public partial class MainWindow
         var developmentHeading = Txt("LONGITUDINAL PLAYER DEVELOPMENT", 9, true, Teal);
         developmentHeading.Margin = new Thickness(0, 0, 0, 5);
         root.Children.Add(developmentHeading);
-        var developmentNote = Txt("Values are compared only between consecutive imported snapshots linked by the persistent player identity. Missing values are not treated as zero; the first observation has no calculated change.", 9, false, Muted, wrap: true);
+        var developmentNote = Txt("Values are compared only between consecutive imported snapshots. A changed birth date, or a changed name when birth-date evidence is missing, starts a new identity segment to guard against recycled FM unique IDs. Missing values are not treated as zero.", 9, false, Muted, wrap: true);
         developmentNote.Margin = new Thickness(0, 0, 0, 6);
         root.Children.Add(developmentNote);
         developmentHistory = CreateGrid();
@@ -644,9 +644,11 @@ public partial class MainWindow
                         GameDate = x.GameDate ?? "—",
                         Field = x.FieldName,
                         Value = x.Value.ToString("0.##", CultureInfo.InvariantCulture),
-                        Change = x.Delta.HasValue
-                            ? (x.Delta.Value > 0 ? "+" : string.Empty) + x.Delta.Value.ToString("0.##", CultureInfo.InvariantCulture)
-                            : "—",
+                        Change = x.IdentityBoundary
+                            ? "Identity reset"
+                            : x.Delta.HasValue
+                                ? (x.Delta.Value > 0 ? "+" : string.Empty) + x.Delta.Value.ToString("0.##", CultureInfo.InvariantCulture)
+                                : "—",
                         Build = x.GameBuild ?? "—",
                         SourceFile = x.SourceFileName
                     }).ToArray();
