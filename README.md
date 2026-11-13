@@ -9,9 +9,9 @@ FM Atlas is a Windows Football Manager intelligence and modding workspace. The i
 - Main branch is preserved and has not been modified by this overhaul.
 - Repaired R7.2.0 application source is present at `application/R7.2.0/FM-Atlas-R7.2.0-Work/`. Source import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`.
 - R7.0.2 and R7.1.0 archives have been inventoried and compared. Their complete source trees still need separate immutable GitHub baselines; they are not the current working code.
-- The user supplied a Windows 10 / .NET 8.0.427 build log for the repaired R7.2.0 baseline: **0 errors, 15 warnings**. The current overhaul branch has had later source changes and still needs a fresh Windows build and runtime acceptance.
-- A Windows .NET 8 Release build workflow has been added at `.github/workflows/fm-atlas-windows-build.yml`. No workflow run is currently reported.
-- Current diagnostics privacy hardening, architecture/feature traceability, a Windows MSTest project and the build/test workflow are committed on the overhaul branch. Equivalent regex test cases passed locally; the C# tests, Diagnostics check and current WPF build have not yet been run on Windows.
+- Windows CI run `43468496760` at commit `ade4637` completed .NET 8 restore and WPF Release build with **0 errors**, and passed **40/40 MSTest tests**. Compiler reported 12 warnings. Later commits removed 11 unused fields and replaced one obsolete logging call; follow-up CI is pending. Runtime UI and Game Pass acceptance remain outstanding.
+- A Windows .NET 8 Release build/test workflow is active at `.github/workflows/fm-atlas-windows-build.yml`; see the master progress/handover for the latest exact tested commit.
+- Diagnostics privacy hardening, source/feature traceability, Windows MSTest tests, ALL/ANY statistics logic, field-evidence safeguards, provider identity handling, theme updates and CI build automation are committed. See `docs/MASTER_PROGRESS.md` for exact build and test evidence; app/game runtime acceptance remains outstanding.
 
 ## Start here
 
