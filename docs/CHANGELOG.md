@@ -37,3 +37,11 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Recorded the R7.2.0 implementation status, roadmap and user-test gates.
 - Corrected the live-editing status: R7.1.0 had no live writer; R7.2.0 contains a narrow guarded writer in source, but Windows compile and live acceptance are still unverified.
 - R7.2.0 is the newest supplied candidate; full source import remains pending.
+
+
+## 2026-11-13 — Repository status and roadmap corrected
+
+- Verified current GitHub `main` tree: documentation and recovery notes are present; application source trees are not yet present.
+- Corrected README and next-step instructions to identify R7.2.0 as the latest supplied candidate.
+- Reframed roadmap around source import, Windows build, data acceptance and guarded live editor acceptance.
+- Kept all R7.2.0 source features marked as source-implemented/unverified rather than runtime-verified.
