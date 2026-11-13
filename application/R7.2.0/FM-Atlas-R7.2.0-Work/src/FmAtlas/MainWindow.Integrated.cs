@@ -18,6 +18,10 @@ public partial class MainWindow
     private async Task<UIElement> PlayerDnaPageAsync()
     {
         var root = new StackPanel();
+        Button find = null!;
+        DataGrid results = null!;
+        TextBlock detailStatus = null!;
+        DataGrid attributes = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PLAYER INTELLIGENCE", 9, true, Teal));
@@ -27,12 +31,12 @@ public partial class MainWindow
 
         var searchRow = new WrapPanel();
         var search = Input("Search player name, club or nation"); search.Width = 300;
-        var find = PrimaryButton("Find players", async (_, _) => await FindPlayersAsync());
+        find = PrimaryButton("Find players", async (_, _) => await FindPlayersAsync());
         var compare = SoftButton("Compare selected", async (_, _) => await CompareSelectedAsync());
         searchRow.Children.Add(search); searchRow.Children.Add(find); searchRow.Children.Add(compare);
         root.Children.Add(Card(searchRow, 13, new Thickness(0, 0, 0, 10)));
 
-        var results = CreateGrid();
+        results = CreateGrid();
         results.SelectionMode = DataGridSelectionMode.Extended;
         results.Columns.Add(Column("PLAYER", nameof(PlayerRecord.Name), 1.4));
         results.Columns.Add(Column("CLUB", nameof(PlayerRecord.Club), 1));
@@ -45,9 +49,9 @@ public partial class MainWindow
         root.Children.Add(resultCard);
 
         var detail = new StackPanel();
-        var detailStatus = Txt("Search for players, then select up to three to compare.", 10, false, Muted, wrap: true);
+        detailStatus = Txt("Search for players, then select up to three to compare.", 10, false, Muted, wrap: true);
         detail.Children.Add(detailStatus);
-        var attributes = CreateGrid();
+        attributes = CreateGrid();
         attributes.Columns.Add(Column("CATEGORY", nameof(DnaAttributeRow.Category), .8));
         attributes.Columns.Add(Column("ATTRIBUTE", nameof(DnaAttributeRow.Attribute), 1.4));
         attributes.Columns.Add(Column("VALUE", nameof(DnaAttributeRow.Value), .5));
@@ -104,6 +108,8 @@ public partial class MainWindow
     {
         var root = new StackPanel();
         var status = Txt("Loading saved recruitment lists…", 10, false, Muted, wrap: true);
+        DataGrid candidates = null!;
+        DataGrid saved = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("RECRUITMENT INTELLIGENCE", 9, true, Teal));
@@ -138,7 +144,7 @@ public partial class MainWindow
         candidateRow.Children.Add(candidateSearch); candidateRow.Children.Add(searchButton); candidateRow.Children.Add(addButton); candidateRow.Children.Add(removeButton);
         root.Children.Add(Card(candidateRow, 13, new Thickness(0, 0, 0, 10)));
 
-        var candidates = CreateGrid();
+        candidates = CreateGrid();
         candidates.Columns.Add(Column("PLAYER", nameof(PlayerRecord.Name), 1.3));
         candidates.Columns.Add(Column("CLUB", nameof(PlayerRecord.Club), 1));
         candidates.Columns.Add(Column("POSITION", nameof(PlayerRecord.Position), .7));
@@ -146,7 +152,7 @@ public partial class MainWindow
         candidates.Columns.Add(Column("VALUE", nameof(PlayerRecord.DisplayValue), .6));
         root.Children.Add(Card(candidates, 14, new Thickness(0, 0, 0, 10)));
 
-        var saved = CreateGrid();
+        saved = CreateGrid();
         saved.Columns.Add(Column("PLAYER", nameof(ShortlistRecord.PlayerName), 1.2));
         saved.Columns.Add(Column("CLUB", nameof(ShortlistRecord.DisplayClub), 1));
         saved.Columns.Add(Column("POSITION", nameof(ShortlistRecord.DisplayPosition), .7));
@@ -212,6 +218,8 @@ public partial class MainWindow
     private async Task<UIElement> MoneyballScoutPageAsync()
     {
         var root = new StackPanel();
+        Button run = null!;
+        DataGrid grid = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PERFORMANCE SCOUTING", 9, true, Teal));
@@ -227,11 +235,11 @@ public partial class MainWindow
         var per90 = new CheckBox { Content = "Per 90", Margin = new Thickness(10, 9, 8, 3), Foreground = Ink, VerticalAlignment = VerticalAlignment.Center };
         var minimumMinutes = Input("Minimum minutes"); minimumMinutes.Text = "450"; minimumMinutes.Width = 130;
         var minimumSample = Input("Minimum cohort size"); minimumSample.Text = "5"; minimumSample.Width = 140;
-        var run = PrimaryButton("Rank cohort", async (_, _) => await RankAsync());
+        run = PrimaryButton("Rank cohort", async (_, _) => await RankAsync());
         options.Children.Add(field); options.Children.Add(per90); options.Children.Add(minimumMinutes); options.Children.Add(minimumSample); options.Children.Add(run);
         root.Children.Add(Card(options, 13, new Thickness(0, 0, 0, 10)));
 
-        var grid = CreateGrid();
+        grid = CreateGrid();
         grid.Columns.Add(Column("PLAYER", nameof(MoneyballRow.Name), 1.3));
         grid.Columns.Add(Column("CLUB", nameof(MoneyballRow.Club), .9));
         grid.Columns.Add(Column("PERIOD", nameof(MoneyballRow.Period), .8));
@@ -286,6 +294,8 @@ public partial class MainWindow
     {
         var root = new StackPanel();
         var status = Txt("Select a tactical role to rank imported players.", 10, false, Muted, wrap: true);
+        Button run = null!;
+        DataGrid grid = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("TACTICAL INTELLIGENCE", 9, true, Teal));
@@ -296,11 +306,11 @@ public partial class MainWindow
         var profiles = RoleFitService.GetProfiles();
         var profile = new ComboBox { Width = 300, Height = 36, Margin = new Thickness(3), ItemsSource = profiles, DisplayMemberPath = nameof(RoleFitProfile.Name), IsTextSearchEnabled = true };
         if (profiles.Count > 0) profile.SelectedIndex = 0;
-        var run = PrimaryButton("Analyse squad fit", async (_, _) => await AnalyseAsync());
+        run = PrimaryButton("Analyse squad fit", async (_, _) => await AnalyseAsync());
         var controls = new WrapPanel(); controls.Children.Add(profile); controls.Children.Add(run);
         root.Children.Add(Card(controls, 13, new Thickness(0, 0, 0, 10)));
 
-        var grid = CreateGrid();
+        grid = CreateGrid();
         grid.Columns.Add(Column("RANK", nameof(TacticalCandidateRow.Rank), .4));
         grid.Columns.Add(Column("PLAYER", nameof(TacticalCandidateRow.Name), 1.2));
         grid.Columns.Add(Column("CLUB", nameof(TacticalCandidateRow.Club), .8));
@@ -338,6 +348,8 @@ public partial class MainWindow
     {
         var root = new StackPanel();
         var status = Txt("Search for a player to inspect available performance facts.", 10, false, Muted, wrap: true);
+        ComboBox players = null!;
+        DataGrid grid = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("MATCH PERFORMANCE", 9, true, Teal));
@@ -349,12 +361,12 @@ public partial class MainWindow
         var find = PrimaryButton("Find", async (_, _) => await FindAsync());
         var pickRow = new WrapPanel(); pickRow.Children.Add(search); pickRow.Children.Add(find);
         root.Children.Add(Card(pickRow, 13, new Thickness(0, 0, 0, 10)));
-        var players = new ComboBox { Height = 36, Margin = new Thickness(3), DisplayMemberPath = nameof(PlayerRecord.Name), IsTextSearchEnabled = true };
+        players = new ComboBox { Height = 36, Margin = new Thickness(3), DisplayMemberPath = nameof(PlayerRecord.Name), IsTextSearchEnabled = true };
         var load = SoftButton("Load performance facts", async (_, _) => await LoadAsync());
         var chooseRow = new WrapPanel(); chooseRow.Children.Add(players); chooseRow.Children.Add(load);
         root.Children.Add(Card(chooseRow, 13, new Thickness(0, 0, 0, 10)));
 
-        var grid = CreateGrid();
+        grid = CreateGrid();
         grid.Columns.Add(Column("GROUP", nameof(AtlasFactRecord.Group), .7));
         grid.Columns.Add(Column("METRIC", nameof(AtlasFactRecord.Field), 1.2));
         grid.Columns.Add(Column("SOURCE VALUE", nameof(AtlasFactRecord.Value), 1));
@@ -392,6 +404,9 @@ public partial class MainWindow
     {
         var root = new StackPanel();
         var status = Txt("No player selected.", 10, false, Muted, wrap: true);
+        ComboBox picker = null!;
+        DataGrid facts = null!;
+        DataGrid history = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PLAYER PATHWAY", 9, true, Teal));
@@ -401,18 +416,18 @@ public partial class MainWindow
 
         var search = Input("Find player"); search.Width = 270;
         var find = PrimaryButton("Find player", async (_, _) => await FindAsync());
-        var picker = new ComboBox { Width = 350, Height = 36, Margin = new Thickness(3), DisplayMemberPath = nameof(PlayerRecord.Name), IsTextSearchEnabled = true };
+        picker = new ComboBox { Width = 350, Height = 36, Margin = new Thickness(3), DisplayMemberPath = nameof(PlayerRecord.Name), IsTextSearchEnabled = true };
         var load = SoftButton("Inspect pathway", async (_, _) => await LoadAsync());
         var controls = new WrapPanel(); controls.Children.Add(search); controls.Children.Add(find); controls.Children.Add(picker); controls.Children.Add(load);
         root.Children.Add(Card(controls, 13, new Thickness(0, 0, 0, 10)));
 
-        var facts = CreateGrid();
+        facts = CreateGrid();
         facts.Columns.Add(Column("GROUP", nameof(AtlasFactRecord.Group), .7));
         facts.Columns.Add(Column("FIELD", nameof(AtlasFactRecord.Field), 1));
         facts.Columns.Add(Column("CURRENT SNAPSHOT", nameof(AtlasFactRecord.Value), 1));
         root.Children.Add(Card(facts, 14, new Thickness(0, 0, 0, 10)));
 
-        var history = CreateGrid();
+        history = CreateGrid();
         history.Columns.Add(Column("DATE", nameof(AtlasHistoryRecord.ChangedUtc), 1));
         history.Columns.Add(Column("FIELD", nameof(AtlasHistoryRecord.FieldName), .9));
         history.Columns.Add(Column("OLD", nameof(AtlasHistoryRecord.OldValue), .6));
@@ -509,6 +524,8 @@ public partial class MainWindow
     {
         var root = new StackPanel();
         var summary = Txt("Choose a graphics root to start the read-only index.", 10, false, Muted, wrap: true);
+        Button scan = null!;
+        DataGrid grid = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("GRAPHICS & SKIN WORKSPACE", 9, true, Teal));
@@ -517,11 +534,11 @@ public partial class MainWindow
         root.Children.Add(header);
 
         var path = Input("Full path to your Football Manager graphics folder"); path.Margin = new Thickness(3); path.MinWidth = 420;
-        var scan = PrimaryButton("Scan graphics folder", async (_, _) => await ScanAsync());
+        scan = PrimaryButton("Scan graphics folder", async (_, _) => await ScanAsync());
         var controls = new WrapPanel(); controls.Children.Add(path); controls.Children.Add(scan);
         root.Children.Add(Card(controls, 13, new Thickness(0, 0, 0, 10)));
         root.Children.Add(summary);
-        var grid = CreateGrid();
+        grid = CreateGrid();
         grid.Columns.Add(Column("RECORD ID", nameof(GraphicsMappingRow.Id), .6));
         grid.Columns.Add(Column("PACK", nameof(GraphicsMappingRow.Pack), .7));
         grid.Columns.Add(Column("TARGET", nameof(GraphicsMappingRow.Target), 1.8));
