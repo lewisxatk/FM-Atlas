@@ -1230,17 +1230,20 @@ public partial class MainWindow : Window
             await Task.WhenAll(localRowsTask, liveRowsTask).ConfigureAwait(false);
             var localRows = await localRowsTask.ConfigureAwait(false);
             var liveRows = await liveRowsTask.ConfigureAwait(false);
-            static string Identity(PlayerRecord p) => $"{p.Name.Trim().ToUpperInvariant()}|{(p.Club ?? string.Empty).Trim().ToUpperInvariant()}|{p.Age?.ToString() ?? "?"}";
+            // Do not merge people by name + club + age: homonyms and same-age players
+            // can be silently collapsed. LIVE UIDs and FMSAVE persistent IDs are different
+            // namespaces until a separately validated crosswalk exists. Deduplicate only
+            // exact source IDs; retain cross-provider rows as distinct records for now.
             static int Completeness(PlayerRecord p) =>
                 (p.Age.HasValue ? 1 : 0) + (p.Nation is not null ? 1 : 0) + (p.Position is not null ? 1 : 0) +
                 (p.CurrentAbility.HasValue ? 1 : 0) + (p.PotentialAbility.HasValue ? 1 : 0) + (p.Value.HasValue ? 1 : 0) +
                 (p.League is not null ? 1 : 0) + (p.PreferredFoot is not null ? 1 : 0);
             var merged = localRows.Concat(liveRows)
-                .GroupBy(Identity, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(p => p.SourceId, StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.OrderByDescending(Completeness).First())
                 .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            var label = $"Combined sources · {liveRows.Count:N0} live identities + {localRows.Count:N0} save/local records";
+            var label = $"Source-preserving view · {liveRows.Count:N0} live identities + {localRows.Count:N0} save/local records · cross-provider identity matching not assumed";
             return (merged, label);
         });
 
@@ -1251,7 +1254,7 @@ public partial class MainWindow : Window
         var title = new StackPanel();
         title.Children.Add(Txt("SQUAD ARCHITECT", 9, true, Teal));
         title.Children.Add(Txt("Squad structure & succession", 21, true, Ink));
-        title.Children.Add(Txt("Inspect the imported club squad, age profile and positional cover. Team slot IDs are retained, but senior/reserve/youth labels are not guessed when the source does not expose a validated mapping.", 10, false, Muted, wrap: true));
+        title.Children.Add(Txt("Inspect imported club records, age profile and positional cover. Provider-specific identities are kept separate unless Atlas has a verified cross-provider identity link. Team slot IDs are retained, but senior/reserve/youth labels are not guessed.", 10, false, Muted, wrap: true));
         headerGrid.Children.Add(title);
         var filter = new StackPanel { Width = 245, VerticalAlignment = VerticalAlignment.Center };
         filter.Children.Add(Txt("CLUB", 8, true, Teal));
@@ -1271,7 +1274,7 @@ public partial class MainWindow : Window
         body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(.8, GridUnitType.Star) });
         var rosterCard = Card(new DockPanel(), 15, new Thickness(0, 0, 8, 0));
         var rosterDock = (DockPanel)rosterCard.Child;
-        var rosterTitle = new StackPanel(); rosterTitle.Children.Add(Txt("SQUAD ROSTER", 9, true, Teal)); rosterTitle.Children.Add(Txt("Current registered players", 17, true, Ink));
+        var rosterTitle = new StackPanel(); rosterTitle.Children.Add(Txt("SQUAD ROSTER", 9, true, Teal)); rosterTitle.Children.Add(Txt("Imported player records", 17, true, Ink));
         DockPanel.SetDock(rosterTitle, Dock.Top); rosterDock.Children.Add(rosterTitle);
         var roster = CreateGrid();
         roster.Columns.Add(Column("PLAYER", "Name", 1.3)); roster.Columns.Add(Column("POSITION", "Position", .8)); roster.Columns.Add(Column("AGE", "Age", .45)); roster.Columns.Add(Column("CA", "DisplayAbility", .45)); roster.Columns.Add(Column("PA", "DisplayPotential", .45));
