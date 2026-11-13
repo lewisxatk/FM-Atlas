@@ -153,15 +153,16 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - Do not integrate the squad optimizer into a Best XI screen until player-to-slot eligibility is backed by validated position suitability data and duplicate LIVE/FMSAVE identities are handled with a verified crosswalk.
 - All changes remain on `overhaul/monolith-full-platform`; `main` is preserved. Continue from the current branch head and exact file history, not from this text alone.
 
-## Latest continuation point — Role Fit contributions (2026-11-13)
+## Latest continuation point — Integrated Role Fit and Diagnostics checkpoint (2026-11-13)
 
-- Exact verified application source commit: `91bd7728c555a0c0e54cfd8d02706467fdafdb89`.
-- Windows Actions run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43472380514.
-- .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; MSTest **48/48 passed**, 0 failed/skipped.
-- Windows Release artifact: `14061643285`; test-results artifact: `14061143387`.
-- RoleFitService now returns one contribution record per available valid role attribute. Each record carries a readable label, source value, Atlas role weight and additive score points. The points sum to the displayed weighted mean.
-- ScoutDatabase propagates these records from the latest imported player attribute data. Role Lab displays the selected player's contribution chips beneath the result table; role changes clear stale results; CSV export includes the contribution terms.
-- Numeric stability is tested for extreme finite weights. The regression suite verifies contribution sums and readable attribute-name preservation.
-- The intermediate compile failure on `2f978f3` was corrected by declaring contribution panel locals before the search-button callback and assigning them later. The final `91bd772` Windows run passed; do not resume from the intermediate source.
-- Remaining acceptance: launch the WPF app, visually validate Role Lab layout and selection changes at 100/125/150% DPI, export and inspect CSV using a copied FM27 Game Pass save. Actual FM27 Game Pass field certification remains unverified; live Apply/Undo remains disabled.
-- `main` remains preserved. Continue only on `overhaul/monolith-full-platform`.
+- Exact tested application source commit: `8cfe5b3f276770179e8cb77db7a02912f2336bdb`.
+- Windows Actions run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43473487285.
+- .NET 8 WPF Release build succeeded with **0 warnings / 0 errors**; MSTest **53/53 passed**, 0 failed/skipped.
+- Windows Release artifact: `14061763980`; test-results artifact: `14062007740`.
+- The Role Fit work now has: visible role-weight chips/method note; per-player selected contribution detail; readable attribute names, source values, Atlas weights and additive score points; contribution-aware CSV export; overflow-safe weighted mean; unit tests and a real SQLite candidate-query integration test using an isolated temp DB.
+- Diagnostics redaction now tests quoted JSON secrets with spaces, Bearer and Basic authorization, API/client/private secrets, query-string tokens, Windows/UNC paths and save filenames. The in-app self-check shares the regression cases.
+- Current branch head after the tested source is `28958fd4bc07c1f54462ec0e829dd22402eed922`; its only delta from tested source `8cfe5b3` is a documentation update. `main` is untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- Remaining acceptance: launch the WPF app on Windows, inspect all navigation routes, visually test Role Lab and themes at 100/125/150% DPI, exercise Role Lab and CSV against a copied FM27 Game Pass save, manually inspect default and opt-in support ZIPs, and validate GraphicsResolver against actual configured folders.
+- The full integrated programme is not complete. Advanced Search profiles/condition groups, Player DNA, Moneyball/per-90/percentiles, recruitment, Tactical Intelligence, Match Lab, Save Inspector/editor, Game Pass read-only certification, graphics/skin/mod workbench and release packaging remain on the master roadmap.
+- Live memory Apply/Undo remains disabled until exact Game Pass build/field certification, disposable-save Apply/read-back/Undo, identity checks and rollback evidence pass. Never test on the user's only career save.
+- Continue only on `overhaul/monolith-full-platform`, not `main`. Use the current branch files and this checkpoint, not the interrupted chat transcript.
