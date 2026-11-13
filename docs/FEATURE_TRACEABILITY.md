@@ -229,3 +229,16 @@ This list is a route inventory only. Each route must be opened and acceptance-te
 - Both UI consumers previously using `Contains("Verified")` now call `FieldEvidencePolicy.CanUseForDecision`.
 - `FieldEvidencePolicy.Assess` now accepts only exact canonical verified statuses after normalization; misleading prefixes such as `Verified-Provisional`, `Verified-Needs-UI-Witness` and mixed unverified states fail closed.
 - Eight tests from the external same-branch update cover evidence states and provider-specific player identity; two added tests cover strict allowlist behavior and misleading statuses. These tests have not yet passed a Windows run.
+
+
+## 15. New analytical engines added after the initial traceability pass
+
+| Engine | Source | Implemented behaviour | Acceptance status |
+|---|---|---|---|
+| Squad selection optimiser | Services/SquadSelectionOptimizer.cs | Maximum-weight one-to-one slot assignment using rectangular Hungarian algorithm; each SourceId can fill at most one slot; missing slot score is ineligible; dummy assignments allow unfilled slots; deterministic tie order | Code added. Tests added for greedy counterexample/global optimum, unfilled slot, no duplicate player, duplicate IDs and invalid scores. Windows CI result pending. Not yet wired into Squad Architect UI or certified against actual FM positional suitability data. |
+| Football metric math | Services/FootballMetricMath.cs | Per-90 calculation from supplied totals and minutes, attempt-rate percentage, sample floor, minimum cohort size, tied percentile mid-rank and higher/lower-is-better direction; missing/minutes/cohort statuses distinct | Code added. Tests added for denominators, zero minutes/attempts, ties, lower-is-better, minutes floor, insufficient cohort and bad input. Windows CI result pending. Not yet connected to production Moneyball/Statistics views. |
+| Field evidence policy | Services/FieldEvidencePolicy.cs | Status normalization removes spaces/hyphens/underscores/dots; explicit unverified/unknown terms take precedence; evidence statuses remain separate from build-wide write certification | Code added. Regression tests added; current Windows run pending. |
+| Provider-safe identity | Services/PlayerIdentityResolver.cs | Exact provider-specific SourceId dedupe only; best-completeness record wins within same provider ID; unresolved IDs do not collapse; cross-provider rows kept distinct | Code added and integrated in Squad Architect. Tests added; current Windows run pending. |
+
+### Explicit integration boundary
+These services are domain foundations, not fully delivered screens. Squad Architect still shows source-preserving roster/age/position summaries and does not yet expose the optimizer. Moneyball/Statistics still need their UI workflow, cohort construction, metric registry and verified season/competition/position inputs before the new math service should drive a recommendation.
