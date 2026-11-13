@@ -59,7 +59,7 @@ Additional useful references:
 
 ### FM View Exporter
 - Repository: https://github.com/ElectroHugin/FM-View-Exporter
-- GPLv3 BepInEx plugin for FM27 Windows/Steam. Exports the currently displayed squad, player database or shortlist view to CSV and HTML with F9.
+- GPLv3 BepInEx plugin for FM27 Windows/Steam. Exports the currently displayed squad, player database or shortlist view to CSV and HTML with F9. It is documented for Steam on Windows, so do not assume its installer works on Game Pass.
 - It scrolls through the list because FM only fills rows currently on screen; a squad can finish in seconds, but large player searches can take minutes and FM caps a search view at 10,000 results.
 - It exports exactly the visible FM view: hidden/unscouted values remain hidden. This is a UI-level export, not a hidden-stat memory reader.
 - Research value: a user-friendly import fallback, repeatable CSV fixtures and a route to compare Atlas's parser against FM's displayed columns. GPLv3; do not copy code without licence decision.
@@ -92,6 +92,7 @@ Hidden stats can be read because the scanner reads the loaded game database reco
 - `core/MemScan.cs` wraps safe typed reads and string decoding; it avoids direct raw dereferencing of arbitrary game addresses.
 - `core/Fields.cs` contains version-specific memory layouts. `docs/repin-guide.md` describes revalidating class offsets, CA/PA, names, contracts and attribute ranges after a game patch.
 - README scan timings (for example ~6 seconds for 60k+ people) are project claims; Atlas has not reproduced them.
+- Its troubleshooting page says Steam is fully tested, while Epic/Xbox Game Pass should work because the scanner is store-independent but had not been tested end-to-end. Do not treat it as verified for the user's Game Pass install.
 - Source: https://github.com/mavarobli/FMSuperScout
 
 ### FMLibreEditor source observations
@@ -101,6 +102,7 @@ Hidden stats can be read because the scanner reads the loaded game database reco
 - Before every write it checks: current save identity; object/person identity; valid new value; expected current value; read-back result.
 - It detects a save load/reload and suspends writes until data is refreshed, preventing stale pointers crossing careers.
 - The recon docs include specific Game Pass builds, but those are build-specific historic observations. They do not prove the profile matches the user's current install.
+- The repo explicitly targets Windows Xbox/Game Pass and Steam; this is the strongest public reference reviewed for Atlas's Game Pass-specific discovery and read-only fallback.
 - Source: https://github.com/tozmoz/FMLibreEditor
 
 ## 3. Offline save parsing is another data provider
