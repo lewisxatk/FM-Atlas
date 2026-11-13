@@ -154,6 +154,24 @@ public static class MonolithTheme
         else if (value is "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24"
             or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A")
             mapped = light ? "#A66B19" : "#E6C477";
+        else if (value is "#2D75B6" or "#3988C8" or "#356C98" or "#2A669C" or "#277BB9" or "#205F91" or "#16845D" or "#237C62" or "#2BA578" or "#4BA6A8")
+            mapped = light ? "#E87826" : "#F28A36";
+        else if (value is "#0D1117" or "#111820" or "#151B22" or "#171F28" or "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#20342C" or "#2A3427" or "#30291D" or "#35252A" or "#35424E" or "#485562" or "#342C1C")
+            mapped = light ? "#F2F2EF" : "#101216";
+        else if (value is "#202A35" or "#1C242E" or "#2A3427" or "#20342C" or "#66563A" or "#66502C")
+            mapped = light ? "#E9E8E2" : "#252A32";
+        else if (value is "#9EADB9" or "#B9C5D0" or "#C4CED8" or "#485562" or "#35424E")
+            mapped = light ? "#727780" : "#9299A3";
+        else if (value is "#B7E5E0" or "#D3E9E4" or "#DBF2EF" or "#E1F3EA" or "#B45B2F" or "#C7797B" or "#D8A34A" or "#E5A65D" or "#EBD5A7" or "#EED8AA" or "#F8F0DF" or "#FFF4DE" or "#FFF5E4")
+            mapped = light ? "#E87826" : "#E6C477";
+        else if (value is "#F4F8FB" or "#F4F8FC" or "#F5F8FC" or "#F6FCFA" or "#F7FBFA" or "#F8FCFA" or "#F9FDFC" or "#FBFDFF" or "#EEF4F8" or "#EEF4F9" or "#EAF1F5" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#DCE8F2" or "#D9E7F1" or "#D9E5EF" or "#E1E9EF" or "#E6EDF2" or "#EAF1F8")
+            mapped = light ? "#FFFFFF" : "#1B1F25";
+        else if (value is "#F8E8E9" or "#C7797B" or "#A54E55" or "#B44B52" or "#B94A48" or "#C7797B" or "#D77B7E")
+            mapped = light ? "#B54750" : "#F08C96";
+        else if (value is "#8BCFA6" or "#176B46" or "#2F825D" or "#37875A" or "#4F9B70" or "#2D8A63")
+            mapped = light ? "#287A55" : "#8BCFA6";
+        else if (value is "#D8A34A" or "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24" or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A")
+            mapped = light ? "#A66B19" : "#E6C477";
         else if (value == "#B45B2F")
             mapped = light ? "#B65D25" : "#E6A06E";
         else
