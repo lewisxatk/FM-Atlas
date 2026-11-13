@@ -170,8 +170,8 @@
 |---|---|---|---|---|
 | Build scripts/installer | Application root build/publish batch files and `Installer/FM-Atlas-27.iss` | Build, publish and installer scripts are present | Source present — partial | Reproducible publish, install/upgrade/rollback and clean-machine validation |
 | Windows CI build | `.github/workflows/fm-atlas-windows-build.yml` | Workflow file added for .NET 8 restore, Release build and artifact upload | Code-only — unverified | First successful workflow run and warning triage |
-| Support diagnostics | `MainWindow.Diagnostics.cs`, `Services/AtlasLog.cs` | Health checks, local logs, bundle preview, SHA-256 manifest, local export; token/path redaction self-check added | Code-only — unverified after hardening | Windows build/run, bundle inspection, privacy/log-rotation tests and robust recovery on diagnostic failures |
-| Automated test suite | — | No dedicated test project/fixture suite identified in the inspected tree | Not present — planned | Add unit/integration/fixture tests and known-answer data without user save leakage |
+| Support diagnostics | `MainWindow.Diagnostics.cs`, `Services/AtlasLog.cs`, `tests/FmAtlas.Tests/AtlasLogRedactionTests.cs` | Health checks, local logs, bundle preview, SHA-256 manifest, local export; in-app self-check and initial MSTest coverage added | Code-only — unverified after hardening | Windows build/run, execute the unit suite, bundle inspection, log-rotation tests and robust recovery on diagnostic failures |
+| Automated test suite | `tests/FmAtlas.Tests/FmAtlas.Tests.csproj`, `tests/FmAtlas.Tests/AtlasLogRedactionTests.cs` | Initial Windows .NET 8 MSTest project with diagnostics redaction, line-break/length and safe-text tests; included in solution and Windows workflow | Source present — initial suite only, not run | First Windows run; add test projects/fixtures for SQLite migrations, imports, search truth tables, per-90, percentiles, role-fit, graphics and recovery |
 | Release acceptance | Existing test plan and publish scripts | Previous R7.2.0 test plan exists; current branch has no final acceptance report | Not present — planned | Build, launch, data/search/graphics/editor tests, packaging and evidence bundle |
 
 ## Navigation inventory observed in source
@@ -182,9 +182,9 @@ This list is a route inventory only. Each route must be opened and acceptance-te
 
 ## Immediate implementation order
 
-1. Fresh Windows build of the current branch and in-app Diagnostics privacy check.
+1. Fresh Windows build and run the new MSTest suite on the current branch; run the in-app Diagnostics privacy check.
 2. Complete per-module source audit and confirm route-to-requirement links.
-3. Add a test project and deterministic fixtures for privacy, DB imports, search, metrics, role fit and graphics.
+3. Expand the initial test project with deterministic fixtures for DB imports, search, metrics, role fit and graphics.
 4. Complete MONOLITH shared resources and migrate the main shell before feature screens.
 5. Build the canonical field registry and search query engine before expanding scouting UI.
 6. Integrate Player DNA, Scouting Matrix, Moneyball, Tactical Intelligence, Match Lab, Career Assistant and missing management workspaces.
