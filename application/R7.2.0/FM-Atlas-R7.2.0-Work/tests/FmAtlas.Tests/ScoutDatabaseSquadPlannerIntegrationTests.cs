@@ -45,6 +45,9 @@ public sealed class ScoutDatabaseSquadPlannerIntegrationTests
                 await InsertPlannerRowAsync(connection, snapshotId, 2, """
                     {"season_offset":1,"slot":1,"player_uids":[200]}
                     """);
+                await InsertPlannerRowAsync(connection, snapshotId, 3, """
+                    {"season_offset":1,"slot":28,"player_uids":[100]}
+                    """);
             }
 
             var slots = await database.GetLatestSquadPlannerSlotsAsync();
