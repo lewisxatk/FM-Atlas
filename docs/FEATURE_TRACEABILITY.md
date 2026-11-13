@@ -199,3 +199,25 @@ This list is a route inventory only. Each route must be opened and acceptance-te
 - Latest keyboard/global-search source commit: `830cedc7735babdf6aa3fd35d3c82e5029b45395` (Windows run in progress at time of this register update).
 - Windows build workflow added: `042c95ea52a063886de4a59f8b49858bc28b0e6d`.
 - Current full branch head moves as each documentation/engineering checkpoint is committed; use the active GitHub ref and master progress file for the latest value.
+
+
+## 13. Integrated overhaul code checkpoints — 13 November 2026
+
+| Area | New source / evidence | Status after latest code changes |
+|---|---|---|
+| MONOLITH tokens | Services/MonolithTheme.cs, App.xaml.cs, MainWindow.xaml.cs, GlobalSearchWindow.cs | Foundation added: Obsidian/Warm Light preference, central semantic tokens, legacy palette bridge and global search integration. Remaining views still need migration and visual review. |
+| Live-write certification | Services/LiveWriteCertification.cs, Services/LiveMemoryEditService.cs, MainWindow.xaml.cs | Blocked safely: Apply and Undo throw unless separate build-wide certification passes; current policy remains false and live-write UI controls are hidden. Read-only/preview remains separate. |
+| Field evidence | Data/ScoutDatabase.cs, Services/FieldEvidencePolicy.cs, MainWindow.Diagnostics.cs | Foundation added: registry query, statuses for unverified/candidate/profile-matched provisional/field-verified, conservative normalization and diagnostics counts. Automated tests added; latest Windows run must be checked. |
+| Provider identity | Services/PlayerIdentityResolver.cs, MainWindow.xaml.cs | Exact SourceId deduplication replaces name+club+age fuzzy collapse in Squad Architect. LIVE and FMSAVE namespaces remain distinct until a verified crosswalk exists. Automated tests added; latest Windows run must be checked. |
+| FMSave provider | Services/FmsaveBridgeService.cs, tools/Export-FMAtlas-Fmsave.py, setup script, DB sidecar list | Pinned to fmsave 0.12.3, exact installed version checked, and officials/team match statistics/squad-planner tables are preserved. Exact local career build compatibility is still unknown until tested with a safe local save copy. |
+| Diagnostics | Services/AtlasLog.cs, MainWindow.Diagnostics.cs | Existing Diagnostics page hardened: log session ID, secret/path/name redaction, regression tests, evidence summary, local bundle ID, manifest hashes, recent redacted logs, preview, explicit export and no automatic upload. User-data inclusion is opt-in. |
+| Source recovery | application/R7.2.0/FM-Atlas-R7.2.0-Work/ | Recovered source imported; eight specific v2 compile repairs reapplied individually after the first import CI failure. Windows CI then passed at commit 5aa82c2. Later-added evidence/identity tests are awaiting their own current-head result. |
+
+## 14. Explicit corrections and current limitations
+
+- The earlier statement that the recovery source tree already matched the repaired v2 ZIP was incorrect. A file-by-file comparison found eight source files that differed; the first CI attempt failed with 92 compiler errors. Those eight compile repairs were applied to the overhaul branch, preserving all newer changes. The subsequent Windows CI run passed.
+- The 10/10 test count belongs to the initial redaction-only suite at commit 5aa82c2. Tests for field evidence and provider identity were added afterwards and must not be described as passed until a later Windows run succeeds.
+- FMSave's registered FM27 layout is version-specific. Pinning the reader package does not prove that the user's current Game Pass save is fully supported.
+- MONOLITH is a partially migrated design foundation, not yet a complete restyle of every screen.
+- Reverse engineering so far is static source/package research, source mapping and guarded implementation decisions. It is not a complete reconstruction of FM27's executable or all memory structures.
+- The overall product remains incomplete. Player DNA, Scouting Matrix, Moneyball, full Tactical Intelligence, Match Lab, Optimal XI solver, broad multi-entity editing, skin/mod manager and final installer/release still need implementation and acceptance evidence.
