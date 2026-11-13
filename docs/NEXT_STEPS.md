@@ -88,3 +88,12 @@ Stop and inspect the evidence before proceeding if a build changes the database 
 - This includes disposable SQLite integration proof that unverified/provisional live facts do not enter CA/PA and attribute search, plus six RoleFit estimate tests.
 - The next gate is no longer basic source compilation. It is application and feature acceptance: launch the WPF app on Windows, inspect all 21 routes, test theme switching/high-DPI, inspect support ZIP contents, validate Role Lab with a representative fixture, and verify no regression in user database migration/import.
 - Do not wire SquadSelectionOptimizer into Squad Architect until exact slot eligibility and position familiarity are available from validated sources. Do not enable live memory Apply/Undo.
+
+## Active source checkpoint after 47-test baseline — 2026-11-13
+
+- Last fully verified application source: `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712` — Windows .NET 8 WPF Release build succeeded, 0 warnings/0 errors, 47/47 MSTest tests passed. CI: https://github.com/lewisxatk/FM-Atlas/actions/runs/43470501984.
+- New source commit `4b4ddfcb7299a0fad5dc2ea60658d895a48127df` adds the selected role's complete weighted-attribute list and a method/missing-data note to Role Lab. Windows CI: https://github.com/lewisxatk/FM-Atlas/actions/runs/43471187844. Verify its completed result before treating that revision as build-tested.
+- Next product work: validate this Role Lab view on Windows, then add per-player attribute-contribution explanations and explicit confidence/coverage detail.
+- Do not add guessed position eligibility to a Best XI optimiser. The optimizer must receive a verified candidate-to-slot score matrix, with source IDs kept distinct unless a cross-provider identity link is evidenced.
+- Continue the broader MONOLITH shared-control migration, full Advanced Search profiles/condition groups, player DNA, Moneyball cohorts, Recruitment Matrix, Tactical Intelligence, Match Lab, Save Inspector, editor, Game Pass read-only adapter, graphics/skin tools, mod workbench, tests and packaging.
+- Still required from the user's Windows/Game Pass environment: launch and route smoke tests, Obsidian/Warm Light and DPI checks, support-ZIP manual inspection, actual save-import validation on a copy, and exact FM27 Game Pass build/runtime checks. Live Apply/Undo stays disabled.
