@@ -237,6 +237,69 @@ FM View Exporter is a GPL-3.0 BepInEx route for exporting visible in-game tables
 
 FMSuperScout's archive research found a Zstandard-compressed index and payloads that could not be reproduced with ordinary codecs. The safe choice is readable CSV/HTML import and no guessed archive writer.
 
+
+### 3.10 Jackhamerp24 FM27 Editor — broad coverage and calibration benchmark
+
+**Repository:** https://github.com/Jackhamerp24/Football-Manager-27-Editor  
+**License:** GPL-3.0; no code or offset profiles copied into Atlas.  
+**Files reviewed:** README and the public Game Pass offset profile for build 27.0.1+2494687. Profile file reviewed as a research artifact only; no offsets imported into Atlas.
+
+The README documents a much broader live-edit surface than Atlas currently implements:
+- Players: attributes, positions, personality, CA/PA, reputation, height, DOB, nationality, work permits, injuries, bans, morale/unhappiness, national call-ups, languages, relationships, career plans, preferred moves, promises and future contracts.
+- Transfers: transfer, loans and future transfers with financial terms, instalments, appearance/goal payments, buy-back and sell-on terms, wage contribution and friendlies; swap, release, captain and vice-captain actions.
+- Staff: personal/ability attributes, contract, licence, caps/goals, role ratings, preferred jobs, knowledge, formations and tendencies.
+- Clubs and world entities: finance, debt, facilities, stadium, cities, nations, competitions, awards, referees and injury types.
+- Utilities: mass edit, presets, freezer, export, favorites and hook tools.
+- Its README states a 550-value calibration set compared with FMRTE and Football Manager UI, and 71 reader features.
+
+The README claims Windows Steam build 27.0.1+2503222 and Xbox/Game Pass 27.0.1+2494687 were tested. The public profile reviewed includes a separate Game Pass module fingerprint and field maps. These are project-maintainer claims and a third-party profile, not independently reproduced by Atlas. The project targets .NET 10 and GPL-3.0; Atlas remains .NET 8 and must not copy its implementation or profile data without a deliberate compatible licensing decision.
+
+**Atlas decisions:**
+1. Add all player/staff/club/nation/competition/stadium/award/referee field families to the entity/feature traceability matrix, not only player attributes.
+2. Design the editor UX around multi-entity profiles, tabs, favorites, batch preview, transaction-level history and one-field rollback, but keep writes disabled until Atlas's own evidence passes.
+3. Build a field-calibration harness that compares imported/observed values against labelled screenshots or manual known-answer fixtures; don't treat the README's 550-value figure as our validation.
+4. Extend coverage tests to women/men records, staff/player shared identity, nations, competitions, cities and stadiums. The README says women’s football is not supported/tested; do not assume all entity classes are covered.
+5. Keep build profiles, PE fingerprint and field evidence as separate records; a third-party JSON offset profile is not a certified Atlas mapping.
+
+### 3.11 SiRRAHx FM27 Live Editor — Game Pass-first workflows and research hooks
+
+**Repository:** https://github.com/SiRRAHx/fm27-live-editor  
+**License:** No explicit top-level licence was established in the reviewed package metadata. Do not copy its code or redistribute its binaries.  
+**Files reviewed:** README, optional BepInEx plugin and research observer implementation.
+
+Findings:
+- Its README describes Game Pass/Microsoft Store as tested and Steam/Epic as supported but not yet tester-confirmed in the published README.
+- The desktop live editor runs separately; the optional BepInEx add-on is only an in-game launcher button. The README says editing works without the plugin.
+- The optional add-on opens the desktop app through a shortcut written under Documents, an interesting workaround for Game Pass sandbox boundaries.
+- Its research mode is explicitly off unless a marker file is present. When enabled it observes FM's game-event dispatch through a Harmony postfix, retains a bounded recent event list and writes event traces without altering the original event dispatch.
+- The project describes dynamic discovery rather than requiring a fixed hard-coded offset profile for every build; it states that when something cannot be identified confidently, editing remains off and logs explain why.
+- The README is explicit that the product is early access and advises backing up saves.
+
+**Atlas decisions:**
+1. Add an optional in-game companion/launcher as a separate future module; keep the desktop application independently usable.
+2. A Documents-based deep-link/shortcut handoff is a possible Game Pass integration pattern; it does not itself establish that process memory or game files are accessible.
+3. Consider an explicit opt-in, read-only event-observation research adapter only after legal, reliability and mod-loader compatibility review. Never install a BepInEx loader silently.
+4. Keep research instrumentation off by default, bounded, locally stored and visibly disclosed.
+5. Keep unknown-build or unknown-field operation read-only; logs must explain unavailable capabilities without asserting a successful connection.
+
+### 3.12 Integration of the original R7 master specification and extended backlog
+
+The recovered source package contains the user's earlier full R7 master specification, extended research backlog and research/licensing register. These remain preserved in the source tree. The integrated overhaul adds these backlog items to traceability:
+- Live connection, world database explorer, all entity classes, profile/compare, leaderboards and custom statistic builder.
+- Saved recruitment profiles, hard constraints vs weighted preferences, match explanations, replacement search and affordability vs access estimates.
+- Player and staff intelligence, 2–5-way comparison, cohort ranks, age curves, youth intake, loan development and snapshot freshness.
+- Senior/reserve/youth/national squad coverage, positional depth, Best XI/bench, role DNA, formation comparison and custom tactics.
+- Club finance/headroom/wage bill, stadium/facilities, competition rules, eligibility/national call-up and club/competition comparisons.
+- Atlas Assistant local/offline by default, sourced local answers, opt-in external providers and no default career-data transmission.
+- Optional FaceDrop/image provider and duplicate-ID/corrupt-file diagnostics; no bundling of third-party images/packs.
+- Optional BepInEx companion and mod compatibility checker, without silently installing/deleting loaders or plugins.
+- Pre-game editor/database-file discovery and format validation as separate from live-career editing.
+- Player similarity split into "level similarity" and "style similarity"; both require explainable inputs.
+- Staff finder, training-area comparison, staff succession, national team and registration tools.
+- Match Lab timeline, opponent reports, post-match reports, shots/maps only when real coordinates are present and clear sample-size metadata.
+- Saved views, column profiles, custom leaderboards and dossier/squad/match exports; local JSON/Markdown AI prompt export only by user action.
+- Privacy/streaming mode and support diagnostics with opt-in personal information.
+
 ## 4. FM27 Tactical Effectiveness boundary
 
 Official SI material describes four Tactical Effectiveness areas: Tactical Understanding, Player Ability, Player Buy-In and Next Match Information. It also describes Tactical Complexity as the volume of team, player and opposition instructions, with a trade-off between complexity and squad ability.
