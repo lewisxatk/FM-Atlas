@@ -28,7 +28,7 @@ Purpose: record what is actually present in the imported application before broa
 
 ## 3. MONOLITH theme status
 
-- Services/MonolithTheme.cs provides central colour roles, an Inter/Segoe UI font fallback, Obsidian and Warm Light modes, local theme preference persistence and a legacy palette resolver.
+- Services/MonolithTheme.cs provides central colour roles, an Inter/Segoe UI font fallback, Obsidian and Warm Light modes, local theme preference persistence and a legacy palette resolver. The overhaul branch now keeps token brush instances stable and updates tracked legacy brushes in place when the theme changes.
 - App.xaml.cs calls MonolithTheme.Apply at startup.
 - SettingsPageAsync provides an Obsidian/Warm Light selector.
 - MainWindow.xaml.cs routes many legacy hex colours through MonolithTheme.ResolveLegacy.
@@ -138,3 +138,5 @@ Remaining Diagnostics work:
 - Added the test project to `FmAtlas.sln` and extended the Windows CI workflow to execute `dotnet test` and upload TRX results.
 - NuGet references are pinned to Microsoft.NET.Test.Sdk 18.11.0 and MSTest 4.5.2. The NuGet Gallery lists these as compatible with .NET 8; package versions are deliberately pinned rather than floating. See the official package pages: https://www.nuget.org/packages/Microsoft.NET.Test.Sdk/18.11.0 and https://www.nuget.org/packages/MSTest/4.5.2.
 - A separate local pattern-level check passed all seven sensitive-value cases. The C# tests and WPF solution have not yet run on Windows.
+
+- 2026-11-13 follow-up: PlayerIntelligenceReportWindow.xaml now uses DynamicResource bindings for MONOLITH canvas/surface/text/accent/border tokens. Theme switching updates existing token and legacy brushes without rebuilding the current page. This code has not yet been exercised in a Windows UI run.
