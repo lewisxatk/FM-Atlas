@@ -116,8 +116,8 @@ Stop and inspect the evidence before proceeding if a build changes the database 
 The user requested Stage 1 and Stage 2 to be completed together first, then receive a findings report. After that review, the user will decide whether to combine the remaining stages into one integrated implementation and test it. Do not begin Stage 3–7 before that approval.
 
 - Combined findings and route map: `docs/STAGE1_STAGE2_AUDIT.md`.
-- Stage 1: finish exact-commit CI for the Diagnostics privacy-copy/manifest correction; manually generate and inspect both support ZIP variants on Windows; verify manifest hashes and excluded files.
-- Stage 2: finish static source/feature traceability for all 21 routes; run Windows route smoke tests and capture actual Game Pass build, save import and graphics folder acceptance evidence.
+- Stage 1 automated gate is complete: exact source commit 6c18e36 passed Windows Release build with 0 warnings/errors and 64/64 tests. Remaining manual acceptance: generate and inspect both support ZIP variants on Windows; verify actual entries, hashes and excluded files.
+- Stage 2 static source/feature traceability for all 21 routes and external source research is complete. Remaining user-environment acceptance: run Windows route smoke tests and capture actual Game Pass build, save import and graphics-folder evidence.
 - Once both stages pass, return the report with confirmed findings, incomplete features, risk boundaries and proposed unified Stage 3–7 scope. Wait for the user's approval before beginning it.
 ## Stage 1/2 engineering result — 2026-11-13
 
