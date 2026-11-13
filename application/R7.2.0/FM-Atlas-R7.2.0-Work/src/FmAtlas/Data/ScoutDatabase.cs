@@ -2380,110 +2380,176 @@ public sealed class ScoutDatabase
     }
 
     public async Task<List<AnalyticsMetricResult>> SearchSeasonMetricAsync(
-        string fieldKey, double? minimum, double? maximum, int limit = 250, int minimumMinutes = 0)
+        string fieldKey,
+        double? minimum,
+        double? maximum,
+        int limit = 250,
+        int minimumMinutes = 0)
     {
-        if (string.IsNullOrWhiteSpace(fieldKey)) throw new ArgumentException("Choose a statistical field.", nameof(fieldKey));
-        if (minimum.HasValue && !double.IsFinite(minimum.Value) || maximum.HasValue && !double.IsFinite(maximum.Value))
+        if (string.IsNullOrWhiteSpace(fieldKey))
+            throw new ArgumentException("Choose a statistical field.", nameof(fieldKey));
+        if ((minimum.HasValue && !double.IsFinite(minimum.Value))
+            || (maximum.HasValue && !double.IsFinite(maximum.Value)))
             throw new ArgumentOutOfRangeException(nameof(minimum), "Metric boundaries must be finite.");
-        if (minimum.HasValue && maximum.HasValue && minimum > maximum)
+        if (minimum.HasValue && maximum.HasValue && minimum.Value > maximum.Value)
             throw new ArgumentException("The minimum cannot exceed the maximum.");
         if (minimumMinutes < 0 || minimumMinutes > 10000)
             throw new ArgumentOutOfRangeException(nameof(minimumMinutes));
-        
-        var safeLimit = Math.Clamp(limit, 1, 1000);
+
+        var safeLimit = Math.Clamp(limit, 1, 5000);
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
+
         var snapshotCmd = db.CreateCommand();
         snapshotCmd.CommandText = "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;";
         var snapshotValue = await snapshotCmd.ExecuteScalarAsync().ConfigureAwait(false);
-        var snapshotId = snapshotValue is null || snapshotValue == DBNull.Value ? (int?)null : Convert.ToInt32(snapshotValue);
-        if (!snapshotId.HasValue) return new();
-
+        var snapshotId = snapshotValue is null || snapshotValue == DBNull.Value
+            ? (int?)null
+            : Convert.ToInt32(snapshotValue);
         var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club)>(StringComparer.OrdinalIgnoreCase);
-        var players = db.CreateCommand();
-        players.CommandText = "SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club FROM FmsavePlayerSnapshots s LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId WHERE s.SnapshotId=$s;";
-        players.Parameters.AddWithValue("$s", snapshotId.Value);
-        await using (var playerReader = await players.ExecuteReaderAsync().ConfigureAwait(false))
-            while (await playerReader.ReadAsync().ConfigureAwait(false))
-                playerMap[playerReader.GetString(0)] = (playerReader.GetString(1), playerReader.GetString(2), playerReader.IsDBNull(3) ? null : playerReader.GetString(3));
-
         var matches = new List<(string Uid, string Period, string Table, double? Minutes, double Value)>();
-        var count = db.CreateCommand();
-        count.CommandText = "SELECT COUNT(*) FROM FmsaveStatFacts WHERE SnapshotId=$s;";
-        count.Parameters.AddWithValue("$s", snapshotId.Value);
-        var indexedCount = Convert.ToInt32(await count.ExecuteScalarAsync().ConfigureAwait(false));
-        if (indexedCount > 0)
+
+        if (snapshotId.HasValue)
         {
-            var indexed = db.CreateCommand();
-            indexed.CommandText = """
-                SELECT PlayerUid,PeriodKey,TableName,Minutes,NumericValue
-                FROM FmsaveStatFacts
-                WHERE SnapshotId=$s AND FieldKey=$field COLLATE NOCASE
-                  AND ($minimumMinutes=0 OR Minutes >= $minimumMinutes)
-                  AND ($minimum IS NULL OR NumericValue >= $minimum)
-                  AND ($maximum IS NULL OR NumericValue <= $maximum)
-                ORDER BY TableName,RowIndex;
+            var players = db.CreateCommand();
+            players.CommandText = """
+                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club
+                FROM FmsavePlayerSnapshots s
+                LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId
+                WHERE s.SnapshotId=$s;
                 """;
-            indexed.Parameters.AddWithValue("$s", snapshotId.Value);
-            indexed.Parameters.AddWithValue("$field", fieldKey);
-            indexed.Parameters.AddWithValue("$minimumMinutes", minimumMinutes);
-            indexed.Parameters.AddWithValue("$minimum", minimum.HasValue ? minimum.Value : DBNull.Value);
-            indexed.Parameters.AddWithValue("$maximum", maximum.HasValue ? maximum.Value : DBNull.Value);
-            await using var reader = await indexed.ExecuteReaderAsync().ConfigureAwait(false);
-            while (await reader.ReadAsync().ConfigureAwait(false))
+            players.Parameters.AddWithValue("$s", snapshotId.Value);
+            await using (var reader = await players.ExecuteReaderAsync().ConfigureAwait(false))
             {
-                if (reader.IsDBNull(0) || reader.IsDBNull(1) || reader.IsDBNull(2) || reader.IsDBNull(4)) continue;
-                var value = reader.GetDouble(4);
-                var minutes = reader.IsDBNull(3) ? (double?)null : reader.GetDouble(3);
-                if (!double.IsFinite(value) || minutes.HasValue && !double.IsFinite(minutes.Value)) continue;
-                matches.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), minutes, value));
-            }
-        }
-        else
-        {
-            // Older imports pre-date indexed stat facts. Keep their raw rows readable and apply
-            // the same minutes floor whenever a minutes threshold has been requested.
-            var legacy = db.CreateCommand();
-            legacy.CommandText = "SELECT TableName,RowIndex,RawJson FROM FmsaveExtraTables WHERE SnapshotId=$s AND TableName IN ('player_season_stats','player_match_stats','player_season_history') ORDER BY TableName,RowIndex;";
-            legacy.Parameters.AddWithValue("$s", snapshotId.Value);
-            await using var reader = await legacy.ExecuteReaderAsync().ConfigureAwait(false);
-            while (await reader.ReadAsync().ConfigureAwait(false))
-            {
-                try
+                while (await reader.ReadAsync().ConfigureAwait(false))
                 {
-                    var table = reader.GetString(0);
-                    var rowIndex = reader.GetInt32(1);
-                    using var doc = JsonDocument.Parse(reader.GetString(2));
-                    var row = doc.RootElement;
-                    var uid = GetFirstJsonString(row, "player_uid", "player_id", "uid", "unique_id", "person_uid");
-                    if (string.IsNullOrWhiteSpace(uid) || !TryFindNumericPath(row, fieldKey, out var value) || !double.IsFinite(value)) continue;
-                    if (minimum.HasValue && value < minimum.Value || maximum.HasValue && value > maximum.Value) continue;
-                    double? minutes = null;
-                    foreach (var key in new[] { "minutes_played", "playing_time_minutes", "minutes", "mins_played", "total_minutes", "minutes_on_pitch" })
-                        if (TryFindNumeric(row, key, out var foundMinutes) && double.IsFinite(foundMinutes) && foundMinutes >= 0)
-                        {
-                            minutes = foundMinutes;
-                            break;
-                        }
-                    if (minimumMinutes > 0 && (!minutes.HasValue || minutes.Value < minimumMinutes)) continue;
-                    var period = table == "player_match_stats"
-                        ? GetFirstJsonString(row, "fixture_uid", "match_uid", "fixture_id", "match_id", "date", "match_date") ?? $"Match #{rowIndex + 1}"
-                        : GetFirstJsonString(row, "season", "season_name", "year") ?? "Season unavailable";
-                    matches.Add((uid, period, table, minutes, value));
+                    playerMap[reader.GetString(0)] = (
+                        reader.GetString(1),
+                        reader.GetString(2),
+                        reader.IsDBNull(3) ? null : reader.GetString(3));
                 }
-                catch (JsonException) { /* Skip only the malformed optional row. */ }
+            }
+
+            // Moneyball is a season-cohort view. Match-level rows stay in Match Lab so
+            // a season total is never ranked beside a single appearance.
+            var count = db.CreateCommand();
+            count.CommandText = """
+                SELECT COUNT(*) FROM FmsaveStatFacts
+                WHERE SnapshotId=$s AND FieldKey=$field COLLATE NOCASE
+                  AND TableName IN ('player_season_stats','player_season_history');
+                """;
+            count.Parameters.AddWithValue("$s", snapshotId.Value);
+            count.Parameters.AddWithValue("$field", fieldKey);
+            var indexedCount = Convert.ToInt32(await count.ExecuteScalarAsync().ConfigureAwait(false));
+
+            if (indexedCount > 0)
+            {
+                var indexed = db.CreateCommand();
+                indexed.CommandText = """
+                    SELECT PlayerUid,PeriodKey,TableName,Minutes,NumericValue
+                    FROM FmsaveStatFacts
+                    WHERE SnapshotId=$s AND FieldKey=$field COLLATE NOCASE
+                      AND TableName IN ('player_season_stats','player_season_history')
+                      AND ($minimumMinutes=0 OR Minutes >= $minimumMinutes)
+                      AND ($minimum IS NULL OR NumericValue >= $minimum)
+                      AND ($maximum IS NULL OR NumericValue <= $maximum)
+                    ORDER BY CASE TableName WHEN 'player_season_stats' THEN 0 ELSE 1 END,RowIndex;
+                    """;
+                indexed.Parameters.AddWithValue("$s", snapshotId.Value);
+                indexed.Parameters.AddWithValue("$field", fieldKey);
+                indexed.Parameters.AddWithValue("$minimumMinutes", minimumMinutes);
+                indexed.Parameters.AddWithValue("$minimum", minimum.HasValue ? minimum.Value : DBNull.Value);
+                indexed.Parameters.AddWithValue("$maximum", maximum.HasValue ? maximum.Value : DBNull.Value);
+                await using var reader = await indexed.ExecuteReaderAsync().ConfigureAwait(false);
+                while (await reader.ReadAsync().ConfigureAwait(false))
+                {
+                    if (reader.IsDBNull(0) || reader.IsDBNull(1) || reader.IsDBNull(2) || reader.IsDBNull(4))
+                        continue;
+                    var value = reader.GetDouble(4);
+                    var minutes = reader.IsDBNull(3) ? (double?)null : reader.GetDouble(3);
+                    if (!double.IsFinite(value) || (minutes.HasValue && !double.IsFinite(minutes.Value)))
+                        continue;
+                    matches.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), minutes, value));
+                }
+            }
+            else
+            {
+                // Historical snapshots retain the unmodified JSON rows. Prefer the primary
+                // season table, apply the same minutes floor, and skip duplicate player/period rows.
+                var legacy = db.CreateCommand();
+                legacy.CommandText = """
+                    SELECT TableName,RowIndex,RawJson
+                    FROM FmsaveExtraTables
+                    WHERE SnapshotId=$s AND TableName IN ('player_season_stats','player_season_history')
+                    ORDER BY CASE TableName WHEN 'player_season_stats' THEN 0 ELSE 1 END,RowIndex;
+                    """;
+                legacy.Parameters.AddWithValue("$s", snapshotId.Value);
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                await using var reader = await legacy.ExecuteReaderAsync().ConfigureAwait(false);
+                while (await reader.ReadAsync().ConfigureAwait(false))
+                {
+                    try
+                    {
+                        var table = reader.GetString(0);
+                        var rowIndex = reader.GetInt32(1);
+                        using var document = JsonDocument.Parse(reader.GetString(2));
+                        var row = document.RootElement;
+                        var uid = GetFirstJsonString(row, "player_uid", "player_id", "uid", "unique_id", "person_uid");
+                        if (string.IsNullOrWhiteSpace(uid)
+                            || !TryFindNumericPath(row, fieldKey, out var value)
+                            || !double.IsFinite(value))
+                            continue;
+                        if ((minimum.HasValue && value < minimum.Value)
+                            || (maximum.HasValue && value > maximum.Value))
+                            continue;
+
+                        double? minutes = null;
+                        foreach (var key in new[] { "minutes_played", "playing_time_minutes", "minutes", "mins_played", "total_minutes", "minutes_on_pitch" })
+                        {
+                            if (TryFindNumeric(row, key, out var foundMinutes) && double.IsFinite(foundMinutes) && foundMinutes >= 0)
+                            {
+                                minutes = foundMinutes;
+                                break;
+                            }
+                        }
+                        if (minimumMinutes > 0 && (!minutes.HasValue || minutes.Value < minimumMinutes))
+                            continue;
+
+                        var period = GetFirstJsonString(row, "season", "season_name", "year") ?? $"Season row {rowIndex + 1}";
+                        if (!seen.Add(uid + "\\0" + period))
+                            continue;
+                        matches.Add((uid, period, table, minutes, value));
+                    }
+                    catch (JsonException)
+                    {
+                        // Keep the rest of the imported season rows available.
+                    }
+                }
             }
         }
 
-        return matches
+        var results = matches
             .Where(x => playerMap.TryGetValue(x.Uid, out var player) && !string.IsNullOrWhiteSpace(player.SourceId))
-            .GroupBy(x => x.Uid + "\0" + x.Table + "\0" + x.Period, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(x => x.Uid + "\\0" + x.Period, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.OrderByDescending(x => x.Minutes ?? -1d).First())
-            .OrderByDescending(x => x.Value)
-            .Take(safeLimit)
             .Select(x => new AnalyticsMetricResult(
-                playerMap[x.Uid].SourceId, playerMap[x.Uid].Name, playerMap[x.Uid].Club, x.Period, x.Value))
+                playerMap[x.Uid].SourceId,
+                playerMap[x.Uid].Name,
+                playerMap[x.Uid].Club,
+                x.Period,
+                x.Value))
+            .OrderByDescending(x => x.Value)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(safeLimit)
             .ToList();
+
+        // The catalogue includes FM View CSV columns. Fall back to that latest imported
+        // export only when the selected metric has no usable save-snapshot observations.
+        if (results.Count == 0)
+            return await SearchLatestExternalSeasonMetricAsync(
+                db, fieldKey, minimum, maximum, per90: false, minimumMinutes, safeLimit).ConfigureAwait(false);
+
+        return results;
     }
 
     public async Task<List<AnalyticsMetricResult>> SearchSeasonMetricPer90Async(
