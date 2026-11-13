@@ -23,6 +23,12 @@ public sealed record LiveImportResult(int RunId, int PlayersSeen, int PlayersImp
 /// <summary>Read-only FM27 extractor using exact per-storefront module fingerprints. Field-level evidence is retained as provisional until UI-witnessed.</summary>
 public static class LiveDataImporter
 {
+    // Legacy fixed-layout surveys are intentionally disabled: their former SHA-256
+    // and array RVAs were not validated for the current multi-storefront profiles.
+    // Keeping explicit sentinels makes those obsolete entry points fail closed.
+    private const string ExpectedModuleSha256 = "LEGACY_SURVEY_DISABLED_PROFILE_MATCH_REQUIRED";
+    private const ulong PlayerDataRva = 0x57037D0;
+    private const ulong PlayerEndRva = 0x57037D8;
     private const uint QueryInformation = 0x0400, VmRead = 0x0010;
     private static readonly string[] PositionKeys = { "GK", "SW", "DL", "DC", "DR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST", "WBL", "WBR" };
     [DllImport("kernel32.dll", SetLastError = true)] private static extern nint OpenProcess(uint access, bool inherit, int pid);
