@@ -49,7 +49,7 @@ public partial class MainWindow
         var reportTop = new StackPanel();
         reportTop.Children.Add(Txt("COPY & EXPORT", 9, true, Teal));
         reportTop.Children.Add(Txt("Support snapshot", 17, true, Ink));
-        var sensitive = new CheckBox { Content = "Include personal details (player names, recent edit history, save filename and local database path)", IsChecked = false, Margin = new Thickness(0, 10, 0, 10), Foreground = Ink, FontSize = 10 };
+        var sensitive = new CheckBox { Content = "Include player names and recent edit history (sensitive personal details)", IsChecked = false, Margin = new Thickness(0, 10, 0, 10), Foreground = Ink, FontSize = 10 };
         reportTop.Children.Add(sensitive);
         reportTop.Children.Add(PrimaryButton("Copy safe diagnostics to clipboard", async (_, _) =>
         {
@@ -191,8 +191,8 @@ public partial class MainWindow
         sb.AppendLine("OS: " + Environment.OSVersion.VersionString + " · 64-bit OS: " + Environment.Is64BitOperatingSystem);
         sb.AppendLine("Runtime: " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
         sb.AppendLine("Process architecture: " + System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture);
-        sb.AppendLine("Application base directory: " + (includePersonal ? AppContext.BaseDirectory : "[redacted]"));
-        sb.AppendLine("Database: " + (includePersonal ? dbPath : "%LOCALAPPDATA%\\FmAtlas\\scouting.db") + $" · {dbSize:N0} bytes");
+        sb.AppendLine("Application base directory: [redacted]);
+        sb.AppendLine("Database: %LOCALAPPDATA%\\FmAtlas\\scouting.db · [absolute path redacted] · {dbSize:N0} bytes);
         sb.AppendLine("FM process check: " + AtlasLog.RedactForSupport(process.Detail));
         try
         {
@@ -212,7 +212,7 @@ public partial class MainWindow
         sb.AppendLine($"Facts: local player attributes={metrics.LocalAttributeFacts} · imported live facts={metrics.LiveFacts}");
         sb.AppendLine($"Latest save build: {metrics.SaveGame ?? "unknown game"} · {metrics.SaveBuild ?? "unknown build"} · registered layout={metrics.SaveBuildKnown?.ToString() ?? "unknown"} · date={metrics.SaveGameDate ?? "unknown"}");
         sb.AppendLine("Latest import time UTC: " + (metrics.LastSaveImportUtc ?? "none"));
-        if (includePersonal) sb.AppendLine("Latest source save filename: " + (metrics.LastSaveFileName ?? "none"));
+        sb.AppendLine("Latest source save filename: [redacted by policy]");
         sb.AppendLine("Raw save-validation payload: omitted from support bundle; use the local Save Inspector for the full validation detail.");
         sb.AppendLine();
         sb.AppendLine("RETAINED SAVE TABLES");
@@ -256,7 +256,7 @@ public partial class MainWindow
                 ["README.txt"] = new UTF8Encoding(false).GetBytes(
                     "FM Atlas support bundle\\r\\n" +
                     "This ZIP contains diagnostic text and redacted application logs only. It does not contain your career save, FM installation files, SQLite database or arbitrary personal files.\\r\\n" +
-                    (includePersonal ? "You opted in to include player names, recent edit history, save filename and local database path. Review before sharing.\\r\\n" : "Personal names, save filename and local file paths were excluded by default.\\r\\n") +
+                    (includePersonal ? "You opted in to include player names and recent edit history. Absolute paths and career save filenames remain redacted. Review before sharing.\\r\\n" : "Player names and edit history were excluded. Absolute paths and career save filenames are always redacted.\\r\\n") +
                     "No files are uploaded automatically. You choose whether and how to share this ZIP.\\r\\n")
             };
 
@@ -286,7 +286,8 @@ public partial class MainWindow
                 appVersion = typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown",
                 personalDetailsIncluded = includePersonal,
                 automaticallyUploaded = false,
-                excludedByDesign = new[] { "career saves", "SQLite database", "FM installation files", "arbitrary user files", "credentials and tokens" },
+                excludedByDesign = new[] { "career saves", "SQLite database", "FM installation files", "arbitrary user files" },
+                alwaysRedacted = new[] { "credentials and tokens", "absolute file paths", "career save filenames" },
                 files = manifestEntries
             };
             files["manifest.json"] = new UTF8Encoding(false).GetBytes(JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
@@ -294,7 +295,8 @@ public partial class MainWindow
             var preview = new StringBuilder();
             preview.AppendLine("SUPPORT BUNDLE CONTENTS");
             preview.AppendLine("Bundle ID: " + bundleId);
-            preview.AppendLine("Personal details: " + (includePersonal ? "included because you opted in" : "excluded"));
+            preview.AppendLine("Player names/edit history: " + (includePersonal ? "included because you opted in" : "excluded"));
+            preview.AppendLine("Absolute paths and career save filenames: always redacted");
             preview.AppendLine();
             preview.AppendLine("Files to be exported:");
             foreach (var item in manifestEntries) preview.AppendLine($"• {item.name} · {item.sizeBytes:N0} bytes · SHA-256 {item.sha256}");
