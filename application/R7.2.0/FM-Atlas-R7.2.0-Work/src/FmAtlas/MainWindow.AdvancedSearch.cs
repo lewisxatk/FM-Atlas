@@ -33,6 +33,8 @@ public partial class MainWindow
         var metricFields = await RunDatabaseAsync(() => _database.GetSeasonMetricCatalogAsync());
         var filterRows = new List<StatFilterUiRow>();
         var resultRows = new List<StatSearchResult>();
+        var profileStore = new SavedSearchProfileStore();
+        var savedProfiles = new List<SavedSearchProfile>();
         var status = Txt("Discovering statistical fields in the latest imported save…", 10, false, Muted, wrap: true);
         status.Margin = new Thickness(2, 8, 2, 0);
         var filterPanel = new StackPanel();
@@ -64,6 +66,28 @@ public partial class MainWindow
         importViewButton = SoftButton("Import FM View CSV", async (_, _) => await ImportViewCsvAsync());
         options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton);
         controlStack.Children.Add(options);
+
+        var profileRow = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+        var profileName = Input("Profile name");
+        profileName.Width = 160; profileName.Margin = new Thickness(0, 0, 7, 0);
+        var profilesPicker = new ComboBox
+        {
+            Width = 210, Height = 34, Margin = new Thickness(0, 0, 7, 0),
+            Padding = new Thickness(8, 4, 8, 4), DisplayMemberPath = nameof(SavedSearchProfile.Name),
+            ItemsSource = savedProfiles
+        };
+        profileRow.Children.Add(profilesPicker);
+        profileRow.Children.Add(profileName);
+        profileRow.Children.Add(SoftButton("New profile", (_, _) =>
+        {
+            profilesPicker.SelectedItem = null;
+            profileName.Text = string.Empty;
+            status.Text = "New statistical profile. Set its name and conditions, then save.";
+        }));
+        profileRow.Children.Add(SoftButton("Save profile", (_, _) => SaveCurrentProfile()));
+        profileRow.Children.Add(SoftButton("Load profile", (_, _) => LoadSelectedProfile()));
+        profileRow.Children.Add(SoftButton("Delete profile", (_, _) => DeleteSelectedProfile()));
+        controlStack.Children.Add(profileRow);
         controlStack.Children.Add(Txt("CONDITIONS · CHOOSE WHETHER ALL OR ANY CONDITION MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
         controlStack.Children.Add(Txt("The catalogue combines every numeric metric found in the latest imported save plus any FM View Exporter CSV you import. To capture more columns, add them to an in-game player view before exporting; FM's own view export has a practical column ceiling.", 9, false, Muted, wrap: true));
         controlStack.Children.Add(filterPanel);
@@ -100,8 +124,13 @@ public partial class MainWindow
             field.GroupStyle.Add(new GroupStyle { HeaderTemplate = new DataTemplate { VisualTree = groupHeader } });
             var min = Input("Min"); min.Width = 90; min.Height = 34; min.Margin = new Thickness(0, 0, 7, 0);
             var max = Input("Max"); max.Width = 90; max.Height = 34; max.Margin = new Thickness(0, 0, 7, 0);
-            if (key is not null) field.SelectedItem = metricFields.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
-            if (field.SelectedIndex < 0) field.SelectedIndex = 0;
+            if (key is not null && !metricFields.Any(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
+            {
+                status.Text = $"Saved profile field '{key}' is not present in the current metric catalogue; it was not substituted.";
+                return;
+            }
+            if (key is not null) field.SelectedItem = metricFields.First(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+            else field.SelectedIndex = 0;
             if (minValue.HasValue) min.Text = minValue.Value.ToString(CultureInfo.InvariantCulture);
             if (maxValue.HasValue) max.Text = maxValue.Value.ToString(CultureInfo.InvariantCulture);
             var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
@@ -112,6 +141,148 @@ public partial class MainWindow
             container.Child = row;
             filterRows.Add(new StatFilterUiRow(field, min, max, container));
             filterPanel.Children.Add(container);
+        }
+
+        void RefreshSavedProfiles(string? selectedId = null)
+        {
+            try
+            {
+                savedProfiles = profileStore.Load()
+                    .Where(x => x.Kind == SavedSearchKind.Statistics)
+                    .ToList();
+                profilesPicker.ItemsSource = null;
+                profilesPicker.ItemsSource = savedProfiles;
+                profilesPicker.SelectedItem = selectedId is null
+                    ? null
+                    : savedProfiles.FirstOrDefault(x => x.Id == selectedId);
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not load saved statistical profiles.", ex);
+                status.Text = "Saved profiles could not be loaded. The profile file was preserved; see Diagnostics for details.";
+            }
+        }
+
+        void SaveCurrentProfile()
+        {
+            var name = profileName.Text.Trim();
+            if (name.Length == 0)
+            {
+                status.Text = "Enter a name for this statistical search profile.";
+                return;
+            }
+
+            var conditions = new List<SavedSearchCondition>();
+            foreach (var row in filterRows)
+            {
+                if (row.Field.SelectedItem is not StatMetricField field) continue;
+                var hasMin = double.TryParse(row.Minimum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var lower);
+                var hasMax = double.TryParse(row.Maximum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var upper);
+                if (!hasMin && !hasMax) continue;
+                if ((hasMin && !double.IsFinite(lower)) || (hasMax && !double.IsFinite(upper)))
+                {
+                    status.Text = $"Enter finite numeric boundaries for {field.DisplayName}.";
+                    return;
+                }
+                if (hasMin && hasMax && lower > upper)
+                {
+                    status.Text = $"Minimum cannot exceed maximum for {field.DisplayName}.";
+                    return;
+                }
+                if (per90.IsChecked == true && !field.SupportsPer90)
+                {
+                    status.Text = $"{field.DisplayName} cannot be converted per 90 because it is already a rate, percentage, rating or playing-time field.";
+                    return;
+                }
+                conditions.Add(new SavedSearchCondition(field.Key, field.DisplayName, hasMin ? lower : null, hasMax ? upper : null));
+            }
+
+            if (conditions.Count == 0)
+            {
+                status.Text = "Add at least one metric condition with a minimum or maximum before saving.";
+                return;
+            }
+            if (per90.IsChecked == true && (!int.TryParse(minMinutes.Text, out var sample) || sample < 1))
+            {
+                status.Text = "Enter a valid minimum minutes sample before saving a per-90 profile.";
+                return;
+            }
+
+            var selected = profilesPicker.SelectedItem as SavedSearchProfile;
+            var now = DateTime.UtcNow;
+            var profile = new SavedSearchProfile(
+                selected?.Id ?? Guid.NewGuid().ToString("N"),
+                name,
+                SavedSearchKind.Statistics,
+                null,
+                matchMode.SelectedIndex == 1,
+                per90.IsChecked == true,
+                int.TryParse(minMinutes.Text, out var minimum) ? Math.Clamp(minimum, 1, 10000) : 450,
+                conditions,
+                selected?.CreatedUtc ?? now,
+                now);
+
+            try
+            {
+                var saved = profileStore.Save(profile);
+                RefreshSavedProfiles(saved.Id);
+                status.Text = $"Saved statistical profile '{saved.Name}' locally. Only conditions and search settings were stored.";
+                AtlasLog.Info($"Saved statistical search profile: id={saved.Id}; conditions={conditions.Count}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not save statistical search profile.", ex);
+                status.Text = "Profile could not be saved: " + ex.Message;
+            }
+        }
+
+        void LoadSelectedProfile()
+        {
+            if (profilesPicker.SelectedItem is not SavedSearchProfile profile)
+            {
+                status.Text = "Choose a saved statistical profile to load.";
+                return;
+            }
+
+            filterRows.Clear();
+            filterPanel.Children.Clear();
+            foreach (var condition in profile.Conditions)
+                AddFilterRow(condition.Key, condition.Minimum, condition.Maximum);
+
+            matchMode.SelectedIndex = profile.MatchAny ? 1 : 0;
+            per90.IsChecked = profile.Per90;
+            minMinutes.Text = profile.MinimumMinutes.ToString(CultureInfo.InvariantCulture);
+            profileName.Text = profile.Name;
+
+            var loaded = filterRows.Count;
+            status.Text = loaded == profile.Conditions.Count
+                ? $"Loaded '{profile.Name}' · {loaded} condition(s). Run the search to refresh results."
+                : $"Loaded {loaded} of {profile.Conditions.Count} conditions. Missing metric fields were left out rather than substituted; review the profile before searching.";
+        }
+
+        void DeleteSelectedProfile()
+        {
+            if (profilesPicker.SelectedItem is not SavedSearchProfile profile)
+            {
+                status.Text = "Choose a saved statistical profile to delete.";
+                return;
+            }
+            if (MessageBox.Show(this, $"Delete saved profile '{profile.Name}'?", "FM Atlas · Delete search profile",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                profileStore.Delete(profile.Id);
+                profileName.Text = string.Empty;
+                RefreshSavedProfiles();
+                status.Text = $"Deleted saved profile '{profile.Name}'.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not delete statistical search profile.", ex);
+                status.Text = "Profile could not be deleted: " + ex.Message;
+            }
         }
 
         async Task RunSearchAsync()
@@ -191,6 +362,7 @@ public partial class MainWindow
             AddFilterRow();
             status.Text = $"{metricFields.Count:N0} numeric metric paths discovered · {metricFields.Select(x => x.Category).Distinct().Count():N0} groups · includes {string.Join(", ", metricFields.SelectMany(x => x.SourceTables.Split(',', StringSplitOptions.RemoveEmptyEntries)).Distinct().OrderBy(x => x))}.";
         }
+        RefreshSavedProfiles();
         return root;
     }
 
@@ -212,6 +384,8 @@ public partial class MainWindow
             .ToList();
         var filterRows = new List<AttributeFilterUiRow>();
         List<PlayerRecord> resultRows = new();
+        var profileStore = new SavedSearchProfileStore();
+        var savedProfiles = new List<SavedSearchProfile>();
         var filterPanel = new StackPanel();
         var status = Txt("Loading attribute catalogue…", 10, false, Muted, wrap: true);
         status.Margin = new Thickness(2, 8, 2, 0);
@@ -228,6 +402,29 @@ public partial class MainWindow
         top.Children.Add(SoftButton("Reset", (_, _) => { filterRows.Clear(); filterPanel.Children.Clear(); AddFilterRow(); status.Text = "Attribute conditions reset."; }));
         top.Children.Add(SoftButton("Export CSV", (_, _) => ExportResults()));
         builderStack.Children.Add(top);
+
+        var profileRow = new WrapPanel { Margin = new Thickness(0, 0, 0, 7) };
+        var profileName = Input("Profile name");
+        profileName.Width = 160; profileName.Margin = new Thickness(0, 0, 7, 0);
+        var profilesPicker = new ComboBox
+        {
+            Width = 210, Height = 34, Margin = new Thickness(0, 0, 7, 0),
+            Padding = new Thickness(8, 4, 8, 4), DisplayMemberPath = nameof(SavedSearchProfile.Name),
+            ItemsSource = savedProfiles
+        };
+        profileRow.Children.Add(profilesPicker);
+        profileRow.Children.Add(profileName);
+        profileRow.Children.Add(SoftButton("New profile", (_, _) =>
+        {
+            profilesPicker.SelectedItem = null;
+            profileName.Text = string.Empty;
+            status.Text = "New attribute profile. Set its name and conditions, then save.";
+        }));
+        profileRow.Children.Add(SoftButton("Save profile", (_, _) => SaveCurrentProfile()));
+        profileRow.Children.Add(SoftButton("Load profile", (_, _) => LoadSelectedProfile()));
+        profileRow.Children.Add(SoftButton("Delete profile", (_, _) => DeleteSelectedProfile()));
+        builderStack.Children.Add(profileRow);
+
         var presets = new WrapPanel { Margin = new Thickness(0, 5, 0, 5) };
         presets.Children.Add(Txt("QUICK PRESETS", 8, true, Muted));
         presets.Children.Add(SoftButton("Complete Striker", (_, _) => ApplyPreset(new[] { ("finishing", 15d), ("off_the_ball", 14d), ("composure", 13d), ("acceleration", 14d), ("pace", 14d) })));
@@ -254,8 +451,13 @@ public partial class MainWindow
         {
             if (filterRows.Count >= 60) { status.Text = "A search supports up to 60 attribute and personality conditions."; return; }
             var field = new ComboBox { Width = 255, Height = 34, Margin = new Thickness(0, 0, 8, 0), ItemsSource = fields, DisplayMemberPath = "PickerLabel", FontSize = 10, Background = Brush("#151B22"), Foreground = Brush("#E8EEF4") };
-            if (key is not null) field.SelectedItem = fields.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
-            if (field.SelectedIndex < 0) field.SelectedIndex = 0;
+            if (key is not null && !fields.Any(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
+            {
+                status.Text = $"Saved profile field '{key}' is not available in this app version; it was not substituted.";
+                return;
+            }
+            if (key is not null) field.SelectedItem = fields.First(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+            else field.SelectedIndex = 0;
             var min = Input("Min 1–20"); min.Width = 88; min.Height = 34; min.Text = minimum?.ToString(CultureInfo.InvariantCulture) ?? ""; min.Margin = new Thickness(0, 0, 7, 0);
             var max = Input("Max 1–20"); max.Width = 88; max.Height = 34; max.Text = maximum?.ToString(CultureInfo.InvariantCulture) ?? ""; max.Margin = new Thickness(0, 0, 7, 0);
             var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
@@ -269,6 +471,136 @@ public partial class MainWindow
             filterRows.Clear(); filterPanel.Children.Clear();
             foreach (var item in preset) AddFilterRow(item.Key, item.Minimum, null);
             status.Text = "Preset loaded. Adjust any 1–20 minimum/maximum before searching.";
+        }
+
+        void RefreshSavedProfiles(string? selectedId = null)
+        {
+            try
+            {
+                savedProfiles = profileStore.Load()
+                    .Where(x => x.Kind == SavedSearchKind.Attributes)
+                    .ToList();
+                profilesPicker.ItemsSource = null;
+                profilesPicker.ItemsSource = savedProfiles;
+                profilesPicker.SelectedItem = selectedId is null
+                    ? null
+                    : savedProfiles.FirstOrDefault(x => x.Id == selectedId);
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not load saved attribute profiles.", ex);
+                status.Text = "Saved profiles could not be loaded. The profile file was preserved; see Diagnostics for details.";
+            }
+        }
+
+        void SaveCurrentProfile()
+        {
+            var name = profileName.Text.Trim();
+            if (name.Length == 0)
+            {
+                status.Text = "Enter a name for this attribute-search profile.";
+                return;
+            }
+
+            var conditions = new List<SavedSearchCondition>();
+            foreach (var row in filterRows)
+            {
+                if (row.Field.SelectedItem is not AttributePickerField field) continue;
+                var hasMin = int.TryParse(row.Minimum.Text, out var lower);
+                var hasMax = int.TryParse(row.Maximum.Text, out var upper);
+                if (!hasMin && !hasMax) continue;
+                if ((hasMin && lower is < 1 or > 20) || (hasMax && upper is < 1 or > 20))
+                {
+                    status.Text = "Attribute values must be whole numbers from 1 to 20.";
+                    return;
+                }
+                if (hasMin && hasMax && lower > upper)
+                {
+                    status.Text = $"Minimum cannot exceed maximum for {field.Label}.";
+                    return;
+                }
+                conditions.Add(new SavedSearchCondition(field.Key, field.Label, hasMin ? lower : null, hasMax ? upper : null));
+            }
+
+            if (conditions.Count == 0)
+            {
+                status.Text = "Add at least one attribute condition before saving.";
+                return;
+            }
+
+            var selected = profilesPicker.SelectedItem as SavedSearchProfile;
+            var now = DateTime.UtcNow;
+            var profile = new SavedSearchProfile(
+                selected?.Id ?? Guid.NewGuid().ToString("N"),
+                name,
+                SavedSearchKind.Attributes,
+                string.IsNullOrWhiteSpace(search.Text) ? null : search.Text.Trim(),
+                false,
+                false,
+                0,
+                conditions,
+                selected?.CreatedUtc ?? now,
+                now);
+
+            try
+            {
+                var saved = profileStore.Save(profile);
+                RefreshSavedProfiles(saved.Id);
+                status.Text = $"Saved attribute profile '{saved.Name}' locally. Only conditions and the optional text filter were stored.";
+                AtlasLog.Info($"Saved attribute search profile: id={saved.Id}; conditions={conditions.Count}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not save attribute search profile.", ex);
+                status.Text = "Profile could not be saved: " + ex.Message;
+            }
+        }
+
+        void LoadSelectedProfile()
+        {
+            if (profilesPicker.SelectedItem is not SavedSearchProfile profile)
+            {
+                status.Text = "Choose a saved attribute profile to load.";
+                return;
+            }
+
+            filterRows.Clear();
+            filterPanel.Children.Clear();
+            foreach (var condition in profile.Conditions)
+                AddFilterRow(condition.Key, condition.Minimum, condition.Maximum);
+
+            search.Text = profile.TextFilter ?? string.Empty;
+            profileName.Text = profile.Name;
+
+            var loaded = filterRows.Count;
+            status.Text = loaded == profile.Conditions.Count
+                ? $"Loaded '{profile.Name}' · {loaded} condition(s). Run the search to refresh results."
+                : $"Loaded {loaded} of {profile.Conditions.Count} conditions. Missing fields were left out rather than substituted; review the profile before searching.";
+        }
+
+        void DeleteSelectedProfile()
+        {
+            if (profilesPicker.SelectedItem is not SavedSearchProfile profile)
+            {
+                status.Text = "Choose a saved attribute profile to delete.";
+                return;
+            }
+            if (MessageBox.Show(this, $"Delete saved profile '{profile.Name}'?", "FM Atlas · Delete search profile",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                profileStore.Delete(profile.Id);
+                profileName.Text = string.Empty;
+                RefreshSavedProfiles();
+                status.Text = $"Deleted saved profile '{profile.Name}'.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not delete attribute search profile.", ex);
+                status.Text = "Profile could not be deleted: " + ex.Message;
+            }
         }
 
         async Task RunSearchAsync()
@@ -311,6 +643,7 @@ public partial class MainWindow
 
         AddFilterRow();
         status.Text = $"{fields.Count:N0} attribute and personality fields available in the builder · values are filtered only when present in the imported player records.";
+        RefreshSavedProfiles();
         return root;
     }
 
