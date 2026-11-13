@@ -146,15 +146,15 @@ def main() -> int:
     warnings: list[str] = []
     try:
         with fmsave.open(str(save_path)) as save:
-            # Reader names below match the currently published fmsave API (30 tables).
+            # Reader names below are pinned to the reviewed fmsave 0.12.3 API.
             table_names = [
                 "players", "contracts", "suspensions", "staff", "staff_lists",
                 "clubs", "managed_clubs", "finances", "sponsorships", "facilities",
                 "stadiums", "affiliates", "job_vacancies", "stages", "competitions",
-                "fixtures", "league_tables", "competition_rules", "transfer_windows",
-                "player_match_stats", "player_season_stats", "player_season_history",
+                "fixtures", "officials", "league_tables", "competition_rules", "transfer_windows",
+                "player_match_stats", "team_match_stats", "player_season_stats", "player_season_history",
                 "nations", "injury_types", "injuries", "training", "mentoring",
-                "tactics", "set_pieces", "selections"
+                "tactics", "set_pieces", "selections", "squad_planner"
             ]
             # Capture only non-personal save metadata. Do not export summary_strings,
             # which can contain the human manager's name and other identifying text.
@@ -214,7 +214,7 @@ def main() -> int:
         attributes = first(item, "attributes") or {}
         personality = first(item, "personality") or {}
         contract = first(item, "contract") or {}
-        # fmsave 0.9.x Player model: birth_date, club_name, nation_id,
+        # fmsave 0.12.3 Player model: birth_date, club_name, nation_id,
         # natural_positions, accomplished_positions, and a Positions value object.
         natural_positions = first(item, "natural_positions") or []
         accomplished_positions = first(item, "accomplished_positions") or []
@@ -370,6 +370,9 @@ def main() -> int:
         "player_season_history": tables.get("player_season_history", []),
         "player_match_stats": tables.get("player_match_stats", []),
         "fixtures": tables.get("fixtures", []),
+        "officials": tables.get("officials", []),
+        "team_match_stats": tables.get("team_match_stats", []),
+        "squad_planner": tables.get("squad_planner", []),
         "league_tables": tables.get("league_tables", []),
         "tactics": tables.get("tactics", []),
         "training": tables.get("training", []),
