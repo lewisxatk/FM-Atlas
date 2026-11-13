@@ -92,6 +92,8 @@ public partial class MainWindow : Window
         AtlasLog.Initialise();
         AtlasLog.Info("Main window construction started.");
         InitializeComponent();
+        Background = MonolithTheme.GetBrush("Canvas");
+        Foreground = MonolithTheme.GetBrush("TextPrimary");
         FontFamily = new FontFamily(MonolithTheme.FontFamilyName);
         Loaded += WindowLoaded;
         Closed += (_, _) => AtlasLog.Info("Main window closed.");
