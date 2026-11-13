@@ -103,6 +103,7 @@ public partial class MainWindow
     private async Task<UIElement> ScoutingMatrixPageAsync()
     {
         var root = new StackPanel();
+        var status = Txt("Loading saved recruitment lists…", 10, false, Muted, wrap: true);
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("RECRUITMENT INTELLIGENCE", 9, true, Teal));
@@ -151,7 +152,6 @@ public partial class MainWindow
         saved.Columns.Add(Column("POSITION", nameof(ShortlistRecord.DisplayPosition), .7));
         saved.Columns.Add(Column("NOTES", nameof(ShortlistRecord.Notes), 1.4));
         root.Children.Add(Card(saved, 14));
-        var status = Txt("Loading saved recruitment lists…", 10, false, Muted, wrap: true);
         root.Children.Add(status);
 
         async Task LoadShortlistsAsync(string? selectName = null)
@@ -220,6 +220,7 @@ public partial class MainWindow
         root.Children.Add(header);
 
         var metrics = await RunDatabaseAsync(() => _database.GetSeasonMetricCatalogAsync());
+        var status = Txt("Loading statistical cohort…", 10, false, Muted, wrap: true);
         var options = new WrapPanel();
         var field = new ComboBox { Width = 320, Height = 35, Margin = new Thickness(3), ItemsSource = metrics, DisplayMemberPath = nameof(StatMetricField.PickerLabel), IsTextSearchEnabled = true };
         if (metrics.Count > 0) field.SelectedIndex = 0;
@@ -238,7 +239,7 @@ public partial class MainWindow
         grid.Columns.Add(Column("PERCENTILE", nameof(MoneyballRow.Percentile), .7));
         grid.Columns.Add(Column("SAMPLE", nameof(MoneyballRow.SampleSize), .5));
         root.Children.Add(Card(grid, 14));
-        var status = Txt(metrics.Count == 0 ? "No numeric metric fields found. Import a copied career save or FM View CSV first." : $"{metrics.Count:N0} metrics available from the latest imports.", 10, false, Muted, wrap: true);
+        status.Text = metrics.Count == 0 ? "No numeric metric fields found. Import a copied career save or FM View CSV first." : $"{metrics.Count:N0} metrics available from the latest imports.";
         root.Children.Add(status);
 
         async Task RankAsync()
@@ -284,6 +285,7 @@ public partial class MainWindow
     private async Task<UIElement> TacticalStudioPageAsync()
     {
         var root = new StackPanel();
+        var status = Txt("Select a tactical role to rank imported players.", 10, false, Muted, wrap: true);
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("TACTICAL INTELLIGENCE", 9, true, Teal));
@@ -306,7 +308,6 @@ public partial class MainWindow
         grid.Columns.Add(Column("ATLAS FIT", nameof(TacticalCandidateRow.Score), .6));
         grid.Columns.Add(Column("COVERAGE", nameof(TacticalCandidateRow.Coverage), .7));
         root.Children.Add(Card(grid, 14));
-        var status = Txt("Select a tactical role to rank imported players.", 10, false, Muted, wrap: true);
         root.Children.Add(status);
 
         async Task AnalyseAsync()
@@ -336,6 +337,7 @@ public partial class MainWindow
     private async Task<UIElement> MatchLabPageAsync()
     {
         var root = new StackPanel();
+        var status = Txt("Search for a player to inspect available performance facts.", 10, false, Muted, wrap: true);
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("MATCH PERFORMANCE", 9, true, Teal));
@@ -357,7 +359,6 @@ public partial class MainWindow
         grid.Columns.Add(Column("METRIC", nameof(AtlasFactRecord.Field), 1.2));
         grid.Columns.Add(Column("SOURCE VALUE", nameof(AtlasFactRecord.Value), 1));
         root.Children.Add(Card(grid, 14));
-        var status = Txt("Search for a player to inspect available performance facts.", 10, false, Muted, wrap: true);
         root.Children.Add(status);
 
         async Task FindAsync()
@@ -390,6 +391,7 @@ public partial class MainWindow
     private async Task<UIElement> DevelopmentPageAsync()
     {
         var root = new StackPanel();
+        var status = Txt("No player selected.", 10, false, Muted, wrap: true);
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PLAYER PATHWAY", 9, true, Teal));
@@ -417,7 +419,6 @@ public partial class MainWindow
         history.Columns.Add(Column("NEW", nameof(AtlasHistoryRecord.NewValue), .6));
         history.Columns.Add(Column("CHANGE SOURCE", nameof(AtlasHistoryRecord.ChangeSource), 1.2));
         root.Children.Add(Card(history, 14));
-        var status = Txt("No player selected.", 10, false, Muted, wrap: true);
         root.Children.Add(status);
 
         async Task FindAsync()
@@ -507,6 +508,7 @@ public partial class MainWindow
     private UIElement GraphicsSkinsPage()
     {
         var root = new StackPanel();
+        var summary = Txt("Choose a graphics root to start the read-only index.", 10, false, Muted, wrap: true);
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("GRAPHICS & SKIN WORKSPACE", 9, true, Teal));
@@ -518,7 +520,6 @@ public partial class MainWindow
         var scan = PrimaryButton("Scan graphics folder", async (_, _) => await ScanAsync());
         var controls = new WrapPanel(); controls.Children.Add(path); controls.Children.Add(scan);
         root.Children.Add(Card(controls, 13, new Thickness(0, 0, 0, 10)));
-        var summary = Txt("Choose a graphics root to start the read-only index.", 10, false, Muted, wrap: true);
         root.Children.Add(summary);
         var grid = CreateGrid();
         grid.Columns.Add(Column("RECORD ID", nameof(GraphicsMappingRow.Id), .6));
