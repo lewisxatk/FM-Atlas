@@ -747,7 +747,7 @@ public partial class MainWindow : Window
         var traits = await traitsTask;
         var performanceFacts = await performanceTask;
         var liveFacts = liveFactsTask is null ? new List<(string FieldKey, double? NumericValue, string? TextValue, string ValidationStatus)>() : await liveFactsTask;
-        foreach (var fact in liveFacts.Where(f => f.NumericValue.HasValue && f.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase) && (f.FieldKey.Contains("Attribute", StringComparison.OrdinalIgnoreCase) || f.FieldKey.StartsWith("Ability.", StringComparison.OrdinalIgnoreCase))))
+        foreach (var fact in liveFacts.Where(f => f.NumericValue.HasValue && FieldEvidencePolicy.CanUseForDecision(f.ValidationStatus) && (f.FieldKey.Contains("Attribute", StringComparison.OrdinalIgnoreCase) || f.FieldKey.StartsWith("Ability.", StringComparison.OrdinalIgnoreCase))))
             attributes[fact.FieldKey] = fact.NumericValue!.Value;
 
         profilePanel.Children.Add(Txt("PLAYER PROFILE", 9, true, Teal));
