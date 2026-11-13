@@ -694,6 +694,7 @@ public partial class MainWindow
         compositeProfileName.Width = 180;
         compositeProfileRow.Children.Add(compositeProfilePicker);
         compositeProfileRow.Children.Add(compositeProfileName);
+        compositeProfileRow.Children.Add(SoftButton("New profile", (_, _) => { compositeProfilePicker.SelectedItem = null; compositeProfileName.Text = string.Empty; compositeStatus.Text = "New Moneyball composite profile. Set criteria and save."; }));
         compositeProfileRow.Children.Add(SoftButton("Save profile", (_, _) => SaveCompositeProfile()));
         compositeProfileRow.Children.Add(SoftButton("Load profile", (_, _) => LoadCompositeProfile()));
         compositeProfileRow.Children.Add(SoftButton("Duplicate", (_, _) => DuplicateCompositeProfile()));
@@ -1132,8 +1133,13 @@ public partial class MainWindow
                 ? Math.Clamp(parsedMinutes, 1, 10000) : 450;
             var sample = int.TryParse(minimumSample.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedSample)
                 ? Math.Clamp(parsedSample, 1, 100000) : 5;
-            var minimumMetricCount = int.TryParse(compositeMinimum.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMetricCount)
-                ? Math.Clamp(parsedMetricCount, 2, selectedMetrics.Length) : 2;
+            if (!int.TryParse(compositeMinimum.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMetricCount)
+                || parsedMetricCount < 2 || parsedMetricCount > selectedMetrics.Length)
+            {
+                compositeStatus.Text = "Minimum metrics per player must be between 2 and the number of selected metrics.";
+                return;
+            }
+            var minimumMetricCount = parsedMetricCount;
             var higherIsBetter = !string.Equals(direction.SelectedItem as string, "Lower is better", StringComparison.Ordinal);
             var cohortMode = cohort.SelectedItem as string ?? "All players";
 
