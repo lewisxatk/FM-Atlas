@@ -31,7 +31,7 @@ public sealed class ScoutDatabase
     /// Creates an Atlas database at an explicit path. The path constructor supports
     /// isolated test fixtures, portable installations and controlled database recovery.
     /// </summary>
-    public ScoutDatabase(string databasePath)
+    public ScoutDatabase(string databasePath, bool pooling = true)
     {
         if (string.IsNullOrWhiteSpace(databasePath))
             throw new ArgumentException("A database path is required.", nameof(databasePath));
@@ -41,7 +41,7 @@ public sealed class ScoutDatabase
         if (!string.IsNullOrEmpty(folder))
             Directory.CreateDirectory(folder);
 
-        _connectionString = new SqliteConnectionStringBuilder { DataSource = fullPath }.ToString();
+        _connectionString = new SqliteConnectionStringBuilder { DataSource = fullPath, Pooling = pooling }.ToString();
     }
 
     public async Task InitialiseAsync()
