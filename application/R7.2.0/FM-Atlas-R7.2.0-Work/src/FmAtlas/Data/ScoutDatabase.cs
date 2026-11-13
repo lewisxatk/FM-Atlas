@@ -1627,7 +1627,15 @@ public sealed class ScoutDatabase
     {
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT FactGroup,FieldKey,COALESCE(CAST(NumericValue AS TEXT),TextValue) FROM FmsavePlayerFacts WHERE PlayerSourceId=$source AND FactGroup=$group AND SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) ORDER BY FieldKey;";
+        cmd.CommandText = """
+            SELECT f.FactGroup,f.FieldKey,COALESCE(CAST(f.NumericValue AS TEXT),f.TextValue)
+            FROM FmsavePlayerFacts f
+            INNER JOIN FmsaveImportRuns run ON run.SnapshotId=f.SnapshotId
+            WHERE f.PlayerSourceId=$source AND f.FactGroup=$group
+              AND f.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND (LOWER($group) <> 'positions' OR run.KnownBuild=1)
+            ORDER BY f.FieldKey;
+            """;
         cmd.Parameters.AddWithValue("$source", sourceId); cmd.Parameters.AddWithValue("$group", group);
         var rows = new List<AtlasFactRecord>(); await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false)) rows.Add(new AtlasFactRecord(reader.GetString(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
@@ -2712,9 +2720,10 @@ public sealed class ScoutDatabase
         {
             var players = db.CreateCommand();
             players.CommandText = """
-                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson
+                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson,r.KnownBuild
                 FROM FmsavePlayerSnapshots s
                 LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId
+                INNER JOIN FmsaveImportRuns r ON r.SnapshotId=s.SnapshotId
                 WHERE s.SnapshotId=$s;
                 """;
             players.Parameters.AddWithValue("$s", snapshotId.Value);
@@ -2723,14 +2732,17 @@ public sealed class ScoutDatabase
                 while (await reader.ReadAsync().ConfigureAwait(false))
                 {
                     string? primaryPosition = null;
-                    try
+                    if (!reader.IsDBNull(5) && reader.GetInt32(5) == 1)
                     {
-                        using var playerDocument = JsonDocument.Parse(reader.GetString(4));
-                        primaryPosition = GetDisplayValue(playerDocument.RootElement, "position");
-                    }
-                    catch (JsonException)
-                    {
-                        // Position is optional cohort metadata; a malformed player row remains unclassified.
+                        try
+                        {
+                            using var playerDocument = JsonDocument.Parse(reader.GetString(4));
+                            primaryPosition = GetDisplayValue(playerDocument.RootElement, "position");
+                        }
+                        catch (JsonException)
+                        {
+                            // Position is optional cohort metadata; a malformed player row remains unclassified.
+                        }
                     }
                     playerMap[reader.GetString(0)] = (
                         reader.GetString(1),
@@ -2897,9 +2909,10 @@ public sealed class ScoutDatabase
         {
             var players = db.CreateCommand();
             players.CommandText = """
-                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson
+                SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club,s.RawJson,r.KnownBuild
                 FROM FmsavePlayerSnapshots s
                 LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId
+                INNER JOIN FmsaveImportRuns r ON r.SnapshotId=s.SnapshotId
                 WHERE s.SnapshotId=$s;
                 """;
             players.Parameters.AddWithValue("$s", snapshotId.Value);
@@ -2908,14 +2921,17 @@ public sealed class ScoutDatabase
                 while (await reader.ReadAsync().ConfigureAwait(false))
                 {
                     string? primaryPosition = null;
-                    try
+                    if (!reader.IsDBNull(5) && reader.GetInt32(5) == 1)
                     {
-                        using var playerDocument = JsonDocument.Parse(reader.GetString(4));
-                        primaryPosition = GetDisplayValue(playerDocument.RootElement, "position");
-                    }
-                    catch (JsonException)
-                    {
-                        // Position is optional cohort metadata; a malformed player row remains unclassified.
+                        try
+                        {
+                            using var playerDocument = JsonDocument.Parse(reader.GetString(4));
+                            primaryPosition = GetDisplayValue(playerDocument.RootElement, "position");
+                        }
+                        catch (JsonException)
+                        {
+                            // Position is optional cohort metadata; a malformed player row remains unclassified.
+                        }
                     }
                     playerMap[reader.GetString(0)] = (
                         reader.GetString(1),
