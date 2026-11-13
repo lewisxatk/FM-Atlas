@@ -196,3 +196,12 @@ Key additions:
 - **FM View Exporter**: https://github.com/ElectroHugin/FM-View-Exporter — open-source GPLv3 BepInEx plugin for FM27 Windows/Steam. It exports currently visible player lists to CSV/HTML via F9, including all rows by scrolling the view. This is a UI-level export, not a hidden-memory reader; unscouted values stay hidden. Large searches take longer and FM's visible result list is capped. Useful as a safe import/test-fixture route, but it is not a replacement for a full database scanner.
 - **FMRTE 27**: https://www.fmrte.com/ and https://docs.fmrte.com/ — current commercial feature benchmark for live editing, search, player stats, transfer terms, mass changes and undo. Public docs establish advertised features only; internal implementation remains proprietary.
 - **FMSuperScout installer verification**: the uploaded `FMSuperScout-Setup(1).exe` SHA-256 exactly matches the GitHub v1.7.3 release asset checksum. It was not executed.
+
+
+## 10. Game Pass compatibility qualification (13 November 2026)
+
+- **FMLibreEditor** explicitly targets Windows Xbox/Game Pass and Steam; retain it as the primary external reference for Game Pass-safe live-memory access, while still validating Atlas against the user's exact current FM build.
+- **FMSuperScout** troubleshooting documentation says Steam is fully tested; Epic/Xbox Game Pass should work because the scanner is storefront-independent, but was not tested end-to-end by its author. Do not call it verified Game Pass support.
+- **FM View Exporter** documents Steam for Windows; it should not be presented as a known Game Pass-compatible plugin.
+- **FM Dossier** documentation says FM27 has been tested on Steam; other official store editions are checked on each read but have not been tested by the developer.
+- These qualifications matter because Atlas's intended target is Xbox/Game Pass. A working Steam offset/profile is not sufficient evidence for Game Pass.
