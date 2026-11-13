@@ -113,6 +113,70 @@ public sealed class ScoutDatabaseDevelopmentHistoryIntegrationTests
         }
     }
 
+    [TestMethod]
+    public async Task DevelopmentHistory_ResetsTrendWhenFmsaveUniqueIdIsReusedForAnotherPerson()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas-DevelopmentIdentity-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+
+        try
+        {
+            var database = new ScoutDatabase(databasePath, pooling: false);
+            await database.InitialiseAsync();
+
+            await using (var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder { DataSource = databasePath, Pooling = false }.ToString()))
+            {
+                await connection.OpenAsync();
+                var first = await InsertSnapshotAsync(
+                    connection, "2026-11-01T12:00:00Z", "2026-10-31", "FM27-test-build",
+                    "old-person.json", "reused-uid",
+                    """
+                    {"uid":"700","unique_id":"reused-uid","name":"Alex One","birth_date":"1998-01-01",
+                     "current_ability":100,"potential_ability":130,"age":28,"attributes":{"technical":{"passing":10}}}
+                    """);
+                var second = await InsertSnapshotAsync(
+                    connection, "2026-11-08T12:00:00Z", "2026-11-07", "FM27-test-build",
+                    "new-person.json", "reused-uid",
+                    """
+                    {"uid":"701","unique_id":"reused-uid","name":"Alex Two","birth_date":"2004-05-06",
+                     "current_ability":120,"potential_ability":150,"age":22,"attributes":{"technical":{"passing":16}}}
+                    """);
+                var third = await InsertSnapshotAsync(
+                    connection, "2026-11-13T12:00:00Z", "2026-11-12", "FM27-test-build",
+                    "new-person-week-2.json", "reused-uid",
+                    """
+                    {"uid":"702","unique_id":"reused-uid","name":"Alex Two","birth_date":"2004-05-06",
+                     "current_ability":125,"potential_ability":150,"age":22,"attributes":{"technical":{"passing":17}}}
+                    """);
+
+                var rows = await database.GetPlayerDevelopmentHistoryAsync("FMSAVE:reused-uid");
+                var firstCa = rows.Single(x => x.SnapshotId == first && x.FieldName == "Current Ability");
+                var secondCa = rows.Single(x => x.SnapshotId == second && x.FieldName == "Current Ability");
+                var thirdCa = rows.Single(x => x.SnapshotId == third && x.FieldName == "Current Ability");
+                var secondPassing = rows.Single(x => x.SnapshotId == second && x.FieldName == "technical.passing");
+                var thirdPassing = rows.Single(x => x.SnapshotId == third && x.FieldName == "technical.passing");
+
+                Assert.IsFalse(firstCa.IdentityBoundary);
+                Assert.IsTrue(secondCa.IdentityBoundary, "A recycled unique ID with a different birth date must start a new identity segment.");
+                Assert.IsNull(secondCa.PreviousValue);
+                Assert.IsNull(secondCa.Delta);
+                Assert.IsTrue(secondPassing.IdentityBoundary);
+                Assert.AreEqual(120d, thirdCa.PreviousValue);
+                Assert.AreEqual(5d, thirdCa.Delta);
+                Assert.IsFalse(thirdCa.IdentityBoundary);
+                Assert.AreEqual(16d, thirdPassing.PreviousValue);
+                Assert.AreEqual(1d, thirdPassing.Delta);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
     private static async Task<int> InsertSnapshotAsync(
         SqliteConnection connection,
         string importedUtc,
