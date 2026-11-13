@@ -13,20 +13,20 @@ R7.0.2 and R7.1.0 archives are inventoried, hashed and compared, but their compl
 
 ## Current gate: fresh Windows build and diagnostics acceptance
 
-The user-provided R7.2.0 baseline build log reported Windows 10 / .NET SDK 8.0.427, 0 errors and 15 warnings. In addition, GitHub Actions run `43465739690` passed on Windows at source commit `5aa82c2`: restore, WPF Release build, 10/10 MSTest tests and artifact uploads. The subsequent source changes add Ctrl+K, MONOLITH global-search canvas binding, exact field-evidence filtering and provider-specific identity safeguards. Latest source checkpoint is `fd40df0`; workflow run `43466693498` is testing that expanded branch.
+The user-provided R7.2.0 baseline build log reported Windows 10 / .NET SDK 8.0.427, 0 errors and 15 warnings. The latest completed expanded Windows run `43468496760` passed at commit `ade4637`: .NET 8 restore, WPF Release build, 40/40 MSTest tests, Release artifact and TRX uploads; 0 errors, 12 compiler warnings. Commits `886a8a5` and `1022078` then removed 11 unused private filter fields and replaced the one obsolete AtlasLog.Warn call. CI for those warning-cleanup commits is running/queued; confirm their exact result before claiming the warnings are gone.
 
-A repeatable workflow is present at `.github/workflows/fm-atlas-windows-build.yml`. It restores and builds the WPF solution on Windows with .NET 8 and uploads Release output. No workflow run is currently reported; a successful run must be recorded before calling the current branch build-verified.
+A repeatable workflow is present at `.github/workflows/fm-atlas-windows-build.yml`. It restores and builds the WPF solution on Windows with .NET 8 and uploads Release output. The workflow has successful Windows runs; see the exact tested commit and 40/40 result above. Each newer source commit still requires a fresh run.
 
 ### Build acceptance checklist
 
-- [x] Run the Windows Release workflow for source checkpoint `5aa82c2`; all build and test steps passed (10/10).
-- [ ] Confirm the active workflow run for source checkpoint `fd40df0` completes successfully; do not use the earlier 10/10 run as proof of the expanded source.
+- [x] Run the Windows Release workflow for source checkpoint `ade4637`; WPF Release build and 40/40 tests passed.
+- [ ] Confirm the queued/current workflow for warning-cleanup source checkpoint `1022078` completes successfully.
 - [ ] Confirm the expected `FmAtlas.exe` exists in `src/FmAtlas/bin/Release/net8.0-windows/`.
 - [ ] Record exact commit SHA, runner Windows version, .NET SDK, build output, warnings and artifact.
 - [ ] Triage all warnings; do not hide or suppress warnings without a reason.
 - [ ] If CI cannot be enabled or triggered, run the same restore/build commands on Windows and attach the complete log.
 
-The Windows TRX artifact for `5aa82c2` confirms 10/10 Diagnostics tests passed. The expanded suite adds exact evidence-state, mixed/provisional status and provider-ID safety cases; confirm the latest 20-test Windows result. The actual C# `ValidateRedaction()` check still needs to execute inside the Windows Diagnostics page.
+The Windows run for `ade4637` confirms 40/40 tests passed, covering Diagnostics, evidence policy, provider identity, squad optimiser, metric math, ALL/ANY matching and finite boundaries. The latest warning-cleanup commit still needs its own run. The actual C# `ValidateRedaction()` check still needs to execute inside the Windows Diagnostics page.
 
 ### Runtime smoke checklist
 
@@ -66,3 +66,11 @@ Stop and inspect the evidence before proceeding if a build changes the database 
 - [x] Require exact normalized canonical statuses in `FieldEvidencePolicy`.
 - [x] Add strict status allowlist and misleading-prefix tests.
 - [ ] Confirm latest Windows run and inspect TRX; then add SQLite-level regression fixtures proving unverified/provisional rows do not enter live CA/PA/attribute result sets.
+
+## Current next engineering gate
+
+1. Confirm Windows CI for current source head `1022078` and record the warning count. The immediately prior test checkpoint `ade4637` passed 40/40 with 12 warnings; 11 dead fields and one obsolete logging call have since been cleaned.
+2. Add query-level SQLite fixtures proving unverified/provisional live facts cannot influence CA/PA/attribute results (unit policy tests alone do not prove SQL semantics).
+3. Finish source-to-feature route acceptance and safe diagnostics/support-ZIP inspection on Windows.
+4. Expand canonical field provenance and exact-build profile coverage; keep unknown builds and live Apply/Undo read-only/blocked.
+5. Continue MONOLITH token/shared-control migration and connect tested metric/squad engines to real UI only when required inputs are valid and provenance is visible.
