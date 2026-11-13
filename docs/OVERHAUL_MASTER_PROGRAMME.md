@@ -250,9 +250,12 @@ The user requested a single integrated delivery. Work should be coordinated as o
 - Programme branch created from commit `2051bbee042fb8e7203b7855e833e391ccee9ecb`: `overhaul/monolith-full-platform`.
 - User's repaired R7.2.0 v2 Windows build log reports **Build succeeded, 0 errors, 15 warnings**. Executable path: `src/FmAtlas/bin/Release/net8.0-windows/FmAtlas.exe`.
 - This proves compilation on the user's PC only. App launch, feature behaviour, data import and live editing remain unverified.
-- Current GitHub repository history previously recorded R7.2.0 source as not imported. This programme must import the exact repaired source package and preserve all historical archives before broad implementation.
+- Repaired R7.2.0 source is imported under `application/R7.2.0/FM-Atlas-R7.2.0-Work/` (source-import commit `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`). Historical baselines remain separate and preserved.
+- Initial source architecture audit is recorded in `docs/SOURCE_ARCHITECTURE_AUDIT.md`. It confirms the existing WPF/SQLite architecture, partial MONOLITH integration, Diagnostics foundation, live-write gate and graphics resolver boundaries.
+- Diagnostics hardening checkpoint `6fc46757688be84af497e13c3d27e40877da3f92` fixes credential-token and full Windows/UNC path redaction and adds in-app regression checks. Equivalent regex tests passed locally; the Windows build and runtime check remain pending.
 - Prior reverse-engineering register is desk research. It explicitly records that no third-party source was copied, no external executable was run, no live game process/save was inspected, and no user's exact Game Pass build/profile was verified.
 
 ## Change log
 
 - 2026-11-13: Created integrated overhaul branch and consolidated product, research, design, feature and acceptance scope. No claim that the listed features have been implemented by this document.
+- 2026-11-13: Reconciled the source-import status with the live branch, recorded the first application architecture audit and corrected diagnostics privacy redaction. Runtime acceptance remains pending.
