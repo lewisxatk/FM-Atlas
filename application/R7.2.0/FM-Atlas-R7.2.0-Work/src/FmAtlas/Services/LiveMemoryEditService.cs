@@ -98,6 +98,7 @@ public static class LiveMemoryEditService
 
     public static BatchReceipt ApplyBatch(BatchPlan plan)
     {
+        LiveWriteCertification.EnsureWritesEnabled();
         if (DateTime.UtcNow - plan.CreatedUtc > TimeSpan.FromMinutes(2) || plan.CreatedUtc > DateTime.UtcNow.AddSeconds(10))
             throw new InvalidOperationException("This staged live-edit preview has expired. Stage a fresh preview before writing.");
         using var process = Process.GetProcessById(plan.ProcessId);
@@ -174,6 +175,7 @@ public static class LiveMemoryEditService
 
     public static void UndoBatch(BatchReceipt receipt)
     {
+        LiveWriteCertification.EnsureWritesEnabled();
         var plan = receipt.Plan;
         using var process = Process.GetProcessById(plan.ProcessId);
         var module = FindGameModule(process);
