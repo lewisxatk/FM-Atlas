@@ -124,16 +124,18 @@ public sealed class MoneyballCompositeProfileStoreTests
         {
             source.Save(CreateProfile("shared-id", "Source Name"));
             source.Save(CreateProfile("new-profile", "New Profile"));
+            source.Save(CreateProfile("name-conflict", "Local Only"));
             target.Save(CreateProfile("shared-id", "Local Name"));
-            target.Save(CreateProfile("local-name", "New Profile"));
+            target.Save(CreateProfile("local-name", "Local Only"));
 
             var result = target.ImportJson(source.ExportJson());
 
-            Assert.AreEqual(0, result.Added);
+            Assert.AreEqual(1, result.Added);
             Assert.AreEqual(2, result.Skipped);
             Assert.AreEqual(2, result.Conflicts.Count);
             Assert.AreEqual("Local Name", target.Load().Single(x => x.Id == "shared-id").Name);
-            Assert.AreEqual(2, target.Load().Count);
+            Assert.IsTrue(target.Load().Any(x => x.Id == "new-profile"));
+            Assert.AreEqual(3, target.Load().Count);
         }
         finally
         {
