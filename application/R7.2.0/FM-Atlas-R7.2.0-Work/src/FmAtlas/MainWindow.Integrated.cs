@@ -16,6 +16,7 @@ public partial class MainWindow
     private sealed record DnaAttributeRow(string Category, string Attribute, double Value);
     private sealed record PlayerSimilarityRow(int Rank, string Name, string? Club, string? Position, double Similarity, int SharedAttributes, string Coverage, string Basis);
     private sealed record MoneyballRow(string SourceId, string Name, string Club, string Position, int? Age, string League, string Period, string Direction, double Value, double? Percentile, int SampleSize, string Basis);
+    private sealed record MoneyballCompositeRow(int Rank, string SourceId, string Name, string Club, string Position, int? Age, string League, string Period, double CompositePercentile, int MetricsAvailable, int MetricsRequired, string Metrics, string Basis);
     private sealed record RecruitmentCandidateRow(string SourceId, string Name, string? Club, string? Position, int? Age, string Value, double? AtlasFit, string Coverage);
     private sealed record TacticalCandidateRow(int Rank, string Name, string Club, string Position, double Score, string Coverage);
     private sealed record TacticalShapeCandidateRow(string Phase, string Slot, string Player, string RoleFit, string PositionRating, string AtlasScore);
@@ -574,7 +575,15 @@ public partial class MainWindow
         Button export = null!;
         DataGrid grid = null!;
         MoneyballRow[] currentRows = Array.Empty<MoneyballRow>();
+        MoneyballCompositeRow[] currentCompositeRows = Array.Empty<MoneyballCompositeRow>();
         string? currentMetricKey = null;
+        Button compositeRun = null!;
+        Button compositeExport = null!;
+        ListBox compositeMetrics = null!;
+        TextBox compositeMinimum = null!;
+        TextBox compositeWeights = null!;
+        DataGrid compositeGrid = null!;
+        TextBlock compositeStatus = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("PERFORMANCE SCOUTING", 9, true, Teal));
@@ -634,6 +643,10 @@ public partial class MainWindow
             currentMetricKey = null;
             grid.ItemsSource = null;
             export.IsEnabled = false;
+            currentCompositeRows = Array.Empty<MoneyballCompositeRow>();
+            compositeGrid.ItemsSource = null;
+            compositeExport.IsEnabled = false;
+            compositeStatus.Text = "Criteria changed. Rank the composite again before exporting.";
             status.Text = "Criteria changed. Rank the cohort again before exporting.";
         }
         UpdatePer90Availability();
@@ -659,6 +672,72 @@ public partial class MainWindow
         status.Text = metrics.Count == 0 ? "No seasonal metric fields found. Import a copied career save with season statistics or an FM View CSV first." : $"{metrics.Count:N0} seasonal metrics available from the latest imports.";
         root.Children.Add(status);
 
+        root.Children.Add(status);
+
+        // Multi-metric Moneyball composite. Every input is an already-ranked within-cohort
+        // percentile; the composite is Atlas's transparent weighted average, never FM's hidden rating.
+        var compositePanel = new StackPanel();
+        compositePanel.Children.Add(Txt("MULTI-METRIC MONEYBALL", 9, true, Teal));
+        compositePanel.Children.Add(Txt("Composite performance ranking", 18, true, Ink));
+        compositePanel.Children.Add(Txt("Select at least two seasonal metrics. Each is ranked with the same cohort, minutes, per-90 and higher/lower direction settings above; the composite averages their valid within-cohort percentiles. Use metrics with the same desirability direction. This is an Atlas composite, not FM's internal player rating or a league-strength adjustment.", 9, false, Muted, wrap: true));
+
+        compositeMetrics = new ListBox
+        {
+            ItemsSource = metrics,
+            DisplayMemberPath = nameof(StatMetricField.PickerLabel),
+            SelectionMode = SelectionMode.Extended,
+            Height = 150,
+            MinWidth = 420,
+            Margin = new Thickness(3),
+            Background = Canvas,
+            Foreground = Ink,
+            BorderBrush = Line,
+            BorderThickness = new Thickness(1)
+        };
+        if (metrics.Count > 1)
+        {
+            compositeMetrics.SelectedItems.Add(metrics[0]);
+            compositeMetrics.SelectedItems.Add(metrics[1]);
+        }
+
+        compositeMinimum = Input("Minimum metrics per player");
+        compositeMinimum.Text = "2";
+        compositeMinimum.Width = 170;
+        compositeWeights = Input("Optional weights: metricKey=weight, metricKey=weight");
+        compositeWeights.Width = 330;
+        var compositeControls = new WrapPanel();
+        compositeControls.Children.Add(compositeMetrics);
+        var compositeSettings = new StackPanel();
+        compositeSettings.Children.Add(Txt("MINIMUM COVERAGE", 8, true, Teal));
+        compositeSettings.Children.Add(compositeMinimum);
+        compositeSettings.Children.Add(Txt("OPTIONAL WEIGHTS", 8, true, Teal));
+        compositeSettings.Children.Add(compositeWeights);
+        var compositeActions = new WrapPanel();
+        compositeRun = PrimaryButton("Rank composite", async (_, _) => await RankCompositeAsync());
+        compositeExport = SoftButton("Export composite CSV", (_, _) => ExportCompositeRows());
+        compositeExport.IsEnabled = false;
+        compositeActions.Children.Add(compositeRun);
+        compositeActions.Children.Add(compositeExport);
+        compositeSettings.Children.Add(compositeActions);
+        compositeControls.Children.Add(compositeSettings);
+        compositePanel.Children.Add(compositeControls);
+
+        compositeGrid = CreateGrid();
+        compositeGrid.Columns.Add(Column("RANK", nameof(MoneyballCompositeRow.Rank), .35));
+        compositeGrid.Columns.Add(Column("PLAYER", nameof(MoneyballCompositeRow.Name), 1.2));
+        compositeGrid.Columns.Add(Column("CLUB", nameof(MoneyballCompositeRow.Club), .8));
+        compositeGrid.Columns.Add(Column("POSITION", nameof(MoneyballCompositeRow.Position), .7));
+        compositeGrid.Columns.Add(Column("AGE", nameof(MoneyballCompositeRow.Age), .35));
+        compositeGrid.Columns.Add(Column("LEAGUE", nameof(MoneyballCompositeRow.League), .8));
+        compositeGrid.Columns.Add(Column("PERIOD", nameof(MoneyballCompositeRow.Period), .7));
+        compositeGrid.Columns.Add(Column("COMPOSITE", nameof(MoneyballCompositeRow.CompositePercentile), .7));
+        compositeGrid.Columns.Add(Column("METRICS", nameof(MoneyballCompositeRow.MetricsAvailable), .45));
+        compositeGrid.Columns.Add(Column("CONTRIBUTING METRICS", nameof(MoneyballCompositeRow.Metrics), 1.5));
+        compositePanel.Children.Add(Card(compositeGrid, 12));
+        compositeStatus = Txt("Select at least two metrics and rank their composite. Metrics below the minimum sample threshold do not contribute a percentile.", 9, false, Muted, wrap: true);
+        compositePanel.Children.Add(compositeStatus);
+        root.Children.Add(Card(compositePanel, 15, new Thickness(0, 12, 0, 0)));
+
         // Attach invalidation handlers only after the results grid and export button exist.
         field.SelectionChanged += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
         cohort.SelectionChanged += (_, _) => InvalidateResults();
@@ -667,6 +746,27 @@ public partial class MainWindow
         per90.Unchecked += (_, _) => { UpdatePer90Availability(); InvalidateResults(); };
         minimumMinutes.TextChanged += (_, _) => InvalidateResults();
         minimumSample.TextChanged += (_, _) => InvalidateResults();
+        compositeMetrics.SelectionChanged += (_, _) =>
+        {
+            currentCompositeRows = Array.Empty<MoneyballCompositeRow>();
+            compositeGrid.ItemsSource = null;
+            compositeExport.IsEnabled = false;
+            compositeStatus.Text = "Metric selection changed. Rank the composite again before exporting.";
+        };
+        compositeMinimum.TextChanged += (_, _) =>
+        {
+            currentCompositeRows = Array.Empty<MoneyballCompositeRow>();
+            compositeGrid.ItemsSource = null;
+            compositeExport.IsEnabled = false;
+            compositeStatus.Text = "Minimum metric coverage changed. Rank the composite again before exporting.";
+        };
+        compositeWeights.TextChanged += (_, _) =>
+        {
+            currentCompositeRows = Array.Empty<MoneyballCompositeRow>();
+            compositeGrid.ItemsSource = null;
+            compositeExport.IsEnabled = false;
+            compositeStatus.Text = "Metric weights changed. Rank the composite again before exporting.";
+        };
 
         async Task RankAsync()
         {
@@ -751,6 +851,207 @@ public partial class MainWindow
                 status.Text = "Could not rank the cohort: " + ex.Message;
             }
             finally { run.IsEnabled = true; }
+        }
+
+
+        async Task RankCompositeAsync()
+        {
+            var selectedMetrics = compositeMetrics.SelectedItems.Cast<StatMetricField>()
+                .DistinctBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (selectedMetrics.Length < 2)
+            {
+                compositeStatus.Text = "Select at least two different seasonal metrics.";
+                return;
+            }
+
+            if (per90.IsChecked == true && selectedMetrics.Any(x => !x.SupportsPer90))
+            {
+                compositeStatus.Text = "Per 90 is only available when every selected metric supports a cumulative-count conversion. Untick Per 90 or remove unsupported metrics.";
+                return;
+            }
+
+            var mins = int.TryParse(minimumMinutes.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMinutes)
+                ? Math.Clamp(parsedMinutes, 1, 10000) : 450;
+            var sample = int.TryParse(minimumSample.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedSample)
+                ? Math.Clamp(parsedSample, 1, 100000) : 5;
+            var minimumMetricCount = int.TryParse(compositeMinimum.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMetricCount)
+                ? Math.Clamp(parsedMetricCount, 2, selectedMetrics.Length) : 2;
+            var higherIsBetter = !string.Equals(direction.SelectedItem as string, "Lower is better", StringComparison.Ordinal);
+            var cohortMode = cohort.SelectedItem as string ?? "All players";
+
+            Dictionary<string, double>? weights = null;
+            if (!string.IsNullOrWhiteSpace(compositeWeights.Text))
+            {
+                weights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                foreach (var token in compositeWeights.Text.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var pair = token.Split('=', 2, StringSplitOptions.TrimEntries);
+                    if (pair.Length != 2 || pair[0].Length == 0
+                        || !selectedMetrics.Any(x => x.Key.Equals(pair[0], StringComparison.OrdinalIgnoreCase))
+                        || !double.TryParse(pair[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var weight)
+                        || !double.IsFinite(weight) || weight <= 0
+                        || !weights.TryAdd(pair[0], weight))
+                    {
+                        compositeStatus.Text = $"Invalid weight '{token}'. Use a selected metric key followed by a positive number, for example metric_key=2.";
+                        return;
+                    }
+                }
+            }
+
+            compositeRun.IsEnabled = false;
+            compositeExport.IsEnabled = false;
+            compositeGrid.ItemsSource = null;
+            currentCompositeRows = Array.Empty<MoneyballCompositeRow>();
+            compositeStatus.Text = $"Ranking {selectedMetrics.Length} metrics and building within-cohort composite percentiles…";
+            try
+            {
+                var metricTasks = selectedMetrics.Select(metric =>
+                    RunDatabaseAsync(() => per90.IsChecked == true
+                        ? _database.SearchSeasonMetricPer90Async(metric.Key, null, null, mins, 50000)
+                        : _database.SearchSeasonMetricAsync(metric.Key, null, null, 50000, mins))).ToArray();
+                var metricRows = await Task.WhenAll(metricTasks);
+                var observations = new List<MoneyballMetricPercentileObservation>();
+                var metadata = new Dictionary<string, AnalyticsMetricResult>(StringComparer.OrdinalIgnoreCase);
+
+                static string? GetAgeBand(int? age)
+                {
+                    if (!age.HasValue || age.Value < 15 || age.Value > 60) return null;
+                    var lower = (age.Value / 5) * 5;
+                    return $"{lower}–{lower + 4}";
+                }
+                static string CompositeIdentity(string sourceId, string period)
+                    => sourceId.Trim() + "\0" + period.Trim();
+
+                for (var metricIndex = 0; metricIndex < selectedMetrics.Length; metricIndex++)
+                {
+                    var metric = selectedMetrics[metricIndex];
+                    var rows = metricRows[metricIndex];
+                    var indexed = rows.Select((row, index) => new
+                    {
+                        Id = row.SourceId + "|" + row.Season + "|" + metric.Key + "|" + index.ToString(CultureInfo.InvariantCulture),
+                        Row = row
+                    }).ToArray();
+                    var rowById = indexed.ToDictionary(x => x.Id, x => x.Row, StringComparer.OrdinalIgnoreCase);
+                    var metricObservations = indexed.Select(x =>
+                    {
+                        var row = x.Row;
+                        var position = string.IsNullOrWhiteSpace(row.PrimaryPosition) ? null : row.PrimaryPosition.Trim();
+                        var ageBand = GetAgeBand(row.Age);
+                        var league = string.IsNullOrWhiteSpace(row.League) ? null : row.League.Trim();
+                        var groupKey = cohortMode switch
+                        {
+                            "Same primary position" => position,
+                            "Same age band (5-year)" => ageBand,
+                            "Same league" => league,
+                            "Same position + age band" => position is not null && ageBand is not null ? position + " · " + ageBand : null,
+                            _ => null
+                        };
+                        return new CohortMetricObservation(x.Id, row.Name + " · " + row.Season, row.Value, groupKey);
+                    }).ToArray();
+
+                    var grouped = cohortMode != "All players";
+                    var ranked = grouped
+                        ? CohortPercentileService.CalculateByGroup(metricObservations, sample, higherIsBetter)
+                        : CohortPercentileService.Calculate(metricObservations, sample, higherIsBetter);
+
+                    foreach (var result in ranked.Where(x => x.Percentile.HasValue))
+                    {
+                        var row = rowById[result.Id];
+                        var identity = CompositeIdentity(row.SourceId, row.Season);
+                        if (!metadata.ContainsKey(identity)) metadata[identity] = row;
+                        observations.Add(new MoneyballMetricPercentileObservation(
+                            row.SourceId,
+                            row.Name,
+                            row.Season,
+                            metric.Key,
+                            result.Percentile,
+                            metricObservations.First(x => x.Id.Equals(result.Id, StringComparison.OrdinalIgnoreCase)).GroupKey));
+                    }
+                }
+
+                var composite = MoneyballCompositeService.Calculate(observations, weights, minimumMetricCount);
+                var projected = composite.Select((result, index) =>
+                {
+                    metadata.TryGetValue(CompositeIdentity(result.SourceId, result.Period), out var sourceRow);
+                    return new MoneyballCompositeRow(
+                        index + 1,
+                        result.SourceId,
+                        result.PlayerName,
+                        sourceRow?.Club ?? "—",
+                        sourceRow?.PrimaryPosition ?? "Unclassified",
+                        sourceRow?.Age,
+                        sourceRow?.League ?? "—",
+                        result.Period,
+                        Math.Round(result.CompositePercentile, 1),
+                        result.MetricsAvailable,
+                        result.MetricsRequired,
+                        result.MetricCoverage,
+                        result.Basis);
+                }).ToArray();
+
+                currentCompositeRows = projected;
+                compositeGrid.ItemsSource = projected;
+                compositeExport.IsEnabled = projected.Length > 0;
+                compositeStatus.Text = $"{projected.Length:N0} player-season composites · {selectedMetrics.Length} selected metrics · {minimumMetricCount} minimum valid percentiles · {(higherIsBetter ? "higher" : "lower")} is better · {cohortMode}. {per90.IsChecked == true ? "Per-90 rates" : "Raw values"} are ranked first; the composite combines only valid, sample-qualified percentiles. No FM hidden formula or league-strength adjustment is used.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Moneyball composite ranking failed.", ex);
+                compositeStatus.Text = "Could not calculate the Moneyball composite: " + ex.Message;
+            }
+            finally
+            {
+                compositeRun.IsEnabled = true;
+            }
+        }
+
+        void ExportCompositeRows()
+        {
+            if (currentCompositeRows.Length == 0)
+            {
+                compositeStatus.Text = "Rank a composite before exporting.";
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Export Moneyball composite",
+                FileName = "FM-Atlas-moneyball-composite.csv",
+                Filter = "CSV files (*.csv)|*.csv"
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            static string QComposite(string? value)
+                => "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
+            var lines = new List<string>
+            {
+                "Rank,PlayerSourceId,Player,Club,PrimaryPosition,Age,League,Period,CompositePercentile,MetricsAvailable,MetricsRequired,ContributingMetrics,Basis"
+            };
+            lines.AddRange(currentCompositeRows.Select(row => string.Join(",",
+                row.Rank.ToString(CultureInfo.InvariantCulture),
+                QComposite(row.SourceId),
+                QComposite(row.Name),
+                QComposite(row.Club),
+                QComposite(row.Position),
+                row.Age?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                QComposite(row.League),
+                QComposite(row.Period),
+                row.CompositePercentile.ToString("0.0", CultureInfo.InvariantCulture),
+                row.MetricsAvailable.ToString(CultureInfo.InvariantCulture),
+                row.MetricsRequired.ToString(CultureInfo.InvariantCulture),
+                QComposite(row.Metrics),
+                QComposite(row.Basis))));
+            try
+            {
+                File.WriteAllLines(dialog.FileName, lines, new UTF8Encoding(true));
+                compositeStatus.Text = $"Exported {currentCompositeRows.Length:N0} Moneyball composite player-seasons with metric coverage and evidence basis.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Moneyball composite CSV export failed.", ex);
+                compositeStatus.Text = "Could not export composite CSV: " + ex.Message;
+            }
         }
 
         void ExportRows()
