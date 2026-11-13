@@ -74,3 +74,10 @@ Stop and inspect the evidence before proceeding if a build changes the database 
 3. Finish source-to-feature route acceptance and safe diagnostics/support-ZIP inspection on Windows.
 4. Expand canonical field provenance and exact-build profile coverage; keep unknown builds and live Apply/Undo read-only/blocked.
 5. Continue MONOLITH token/shared-control migration and connect tested metric/squad engines to real UI only when required inputs are valid and provenance is visible.
+
+## Latest build and new test status
+
+- Windows Actions run `43469077009` at `1022078`: build succeeded with **0 warnings / 0 errors**; **40/40 tests passed**.
+- New SQL integration fixture `ScoutDatabaseEvidenceIntegrationTests` checks real SQLite CA/PA and attribute query outputs for verified versus unverified/provisional/mixed statuses. First run failed to compile due to a missing `System.IO` import; fixed in `e109eab`.
+- [ ] Confirm the latest run for `e109eab` and subsequent pooling fixture changes; aim for 41/41 or more tests, zero build warnings.
+- [ ] If the integration test fails at runtime, inspect SQLite schema/fixture errors and correct them; do not remove the consumer test to restore a green build.
