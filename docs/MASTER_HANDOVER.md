@@ -21,7 +21,7 @@ Build FM Atlas into a premium Windows Football Manager intelligence and modding 
 - This verifies compilation on the user's PC only. Application startup, runtime features, imported save correctness, graphics resolution and live editing are not yet verified.
 - The repaired R7.2.0 application source has been imported into `application/R7.2.0/FM-Atlas-R7.2.0-Work/` on the active overhaul branch. Source import commit: `6069c20abb8ab85881da1f5c10860de9b2a8e0f1`.
 - The active branch head before this handover correction was `6fc46757688be84af497e13c3d27e40877da3f92`; `main` remains untouched.
-- A current source-level architecture audit is recorded in `docs/SOURCE_ARCHITECTURE_AUDIT.md`.
+- A current source-level architecture audit is recorded in `docs/SOURCE_ARCHITECTURE_AUDIT.md`. Feature-to-source coverage is tracked in `docs/FEATURE_TRACEABILITY.md`.
 
 ## Current implementation checkpoint
 
@@ -30,7 +30,7 @@ Build FM Atlas into a premium Windows Football Manager intelligence and modding 
 - A MONOLITH theme service already supports Obsidian and Warm Light, but older screens still contain hard-coded palette values and shared-control migration is incomplete.
 - Diagnostics already has health checks, copy/export actions, a support ZIP preview/confirmation screen, a SHA-256 manifest, and local-only export. The existing support archive excludes career saves, the SQLite database, FM installation files and arbitrary files by default.
 - A source audit found over-escaped credential patterns and incomplete handling of Windows paths containing spaces. These are now corrected in AtlasLog.cs. A Diagnostics self-check covers bearer tokens, API keys, passwords, user paths, spaced drive paths, UNC paths and standalone save filenames.
-- Equivalent regex regression cases passed locally. A Windows/.NET compile and in-app run of these changes has not yet been performed.
+- Equivalent regex regression cases passed locally. A Windows .NET 8 MSTest project now covers the cases and is included in the solution/CI workflow; neither the tests nor the current branch build have yet been run on Windows.
 - Live Apply and Undo remain blocked by LiveWriteCertification.IsCertified = false. Do not enable them without independent field witnesses and disposable offline save acceptance.
 - Game Pass profile records and a configurable graphics resolver exist in source; neither the user's exact installed build nor their real graphics folders have been validated.
 
@@ -75,3 +75,11 @@ The authoritative integrated feature scope and acceptance gates are in [OVERHAUL
 - [Research register](../research/RESEARCH_REGISTER.md)
 - [Recovery inventory](../recovery/RECOVERY-INVENTORY.md)
 - [R7.2.0 source checkpoint](../recovery/R7.2.0-CHECKPOINT.md)
+
+## Test and CI checkpoint
+
+- Added `tests/FmAtlas.Tests/` with MSTest 4.5.2 and Microsoft.NET.Test.Sdk 18.11.0; target is net8.0-windows and the test host enables WPF framework dependencies.
+- Added tests for the built-in redaction regression suite, bearer/API key/password removal, drive/UNC path removal, save-filename removal, newline normalization, truncation and normal-text preservation.
+- Added test project to the solution. Windows build workflow now runs the suite and uploads TRX results.
+- The new tests are source additions only at this point. Do not claim pass until an actual Windows workflow or local run is recorded.
+- Current main branch remains preserved. Recheck the branch head in GitHub before each handover because later checkpoints continue to advance it.
