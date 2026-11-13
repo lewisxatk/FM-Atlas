@@ -218,3 +218,9 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - **Critical follow-on data requirement:** fmsave's reader/field status and coverage are exported, but normalized player and season-stat values are not consistently joined to individual field provenance at query time. Until that is addressed, imported values must retain parser warnings and must not be described as individually verified.
 - Main remains preserved. Live memory Apply/Undo remains disabled by `LiveWriteCertification.IsCertified = false`.
 - The user explicitly requested Stage 3–7 remain on hold until reviewing Stage 1/2 findings and approving the combined implementation. Do not begin those stages without that approval.
+
+## Superseding continuation instruction — 2026-11-13
+
+The user has now explicitly instructed us to continue the complete FM Atlas overhaul and ensure the full agreed scope is included, as one integrated development programme. This supersedes the older Stage 3–7 hold language above. Internal stages remain useful for traceability and risk controls, but they are not separate user-facing releases and do not require another approval checkpoint before continuing.
+
+Current verified application checkpoint remains commit 6c18e36fdc706fc49ad74ce15fe1ee73c43ce991, Windows run 43476085012: WPF Release 0 warnings / 0 errors, 64/64 tests passed. The application source has not changed since that tested commit; subsequent worktree commits are docs/research only. Verify the live branch ref before resuming.
