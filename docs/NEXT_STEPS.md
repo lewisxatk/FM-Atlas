@@ -98,12 +98,14 @@ Stop and inspect the evidence before proceeding if a build changes the database 
 - Continue the broader MONOLITH shared-control migration, full Advanced Search profiles/condition groups, player DNA, Moneyball cohorts, Recruitment Matrix, Tactical Intelligence, Match Lab, Save Inspector, editor, Game Pass read-only adapter, graphics/skin tools, mod workbench, tests and packaging.
 - Still required from the user's Windows/Game Pass environment: launch and route smoke tests, Obsidian/Warm Light and DPI checks, support-ZIP manual inspection, actual save-import validation on a copy, and exact FM27 Game Pass build/runtime checks. Live Apply/Undo stays disabled.
 
-## Latest verified source checkpoint — 2026-11-13 17:27 UTC
+## Latest verified source checkpoint — 2026-11-13 17:33 UTC
 
-- Exact source commit: `91bd7728c555a0c0e54cfd8d02706467fdafdb89`.
-- Windows Actions run `43472380514`: .NET 8 WPF Release build **0 warnings / 0 errors**; **48/48 tests passed**. Link: https://github.com/lewisxatk/FM-Atlas/actions/runs/43472380514.
-- Release artifact `14061643285`; TRX artifact `14061143387`.
-- Role Lab now shows the selected player's readable attribute inputs, source values, Atlas weight factors and additive score-point contributions; the values sum to the displayed estimate. CSV export includes the same contribution details.
-- Service tests cover the additive-contribution sum, readable key normalization, missing/invalid values, minimum coverage and extreme finite weights.
-- Next: launch and visually verify the app on Windows; exercise Role Lab against an imported copy of an FM27 Game Pass save; inspect CSV output and confirm no stale result after changing role. Then resume Advanced Search, Moneyball/per-90/percentiles, recruitment, tactics, Match Lab, Save Inspector, editors, graphics/modding and release packaging.
-- Preserve read-only behaviour for unsupported builds. Live Apply/Undo remains disabled until field-level certification and disposable-save read-back tests pass.
+- Exact tested application source commit: `8cfe5b3f276770179e8cb77db7a02912f2336bdb`.
+- Windows Actions run `43473487285`: .NET 8 WPF Release build **0 warnings / 0 errors**; **53/53 tests passed**, 0 failed/skipped. Link: https://github.com/lewisxatk/FM-Atlas/actions/runs/43473487285.
+- Windows Release artifact `14061763980`; TRX artifact `14062007740`.
+- The Role Fit contribution model is now covered from the UI data path through the database query. A disposable SQLite test proves the candidate row includes readable attribute labels, raw values, Atlas weights, additive score points, overall score and 2/3 coverage when one of three fields is absent.
+- Diagnostics redaction now includes quoted JSON secrets, Basic auth, client secrets, query-string tokens, personal Windows/UNC paths and standalone save filenames in both the test suite and in-app self-check.
+- The branch head after the tested source is a documentation-only commit `28958fd4bc07c1f54462ec0e829dd22402eed922`; main remains preserved at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- Next required user-environment acceptance: launch the WPF app, route-by-route smoke check, test Role Lab selection and CSV on an imported copy of an FM27 Game Pass save, theme/DPI screenshots, inspect support ZIP entries and validate GraphicsResolver against actual folders.
+- Continue the broader programme: Advanced Search full profiles and nested groups, Player DNA, Scouting Matrix/recruitment, Moneyball cohort percentiles, Tactical Intelligence, Match Lab, development assistant, Save Inspector, local editor, Game Pass read-only adapter, Graphics/Skin Studio, mod workbench, installer and release/rollback.
+- Preserve read-only behaviour for unsupported builds. Live Apply/Undo remains disabled until field-level certification and disposable-save read-back/rollback acceptance passes.
