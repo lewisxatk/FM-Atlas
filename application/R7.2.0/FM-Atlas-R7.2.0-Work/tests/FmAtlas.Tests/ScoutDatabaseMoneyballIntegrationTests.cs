@@ -33,8 +33,8 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
                     """;
                 var snapshotId = Convert.ToInt32(await run.ExecuteScalarAsync());
 
-                await InsertPlayer(connection, snapshotId, "P1", "FMSAVE:1", "Low Minutes Player");
-                await InsertPlayer(connection, snapshotId, "P2", "FMSAVE:2", "Qualified Player");
+                await InsertPlayer(connection, snapshotId, "P1", "FMSAVE:1", "Low Minutes Player", "GK");
+                await InsertPlayer(connection, snapshotId, "P2", "FMSAVE:2", "Qualified Player", "STC");
 
                 await InsertFact(connection, snapshotId, "P1", "player_season_stats", 0, "2025/26", 100, "goals", 50);
                 await InsertFact(connection, snapshotId, "P2", "player_season_stats", 1, "2025/26", 500, "goals", 30);
@@ -46,6 +46,7 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
             Assert.AreEqual("Qualified Player", qualified[0].Name);
             Assert.AreEqual(40d, qualified[0].Value, 0.0001,
                 "Duplicate player/period rows must retain the row with the greatest minutes, not inflate the cohort.");
+            Assert.AreEqual("STC", qualified[0].PrimaryPosition, "The source-backed primary position must follow the player snapshot identity.");
 
             var unrestricted = await database.SearchSeasonMetricAsync("goals", null, null, 5000, 0);
             Assert.AreEqual(2, unrestricted.Count);
@@ -82,14 +83,15 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
                     """;
                 var importId = Convert.ToInt32(await import.ExecuteScalarAsync());
 
-                await InsertExternalRow(connection, importId, 0, "CSV:1", "Low Minutes CSV Player", 100, 50);
-                await InsertExternalRow(connection, importId, 1, "CSV:2", "Qualified CSV Player", 900, 5);
+                await InsertExternalRow(connection, importId, 0, "CSV:1", "Low Minutes CSV Player", 100, 50, "GK");
+                await InsertExternalRow(connection, importId, 1, "CSV:2", "Qualified CSV Player", 900, 5, "STC");
             }
 
             var totals = await database.SearchSeasonMetricAsync("goals", null, null, 5000, 450);
             Assert.AreEqual(1, totals.Count);
             Assert.AreEqual("Qualified CSV Player", totals[0].Name);
             Assert.AreEqual(5d, totals[0].Value, 0.0001);
+            Assert.AreEqual("STC", totals[0].PrimaryPosition, "The FM View row's imported position should be retained for cohort grouping.");
 
             var per90 = await database.SearchSeasonMetricPer90Async("goals", null, null, 450, 5000);
             Assert.AreEqual(1, per90.Count);
@@ -104,7 +106,7 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
 
     private static async Task InsertExternalRow(
         SqliteConnection connection, int importId, int rowIndex,
-        string sourceId, string name, double minutes, double goals)
+        string sourceId, string name, double minutes, double goals, string? position = null)
     {
         var row = connection.CreateCommand();
         row.CommandText = """
@@ -118,24 +120,27 @@ public sealed class ScoutDatabaseMoneyballIntegrationTests
         row.Parameters.AddWithValue("$source", sourceId);
         row.Parameters.AddWithValue("$name", name);
         row.Parameters.AddWithValue("$minutes", minutes);
-        row.Parameters.AddWithValue("$json", "{\"goals\":" + goals.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
+        var json = "{\"goals\":" + goals.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            + (position is null ? "" : ",\"position\":\"" + position.Replace("\"", "\\\"") + "\"") + "}";
+        row.Parameters.AddWithValue("$json", json);
         await row.ExecuteNonQueryAsync();
     }
 
     private static async Task InsertPlayer(
-        SqliteConnection connection, int snapshotId, string uid, string sourceId, string name)
+        SqliteConnection connection, int snapshotId, string uid, string sourceId, string name, string position)
     {
         var player = connection.CreateCommand();
         player.CommandText = """
             INSERT INTO Players(SourceId,Name,Club,DataOrigin,UpdatedUtc)
             VALUES($source,$name,'Test FC','Moneyball fixture','2026-11-13T00:00:00Z');
             INSERT INTO FmsavePlayerSnapshots(SnapshotId,PlayerUid,PlayerSourceId,RawJson)
-            VALUES($snapshot,$uid,$source,'{}');
+            VALUES($snapshot,$uid,$source,$raw);
             """;
         player.Parameters.AddWithValue("$source", sourceId);
         player.Parameters.AddWithValue("$name", name);
         player.Parameters.AddWithValue("$snapshot", snapshotId);
         player.Parameters.AddWithValue("$uid", uid);
+        player.Parameters.AddWithValue("$raw", "{\"position\":\"" + position + "\"}");
         await player.ExecuteNonQueryAsync();
     }
 
