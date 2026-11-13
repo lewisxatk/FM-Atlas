@@ -116,11 +116,15 @@ public static class AdvancedFilterEvaluator
         {
             if (depth > MaximumDepth)
                 throw new ArgumentException($"Filter groups may be nested no deeper than {MaximumDepth} levels.");
+            if (!Enum.IsDefined(typeof(AdvancedFilterLogic), group.Logic))
+                throw new ArgumentException("A filter group must use a supported ALL or ANY logic mode.");
             if (group.Clauses is null || group.Clauses.Count == 0)
                 throw new ArgumentException("A filter group must contain at least one condition or subgroup.");
 
             foreach (var clause in group.Clauses)
             {
+                if (clause is null)
+                    throw new ArgumentException("A filter group cannot contain a null clause.");
                 if ((clause.Condition is null) == (clause.Group is null))
                     throw new ArgumentException("Each filter clause must contain exactly one condition or subgroup.");
 
@@ -147,6 +151,8 @@ public static class AdvancedFilterEvaluator
             throw new ArgumentException("Every filter condition must select a field.");
         if (condition.FieldKey.Length > 160)
             throw new ArgumentException("Filter field keys cannot exceed 160 characters.");
+        if (!Enum.IsDefined(typeof(AdvancedFilterOperator), condition.Operator))
+            throw new ArgumentException("A filter condition must use a supported comparison operator.");
 
         if (condition.Operator is AdvancedFilterOperator.IsSet or AdvancedFilterOperator.IsMissing)
             return;
