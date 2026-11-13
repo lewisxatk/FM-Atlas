@@ -162,5 +162,5 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Role Fit database integration test seeds an isolated SQLite store and proves that the real candidate query returns readable contribution labels, values, Atlas weights, additive score points, weighted score and 2/3 missing-data coverage.
 - [x] Diagnostics redaction pipeline and regression tests cover bearer/basic tokens, quoted secrets, credentials, query tokens, Windows/UNC paths and standalone save filenames.
 - [ ] WPF app launch, route-by-route UI acceptance, real imported FM27 save-copy test, theme/DPI visual checks and actual support-ZIP manual inspection remain outstanding.
-- The active branch head after this tested commit is `28958fd4bc07c1f54462ec0e829dd22402eed922`; the one commit after the tested source changes only `docs/MASTER_PROGRESS.md`. `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- All changes after the tested application source `8cfe5b3` are documentation-only checkpoint updates; no application source changed after the 53-test run. The protected `main` branch remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`. Check the live branch ref before resuming.
 - Live memory Apply/Undo remains disabled until exact Game Pass build/field certification and disposable-save read-back/undo acceptance.
