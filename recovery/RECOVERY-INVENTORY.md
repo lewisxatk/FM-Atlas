@@ -66,3 +66,19 @@ R7.1.0 is the newest supplied source package and is the candidate working baseli
 ## Next technical action
 
 Import the R7.1.0 source tree without discarding the R7.0.2 comparison. Keep package provenance, hashes and the exact source diff available. Then build on Windows and record the real output before further feature work.
+
+## R7.2.0 checkpoint archive received and inspected (2026-11-13)
+
+Archive: `FM-Atlas-27-R7.2.0-Source-Checkpoint(1).zip`
+
+- ZIP size: 2,975,424 bytes.
+- Files: 106 (125 total ZIP entries).
+- Uncompressed file bytes: 3,610,671.
+- SHA-256: `34d985a39526698026b1e09855d7f37e9f6a00dfba4863cf6f4d467aafedc2c8`.
+- Compared with R7.1.0: 19 shared files changed, 11 files added, 0 files removed.
+- R7.2.0 adds advanced player/stat search, Value Finder, FM27 build profiles, graphics resolver and LiveMemoryEditService source files, plus R7.2.0 status, roadmap, user-test and research documents.
+- R7.2.0 describes a narrow guarded live writer for CA/PA and 47 visible standard attributes, with five hidden attributes blocked. This supersedes the R7.1.0 statement that live writes were not implemented. However, R7.2.0 explicitly says WPF compilation, startup, real save import, process-profile matching and live Apply/Undo acceptance have NOT been run in the package preparation environment.
+- Therefore live writes are **implemented in source but unverified**, not certified safe or confirmed working on the user's PC.
+- R7.2.0 is the newest supplied source candidate and should be the primary import target; R7.1.0 and R7.0.2 remain preserved as historical baselines.
+
+See [R7.2.0 source checkpoint notes](R7.2.0-CHECKPOINT.md) for the detailed comparison and acceptance boundaries.
