@@ -20,7 +20,7 @@ public sealed class SavedSearchProfileStoreTests
                 "High Press Creators",
                 SavedSearchKind.Statistics,
                 "Liverpool",
-                matchAny: false,
+                MatchAny: false,
                 Per90: true,
                 MinimumMinutes: 700,
                 new[]
