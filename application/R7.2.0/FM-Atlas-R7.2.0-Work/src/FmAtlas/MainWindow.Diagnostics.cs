@@ -47,7 +47,7 @@ public partial class MainWindow
         var reportTop = new StackPanel();
         reportTop.Children.Add(Txt("COPY & EXPORT", 9, true, Teal));
         reportTop.Children.Add(Txt("Support snapshot", 17, true, Ink));
-        var sensitive = new CheckBox { Content = "Include personal details (player names, save filename and local database path)", IsChecked = false, Margin = new Thickness(0, 10, 0, 10), Foreground = Ink, FontSize = 10 };
+        var sensitive = new CheckBox { Content = "Include personal details (player names, recent edit history, save filename and local database path)", IsChecked = false, Margin = new Thickness(0, 10, 0, 10), Foreground = Ink, FontSize = 10 };
         reportTop.Children.Add(sensitive);
         reportTop.Children.Add(PrimaryButton("Copy safe diagnostics to clipboard", async (_, _) =>
         {
@@ -105,8 +105,15 @@ public partial class MainWindow
                 var ok = metrics.SavePlayers > 0;
                 return (ok, ok ? $"{metrics.SavePlayers:N0} players · {metrics.SaveGame ?? "game unknown"} · {metrics.SaveBuild ?? "build unknown"}" : "No local save snapshot yet · import a COPY of a career save");
             });
-            await Add("Store profile detection", () =>
+            await Add("Field evidence registry", async () =>
             {
+                var fields = await RunDatabaseAsync(() => _database.GetLiveFieldRegistryAsync());
+                var groups = fields.GroupBy(x => FieldEvidencePolicy.Assess(x).Level)
+                    .ToDictionary(x => x.Key, x => x.Count());
+                int Count(FieldEvidenceLevel level) => groups.TryGetValue(level, out var count) ? count : 0;
+                return (true, $"Registered fields: {fields.Count:N0} · field-verified: {Count(FieldEvidenceLevel.FieldVerified):N0} · profile-matched provisional: {Count(FieldEvidenceLevel.ProfileMatchedProvisional):N0} · candidate: {Count(FieldEvidenceLevel.Candidate):N0} · unverified: {Count(FieldEvidenceLevel.Unverified):N0}. The current live-write certification gate remains closed.");
+            });
+            await Add("Store profile detection", () =>
                 try { var pid = LiveMemoryEditService.FindSupportedProcessId(); return Task.FromResult((true, $"Exact FM27 Windows module profile matched for process {pid}. This is a profile match, not a field-by-field write certification.")); }
                 catch (Exception ex) { return Task.FromResult((false, ex.Message)); }
             });
@@ -187,6 +194,13 @@ public partial class MainWindow
         sb.AppendLine();
         sb.AppendLine("RETAINED SAVE TABLES");
         foreach (var table in tables) sb.AppendLine($"{table.TableName}: {table.RowCount:N0}");
+        sb.AppendLine();
+        sb.AppendLine("FIELD EVIDENCE");
+        var fieldRegistry = await RunDatabaseAsync(() => _database.GetLiveFieldRegistryAsync());
+        var evidenceSummary = fieldRegistry.GroupBy(x => FieldEvidencePolicy.Assess(x).Level)
+            .ToDictionary(x => x.Key, x => x.Count());
+        int EvidenceCount(FieldEvidenceLevel level) => evidenceSummary.TryGetValue(level, out var count) ? count : 0;
+        sb.AppendLine($"Registered field definitions: {fieldRegistry.Count:N0} · field-verified: {EvidenceCount(FieldEvidenceLevel.FieldVerified):N0} · profile-matched provisional: {EvidenceCount(FieldEvidenceLevel.ProfileMatchedProvisional):N0} · candidate: {EvidenceCount(FieldEvidenceLevel.Candidate):N0} · unverified: {EvidenceCount(FieldEvidenceLevel.Unverified):N0}");
         sb.AppendLine();
         sb.AppendLine("EDITOR SAFETY");
         sb.AppendLine("Local Atlas database edits are separate from the running Football Manager process.");
