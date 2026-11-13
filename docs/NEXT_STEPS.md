@@ -143,3 +143,12 @@ The current tested application checkpoint is 6c18e36fdc706fc49ad74ce15fe1ee73c43
 - [ ] Windows runtime acceptance remains outstanding: launch both search screens, verify all profile buttons, export/import between app instances, check skipped conflicts and verify no player/save contents are included in the JSON.
 - The branch head at this checkpoint is the tested application commit. Main remains untouched at 2051bbee042fb8e7203b7855e833e391ccee9ecb.
 - Continue the complete roadmap as one integrated programme; this feature tranche is not the full product release.
+
+## Latest tested application source — Attribute Search ALL/ANY (2026-11-13 18:04 UTC)
+
+- Tested source: `0fbd5fa5162b89798aa55e96669a01b26cd2ddbd`.
+- Windows run `43478483715`: Release build 0 warnings / 0 errors; 68/68 passed, 0 failed, 0 skipped. Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43478483715.
+- Artifacts: Release `14064057973`, TRX `14064172732`. The downloaded Release ZIP was inspected; EXE, main DLL, SQLite and save bridge files are present. TRX counters independently confirm all 68 passed.
+- Attribute Search now supports ALL/AND and ANY/OR, defaults to ALL, saves/restores the mode in Attribute Search profiles, and retains free-text filtering as an outer AND. The SQLite integration test covers both modes and text filtering.
+- Continue the full integrated roadmap: nested query groups/includes/excludes/reorder; player intelligence and recruitment; Moneyball per-90/cohorts/percentiles; tactics and Match Lab; development assistant; Save Inspector and local editor; Game Pass read-only adapter; Graphics/Skin/Mod Workbench; full QA and packaging.
+- Outstanding from the user PC: launch the app, test real imported Game Pass save results, profile persistence, 21-route smoke check, themes/DPI, graphics path and support ZIP inspection. Live Apply/Undo remains disabled until exact field-level certification and disposable-save rollback pass.
