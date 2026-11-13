@@ -109,3 +109,14 @@ These checked boxes mean **reported in previous work**, not verified by this rep
 - [ ] Resume feature development only after source baseline and build status are known.
 
 See [recovery inventory](../recovery/RECOVERY-INVENTORY.md).
+
+## R7.2.0 recovery update — 2026-11-13
+
+- [x] Received and inspected R7.2.0 source checkpoint (106 files).
+- [x] Recorded SHA-256 and compared against R7.1.0.
+- [x] Identified 19 changed shared files, 11 added files, no removals.
+- [x] Identified new advanced search, Value Finder, build-profile, graphics and live writer source files.
+- [ ] Import R7.2.0 source to a dedicated GitHub recovery branch.
+- [ ] Preserve R7.1.0 and R7.0.2 as separate historical source baselines.
+- [ ] Build R7.2.0 on Windows with .NET 8 WPF.
+- [ ] Run user acceptance tests on a copied FM27 career; do not assume live writer works until Apply/read-back/Undo and career-switch safeguards pass.
