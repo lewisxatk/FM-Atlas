@@ -1,0 +1,23 @@
+FM ATLAS COACHPRO R6 · AURORA WORKBENCH
+========================================
+
+1. Read README.md for the release overview.
+2. Read docs/R6/QUICK-START.md for the step-by-step tutorial.
+3. Read docs/R6/IMPLEMENTATION-AND-VALIDATION.md for exactly what changed and what has not been verified.
+4. On Windows 10/11, install the .NET 8 SDK and run Build-FMAtlas-R6.bat.
+5. Launch src\FmAtlas\bin\Release\net8.0-windows\FmAtlas.exe.
+
+IMPORTANT
+---------
+Keep your existing database. It lives in:
+  %LOCALAPPDATA%\FmAtlas\scouting.db
+
+The R6 source package does not include or overwrite your personal database.
+Import a COPY of your career save, never your only save file.
+The live reader is read-only and currently imports identities/relationships only.
+CA/PA and attributes appear only when an imported source actually supplies them.
+
+Quick shortcuts:
+  Ctrl+F          Global search
+  Ctrl+Shift+F    Advanced search
+  Ctrl+W          Close active player profile tab

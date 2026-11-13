@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Version>7.2.0</Version>
+    <AssemblyVersion>7.2.0.0</AssemblyVersion>
+    <FileVersion>7.2.0.0</FileVersion>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\FmAtlas.ico</ApplicationIcon>
+    <RootNamespace>FmAtlas</RootNamespace>
+    <Product>FM Atlas 27</Product>
+    <Company>FM Atlas</Company>
+    <Description>FM Atlas 27 · Football Manager scouting, analytics and editing workspace.</Description>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\FmAtlas.ico" />
+    <Resource Include="Assets\FM-Atlas-27-Icon.png" />
+    <Resource Include="Assets\FM-Atlas-27-Logo.png" />
+    <Content Include="..\..\tools\Export-FMAtlas-Fmsave.py">
+      <Link>tools\Export-FMAtlas-Fmsave.py</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\Setup-FMAtlas-Save-Bridge.ps1">
+      <Link>Setup-FMAtlas-Save-Bridge.ps1</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

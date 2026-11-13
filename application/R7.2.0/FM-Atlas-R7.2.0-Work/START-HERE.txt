@@ -1,0 +1,21 @@
+FM ATLAS 27 · OBSIDIAN INTELLIGENCE 7.2.0
+========================================
+
+This is a versioned extension of the earlier R7.1.0 source. Do not delete your previous release folder.
+
+1. Read README.md.
+2. Read docs/R7.2.0-IMPLEMENTATION-STATUS.md and docs/R7.2.0-ROADMAP-CHECKLIST.md.
+3. Install the .NET 8 SDK on Windows 10/11 x64.
+4. Run Build-FM-Atlas-27.bat. It writes build-logs/latest-build.log and offers clipboard copy.
+5. Only launch src/FmAtlas/bin/Release/net8.0-windows/FmAtlas.exe when the build reports success.
+6. Open Tester & Logs and run all checks.
+7. Import a COPY of your FM27 save and compare selected fields with the FM UI.
+8. Only test live editing after the exact store/build profile matches. Keep the game offline and single-player; use another copied save. The first live writer scope is CA, PA and 47 visible standard attributes. Hidden, personality, position, staff, club, transfer and contract writes remain blocked.
+
+The user's Atlas database remains at:
+  %LOCALAPPDATA%\FmAtlas\scouting.db
+
+Application logs:
+  %LOCALAPPDATA%\FmAtlas\logs\fm-atlas.log
+
+The release ZIP excludes your database and career saves. Previous source ZIPs are preserved separately.

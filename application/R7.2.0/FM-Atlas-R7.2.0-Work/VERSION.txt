@@ -1,0 +1,5 @@
+FM Atlas 27
+Version: 7.2.0
+Codename: Obsidian Intelligence Overhaul
+Target: Windows 10/11 x64 · .NET 8 WPF
+Build status: Source integration checkpoint. Windows compile, app startup, save import, FM UI field comparisons and live write/undo round trips remain user-side acceptance gates. Use Build-FM-Atlas-27.bat for a logged Release build.

@@ -1,0 +1,9 @@
+FM ATLAS 27 - R7.0.1 BUILD FIX
+
+Fixed MainWindow.xaml.cs line 1488: escaped the two backslashes in the documented
+%LOCALAPPDATA%\FmAtlas\scouting.db path so the C# string literal compiles.
+
+No database schema, user data, import logic, or save files were changed.
+
+This is a targeted source fix. A Windows .NET build has not been run in this
+packaging environment; please run Build-FM-Atlas-27.bat and share any next error.
