@@ -302,3 +302,11 @@ Only mark a feature complete when the source change exists on this branch and it
 - Corrected the fixture to use distinct row indexes for each row (commit d863808); the test still covers duplicate player/period observations by using two separate row indexes for the same player.
 - Added malformed advanced-filter enum/null-clause validation and regression tests in the same follow-on validation sequence.
 - Windows run 43485187445 is checking commit 437fbb5, which includes the corrected fixture and filter validation tests. Latest code head 507cb766 is queued in run 43485344141. Do not call the latest code verified until its Windows run passes.
+
+## Scouting Matrix notes continuation — 2026-11-13 18:45 UTC
+
+- [x] Added editable recruitment notes for a selected shortlist candidate in the Scouting Matrix UI, with a 2,000-character limit and clear/save behavior.
+- [x] Verified the database UPSERT updates only Notes on an existing (SourceId, ShortlistName) key; it does not overwrite the player's identity or reset AddedUtc.
+- [x] Added a SQLite integration test for note creation, update, clearing and stable player identity.
+- [ ] Windows validation for the new note UI and test is queued on latest branch head 491695baf2a14592fd7bb1d6a000db986ee69782: run https://github.com/lewisxatk/FM-Atlas/actions/runs/43485628646.
+- [x] Preceding Windows run 43485187445 passed on commit 437fbb5: Release build 0 warnings / 0 errors; 86/86 tests passed. This includes the corrected Moneyball SQLite fixture and malformed Advanced Search filter validation. The newer shortlist-note addition still requires its own current-head CI pass.
