@@ -4,6 +4,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using Microsoft.Win32;
 using FmAtlas.Data;
 using FmAtlas.Models;
@@ -32,6 +33,9 @@ public partial class MainWindow
         var metricFields = await RunDatabaseAsync(() => _database.GetSeasonMetricCatalogAsync());
         var filterRows = new List<StatFilterUiRow>();
         var resultRows = new List<StatSearchResult>();
+        Button findButton = null!;
+        Button importViewButton = null!;
+        DataGrid grid = null!;
         var status = Txt("Discovering statistical fields in the latest imported save…", 10, false, Muted, wrap: true);
         status.Margin = new Thickness(2, 8, 2, 0);
         var filterPanel = new StackPanel();
@@ -46,10 +50,10 @@ public partial class MainWindow
         options.Children.Add(per90);
         options.Children.Add(FilterControl("PER-90 SAMPLE FLOOR", minMinutes, 150));
         var addButton = SoftButton("＋ Add metric condition", (_, _) => AddFilterRow());
-        var findButton = PrimaryButton("Search statistics", async (_, _) => await RunSearchAsync());
+        findButton = PrimaryButton("Search statistics", async (_, _) => await RunSearchAsync());
         var resetButton = SoftButton("Reset", (_, _) => { filterRows.Clear(); filterPanel.Children.Clear(); AddFilterRow(); status.Text = "Conditions cleared."; });
         var exportButton = SoftButton("Export CSV", (_, _) => ExportResults());
-        var importViewButton = SoftButton("Import FM View CSV", async (_, _) => await ImportViewCsvAsync());
+        importViewButton = SoftButton("Import FM View CSV", async (_, _) => await ImportViewCsvAsync());
         options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton);
         controlStack.Children.Add(options);
         controlStack.Children.Add(Txt("CONDITIONS · ALL CONDITIONS MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
@@ -65,7 +69,7 @@ public partial class MainWindow
         resultHeader.Children.Add(Txt("MATCHING PLAYERS", 9, true, Teal));
         resultHeader.Children.Add(Txt("Combine goals, expected metrics, passing, defensive actions, goalkeeping and more in one search.", 10, false, Muted, wrap: true));
         DockPanel.SetDock(resultHeader, Dock.Top); dock.Children.Add(resultHeader);
-        var grid = CreateGrid();
+        grid = CreateGrid();
         grid.Columns.Add(Column("PLAYER", "Name", 1.2));
         grid.Columns.Add(Column("CLUB", "Club", 1.0));
         grid.Columns.Add(Column("SEASON / MATCH", "Period", .8));
@@ -194,6 +198,8 @@ public partial class MainWindow
             .ToList();
         var filterRows = new List<AttributeFilterUiRow>();
         List<PlayerRecord> resultRows = new();
+        Button findButton = null!;
+        DataGrid grid = null!;
         var filterPanel = new StackPanel();
         var status = Txt("Loading attribute catalogue…", 10, false, Muted, wrap: true);
         status.Margin = new Thickness(2, 8, 2, 0);
@@ -203,7 +209,7 @@ public partial class MainWindow
         var search = Input("Optional player, club, nation or UID search"); search.Width = 280; search.Margin = new Thickness(0, 0, 8, 0);
         var top = new WrapPanel(); top.Children.Add(FilterControl("OPTIONAL NAME / CLUB", search, 290));
         top.Children.Add(SoftButton("＋ Add attribute", (_, _) => AddFilterRow()));
-        var findButton = PrimaryButton("Find players", async (_, _) => await RunSearchAsync());
+        findButton = PrimaryButton("Find players", async (_, _) => await RunSearchAsync());
         top.Children.Add(findButton);
         top.Children.Add(SoftButton("Reset", (_, _) => { filterRows.Clear(); filterPanel.Children.Clear(); AddFilterRow(); status.Text = "Attribute conditions reset."; }));
         top.Children.Add(SoftButton("Export CSV", (_, _) => ExportResults()));
@@ -224,7 +230,7 @@ public partial class MainWindow
         var dock = (DockPanel)resultCard.Child;
         var resultHeader = new StackPanel(); resultHeader.Children.Add(Txt("PLAYER MATCHES", 9, true, Teal)); resultHeader.Children.Add(Txt("Only imported players with actual stored values are included. Missing ratings are never treated as zero.", 10, false, Muted));
         DockPanel.SetDock(resultHeader, Dock.Top); dock.Children.Add(resultHeader);
-        var grid = CreateGrid();
+        grid = CreateGrid();
         grid.Columns.Add(Column("PLAYER", "Name", 1.25)); grid.Columns.Add(Column("CLUB", "Club", 1.0)); grid.Columns.Add(Column("AGE", "Age", .45));
         grid.Columns.Add(Column("POSITION", "Position", .65)); grid.Columns.Add(Column("CA", "DisplayAbility", .45)); grid.Columns.Add(Column("PA", "DisplayPotential", .45));
         grid.Columns.Add(Column("NATION", "Nation", .75)); dock.Children.Add(grid);
