@@ -81,3 +81,10 @@ Stop and inspect the evidence before proceeding if a build changes the database 
 - New SQL integration fixture `ScoutDatabaseEvidenceIntegrationTests` checks real SQLite CA/PA and attribute query outputs for verified versus unverified/provisional/mixed statuses. First run failed to compile due to a missing `System.IO` import; fixed in `e109eab`.
 - [ ] Confirm the latest run for `e109eab` and subsequent pooling fixture changes; aim for 41/41 or more tests, zero build warnings.
 - [ ] If the integration test fails at runtime, inspect SQLite schema/fixture errors and correct them; do not remove the consumer test to restore a green build.
+
+## Latest tested checkpoint
+
+- Windows run `43470501984`, commit `b8bad3a`: Release build passed with 0 warnings/0 errors; **47/47 tests passed**.
+- This includes disposable SQLite integration proof that unverified/provisional live facts do not enter CA/PA and attribute search, plus six RoleFit estimate tests.
+- The next gate is no longer basic source compilation. It is application and feature acceptance: launch the WPF app on Windows, inspect all 21 routes, test theme switching/high-DPI, inspect support ZIP contents, validate Role Lab with a representative fixture, and verify no regression in user database migration/import.
+- Do not wire SquadSelectionOptimizer into Squad Architect until exact slot eligibility and position familiarity are available from validated sources. Do not enable live memory Apply/Undo.
