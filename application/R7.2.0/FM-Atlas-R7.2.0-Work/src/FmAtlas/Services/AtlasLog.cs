@@ -61,8 +61,9 @@ public static class AtlasLog
             (Name: "bearer-token", Input: "Authorization: Bearer atlas-test-token-123", Forbidden: "atlas-test-token-123"),
             (Name: "api-key", Input: "api_key=atlas-test-api-key-456", Forbidden: "atlas-test-api-key-456"),
             (Name: "password", Input: "password: atlas-test-password-789", Forbidden: "atlas-test-password-789"),
-            (Name: "user-path", Input: @"C:\Users\AtlasTestUser\AppData\Local\FmAtlas\scouting.db", Forbidden: "AtlasTestUser"),
-            (Name: "save-path", Input: @"D:\Football Manager\Career\atlas-test-career.fmf", Forbidden: "atlas-test-career.fmf"),
+            (Name: "user-path", Input: @"C:\Users\AtlasTestUser\AppData\Local\FmAtlas\scouting.db", Forbidden: "AppData"),
+            (Name: "save-path", Input: @"D:\Football Manager\Career\atlas-test-career.fmf", Forbidden: "Football Manager"),
+            (Name: "unc-path", Input: @"\\AtlasServer\Users\AtlasTestUser\Documents\Career\save.fmf", Forbidden: "AtlasServer"),
             (Name: "standalone-save-name", Input: "Failed to read atlas-test-career.fm", Forbidden: "atlas-test-career.fm")
         };
 
@@ -83,9 +84,8 @@ public static class AtlasLog
         // Scrub common credential/token formats before a log can enter a support bundle.
         text = Regex.Replace(text, @"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=-]+", "$1[redacted]");
         text = Regex.Replace(text, @"(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|authorization)\s*[:=]\s*[^;\s,]+", "$1=[redacted]");
-        text = Regex.Replace(text, @"(?i)[A-Z]:\\Users\\[^\\\s]+", "%USERPROFILE%");
-        text = Regex.Replace(text, @"(?i)\\\\[^\\]+\\Users\\[^\\\s]+", "%USERPROFILE%");
-        // Import exceptions can mention saves stored outside the user profile. Redact absolute Windows paths
+        text = Regex.Replace(text, @"(?i)\b[A-Z]:\\[^""<>|,;()\r\n]+", "[path redacted]");
+        text = Regex.Replace(text, @"(?i)\\\\[^\\\r\n]+(?:\\[^\\\r\n]+)+", "[path redacted]");
         // and standalone Football Manager save filenames before writing to the default support log.
         text = Regex.Replace(text, @"(?i)\b[A-Z]:\\[^\s""<>|]+", "[path redacted]");
         text = Regex.Replace(text, @"(?i)\b[^\\/\s]+\.(?:fm|fmf|dat)\b", "[save-file]");
