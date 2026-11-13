@@ -94,4 +94,16 @@ public sealed class StatConditionMatcherTests
             new[] { new StatFilterCriterion("goals", "Goals", 10, 2) },
             matchAny: true));
     }
+
+    [TestMethod]
+    public void Evaluate_RejectsNonFiniteBoundaries()
+    {
+        foreach (var boundary in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity })
+        {
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => StatConditionMatcher.Evaluate(
+                new Dictionary<string, double> { ["goals"] = 5 },
+                new[] { new StatFilterCriterion("goals", "Goals", boundary, null) },
+                matchAny: true));
+        }
+    }
 }
