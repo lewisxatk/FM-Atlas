@@ -1996,7 +1996,9 @@ public sealed class ScoutDatabase
                 var names = new List<string>();
                 var resolved = 0;
                 var unresolved = 0;
-                if (row.TryGetProperty("player_uids", out var playerUids) && playerUids.ValueKind == JsonValueKind.Array)
+                var hasPlayerList = row.TryGetProperty("player_uids", out var playerUids)
+                    && playerUids.ValueKind == JsonValueKind.Array;
+                if (hasPlayerList)
                 {
                     foreach (var uidElement in playerUids.EnumerateArray())
                     {
@@ -2019,11 +2021,16 @@ public sealed class ScoutDatabase
                         }
                     }
                 }
+                else
+                {
+                    unresolved = 1;
+                    names.Add("Player UID list unavailable");
+                }
 
                 rows.Add(new SquadPlannerSlotRecord(
                     (int)offsetValue.Value,
                     (int)slotValue.Value,
-                    names.Count == 0 ? "Empty slot" : string.Join(", ", names),
+                    hasPlayerList && names.Count == 0 ? "Empty slot" : string.Join(", ", names),
                     resolved,
                     unresolved));
             }
