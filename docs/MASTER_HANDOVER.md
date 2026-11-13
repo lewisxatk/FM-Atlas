@@ -130,3 +130,15 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - The warning count was reduced from 12 to zero without suppression: eleven unused private fields were removed after searching every MainWindow partial; one call was changed from obsolete `AtlasLog.Warn` to `AtlasLog.Warning`.
 - New SQLite integration test `tests/FmAtlas.Tests/ScoutDatabaseEvidenceIntegrationTests.cs` seeds a disposable database with canonical verified, read-back verified, unverified, provisional and mixed-status facts, then checks CA/PA values, filters and attribute results. It uses a dedicated test database path and disables SQLite pooling for safe cleanup.
 - The first test build exposed missing `System.IO` imports; corrected in commit `e109eab`. The test has not yet completed a Windows run.
+
+## Latest Windows checkpoint — 2026-11-13
+
+- Actions run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43470501984.
+- Exact tested commit: `b8bad3a10d0bb51222a6ca6042ed9e4f462e5712`.
+- Windows .NET 8 Release build: succeeded with **0 warnings and 0 errors**.
+- Automated suite: **47/47 passed**, 0 failed, 0 skipped. Release and TRX artifacts uploaded.
+- Tests now include a disposable SQLite database integration test. It seeds trusted and untrusted live fact statuses and verifies the actual SearchLivePlayers, CA/PA filter, attribute filter and club query consumers exclude unverified/provisional/mixed status facts while retaining player identities.
+- RoleFitService.CalculateEstimate is now a shared, unit-tested weighted estimate used by the database Role Lab search. Six tests cover weighted mean, coverage, normalized keys, missing/invalid values and invalid profiles.
+- Prior dedicated SQLite checkpoint: Actions run `43470026732`, exact commit `e109eab`, 41/41 passed, 0 warnings/errors.
+- Main remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`; integrated overhaul is 163 commits ahead, 0 behind at this checkpoint.
+- These checks establish build/unit/integration-test evidence only. WPF runtime, visual/DPI, all route smoke tests, support ZIP manual inspection, actual Game Pass and save integration remain to be performed.
