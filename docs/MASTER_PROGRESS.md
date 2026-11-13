@@ -153,11 +153,14 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] WPF visual/runtime acceptance remains pending: inspect the contribution panel at real Windows resolutions/DPI and test selection changes/CSV output with an imported FM27 save copy.
 - Note: intermediate commit `2f978f3` failed compilation because local UI variables were captured before assignment; fixed in `0c6546a`, and the final `91bd772` run passed. Do not treat the intermediate failure as the current source state.
 
-## Diagnostics privacy hardening — 2026-11-13 17:30 UTC
+## Latest integrated Windows verification — 2026-11-13 17:33 UTC
 
-- [x] Extended the support redaction pipeline to handle quoted JSON/config secrets (including values containing spaces), Basic authorization credentials, client secrets, private keys and query-string access tokens.
-- [x] Added MSTest regression rows for quoted JSON secrets, Basic auth, client-secret assignments and URL query tokens.
-- [x] Extended the in-app Diagnostics privacy self-check with the same new cases, so the runtime health check and automated test suite cover the same formats.
-- [ ] Latest Windows CI is pending for the final source commit `8cfe5b3f276770179e8cb77db7a02912f2336bdb`. Do not claim this change verified until its exact run passes.
-- [ ] After CI, inspect actual support ZIP contents and test the opt-in personal-details path, including the guarantee that the ZIP contains only the explicitly enumerated report/log files.
-- Existing last verified checkpoint remains Role Fit contribution commit `91bd7728c555a0c0e54cfd8d02706467fdafdb89`: Windows Release 0 warnings/0 errors, 48/48 tests passed (run `43472380514`).
+- [x] Exact tested application source commit: `8cfe5b3f276770179e8cb77db7a02912f2336bdb`.
+- [x] Windows Actions run `43473487285` completed successfully: .NET 8 WPF Release build **0 warnings / 0 errors**; MSTest **53/53 passed**, 0 failed, 0 skipped.
+- [x] Windows Release artifact `14061763980` and test-results artifact `14062007740` uploaded.
+- [x] Coverage includes the Role Fit per-player contribution model and SQLite query integration, 48 prior checks plus expanded Diagnostics redaction cases for quoted JSON/config secrets, Basic authorization, client secrets and query-string tokens.
+- [x] Role Fit database integration test seeds an isolated SQLite store and proves that the real candidate query returns readable contribution labels, values, Atlas weights, additive score points, weighted score and 2/3 missing-data coverage.
+- [x] Diagnostics redaction pipeline and regression tests cover bearer/basic tokens, quoted secrets, credentials, query tokens, Windows/UNC paths and standalone save filenames.
+- [ ] WPF app launch, route-by-route UI acceptance, real imported FM27 save-copy test, theme/DPI visual checks and actual support-ZIP manual inspection remain outstanding.
+- The active branch head after this tested commit is `28958fd4bc07c1f54462ec0e829dd22402eed922`; the one commit after the tested source changes only `docs/MASTER_PROGRESS.md`. `main` remains untouched at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
+- Live memory Apply/Undo remains disabled until exact Game Pass build/field certification and disposable-save read-back/undo acceptance.
