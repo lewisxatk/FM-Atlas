@@ -1296,7 +1296,7 @@ public partial class MainWindow : Window
         bestXiGrid.Columns.Add(Column("POSITION", "PositionRating", .7));
         bestXiGrid.Columns.Add(Column("ROLE FIT", "RoleFit", .7));
         bestXiGrid.Columns.Add(Column("ATLAS SCORE", "AtlasScore", .8));
-        var bestXiStatus = Txt("Choose one club and build an XI. Only imported position and attribute evidence is eligible.", 9, false, Muted, wrap: true);
+        var bestXiStatus = Txt("Choose one club and build an XI. Position eligibility requires a registered save build and imported position ratings; unverified builds remain ineligible.", 9, false, Muted, wrap: true);
         var buildXiButton = PrimaryButton("Build best XI", async (_, _) => await BuildBestXiAsync());
         formationPicker.SelectionChanged += (_, _) =>
         {
