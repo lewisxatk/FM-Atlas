@@ -297,3 +297,11 @@ This validates several of Atlas's existing safety concepts (session generation, 
 The Windows scanner source `scanner/Program.cs` selects a real FM process by checking for the adjacent `fm_Data` directory, handles access-denied/elevated-process cases distinctly from “game not running”, and opens the process with read-only rights. The core's `MemScan.Win.cs` uses `ReadProcessMemory` and `VirtualQueryEx`; it optionally captures a copy-on-write process snapshot for a consistent retry, while explicitly accounting for commit-memory cost and slower writes to FM memory during the snapshot. It reuses large image buffers to reduce LOH growth and caps parallel workers.
 
 Atlas opportunity: keep process discovery diagnostics explicit (not-running vs access-denied vs unsupported build), use least privilege for scanning, and test large-save memory/latency. The snapshot technique is a research option, not something to adopt without profiling and separate acceptance.
+
+### fmsave version pin cross-check
+
+The public fmsave `pyproject.toml` and `CHANGELOG.md` were checked on 13 November 2026. The current package is **0.12.3**, released 12 November 2026, under MIT. Atlas's `FmsaveBridgeService` expects version **0.12.3**, so its pinned bridge version currently matches the public parser release.
+
+The 0.12.3 change log says an available FM27 layout may be tried when a section schema is unfamiliar, with a warning when another schema is borrowed. This is a compatibility attempt, not verified support. The 0.12.1 change log also documents a specific training/mentoring layout adjustment for FM27 build `27.0.1+2494687`. The current FM27 layout registry still identifies `27.0.0+2486695` as its registered build; other builds remain unverified and must be checked via the parser's validation report.
+
+Atlas implication: keep the exact 0.12.3 version pin, expose parser validation warnings and per-reader coverage to the user, and record the actual save build/schema in the imported snapshot. Never translate “parser opened the save” or “known build” into “all imported fields verified.”
