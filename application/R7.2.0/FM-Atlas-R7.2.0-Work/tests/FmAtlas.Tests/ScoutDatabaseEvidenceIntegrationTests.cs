@@ -131,6 +131,8 @@ public sealed class ScoutDatabaseEvidenceIntegrationTests
                 new Dictionary<string, double> { ["Passing"] = 1 });
             Assert.AreEqual(0, (await database.SearchRoleFitCandidatesAsync(roleProfile)).Count,
                 "Role Lab must not score provisional live PlayerAttributes mirrors.");
+            Assert.AreEqual(0, await database.MassEditLocalAttributeAsync(null, "Passing", "Technical", 15),
+                "Local Mass Edit must not target read-only LIVE identity mirrors.");
 
             var caFiltered = await database.SearchLivePlayersAsync(null, minCa: 170);
             CollectionAssert.AreEqual(
