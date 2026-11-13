@@ -1436,6 +1436,12 @@ public partial class MainWindow : Window
                     x => (IReadOnlyList<RoleFitCandidate>)x.Value.Result,
                     StringComparer.OrdinalIgnoreCase);
                 var positionRatings = await positionsTask;
+                if (!string.Equals(clubPicker.SelectedItem?.ToString(), selectedClub, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(formationPicker.SelectedItem?.ToString(), formation, StringComparison.OrdinalIgnoreCase))
+                {
+                    bestXiStatus.Text = "Club or formation changed while calculating. Build again using the current selection.";
+                    return;
+                }
                 var result = SquadArchitectService.Optimize(formation, roleCandidates, positionRatings);
 
                 bestXiGrid.ItemsSource = result.Selection.Assignments.Select(assignment =>
