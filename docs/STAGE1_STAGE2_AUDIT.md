@@ -258,3 +258,18 @@ These are recommendations for the user's later Stage 3–7 approval, not work be
 ### Game Pass profile cross-reference
 
 Atlas's Game Pass 0.9.2435.0 profile matches the published FMLibreEditor 10-November-2026 observation for PE image size, timestamp, players/staff/clubs array RVAs and in-game date RVA. This corroborates the profile's build-identification anchors for that exact package. It does **not** certify every field offset or write, and it does not prove that the user's installed Game Pass binary is 0.9.2435.0. Exact local binary identification and field-level witnesses remain required.
+
+## Save-import provenance: critical gap found
+
+The source review of `FmsaveBridgeService.cs`, `tools/Export-FMAtlas-Fmsave.py` and `ScoutDatabase.ImportFmsaveSnapshotAsync` confirms a strong ingestion foundation:
+
+- The adapter is pinned to fmsave 0.12.3 and exports the parser's build metadata, reader validation, field-status map, reader coverage/anomalies, warnings and row counts.
+- The database import is wrapped in a SQLite transaction and rejects an empty player result before changing the database.
+- It keeps raw player JSON snapshots, normalized attribute/personality values, scalar fact groups, staff/club directory snapshots, raw JSON for 29 additional save tables and a numeric stat-fact index for season/match/history data.
+- The original save itself is read-only; the parsed snapshot is written to Atlas's local database/import folder.
+
+However, a critical provenance gap remains: the import stores a record-level DataOrigin and the fmsave validation JSON, but the normalized player CA/PA/value/attribute fields and indexed season-stat fields are not individually joined to fmsave's field-status/reader-coverage evidence at query time. `GetSeasonMetricCatalogAsync` discovers every numeric key in `FmsaveStatFacts`, and Stats Search can query them without a per-field verified/unconfirmed label. Likewise, save-player normalized values are available to the normal player/search surfaces while the global FM27 warning is separate.
+
+This does not mean the parser values are wrong. It means the UI cannot currently tell the user, for each value, whether that exact field is verified, unconfirmed, missing, or only structurally decoded. The FM27 global warning is not a substitute for field-level provenance.
+
+**Required in the later unified build:** introduce a canonical provenance registry that maps each imported field to game/build, parser version, source reader, field status, presence coverage, unit, confidence and freshness. Carry that metadata into player profiles, search, metrics, comparisons, value models and any edit preview. Until then, all FM27 imported values should be treated as research data with the parser's validation warnings visible, not silently presented as fully verified.
