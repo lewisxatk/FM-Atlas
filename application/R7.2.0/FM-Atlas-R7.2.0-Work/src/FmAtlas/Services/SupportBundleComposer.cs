@@ -116,7 +116,8 @@ public static class SupportBundleComposer
         };
         files.Add("manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest, new JsonSerializerOptions
         {
-            WriteIndented = true
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         }));
 
         var preview = new StringBuilder();
