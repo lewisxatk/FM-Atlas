@@ -153,19 +153,19 @@ public sealed class IntegratedIntelligenceTests
     [TestMethod]
     public void CohortPercentiles_ScaleToFiveThousandRowsWithStableTieRanks()
     {
-        var observations = Enumerable.Range(0, 5000)
+        var observations = Enumerable.Range(0, 50000)
             .Select(index => new CohortMetricObservation(
                 "player-" + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 "Player " + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                index % 100))
+                index % 1000))
             .ToArray();
 
-        var results = CohortPercentileService.Calculate(observations, minimumSampleSize: 5000);
+        var results = CohortPercentileService.Calculate(observations, minimumSampleSize: 50000);
 
-        Assert.AreEqual(5000, results.Count);
-        Assert.AreEqual(99.5d, results.First().Percentile!.Value, 0.0001);
-        Assert.AreEqual(0.5d, results.Last().Percentile!.Value, 0.0001);
-        Assert.IsTrue(results.All(x => x.SampleSize == 5000));
+        Assert.AreEqual(50000, results.Count);
+        Assert.AreEqual(99.95d, results.First().Percentile!.Value, 0.0001);
+        Assert.AreEqual(0.05d, results.Last().Percentile!.Value, 0.0001);
+        Assert.IsTrue(results.All(x => x.SampleSize == 50000));
     }
 
     [TestMethod]
