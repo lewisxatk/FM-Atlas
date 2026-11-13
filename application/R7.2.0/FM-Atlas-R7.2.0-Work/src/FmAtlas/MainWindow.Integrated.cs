@@ -216,6 +216,13 @@ public partial class MainWindow
         var status = Txt("Loading saved recruitment lists…", 10, false, Muted, wrap: true);
         DataGrid candidates = null!;
         DataGrid saved = null!;
+        Button refreshBoardButton = null!;
+        ComboBox shortlistPicker = null!;
+        ComboBox projectStatus = null!;
+        TextBox projectOwner = null!;
+        TextBox projectTags = null!;
+        TextBox transferBudget = null!;
+        TextBox weeklyWageBudget = null!;
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 12));
         var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("RECRUITMENT INTELLIGENCE", 9, true, Teal));
@@ -229,7 +236,7 @@ public partial class MainWindow
             Margin = new Thickness(0, 0, 0, 8)
         };
         var projectBoardStatus = Txt("Loading recruitment projects…", 9, false, Muted, wrap: true);
-        var refreshBoardButton = SoftButton("Refresh projects", async (_, _) => await LoadProjectsBoardAsync());
+        refreshBoardButton = SoftButton("Refresh projects", async (_, _) => await LoadProjectsBoardAsync());
         var projectBoardHeading = new WrapPanel();
         projectBoardHeading.Children.Add(Txt("RECRUITMENT PROJECT BOARD", 9, true, Teal));
         projectBoardHeading.Children.Add(refreshBoardButton);
@@ -240,12 +247,7 @@ public partial class MainWindow
         root.Children.Add(Card(projectBoardStack, 15, new Thickness(0, 0, 0, 10)));
 
         var profileRow = new WrapPanel();
-        var shortlistPicker = new ComboBox { Width = 230, Height = 35, Margin = new Thickness(3) };
-        ComboBox projectStatus = null!;
-        TextBox projectOwner = null!;
-        TextBox projectTags = null!;
-        TextBox transferBudget = null!;
-        TextBox weeklyWageBudget = null!;
+        shortlistPicker = new ComboBox { Width = 230, Height = 35, Margin = new Thickness(3) };
         var newName = Input("New shortlist name"); newName.Width = 200;
         var create = SoftButton("Create shortlist", async (_, _) =>
         {
