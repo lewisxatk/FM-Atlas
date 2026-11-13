@@ -1969,7 +1969,7 @@ public sealed class ScoutDatabase
         }).OrderBy(x => x.Category, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    public async Task<List<StatSearchResult>> SearchSeasonStatCriteriaAsync(IReadOnlyList<StatFilterCriterion> criteria, bool per90, int minimumMinutes = 450, int limit = 500)
+    public async Task<List<StatSearchResult>> SearchSeasonStatCriteriaAsync(IReadOnlyList<StatFilterCriterion> criteria, bool per90, int minimumMinutes = 450, int limit = 500, bool matchAny = false)
     {
         if (criteria.Count == 0) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 metric conditions in one search.");
@@ -2104,15 +2104,24 @@ public sealed class ScoutDatabase
         {
             if (per90 && (!work.Minutes.HasValue || work.Minutes.Value < minMinutes)) continue;
             var displayValues = new List<string>();
-            var matches = true;
+            var matchedCount = 0;
             foreach (var criterion in criteria)
             {
-                if (!work.Values.TryGetValue(criterion.Key, out var raw)) { matches = false; break; }
+                // A missing field is a non-match for this condition. Under AND it
+                // rejects the row; under OR another available field can still match.
+                if (!work.Values.TryGetValue(criterion.Key, out var raw)) continue;
                 var value = per90 ? raw * 90d / work.Minutes!.Value : raw;
-                if (!double.IsFinite(value) || (criterion.Minimum.HasValue && value < criterion.Minimum.Value) || (criterion.Maximum.HasValue && value > criterion.Maximum.Value)) { matches = false; break; }
+                if (!double.IsFinite(value)) continue;
+                var withinBounds =
+                    (!criterion.Minimum.HasValue || value >= criterion.Minimum.Value)
+                    && (!criterion.Maximum.HasValue || value <= criterion.Maximum.Value);
+                if (!withinBounds) continue;
+                matchedCount++;
                 displayValues.Add($"{criterion.DisplayName}: {value:0.##}");
             }
-            if (!matches || !playerMap.TryGetValue(work.PlayerUid, out var player) || string.IsNullOrWhiteSpace(player.SourceId)) continue;
+
+            var rowMatches = matchAny ? matchedCount > 0 : matchedCount == criteria.Count;
+            if (!rowMatches || !playerMap.TryGetValue(work.PlayerUid, out var player) || string.IsNullOrWhiteSpace(player.SourceId)) continue;
             results.Add(new StatSearchResult(player.SourceId, player.Name, player.Club, work.Period, work.Minutes, string.Join("  ·  ", displayValues)));
         }
         return results.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Take(safeLimit).ToList();
