@@ -166,3 +166,17 @@ A later source review found that the original substring checks `LIKE '%Verified%
 - The full integrated programme is not complete. Advanced Search profiles/condition groups, Player DNA, Moneyball/per-90/percentiles, recruitment, Tactical Intelligence, Match Lab, Save Inspector/editor, Game Pass read-only certification, graphics/skin/mod workbench and release packaging remain on the master roadmap.
 - Live memory Apply/Undo remains disabled until exact Game Pass build/field certification, disposable-save Apply/read-back/Undo, identity checks and rollback evidence pass. Never test on the user's only career save.
 - Continue only on `overhaul/monolith-full-platform`, not `main`. Use the current branch files and this checkpoint, not the interrupted chat transcript.
+
+
+## Combined Stage 1 + Stage 2 handover — 2026-11-13
+
+- Authoritative report: `docs/STAGE1_STAGE2_AUDIT.md`.
+- Stage 1 source audit found a mismatch between the Diagnostics personal-details checkbox/README and the final redaction policy. The code and Help copy now say that opting in includes player names and recent edit history only; credentials/tokens, absolute paths and career save filenames remain always redacted.
+- The support ZIP implementation uses a fixed in-memory file allowlist, a manifest with SHA-256 hashes for listed report/README/log entries, a preview window and a local Save File dialog. The actual Windows-generated ZIP has not yet been manually inspected.
+- Stage 2 maps all 21 navigation destinations. Key findings: Players and Recruitment share a workspace; Transfers is only a ranking by imported value; Tactical Lab is an informational data-coverage surface; Atlas Assistant is rule-based; Role Lab uses transparent Atlas weights, not FM's hidden role formula; Squad Architect is a roster/coverage view and does not yet use the optimizer as a validated Best XI engine.
+- Architecture findings: dynamic WPF code-behind shell; central SQLite data/import/query class; 38 app source files and 9 test-project files; fmsave Python bridge; separate Game Pass/Steam memory profiles; global live-write certification remains false; graphics resolver reads existing config.xml packs but actual user Game Pass paths remain unverified.
+- Last completed Windows verification before the privacy wording/manifest correction: run `43473487285`, application source `8cfe5b3`, 53/53 tests, 0 warnings/errors. This does **not** verify later source edits.
+- Current branch may have newer commits and CI runs; always fetch the live branch ref and latest workflow status before resuming. A workflow was in progress during this handover; do not infer success from a pending/cancelled run.
+- Remaining Stage 1 acceptance: pass CI on the exact privacy-copy/manifest commit, run the app, create default and opt-in ZIPs, independently inspect entries/hashes and verify exclusions.
+- Remaining Stage 2 acceptance: Windows launch and smoke-test all 21 routes; validate real Game Pass process/build, imported save copy and graphics root. These require the user's Windows environment.
+- Stage 3–7 are explicitly on hold until the user reviews the findings and approves the next combined implementation.
