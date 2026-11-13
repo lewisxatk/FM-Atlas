@@ -265,3 +265,17 @@ Only mark a feature complete when the source change exists on this branch and it
 - The tested commit adds only `MainWindow.AdvancedSearch.cs`; the current branch head equals the tested SHA. `main` remains unchanged at `2051bbee042fb8e7203b7855e833e391ccee9ecb`.
 - [ ] Windows UI acceptance remains pending: visually confirm the extra row controls fit at supported resolutions/DPI, verify order persists after save/load, and duplicate/edit/remove multiple rows on both search screens.
 - This is an internal integration checkpoint, not a separate user-facing release. Continue the full product roadmap on the same overhaul branch.
+
+## Integrated Stage 3–7 implementation candidate — 2026-11-13
+
+- The user approved proceeding with the complete Stage 3–7 programme as one integrated development effort. Work continues only on `overhaul/monolith-full-platform`; protected `main` has not been changed.
+- Added nested universal AND/OR filtering with typed comparisons, missing-value-safe semantics, match explanations, depth/condition limits, and a local versioned profile store with save/load/duplicate/import/export and conflict-safe merging.
+- Integrated new MONOLITH routes for Player DNA, Advanced Search, Scouting Matrix, Moneyball Scout, Tactical Studio, Match Lab, Development, Save Inspector, Graphics & Skins and Modding Workbench. Existing 21 routes remain in place.
+- Added transparent cohort mid-rank percentiles with minimum-sample withholding; the UI states that ranking is relative to returned source rows and not competition-strength adjusted.
+- Added a read-only graphics config indexer with bounded traversal, safe XML parsing, reparse-point skipping, path-traversal rejection, duplicate-ID and missing-image counts. It does not modify or install graphics.
+- Added a modding research catalogue with recorded licence notes and explicit compatibility/verification boundaries. It does not execute third-party tools or copy third-party source.
+- Existing database/shortlist/RoleFit/season-stat/diagnostics services are reused. Development UI distinguishes one-snapshot player facts from Atlas-local edit history and does not invent progression curves.
+- Live Apply/Undo remains disabled. Exact FM27 Game Pass field certification, actual installed build verification, real save import acceptance and Windows UI visual testing remain outstanding.
+- Added automated tests for nested filter logic and persistence, typed numeric/boolean comparison, missing-value semantics, cohort ranking, graphics XML/path safety and research catalogue boundaries.
+- Draft validation-only PR #2 targets `overhaul/monolith-full-platform`, not `main`, to run the existing Windows Release build and MSTest workflow. The first run is `43482389999` and was still in progress at this checkpoint. This PR is not intended to be merged.
+- No build/test result is claimed for the latest integrated head until the Windows workflow completes. The local container does not have the .NET SDK; Windows Actions is the authoritative compile/test environment.
