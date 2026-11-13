@@ -114,7 +114,7 @@ Findings:
 **Repository:** https://github.com/rhiever/fmsave  
 **License:** MIT. Preferred parser-provider and validation reference.
 
-Files reviewed: container parser, bounds-checked primitive scanning, status registry, FM27 layout and public validation API. Current source registers FM27 build 27.0.0+2486695; this does not prove support for every later FM27 build.
+Files reviewed: container parser, bounds-checked primitive scanning, status registry, FM27 layout and public validation API. Current reviewed PyPI release is fmsave 0.12.3 (2026-11-13). It registers FM27 build 27.0.0+2486695; other FM27 builds may borrow an available FM27 layout only with unverified status and warnings. The current API also exposes officials, team match statistics and squad-planner tables. Atlas now pins this adapter version and preserves those three datasets in its raw sidecar.
 
 Findings:
 - The container reader treats an FM save as a 26-byte header, named Zstandard frames and a trailer directory.
@@ -175,6 +175,61 @@ Findings:
 Its FM27 layout document explicitly separates fields witnessed on FM27 from offsets inherited from FM26. It records exact-build/platform evidence, labelled examples, field widths, pointer paths and unresolved meanings. Undo entries retain raw old/new bytes and optional policy guards.
 
 **Atlas decision:** maintain a field-level evidence register: field key, build, storefront, record type, type/width, source, witness count, range distribution, cross-field consistency, status and read/write policy. A public offset is a research lead, not permission to edit.
+
+
+### 3.7 Talent Seer 27.1.2 — scouting workflow and rating methodology
+
+**User-supplied archive:** TalentSeer-27.1.2-win-x64(1).zip  
+**Package contents:** README, self-contained Windows executable and third-party notices. No source code or explicit open-source licence was included in the archive. The executable was not run or decompiled; the guide was inspected as product documentation only.
+
+Documented capabilities:
+- Player and staff search with saved profiles, role/position filters, multi-select, shortlist, comparisons, collapsible sidebars and virtualised profile workflows.
+- 15 player positions and 79 tactical roles; a position/role rating is Talent Seer's own weighted attribute model, not the FM engine's star rating.
+- Editable rating profiles: Key attributes weighted ×3, Important ×2, Useful ×1, then adjusted by position familiarity (Natural 1.00, Accomplished 0.95, Competent 0.85, Unconvincing 0.70, Awkward 0.50, Less 0.30). Profiles can be copied and changed and reused consistently across player search, profiles, comparisons and squad selection.
+- Potential projection based on a save-trained CA model, a stated average error of about 1.5 CA points, age/position-specific growth assumptions and attribute-CA contribution. This is a product-described estimate, not an independently validated formula and not FM's own forecast.
+- A development tracker captures CA, PA and value at each in-game date and keeps the newest 40 snapshots.
+- Squad planner supports formation/role slots, best combined XI, manual XI, backups, depth chart and a replacement finder with age, PA, value, wage and contract filters.
+- Staff search includes job, coaching/training ratings, FM role preferences and training-area comparisons.
+- Club centre exposes club strength, player and staff wage bill, squad value, injuries, youth, contract expiry, training coaches and a multi-year squad planner.
+- Bulk edit offers Set/Add/Scale with a full preview and undo; the guide says edits are only applied after explicit confirmation.
+- The product documentation says it is free, collects no usage data and optionally checks itch.io daily for updates. This was not independently network-tested.
+
+**Atlas decisions:**
+1. Build a 79-role catalogue only after role names, duty, phase and positional eligibility are grounded in a licensed dataset or verified FM27 data source. Do not copy the proprietary rating model.
+2. Allow user-owned role-weight profiles, clearly labelled Atlas ratings, with a traceable breakdown of key/important/useful attribute weights and position familiarity multipliers.
+3. Implement squad XI assignment as a global constrained optimisation problem, not a greedy per-slot pick. Validate small squad cases against brute-force enumeration.
+4. Add a multi-year squad plan, replacement finder and club financial/contract dashboard using fields that are actually present in the save.
+5. Add CA/PA/value snapshots and development comparison with freshness and identity provenance.
+6. Treat Talent Seer's projection/outlook weights and performance claims as hypotheses, not verified Football Manager mechanics.
+7. Do not incorporate the closed executable, unlicensed assets or its internal code.
+
+### 3.8 SaveMyTime — native training workflow plugin
+
+**User-supplied archive:** SaveMyTime(1).zip  
+**Package contents:** SaveMyTime.dll and two opaque .fmf training schedule templates. The DLL's managed metadata and strings were inspected without execution; the plugin source and licence were not included.
+
+Static binary evidence:
+- The plugin identifies itself as a BepInEx Unity IL2CPP component and refers to the FM27 game date, current manager and managed club.
+- It distinguishes actual native training calendar references, manager identity, team database identity, schedule IDs and week start dates.
+- Strings show preflight states for game/career changes, native ownership/control, training access, calendar identity, complete editable weeks and stable team identity.
+- It describes reading native schedule directories and training library metadata on Unity's main thread, checking schedule entries and seven-day template structure, and reconciling already-dispatched actions rather than blindly resending.
+- It contains separate observation/import/apply/revert states and checks for actual readback. Some messages explicitly say schedule contents are unverified or a native readback remains unresolved.
+- The bundled .fmf templates are opaque FM resources and were not decoded or redistributed.
+
+**Atlas decisions:**
+1. Keep training calendar/schedule inspection as a read-only Match/Training Lab data source until stable team, manager, week, and calendar identities can be independently validated.
+2. Model training plans as structured Atlas-local drafts with an explicit preview; do not assume a file or plugin event was successfully applied because it was dispatched.
+3. Track dispatch, acknowledgement and actual in-game readback as separate states.
+4. Do not introduce the plugin or its opaque .fmf files as Atlas dependencies or redistribute them.
+5. Any future native training integration must remain separate from the live memory writer certification gate and require a disposable offline save.
+
+### 3.9 FM Dossier and Teknik Oda — limits of available package inspection
+
+**User-supplied files:** FM-Dossier_1.15.4_x64-setup(1).exe, TeknikOda-Kurulum-1.0.9(1).exe.
+
+The installer binaries were not launched. Static PE/string inspection identified FM Dossier installer metadata and a generic Inno Setup/Delphi installer footprint for Teknik Oda, but did not provide enough reliable evidence about internal application features, data models, memory layouts, FM27 build compatibility or licences.
+
+**Atlas decision:** keep both as feature/workflow research leads only. Do not claim either has been reverse engineered. A lawful source package, public technical documentation, or user-provided screenshots/workflow traces would be needed to deepen functional comparison. No installer, binary or plugin dependency is being added to Atlas.
 
 ### 3.6 FM View Exporter and fmf files
 
