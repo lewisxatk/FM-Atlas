@@ -944,6 +944,42 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public void PlayerProfileRoleRankingIncludesPersistedCustomTemplates()
+    {
+        using var temp = new TemporaryFolder();
+        var path = Path.Combine(temp.Path, "profile-role-templates.json");
+        var custom = new RoleFitProfile(
+            "My Custom Advanced Forward", "In Possession", "Forward", "Custom movement and finishing role.",
+            new Dictionary<string, double>
+            {
+                ["Finishing"] = 2,
+                ["Off the Ball"] = 1.5,
+                ["Composure"] = 1,
+                ["Pace"] = 1
+            });
+        RoleFitProfileStore.Save(custom, path);
+        var saved = RoleFitProfileStore.LoadAll(path);
+        var ranked = RoleFitService.RankProfilesForPlayer(
+            new Dictionary<string, double>
+            {
+                ["Finishing"] = 19,
+                ["Off the Ball"] = 18,
+                ["Composure"] = 17,
+                ["Pace"] = 18
+            },
+            saved,
+            minimumCoverage: 1,
+            limit: 100);
+
+        var match = Assert.Single(ranked.Where(x => x.Profile.Name == "My Custom Advanced Forward"));
+        Assert.True(match.Profile.IsCustom);
+        Assert.Equal(4, match.Score.AttributesAvailable);
+        Assert.Equal(4, match.Score.AttributesExpected);
+        Assert.Equal(1d, match.Score.Coverage);
+        Assert.Equal(18.18, match.Score.Score, 2);
+    }
+
+    [Fact]
     public void RoleFitProfileStoreRejectsInvalidWeightsAndIncompleteTemplates()
     {
         using var temp = new TemporaryFolder();

@@ -15,7 +15,9 @@ public static class CsvExportSafety
         var first = text.TrimStart();
         if (protectFormula && first.Length > 0 && first[0] is '=' or '+' or '-' or '@')
             text = "'" + text;
-        return "\"" + text.Replace("\"",
+        return "\"" + text.Replace("\"", "\"\"") + "\"";
+    }
+
     public const string AdvancedPlayerHeader =
         "Source ID,Player,Age,Club,League,Nation,Position,CA,PA,Market Value (Source Units),Home-grown at Club,Home-grown in Nation,Preferred Foot,Left Foot,Right Foot,Source";
 
@@ -42,7 +44,5 @@ public static class CsvExportSafety
             QuoteText(player.DataOrigin)
         };
         return string.Join(",", cells);
-    }
- "\"\"") + "\"";
     }
 }

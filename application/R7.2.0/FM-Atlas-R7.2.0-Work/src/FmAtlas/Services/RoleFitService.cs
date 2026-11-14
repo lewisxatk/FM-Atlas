@@ -18,6 +18,7 @@ public sealed record RoleFitSearchFilters(
     double MinimumCoverage = 0.5,
     int ResultLimit = 250);
 public sealed record RoleFitScore(double Score, int AttributesAvailable, int AttributesExpected, double Coverage, IReadOnlyList<RoleFitAttributeContribution> Contributions);
+public sealed record RoleFitProfileMatch(RoleFitProfile Profile, RoleFitScore Score);
 
 /// <summary>
 /// Transparent coaching-style role estimates. These are not Sports Interactive's hidden role formula
@@ -113,6 +114,35 @@ public static class RoleFitService
         var separator = value.LastIndexOf(" · ", StringComparison.Ordinal);
         var attribute = separator >= 0 ? value[(separator + 3)..] : value;
         return new(attribute.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+    }
+
+    /// <summary>
+    /// Ranks built-in and locally saved custom role templates against one player's actual
+    /// source-backed attributes. This is an Atlas estimate, not Football Manager's role rating.
+    /// </summary>
+    public static IReadOnlyList<RoleFitProfileMatch> RankProfilesForPlayer(
+        IReadOnlyDictionary<string, double> attributes,
+        IEnumerable<RoleFitProfile>? additionalProfiles = null,
+        double minimumCoverage = 0.5,
+        int limit = 6)
+    {
+        ArgumentNullException.ThrowIfNull(attributes);
+        if (!double.IsFinite(minimumCoverage) || minimumCoverage is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(minimumCoverage));
+
+        return GetProfiles()
+            .Concat(additionalProfiles ?? Array.Empty<RoleFitProfile>())
+            .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.Name))
+            .GroupBy(x => x.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .Select(profile => new { Profile = profile, Score = CalculateScore(profile, attributes, minimumCoverage) })
+            .Where(x => x.Score is not null)
+            .OrderByDescending(x => x.Score!.Score)
+            .ThenByDescending(x => x.Score!.Coverage)
+            .ThenBy(x => x.Profile.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(limit, 1, 100))
+            .Select(x => new RoleFitProfileMatch(x.Profile, x.Score!))
+            .ToList();
     }
 
     public static IReadOnlyList<RoleFitProfile> GetProfiles() => Profiles;

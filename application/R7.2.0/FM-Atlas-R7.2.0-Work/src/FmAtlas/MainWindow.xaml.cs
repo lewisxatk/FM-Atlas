@@ -1124,28 +1124,18 @@ public partial class MainWindow : Window
         positionsTab.Children.Add(Txt(
             "Calculated from this player's imported 1–20 footballing attributes using the same weighted Role Fit engine as Role Lab. Each row includes coverage; these are Atlas estimates, not FM star ratings.",
             9, false, Muted, wrap: true));
-        var profileRoleMatches = RoleFitService.GetProfiles()
-            .Select(profile => new
-            {
-                Profile = profile,
-                Score = RoleFitService.CalculateScore(profile, attributes, minimumCoverage: 0.5)
-            })
-            .Where(x => x.Score is not null)
-            .OrderByDescending(x => x.Score!.Score)
-            .ThenByDescending(x => x.Score!.Coverage)
-            .ThenBy(x => x.Profile.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(6)
-            .ToList();
+        var profileRoleMatches = RoleFitService.RankProfilesForPlayer(
+            attributes, RoleFitProfileStore.LoadAll(), minimumCoverage: 0.5, limit: 6);
         if (profileRoleMatches.Count == 0)
             positionsTab.Children.Add(Txt("No role profile has enough source-backed attributes to calculate a reliable estimate for this player.", 9, false, Muted, wrap: true));
         else
         {
             foreach (var match in profileRoleMatches)
             {
-                var score = match.Score!;
+                var score = match.Score;
                 var roleCard = Card(new StackPanel(), 10, new Thickness(0, 5, 0, 5));
                 var roleContent = (StackPanel)roleCard.Child;
-                roleContent.Children.Add(Txt(match.Profile.Name, 11, true, Ink));
+                roleContent.Children.Add(Txt((match.Profile.IsCustom ? "CUSTOM · " : "") + match.Profile.Name, 11, true, Ink));
                 roleContent.Children.Add(Txt(
                     $"{match.Profile.Phase} · {match.Profile.PositionGroup} · {score.Score:0.00}/20 · {score.Coverage:P0} coverage · {score.AttributesAvailable}/{score.AttributesExpected} attributes",
                     9, false, Muted, wrap: true));

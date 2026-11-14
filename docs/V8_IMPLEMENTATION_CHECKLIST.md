@@ -109,10 +109,10 @@ Implementation and verification are tracked separately. A feature can be impleme
 ## 6. Player profiles and development
 
 - [~] Add source-backed player profile tabs for Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence. Existing profile facts, dated snapshots, live validation warnings and source provenance are retained in their relevant tabs; Windows build and visual acceptance pending.
-- [~] Add a source-backed five-axis profile radar and a multi-player category-average overlay in Player Comparison. The comparison radar only includes categories with valid imported 1–20 values for every player; Hidden and Personality groups are excluded and missing categories are not scored as zero. Top-six per-player Role Fit estimates remain powered by RoleFitService. Comparison radar implementation and regression tests are committed; Windows build and visual acceptance pending.
+- [~] Add a source-backed five-axis profile radar and a multi-player category-average overlay in Player Comparison. The comparison radar only includes categories with valid imported 1–20 values for every player; Hidden and Personality groups are excluded and missing categories are not scored as zero. Top-six per-player Role Fit estimates include built-in and locally saved custom templates with the same coverage-aware scoring and an explicit custom label. Windows build and visual acceptance pending.
 - [~] Add dated CA/PA/value history from source player snapshots with source-file/import evidence; a chart appears only after two distinct in-game dates and does not project or interpolate missing values. Windows verification pending.
 - [~] Add longitudinal CA/PA trends only where at least two dated comparable save snapshots exist. Attribute-by-attribute history still requires a stable dated attribute snapshot source.
-- [ ] Add player comparison and similar-player discovery with explainable ranking.
+- [~] Add player comparison and similar-player discovery with explainable ranking. Implemented for up to four players with source-backed shared-attribute scores, coverage evidence and a shared-category comparison radar; Windows verification pending.
 - [ ] Ensure no inferred hidden attributes or unsupported development predictions are presented as fact.
 
 ## 7. Recruitment, Moneyball and analytics
@@ -192,6 +192,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Provide final checklist report with links to commits, CI, build log and acceptance evidence.
 
 ## Work log
+
+| 2026-11-14 | CSV export helper repair and custom Role Fit profiles in player profiles | Pending CI | Rebuilt CsvExportSafety in a valid compile-safe structure, preserving formula-safe cell quoting and source-backed player-row export. Player profile top-six Role Fit now includes saved custom templates alongside built-ins, with regression coverage for persisted weights, score, coverage and evidence. Windows verification pending. |
 
 | 2026-11-14 | Advanced Search full-result CSV export and filter coverage | Pending CI | Added cancellable, streaming CSV export of up to 50,000 Advanced Search matches in batches of 500, written to a temporary file and published only on completion. Exports source IDs and source-backed profile data with shared formula-safe CSV quoting. Regression now combines league, nationality and contract-fact filters. Run #214 exposed duplicate sort declarations and #215 exposed the missing Microsoft.Win32 import for SaveFileDialog; both compile issues have been addressed. Extracted Advanced Search row/header formatting into a testable shared CSV helper and added coverage for commas, formula injection, unknown values and source IDs. Fresh Windows verification pending. |
 
