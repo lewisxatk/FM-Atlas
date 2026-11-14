@@ -173,7 +173,6 @@ public static class ScoutingActionAnalyticsService
                      a.EndX.HasValue && a.EndY.HasValue)
             {
                 var end = Zone(a.EndX.Value, a.EndY.Value);
-                if (end.X == start.X && end.Y == start.Y) continue;
                 moves[start.X, start.Y]++;
                 transitions[Index(start)][Index(end)]++;
             }
