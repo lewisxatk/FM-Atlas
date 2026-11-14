@@ -95,7 +95,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [~] Add a dynamic category and field library for core fields, contract facts, attributes/personality, positions, traits, state, reputation and raw attributes. Performance metrics remain in the dedicated per-period search workspace; source coverage display and additional categories are still open.
 - [x] Universal player search supports up to 60 mixed core/attribute/save-fact conditions with ALL/AND or ANY/OR matching. Specialist performance search remains separate because its criteria are scoped to player-period rows.
 - [x] Add local saved universal search profiles with create/replace/load/delete, persisted criteria, search text, AND/OR mode and selected result columns. Reset-to-default is present for the active filter builder; broader filter presets remain open.
-- [~] Add configurable visible columns and stable 250-row server-side paging with previous/next navigation. Multi-sort, multi-select, comparison and shortlist actions remain open.
+- [~] Add configurable visible columns, stable 250-row paging and multi-select bulk Add-to-Shortlist. Multi-sort, player comparison and shortlist removal/notes actions from the search result grid remain open.
 - [ ] Support all 15 FM positions and validated five-level suitability display.
 - [ ] Add league, nationality, home-grown, contract and staff filters when available in source data.
 - [ ] Ensure missing/undecoded values are never silently treated as zero or as a failed filter match.
