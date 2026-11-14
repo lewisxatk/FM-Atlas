@@ -300,3 +300,15 @@ This batch is source-implemented and regression tests are added, but it is not y
 - The first integrated Windows run compiled successfully but the xUnit suite ended 83 passed / 1 failed. The failing new test reached its cleanup block, where Windows refused to delete a SQLite file still held by Microsoft.Data.Sqlite's connection pool.
 - The SQL assertions themselves completed; the failure was temporary database cleanup. The test now clears all Microsoft.Data.Sqlite pools before deleting the file and its WAL/SHM sidecars.
 - Fresh CI is required. The previous run did not publish an artifact, and this batch must not be described as fully verified until the corrected test suite, publish and artifact upload pass.
+
+
+## Final Windows verification — 14 November 2026
+
+- Workflow run 43593364372: https://github.com/lewisxatk/FM-Atlas/actions/runs/43593364372
+- Verified source commit: b45ca350ce4c05a07ab07434e0d3cc39c408f2fd
+- All 12 workflow steps passed. Full test suite: 84 passed, 0 failed.
+- Self-contained Windows x64 publish and artifact upload succeeded.
+- Artifact FM-Atlas-V8-win-x64, ID 14112889881, 68,896,831 bytes; SHA-256 39846fd69868c36fa557d1c859bba63f90ef32b863354e44ff293da55e2e019c; expires 28 November 2026.
+- The position cohort test uses unpooled SQLite connections and passes without global pool clearing.
+- Download from the workflow's Artifacts section: https://github.com/lewisxatk/FM-Atlas/actions/runs/43593364372
+- Remaining acceptance: manual Windows visual/DPI review, in-game FM27 position rating witness comparison and actual career-data acceptance. The full Wyscout/StatsBomb-style product is not complete; the current release adds source-aware position cohorts and selectable overall/position/league percentile views to the existing metric/per-90/value analysis foundation.
