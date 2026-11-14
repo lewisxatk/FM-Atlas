@@ -58,6 +58,22 @@ public static partial class LiveEntityMemoryEditService
 
     public static bool IsAvailable => Fm27BuildProfiles.All.Any(x => x.GameUiRva != 0);
 
+    // Live writes require an explicit, session-only opt-in from the FM Atlas UI.
+    // This is separate from Atlas-local override editing and resets to OFF on launch/close.
+    private static int _liveEditingEnabled;
+    public static bool LiveEditingEnabled
+        => System.Threading.Volatile.Read(ref _liveEditingEnabled) == 1;
+
+    public static void SetLiveEditingEnabled(bool enabled)
+        => System.Threading.Interlocked.Exchange(ref _liveEditingEnabled, enabled ? 1 : 0);
+
+    private static void EnsureLiveEditingEnabled()
+    {
+        if (!LiveEditingEnabled)
+            throw new InvalidOperationException(
+                "Live FM27 editing is OFF. Open Editor Studio and explicitly enable Live FM Editing for this session before applying changes.");
+    }
+
     public static IReadOnlyList<FieldDescriptor> GetEditableFields(EntityKind entity)
         => Fields(entity).Select(x => new FieldDescriptor(x.Key, x.Label, x.Minimum, x.Maximum, x.Encoding.ToString())).ToList();
 
@@ -174,6 +190,7 @@ public static partial class LiveEntityMemoryEditService
     /// <summary>Applies a staged batch only after a fresh identity/session/record/value preflight and confirms every write by read-back.</summary>
     public static BatchReceipt ApplyBatch(BatchPlan plan)
     {
+        EnsureLiveEditingEnabled();
         if (DateTime.UtcNow - plan.CreatedUtc > TimeSpan.FromMinutes(2) || plan.CreatedUtc > DateTime.UtcNow.AddSeconds(10))
             throw new InvalidOperationException("The live edit preview expired. Refresh the values and stage the batch again.");
         using var process = Process.GetProcessById(plan.ProcessId);
@@ -241,6 +258,7 @@ public static partial class LiveEntityMemoryEditService
     /// <summary>Undoes a live batch only while every affected field still contains the value Atlas wrote.</summary>
     public static void UndoBatch(BatchReceipt receipt)
     {
+        EnsureLiveEditingEnabled();
         var plan = receipt.Plan;
         using var process = Process.GetProcessById(plan.ProcessId);
         var module = FindModule(process);
