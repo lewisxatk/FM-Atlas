@@ -297,8 +297,9 @@ Implementation is deliberately separated from permission to scan a running FM pr
 - [x] Include the live save-generation counter in career identity and reject a scan if the generation changes before completion.
 - [x] Expose live staff in the existing Staff directory and profile-facts panel; `LIVE:` IDs are normalised before querying live staff facts.
 - [x] Keep manager/club toolbar shortcuts tied to the current probe generation rather than stale prior-session identity.
+- [x] Fail closed for My Manager/My Club shortcuts while the full live-import gate is OFF, even if a cached save-load counter happens to match a newly detected session.
 - [x] Add SQLite integration coverage for staff search, manager identity, CA/PA, age, nation, club, provisional facts and replacement on a new session.
-- [x] Extend the live staff search contract so name, club and numeric UID queries all work against live rows; add a regression for club search.
+- [x] Extend the live staff search contract so name, club and numeric UID queries all work against live rows; add regressions for club and UID search.
 - [x] Keep live editing disabled.
 - [x] Keep full live entity-array scanning disabled by default. The 3-second monitor performs career/process/build/session detection only; it does not read the large player/staff/club arrays.
 - [ ] Run Windows Release build and the full .NET integration suite after the latest staff-search and safety-gate commits.
