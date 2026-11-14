@@ -233,3 +233,12 @@ The source and regression tests are committed, but a fresh Windows workflow must
 - Added a database-level regression using the actual FMSAVE snapshot and live-fact tables. It exercises exact ALL, exact ANY and At Least ALL against both offline and live position-rating rows.
 - The profile loader now clears the temporary field-library search string before reconstructing saved conditions, preventing a filtered dropdown from remapping a saved field to an unrelated first result.
 - The prior successful run 43590420150 passed before these final test/safeguard changes. Its artifact must not be represented as containing this follow-up. A fresh Windows run is required.
+
+
+### Final implementation verification — 14 November 2026
+
+- Workflow run 43590756414: https://github.com/lewisxatk/FM-Atlas/actions/runs/43590756414
+- Verified head 9ec72cbf34af3b51984c7fe23ad2c54573ec36fc.
+- All 12 steps passed, including Release build, full xUnit suite, SQLite integration for exact ALL/ANY/At Least position semantics across offline and live data, self-contained win-x64 publish and artifact upload.
+- Artifact FM-Atlas-V8-win-x64: 68,894,168 bytes; SHA-256 e76e763e26b35dd73ad4ee9ab1e1b95ffb34b7c090269e406658a2ad7f627f93; expires 28 November 2026.
+- Manual Windows DPI/visual review and real FM27 in-game field comparison remain outstanding. The test establishes SQL semantics against seeded data; it does not certify every live-memory field meaning.
