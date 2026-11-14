@@ -301,10 +301,6 @@ public static class LiveEntityMemoryEditService
     }
 
     private sealed record ResolvedEntity(ulong Address, int Shift);
-    private sealed record FieldSpec(string Key, string Label, EntityKind Entity, Place Place, ulong Offset,
-        int Size, EncodingKind Encoding, int Minimum, int Maximum, int PlausibleMinimum, int PlausibleMaximum,
-        bool Shifted = false, int Bit = -1, int BlankValue = int.MinValue, int[]? Choices = null);
-
     private static IReadOnlyList<FieldSpec> Fields(EntityKind entity)
     {
         var fields = new List<FieldSpec>();
@@ -804,11 +800,4 @@ public static class LiveEntityMemoryEditService
     private static string? Join(string? first,string? last)
         =>string.IsNullOrWhiteSpace(first)?last:string.IsNullOrWhiteSpace(last)?first:first+" "+last;
 
-    private static void ValidateCurrent(FieldSpec field,int value)
-    {
-        if(value<field.PlausibleMinimum||value>field.PlausibleMaximum)
-            throw new InvalidOperationException("Current value for "+field.Key+" is outside its FM27 plausible range.");
-        if(field.Encoding==EncodingKind.Date&&value!=0&&!DateOnly.TryParseExact(value.ToString(CultureInfo.InvariantCulture),"yyyyMMdd",CultureInfo.InvariantCulture,DateTimeStyles.None,out _))
-            throw new InvalidOperationException("Current date value for "+field.Key+" is not a valid FM date.");
-    }
 }
