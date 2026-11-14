@@ -289,7 +289,9 @@ public partial class MainWindow : Window
     {
         var rail = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(218, 16, 27, 43)),
+            Background = _themeMode == "Glass Light"
+                ? new SolidColorBrush(Color.FromArgb(232, 246, 250, 255))
+                : new SolidColorBrush(Color.FromArgb(218, 16, 27, 43)),
             BorderBrush = new SolidColorBrush(Color.FromArgb(90, 160, 195, 230)),
             BorderThickness = new Thickness(0, 0, 1, 0)
         };
@@ -364,7 +366,9 @@ public partial class MainWindow : Window
 
         var bottom = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(110, 95, 125, 165)),
+            Background = _themeMode == "Glass Light"
+                ? new SolidColorBrush(Color.FromArgb(220, 255, 255, 255))
+                : new SolidColorBrush(Color.FromArgb(110, 95, 125, 165)),
             BorderBrush = new SolidColorBrush(Color.FromArgb(85, 175, 205, 235)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(15),
@@ -737,12 +741,28 @@ public partial class MainWindow : Window
         };
         AddWelcomeProfileTab();
         Grid.SetRow(profileCard, 2); Grid.SetColumn(profileCard, 1); root.Children.Add(profileCard);
-        foreach (var openedPlayer in _openPlayerRecords.Values.ToList())
-            await ShowPlayerProfileAsync(openedPlayer);
+
+        // Restore previously opened profiles after the workspace is displayed. Do not make
+        // navigation wait for a chain of profile queries when the user switches workspaces.
+        var profilesToRestore = _openPlayerRecords.Values.ToList();
         if (_profileExpanded) ToggleProfileExpanded(true);
+        if (profilesToRestore.Count > 0)
+            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(async () => await RestoreOpenPlayerProfilesAsync(profilesToRestore)));
 
         await Task.CompletedTask;
         return root;
+    }
+
+    private async Task RestoreOpenPlayerProfilesAsync(IReadOnlyList<PlayerRecord> profiles)
+    {
+        foreach (var profile in profiles)
+        {
+            if (_activePage is not ("Players" or "Recruitment") || _profileTabs is null)
+                return;
+            try { await ShowPlayerProfileAsync(profile); }
+            catch (Exception ex) { AtlasLog.Warn("Deferred profile restore skipped for " + profile.Name + ": " + ex.Message); }
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
     }
 
     private void AddWelcomeProfileTab()
@@ -2183,7 +2203,8 @@ public partial class MainWindow : Window
             mapped = key switch
             {
                 "#E8EEF4" => "#172B40",
-                "#C6F36B" or "#D5E5C3" => "#397FC1",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" => "#397FC1",
+                "#294765" => "#DCEBFA",
                 "#9EADB9" => "#657A8F",
                 "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#D1DDE8",
                 "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#FFFFFF",
