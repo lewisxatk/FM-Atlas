@@ -1857,7 +1857,7 @@ public sealed class ScoutDatabase
             warnings.Add($"Club rows skipped during indexing: read={scannedClubs:N0}, indexed={clubCount:N0}. Rows without a usable identity or name were excluded.");
 
         // Keep all additional save tables in a lossless JSON sidecar table so later modules can build on them.
-        var extraNames = new[] { "managed_clubs", "staff_lists", "contracts", "suspensions", "finances", "sponsorships", "facilities", "stadiums", "affiliates", "job_vacancies", "stages", "competitions", "nations", "injury_types", "injuries", "player_season_stats", "player_season_history", "player_match_stats", "fixtures", "league_tables", "competition_rules", "transfer_windows", "tactics", "training", "mentoring", "set_pieces", "selections" };
+        var extraNames = new[] { "managed_clubs", "staff_lists", "contracts", "suspensions", "finances", "sponsorships", "facilities", "stadiums", "affiliates", "job_vacancies", "stages", "competitions", "nations", "injury_types", "injuries", "player_season_stats", "player_season_history", "player_match_stats", "team_match_stats", "fixtures", "league_tables", "competition_rules", "transfer_windows", "officials", "squad_planner", "tactics", "training", "mentoring", "set_pieces", "selections" };
         var extraInsert = db.CreateCommand(); extraInsert.Transaction = (SqliteTransaction)tx;
         extraInsert.CommandText = "INSERT INTO FmsaveExtraTables(SnapshotId,TableName,RowIndex,RawJson) VALUES($snapshot,$table,$index,$raw);";
         extraInsert.Parameters.AddWithValue("$snapshot", snapshotId); extraInsert.Parameters.Add("$table", SqliteType.Text); extraInsert.Parameters.Add("$index", SqliteType.Integer); extraInsert.Parameters.Add("$raw", SqliteType.Text);
