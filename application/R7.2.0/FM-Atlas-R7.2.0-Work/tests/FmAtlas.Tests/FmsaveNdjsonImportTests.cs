@@ -744,6 +744,70 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal("FMSAVE:FM27:test-db:1001", Assert.Single(page1).SourceId);
         Assert.Equal("LOCAL:advanced:young", Assert.Single(page2).SourceId);
 
+        await using (var db = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            var insert = db.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO Players
+                    (SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,
+                     HomeGrownClub,HomeGrownNation,DataOrigin,UpdatedUtc)
+                VALUES
+                    ($source,$name,21,'Advanced FC','England','Test League','CM',100,140,
+                     $club,$nation,'Home-grown search fixture','2026-11-14');
+                """;
+            insert.Parameters.Add("$source", SqliteType.Text);
+            insert.Parameters.Add("$name", SqliteType.Text);
+            insert.Parameters.Add("$club", SqliteType.Integer);
+            insert.Parameters.Add("$nation", SqliteType.Integer);
+            foreach (var row in new[]
+            {
+                (Source: "LOCAL:advanced:club-grown", Name: "Club Trained Player", Club: (int?)1, Nation: (int?)0),
+                (Source: "LOCAL:advanced:nation-grown", Name: "Nation Trained Player", Club: (int?)0, Nation: (int?)1),
+                (Source: "LOCAL:advanced:homegrown-unknown", Name: "Unreported Homegrown Player", Club: (int?)null, Nation: (int?)null)
+            })
+            {
+                insert.Parameters["$source"].Value = row.Source;
+                insert.Parameters["$name"].Value = row.Name;
+                insert.Parameters["$club"].Value = (object?)row.Club ?? DBNull.Value;
+                insert.Parameters["$nation"].Value = (object?)row.Nation ?? DBNull.Value;
+                await insert.ExecuteNonQueryAsync();
+            }
+        }
+
+        Assert.Contains(availableFields, x => x.Key.Equals("player:HomeGrownClub", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(availableFields, x => x.Key.Equals("player:HomeGrownNation", StringComparison.OrdinalIgnoreCase));
+
+        var clubGrown = await database.SearchAdvancedPlayersAsync(null, new[]
+        {
+            new AdvancedSearchCriterion("player:HomeGrownClub", null, null, null, true)
+        }, limit: 20);
+        var notClubGrown = await database.SearchAdvancedPlayersAsync(null, new[]
+        {
+            new AdvancedSearchCriterion("player:HomeGrownClub", null, null, null, false)
+        }, limit: 20);
+        var nationGrown = await database.SearchAdvancedPlayersAsync(null, new[]
+        {
+            new AdvancedSearchCriterion("player:HomeGrownNation", null, null, null, true)
+        }, limit: 20);
+
+        Assert.Equal("LOCAL:advanced:club-grown", Assert.Single(clubGrown).SourceId);
+        Assert.Equal("Yes", clubGrown[0].DisplayHomeGrownClub);
+        Assert.Equal("LOCAL:advanced:nation-grown", Assert.Single(nationGrown).SourceId);
+        Assert.Equal("LOCAL:advanced:nation-grown", Assert.Single(notClubGrown).SourceId);
+        Assert.Equal("No", notClubGrown[0].DisplayHomeGrownClub);
+        Assert.DoesNotContain(clubGrown, x => x.SourceId == "LOCAL:advanced:homegrown-unknown");
+        Assert.DoesNotContain(notClubGrown, x => x.SourceId == "LOCAL:advanced:homegrown-unknown");
+
+        var unreported = await database.SearchAdvancedPlayersAsync(null, new[]
+        {
+            new AdvancedSearchCriterion("player:Age", 21, 21, null, null)
+        }, limit: 20);
+        var unknownHomegrown = Assert.Single(unreported.Where(x => x.SourceId == "LOCAL:advanced:homegrown-unknown"));
+        Assert.Equal("Unknown", unknownHomegrown.DisplayHomeGrownClub);
+        Assert.Equal("Unknown", unknownHomegrown.DisplayHomeGrownNation);
+
         var tooManyConditions = Enumerable.Range(0, 61)
             .Select(_ => new AdvancedSearchCriterion("player:Age", 18, 60, null, null))
             .ToList();

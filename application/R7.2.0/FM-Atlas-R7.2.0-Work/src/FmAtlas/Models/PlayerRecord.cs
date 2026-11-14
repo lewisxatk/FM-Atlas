@@ -24,6 +24,8 @@ public sealed class PlayerRecord
     public string DisplayAbility => CurrentAbility?.ToString() ?? "—";
     public string DisplayPotential => PotentialAbility?.ToString() ?? "—";
     public string DisplayValue => Value.HasValue ? Value.Value.ToString("N0") : "—";
+    public string DisplayHomeGrownClub => HomeGrownClub switch { true => "Yes", false => "No", null => "Unknown" };
+    public string DisplayHomeGrownNation => HomeGrownNation switch { true => "Yes", false => "No", null => "Unknown" };
 }
 
 public sealed class ShortlistRecord

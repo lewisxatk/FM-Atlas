@@ -38,7 +38,7 @@ public partial class MainWindow
         var savedProfiles = AdvancedSearchProfileStore.LoadAll().ToList();
         var resultColumns = new Dictionary<string, DataGridColumn>(StringComparer.OrdinalIgnoreCase);
         var columnChecks = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
-        string[] defaultVisibleColumns = { "Name", "Age", "Club", "Position", "League", "Nation", "DisplayAbility", "DisplayPotential", "DisplayValue", "DataOrigin" };
+        string[] defaultVisibleColumns = { "Name", "Age", "Club", "Position", "League", "Nation", "DisplayHomeGrownClub", "DisplayHomeGrownNation", "DisplayAbility", "DisplayPotential", "DisplayValue", "DataOrigin" };
         StackPanel conditionPanel = null!;
         TextBlock status = null!;
         Button searchButton = null!;
@@ -181,6 +181,8 @@ public partial class MainWindow
         AddResultColumn("POSITION", "Position", .7);
         AddResultColumn("LEAGUE", "League", 1.0);
         AddResultColumn("NATION", "Nation", .8);
+        AddResultColumn("HOME-GROWN · CLUB", "DisplayHomeGrownClub", .72);
+        AddResultColumn("HOME-GROWN · NATION", "DisplayHomeGrownNation", .72);
         AddResultColumn("CA", "DisplayAbility", .45);
         AddResultColumn("PA", "DisplayPotential", .45);
         AddResultColumn("VALUE", "DisplayValue", .7);
@@ -190,8 +192,9 @@ public partial class MainWindow
         var columnNames = new (string Key, string Label)[]
         {
             ("Name", "Player"), ("Age", "Age"), ("Club", "Club"), ("Position", "Position"),
-            ("League", "League"), ("Nation", "Nation"), ("DisplayAbility", "CA"),
-            ("DisplayPotential", "PA"), ("DisplayValue", "Value"), ("DataOrigin", "Source")
+            ("League", "League"), ("Nation", "Nation"),
+            ("DisplayHomeGrownClub", "Home-grown (club)"), ("DisplayHomeGrownNation", "Home-grown (nation)"),
+            ("DisplayAbility", "CA"), ("DisplayPotential", "PA"), ("DisplayValue", "Value"), ("DataOrigin", "Source")
         };
         foreach (var item in columnNames)
         {
