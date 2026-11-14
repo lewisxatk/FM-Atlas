@@ -1,6 +1,6 @@
-# FM Atlas V8 — Atlas Liquid
+# FM Atlas V8 — Monolith Glass
 
-FM Atlas is a Windows desktop scouting, career-intelligence, analytics, squad-planning and editing workbench for Football Manager 27. V8 keeps the R7.2.0 data and workspace foundation while rebuilding the application shell around the Atlas Liquid visual system. The source is still subject to a clean Windows Release build and user-side acceptance testing.
+FM Atlas is a Windows desktop scouting, career-intelligence, analytics, squad-planning and editing workbench for Football Manager 27. V8 keeps the R7.2.0 data and workspace foundation while rebuilding the application shell around the graphite-and-amber Monolith Glass visual system. The source is still subject to a clean Windows Release build and user-side acceptance testing.
 
 ## V8 design direction — Monolith Glass
 
