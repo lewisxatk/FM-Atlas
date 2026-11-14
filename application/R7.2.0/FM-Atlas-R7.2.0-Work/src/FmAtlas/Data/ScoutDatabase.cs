@@ -16,6 +16,8 @@ public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerN
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
 public sealed record AtlasLocalEntityOverride(string EntityType, string SourceId, string Group, string Field, string OriginalValue, string OverrideValue, string SourceLabel, string UpdatedUtc);
 public sealed record AtlasLocalEntityEdit(string Group, string Field, string OriginalValue, string Value, string SourceLabel);
+public sealed record FmsaveExtraTableSummary(string TableName, int Count);
+public sealed record FmsaveExtraRowRecord(int SnapshotId, string TableName, int RowIndex, string Label, string SourceId);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
 public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value);
 public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int StaffImported, int ClubsImported, int ExtraRowsImported, IReadOnlyDictionary<string,int> TableCounts, IReadOnlyList<string> Warnings);
@@ -520,6 +522,101 @@ public sealed class ScoutDatabase
     /// Local overlay for any scalar fact imported from an FM save or live read.
     /// This never writes into Football Manager memory or mutates the imported snapshot.
     /// </summary>
+
+    public async Task<List<FmsaveExtraTableSummary>> GetFmsaveExtraTableNamesAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            SELECT TableName,COUNT(*) FROM FmsaveExtraTables
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+            GROUP BY TableName ORDER BY TableName COLLATE NOCASE;
+            """;
+        var result = new List<FmsaveExtraTableSummary>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            result.Add(new FmsaveExtraTableSummary(reader.GetString(0), reader.GetInt32(1)));
+        return result;
+    }
+
+    public async Task<List<FmsaveExtraRowRecord>> SearchFmsaveExtraRowsAsync(
+        string tableName, string? query = null, int limit = 500, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(tableName)) return new List<FmsaveExtraRowRecord>();
+        limit = Math.Clamp(limit, 1, 2_000);
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            SELECT SnapshotId,TableName,RowIndex,RawJson FROM FmsaveExtraTables
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND TableName=$table AND ($query='' OR RawJson LIKE $pattern)
+            ORDER BY RowIndex LIMIT $limit;
+            """;
+        var search = (query ?? string.Empty).Trim();
+        cmd.Parameters.AddWithValue("$table", tableName);
+        cmd.Parameters.AddWithValue("$query", search);
+        cmd.Parameters.AddWithValue("$pattern", "%" + search.Replace("%", "\\%").Replace("_", "\\_") + "%");
+        cmd.Parameters.AddWithValue("$limit", limit);
+        var rows = new List<FmsaveExtraRowRecord>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var snapshot = reader.GetInt32(0);
+            var table = reader.GetString(1);
+            var index = reader.GetInt32(2);
+            var raw = reader.GetString(3);
+            var label = $"Record {index + 1:N0}";
+            try
+            {
+                using var doc = JsonDocument.Parse(raw);
+                if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var key in new[] { "name", "full_name", "common_name", "short_name", "competition_name", "nation_name", "stadium_name", "city_name", "club_name", "player_name", "official_name", "title", "description" })
+                    {
+                        if (doc.RootElement.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String
+                            && !string.IsNullOrWhiteSpace(value.GetString()))
+                        {
+                            label = value.GetString()!;
+                            break;
+                        }
+                    }
+                    if (label.StartsWith("Record ", StringComparison.Ordinal))
+                    {
+                        foreach (var key in new[] { "uid", "id", "unique_id", "competition_id", "nation_id", "stadium_id" })
+                            if (doc.RootElement.TryGetProperty(key, out var value) && value.ValueKind is JsonValueKind.String or JsonValueKind.Number)
+                            { label = $"{key} {value}"; break; }
+                    }
+                }
+            }
+            catch (JsonException) { label += " · malformed JSON"; }
+            rows.Add(new FmsaveExtraRowRecord(snapshot, table, index, label, $"FMSAVE_EXTRA:{snapshot}:{table}:{index}"));
+        }
+        return rows;
+    }
+
+    public async Task<List<AtlasFactRecord>> GetFmsaveExtraRowFactsAsync(
+        int snapshotId, string tableName, int rowIndex, CancellationToken cancellationToken = default)
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var cmd = db.CreateCommand();
+        cmd.CommandText = "SELECT RawJson FROM FmsaveExtraTables WHERE SnapshotId=$snapshot AND TableName=$table AND RowIndex=$index LIMIT 1;";
+        cmd.Parameters.AddWithValue("$snapshot", snapshotId);
+        cmd.Parameters.AddWithValue("$table", tableName);
+        cmd.Parameters.AddWithValue("$index", rowIndex);
+        var raw = Convert.ToString(await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+        if (string.IsNullOrWhiteSpace(raw)) return new List<AtlasFactRecord>();
+        using var doc = JsonDocument.Parse(raw);
+        return FlattenScalarFacts(doc.RootElement)
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key))
+            .Take(2_000)
+            .Select(x => new AtlasFactRecord(tableName, x.Key,
+                x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue))
+            .ToList();
+    }
+
     public async Task<List<AtlasLocalEntityOverride>> GetLocalEntityOverridesAsync(
         string entityType, string sourceId, CancellationToken cancellationToken = default)
     {
@@ -549,7 +646,16 @@ public sealed class ScoutDatabase
         IReadOnlyList<AtlasLocalEntityEdit> fields, CancellationToken cancellationToken = default)
     {
         var type = (entityType ?? string.Empty).Trim().ToLowerInvariant();
-        if (type is not ("player" or "staff" or "club" or "competition" or "nation" or "stadium" or "other"))
+        var supportedEntityTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "player", "staff", "club", "competition", "nation", "stadium", "other",
+            "contracts", "suspensions", "staff_lists", "managed_clubs", "finances", "sponsorships",
+            "facilities", "affiliates", "job_vacancies", "stages", "fixtures", "league_tables",
+            "competition_rules", "transfer_windows", "officials", "player_match_stats",
+            "team_match_stats", "player_season_stats", "player_season_history", "squad_planner",
+            "injury_types", "injuries", "training", "mentoring", "tactics", "set_pieces", "selections"
+        };
+        if (!supportedEntityTypes.Contains(type))
             throw new ArgumentOutOfRangeException(nameof(entityType), "Unsupported local entity type.");
         if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("An entity source ID is required.", nameof(sourceId));
         if (fields.Count == 0) return;
