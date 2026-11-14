@@ -65,6 +65,7 @@
 - [x] Keep the universal Advanced Search hub and existing multi-condition player filters.
 - [x] Keep the multi-attribute/personality builder and its ALL/AND and ANY/OR behaviour.
 - [x] Expose CA and PA in player search result columns and the existing database filter model.
+- [x] Add direct min/max CA and PA controls to the existing paged Players finder, including negative PA ranges, filter-only searches and consistent live/offline source counts.
 - [x] Store live player CA/PA in the same player table used by the existing search/profile workspace.
 - [x] Preserve negative PA values used by random-potential ranges rather than dropping them.
 - [x] Store the live 1–20 player attribute candidates in PlayerAttributes so the existing player profile and attribute search can use them.
@@ -94,6 +95,7 @@
 
 - [ ] Search by name, club, nation and UID against the current live career.
 - [ ] Confirm CA/PA values and negative PA values display correctly.
+- [ ] Verify CA/PA range filters return the same live/offline results and counts on the Windows build.
 - [ ] Confirm all available live player attributes appear in the correct profile groups.
 - [ ] Confirm a player selected from the live list opens a profile with no missing stored attributes.
 - [ ] Confirm saved searches, filters and profiles still work after a career reload.
