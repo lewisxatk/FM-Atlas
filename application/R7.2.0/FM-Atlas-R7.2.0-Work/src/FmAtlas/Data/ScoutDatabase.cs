@@ -2699,10 +2699,8 @@ public sealed class ScoutDatabase
             FROM aggregated a
             INNER JOIN Players p ON p.SourceId=a.PlayerSourceId
             WHERE p.Value IS NOT NULL AND p.Value>0
-            ORDER BY p.Name COLLATE NOCASE
-            LIMIT $limit;
+            ORDER BY p.Name COLLATE NOCASE;
             """;
-        command.Parameters.AddWithValue("$limit", safeLimit);
 
         var raw = new List<(PlayerRecord Player, double Performance, double Minutes, int SampleSize, string Period)>();
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -2810,6 +2808,7 @@ public sealed class ScoutDatabase
         .OrderByDescending(x => x.ValueGap)
         .ThenByDescending(x => x.PerformancePercentile)
         .ThenBy(x => x.Player.Name, StringComparer.OrdinalIgnoreCase)
+        .Take(safeLimit)
         .ToList();
     }
 

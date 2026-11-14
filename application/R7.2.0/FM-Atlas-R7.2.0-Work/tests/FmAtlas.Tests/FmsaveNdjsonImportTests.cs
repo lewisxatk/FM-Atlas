@@ -524,6 +524,107 @@ public sealed class FmsaveNdjsonImportTests
 
 
     [Fact]
+    public async Task PerformanceValuePercentilesUseFullEligiblePoolBeforeApplyingDisplayLimit()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "performance-value-limit", playerManifestCount: 1,
+            includeContractRow: false, includeSeasonStatsRow: true);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+        var snapshotId = await ScalarIntAsync(databasePath,
+            "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;");
+
+        var cohort = new[]
+        {
+            ("cohort-aardvark", "FMSAVE:FM27:cohort:aardvark", "Aardvark overpriced", 5_000_000d, 0d),
+            ("cohort-bargain", "FMSAVE:FM27:cohort:bargain", "Bargain striker", 1_000d, 6d),
+            ("cohort-charlie", "FMSAVE:FM27:cohort:charlie", "Charlie mid value", 250_000d, 15d),
+            ("cohort-zulu", "FMSAVE:FM27:cohort:zulu", "Zulu elite bargain", 2_000d, 30d)
+        };
+
+        await using (var db = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            await using var transaction = await db.BeginTransactionAsync();
+
+            var playerInsert = db.CreateCommand();
+            playerInsert.Transaction = (SqliteTransaction)transaction;
+            playerInsert.CommandText = """
+                INSERT INTO Players
+                    (SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,DataOrigin,UpdatedUtc)
+                VALUES
+                    ($source,$name,21,'Cohort FC','England','Test League','ST',120,150,$value,'Synthetic percentile fixture','2026-11-14');
+                """;
+            playerInsert.Parameters.Add("$source", SqliteType.Text);
+            playerInsert.Parameters.Add("$name", SqliteType.Text);
+            playerInsert.Parameters.Add("$value", SqliteType.Real);
+            playerInsert.Prepare();
+
+            var snapshotInsert = db.CreateCommand();
+            snapshotInsert.Transaction = (SqliteTransaction)transaction;
+            snapshotInsert.CommandText = """
+                INSERT INTO FmsavePlayerSnapshots(SnapshotId,PlayerUid,PlayerSourceId,RawJson)
+                VALUES($snapshot,$uid,$source,'{}');
+                """;
+            snapshotInsert.Parameters.Add("$snapshot", SqliteType.Integer);
+            snapshotInsert.Parameters.Add("$uid", SqliteType.Text);
+            snapshotInsert.Parameters.Add("$source", SqliteType.Text);
+            snapshotInsert.Prepare();
+
+            var factInsert = db.CreateCommand();
+            factInsert.Transaction = (SqliteTransaction)transaction;
+            factInsert.CommandText = """
+                INSERT INTO FmsaveStatFacts
+                    (SnapshotId,TableName,RowIndex,PlayerUid,PeriodKey,Minutes,FieldKey,NumericValue)
+                VALUES($snapshot,'player_season_stats',$row,$uid,'2026/27',900,'goals',$goals);
+                """;
+            factInsert.Parameters.Add("$snapshot", SqliteType.Integer);
+            factInsert.Parameters.Add("$row", SqliteType.Integer);
+            factInsert.Parameters.Add("$uid", SqliteType.Text);
+            factInsert.Parameters.Add("$goals", SqliteType.Real);
+            factInsert.Prepare();
+
+            for (var i = 0; i < cohort.Length; i++)
+            {
+                var (uid, source, name, value, goals) = cohort[i];
+                playerInsert.Parameters["$source"].Value = source;
+                playerInsert.Parameters["$name"].Value = name;
+                playerInsert.Parameters["$value"].Value = value;
+                await playerInsert.ExecuteNonQueryAsync();
+
+                snapshotInsert.Parameters["$snapshot"].Value = snapshotId;
+                snapshotInsert.Parameters["$uid"].Value = uid;
+                snapshotInsert.Parameters["$source"].Value = source;
+                await snapshotInsert.ExecuteNonQueryAsync();
+
+                factInsert.Parameters["$snapshot"].Value = snapshotId;
+                factInsert.Parameters["$row"].Value = 2000 + i;
+                factInsert.Parameters["$uid"].Value = uid;
+                factInsert.Parameters["$goals"].Value = goals;
+                await factInsert.ExecuteNonQueryAsync();
+            }
+
+            await transaction.CommitAsync();
+        }
+
+        var results = await database.GetPerformanceValueCandidatesAsync(
+            "goals", per90: true, minimumMinutes: 450, limit: 2);
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal("FMSAVE:FM27:cohort:zulu", results[0].Player.SourceId);
+        Assert.Equal(100d, results[0].PerformancePercentile);
+        Assert.Equal(25d, results[0].ValuePercentile);
+        Assert.Equal(100d, results[0].PositionPerformancePercentile);
+        Assert.Equal(100d, results[0].LeaguePerformancePercentile);
+        Assert.Equal(5, results[0].PositionCohortSize);
+        Assert.Equal(5, results[0].LeagueCohortSize);
+        Assert.Equal(100d, results[0].DataCoverage);
+    }
+
+    [Fact]
     public void RoleFitProfileStoreAtomicallySavesReplacesLoadsAndDeletesCustomTemplates()
     {
         using var temp = new TemporaryFolder();
