@@ -145,6 +145,7 @@ The first integrated V8 source pass has now:
 - Replaced the old shell header with a glass-style toolbar of icon actions and explanatory hover tooltips.
 - Rebuilt the side rail into grouped, collapsible workspace navigation with active-state styling and destination descriptions on hover.
 - Added persisted Glass Dark, Glass Light and Studio appearance selection.
+- Added a dedicated Advanced Search hub that routes users into the existing player, attribute/personality, performance-stat and multi-entity search workspaces and shows current field coverage counts.
 - Added hover, pressed and disabled feedback to shared rounded button templates.
 - Kept navigation controls enabled during workspace construction and retained the latest requested destination for the next navigation.
 - Moved restoration of previously opened player profiles off the initial Players workspace construction path.
