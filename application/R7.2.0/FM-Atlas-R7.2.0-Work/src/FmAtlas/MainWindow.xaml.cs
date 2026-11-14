@@ -1895,9 +1895,27 @@ public partial class MainWindow : Window
             if (requestVersion != staffProfileVersion) return;
             profileStack.Children.Clear(); profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt(person.Name, 22, true, Ink));
             AddDetailRow(profileStack, "Role", person.Job); AddDetailRow(profileStack, "Club", person.Club); AddDetailRow(profileStack, "Age", person.Age?.ToString()); AddDetailRow(profileStack, "Nation", person.Nation); AddDetailRow(profileStack, "Current ability", person.CurrentAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Potential ability", person.PotentialAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Human manager", person.IsHumanManager ? "Yes" : "No / not identified"); AddDetailRow(profileStack, "Source / confidence", person.ValidationStatus); AddDetailRow(profileStack, "Record ID", person.SourceId);
+            var preferenceFacts = facts.Where(x => x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (preferenceFacts.Count > 0)
+            {
+                profileStack.Children.Add(Txt("PREFERRED JOB MATCH · PROVISIONAL", 9, true, Teal) is var preferenceHeader ? Configure(preferenceHeader, new Thickness(0, 17, 0, 6)) : new TextBlock());
+                var topJob = preferenceFacts.FirstOrDefault(x => x.Field.Equals("preference.top_job", StringComparison.OrdinalIgnoreCase));
+                var preferenceSummary = preferenceFacts.FirstOrDefault(x => x.Field.Equals("preference.summary", StringComparison.OrdinalIgnoreCase));
+                var highest = preferenceFacts.FirstOrDefault(x => x.Field.Equals("preference.highest_rating", StringComparison.OrdinalIgnoreCase));
+                AddDetailRow(profileStack, "Preferred job", topJob?.Value ?? preferenceSummary?.Value ?? "No clear preferred job recorded");
+                if (highest?.Value is not null) AddDetailRow(profileStack, "Highest preference rating", highest.Value + " / 20");
+                foreach (var fact in preferenceFacts
+                    .Where(x => !x.Field.Equals("preference.top_job", StringComparison.OrdinalIgnoreCase)
+                        && !x.Field.Equals("preference.summary", StringComparison.OrdinalIgnoreCase)
+                        && !x.Field.Equals("preference.highest_rating", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(x => double.TryParse(x.Value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var score) ? score : -1)
+                    .Take(15))
+                    AddDetailRow(profileStack, fact.Field["preference.".Length..].Replace('_', ' '), fact.Value + " / 20");
+                profileStack.Children.Add(Txt("FM27 stores broad role groups; analyst preference combines recruitment and performance analysis, and one group remains unresolved. Scores are not a guarantee of job suitability.", 9, false, Muted, wrap: true));
+            }
             profileStack.Children.Add(Txt("IMPORTED STAFF FACTS", 9, true, Teal) is var h ? Configure(h, new Thickness(0, 17, 0, 6)) : new TextBlock());
             if (facts.Count == 0) profileStack.Children.Add(Txt("No additional staff facts were imported.", 10, false, Muted));
-            foreach (var group in facts.GroupBy(x => x.Group))
+            foreach (var group in facts.Where(x => !x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)).GroupBy(x => x.Group))
             {
                 profileStack.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal));
                 foreach (var fact in group.Take(50)) AddDetailRow(profileStack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
