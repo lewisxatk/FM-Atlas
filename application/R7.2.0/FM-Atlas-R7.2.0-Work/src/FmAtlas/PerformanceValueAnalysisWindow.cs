@@ -134,6 +134,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
         AddColumn("PLAYER", "Player.Name", 1.25);
         AddColumn("CLUB", "Player.Club", .9);
         AddColumn("POSITION", "Player.Position", .7);
+        AddColumn("FM POS RATING", nameof(PerformanceValueCandidate.DisplayPositionRating), .75);
         AddColumn("PERFORMANCE", nameof(PerformanceValueCandidate.DisplayPerformanceValue), .75);
         AddColumn("PERF PCTL", nameof(PerformanceValueCandidate.DisplayPerformancePercentile), .6);
         AddColumn("VALUE PCTL", nameof(PerformanceValueCandidate.DisplayValuePercentile), .6);
@@ -194,6 +195,13 @@ public sealed class PerformanceValueAnalysisWindow : Window
         if (_per90.IsChecked == true && !metric.SupportsPer90)
         {
             _status.Text = "This metric is not eligible for per-90 normalisation.";
+            return;
+        }
+        if (_positionRatingCode.SelectedIndex > 0 &&
+            (!int.TryParse(_minimumPositionRating.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var requestedPositionFloor)
+             || requestedPositionFloor is < 1 or > 20))
+        {
+            _status.Text = "FM position familiarity must be a whole number from 1 to 20.";
             return;
         }
 
