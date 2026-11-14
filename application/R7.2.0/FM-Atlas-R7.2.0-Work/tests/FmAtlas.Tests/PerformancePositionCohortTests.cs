@@ -75,6 +75,11 @@ public sealed class PerformancePositionCohortTests
             Assert.Equal(18, candidate.PositionRating);
             Assert.Equal(1, candidate.SampleSize);
             Assert.Equal(1_000_000m, candidate.Player.Value);
+
+            var unrestricted = await database.GetPerformanceValueCandidatesAsync(
+                "goals", per90: true, minimumMinutes: 450, limit: 100);
+            Assert.Equal(3, unrestricted.Count);
+            Assert.All(unrestricted, item => Assert.Null(item.PositionRating));
         }
         finally
         {
