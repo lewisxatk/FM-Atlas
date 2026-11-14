@@ -37,6 +37,27 @@ public static class StaffAttributeDecoder
         ("working_with_youngsters", 0x1C)
     };
 
+    private static readonly string[] PersonalityKeys =
+    {
+        "adaptability", "ambition", "loyalty", "pressure",
+        "professionalism", "sportsmanship", "temperament", "controversy"
+    };
+
+    public static IReadOnlyDictionary<string, double> DecodePersonality(ReadOnlySpan<byte> staffObject, int identityShift)
+    {
+        if (identityShift is not (0 or 0x340))
+            throw new ArgumentOutOfRangeException(nameof(identityShift), "FM27 staff identity shift must match a documented layout.");
+        var values = new Dictionary<string, double>(PersonalityKeys.Length, StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < PersonalityKeys.Length; i++)
+        {
+            var offset = 0x170 + identityShift + i;
+            if ((uint)offset >= (uint)staffObject.Length) continue;
+            var rating = staffObject[offset];
+            if (rating is >= 1 and <= 20) values[PersonalityKeys[i]] = rating;
+        }
+        return values;
+    }
+
     public static IReadOnlyDictionary<string, double> Decode(ReadOnlySpan<byte> staffObject)
     {
         var values = new Dictionary<string, double>(CoachingFields.Length + DirectRatings.Length,
