@@ -39,13 +39,13 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Initial Glass Dark / Glass Light / Studio theme selector and persisted preference committed.
 - [x] Ctrl+K search shortcut wired to existing global search.
 - [x] Live-memory scan action disabled in the new shell.
-- [ ] Refine all reusable component states: default, hover, pressed, focused, disabled, selected and busy.
-- [ ] Add clear accessible labels and keyboard focus traversal to all icon-only toolbar controls.
+- [~] Reusable shared button states are implemented for default, hover, pressed, keyboard focus and disabled; selected navigation is styled. Busy-state templates remain outstanding.
+- [x] Add automation names/help text and keyboard focus support to icon-only toolbar controls.
 - [ ] Verify hover/focus tooltips are accurate, readable and stable on every toolbar/navigation action.
-- [ ] Complete theme token mapping for all legacy workspaces; remove hard-coded old palette remnants.
+- [~] Initial legacy palette mapping to Atlas Liquid blue/neutral tones is in place; complete token migration and remove hard-coded remnants.
 - [ ] Apply consistent Atlas Liquid surfaces to dialogs, tabs, filters, grids, charts and empty/loading/error states.
-- [ ] Add Reduce Motion setting and honour Windows accessibility/high-contrast preferences.
-- [ ] Add lightweight workspace transitions and chart transitions without blocking input.
+- [~] Workspace fade-in honours the Windows client-area animation preference; an in-app Reduce Motion setting and full high-contrast pass remain outstanding.
+- [~] A 150 ms system-aware workspace fade-in is implemented; chart transitions and broader interaction motion remain outstanding.
 - [ ] Build and manually review shell at 100%, 125%, 150% Windows display scaling and common laptop/desktop resolutions.
 - [ ] Validate Glass Light, Glass Dark and Studio visually and functionally.
 
@@ -54,7 +54,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Navigation no longer disables all sidebar controls while a workspace is loading; latest destination can be queued.
 - [ ] Replace monolithic MainWindow code-behind with testable view models/services (incrementally; retain proven legacy workspaces until replacement).
 - [ ] Add cancellable workspace-load/query operations and stale-request cancellation.
-- [ ] Ensure navigation never waits for sequential restoration of every previously opened player profile.
+- [x] Previously opened player profiles are restored after the Players workspace is displayed, not awaited in the navigation construction path.
 - [ ] Add a background job centre with stages, elapsed time, cancellation, completion and failure details.
 - [ ] Persist selected workspace, open tabs, filters, grid columns and layout state.
 - [ ] Verify UI remains responsive during large queries/imports and failures leave the last stable workspace usable.
@@ -88,8 +88,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 5. Player discovery and advanced search
 
-- [ ] Complete indexed, paged player search with cancellation and stable sorting.
-- [ ] Build dedicated advanced-search workspace, not a fixed modal dialog.
+- [~] Existing player results are indexed/paged in source; cancellation and full stable sorting still require validation and implementation.
+- [~] Added a dedicated Advanced Search hub routing to the current player, attribute/personality, performance-stat and Global Search tools; the full filter-builder workspace is still outstanding.
 - [ ] Add filter library: General, Contract, Technical, Mental, Physical, Hidden, Position, Performance and Source/Coverage.
 - [ ] Add arbitrary available-field filters, min/max, include/exclude and AND/OR condition groups.
 - [ ] Add saved searches/profiles, saved column sets, presets and reset-to-default.
@@ -170,6 +170,12 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
+| 2026-11-14 | Atlas Liquid top toolbar, collapsible navigation, theme cycling, tooltips and responsive navigation | `2ccbbcc5`, `1447e6f7`, `5c1090b0` | Initial shell and deferred profile restoration committed; keyboard/tooltips/DPI acceptance not yet verified. |
+| 2026-11-14 | Blue accent mapping and system-aware workspace transition | `846b98af`, `2fc2e2e0` | Removed legacy lime accent mapping in favour of the Atlas Liquid blue palette; transition respects Windows client-area animation preference. |
+| 2026-11-14 | Dedicated Advanced Search hub | `6ba78cc0`, `1a3c10a4`, `96698d09`, `af414246` | New workspace links to existing player, attribute/personality, statistical and global search tools. It is not yet the universal AND/OR filter builder. |
+| 2026-11-14 | Accessible icon controls | `f07c6e86` | Automation names and help text added to toolbar and navigation icon buttons; visual/accessibility acceptance still pending. |
+| 2026-11-14 | Windows workflow repair | `8531b0c0` | Consolidated duplicate YAML triggers and configured a Windows x64 self-contained publish ZIP and SHA-256 output. Build result remains unverified. |
+| 2026-11-14 | Draft V8 integration pull request | PR [#4](https://github.com/lewisxatk/FM-Atlas/pull/4) | Kept changes isolated from the integration branch pending build and PC acceptance. |
 | 2026-11-14 | Initial V8 durable checklist | `b76f39d7` | Created this checklist; implementation and runtime validation intentionally separate. |
 | 2026-11-14 | Windows x64 build/package automation | `528dfb02` | Workflow now runs on V8 branch pushes, builds Release, publishes self-contained win-x64 output and uploads a ZIP artifact. CI result not yet observed. |
 | 2026-11-14 | SQLite writer coordination and busy timeout | `e63668db` | Added one process-wide writer semaphore around all identified mutations/imports/undo/checkpoint methods and a 30-second lock wait. Concurrency behaviour still requires tests. |
