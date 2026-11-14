@@ -229,7 +229,7 @@ public partial class MainWindow : Window
             careerStack.Children.Add(Txt("Waiting for your FM27 career", 15, true, Ink));
             _connectionSummary = Txt("Open Football Manager 27 and load a career, or import a local save copy.", 10, false, Muted);
             careerStack.Children.Add(_connectionSummary);
-            _liveLoadStatus = Txt("Automatic career detection is active · read-only connection", 9, false, Muted);
+            _liveLoadStatus = Txt("Automatic career detection active · live import paused", 9, false, Muted);
             _liveLoadStatus.Margin = new Thickness(0, 5, 0, 0);
             careerStack.Children.Add(_liveLoadStatus);
             _liveLoadProgress = new ProgressBar { Height = 4, Minimum = 0, Maximum = 100, Value = 0, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 5, 0, 0), Foreground = Brush("#3988C8"), Background = Brush("#DCE8F2") };
@@ -2734,7 +2734,7 @@ public partial class MainWindow : Window
         var h = (StackPanel)hero.Child;
         h.Children.Add(Txt("FM ATLAS 27 · QUICK START", 10, true, Teal));
         h.Children.Add(Txt("Your career, organised.", 25, true, Ink));
-        h.Children.Add(Txt("A practical guide to FM Atlas 27. Load your FM27 career and Atlas connects to the supported live session automatically. The connection is read-only; live Apply/Undo remains disabled. Offline save import is optional for extended history and match statistics.", 11, false, Muted, wrap: true));
+        h.Children.Add(Txt("A practical guide to FM Atlas 27. Load your FM27 career and Atlas detects the supported process, build and save generation automatically. Full live player/staff/club scanning is paused pending bounded-read and FM stability verification. Import a COPY of your save to populate career data; live Apply/Undo remains disabled.", 11, false, Muted, wrap: true));
         h.Children.Add(SoftButton("Open Global Search  ·  Ctrl + F", (_, _) => ShowGlobalSearch()));
         root.Children.Add(hero);
 
@@ -2749,14 +2749,14 @@ public partial class MainWindow : Window
         }
 
         Section("1 · Detect a career", "Start Football Manager 27 and load your career. Keep FM Atlas open and it will detect the supported process/build/save-generation automatically.", "The detector watches the save-load generation counter and notices when you load a different career. Full live entity-array scanning is currently paused until bounded cancellation, performance and field-witness checks pass. The toolbar action explains this gate; it does not scan the game.", "To populate career data now, import a COPY of your save through the offline read-only save bridge. The live staff/manager importer, SQLite tables and profile UI remain available for controlled fixtures and later verified activation.");
-        Section("2 · Find people", "Use Global Search, Ctrl + K or the Players and Staff directories.", "Search by name, club, nation or UID. CA and PA are included for live player and staff identities where the FM build exposes them; negative PA values are retained for random-potential ranges.", "Open a result to inspect all facts available from the live scan and imported snapshots. A missing field remains blank rather than being guessed.", "The player finder is paged and virtualised so large FM databases stay responsive.");
+        Section("2 · Find people", "Use Global Search, Ctrl + K or the Players and Staff directories.", "Search imported player and staff records by name, club, nation or UID. CA/PA and other live-derived fields remain available only in previously imported/tested records until the live scan gate is safely re-enabled; negative PA values are retained.", "Open a result to inspect facts available from the imported save snapshot and existing local database. A missing field remains blank rather than being guessed.", "The player finder is paged and virtualised so large FM databases stay responsive.");
         Section("3 · Read a player profile", "The profile displays attributes in Technical, Set Pieces, Mental, Physical, Goalkeeping and Hidden groups.", "A dash means the source did not supply a value. It is not zero and is never guessed.", "CA/PA and other parsed FM27 fields can be build-dependent and are marked as source-derived. Cross-check values in the game before making decisions.");
-        Section("4 · Clubs and staff", "Use the My Club toolbar shortcut to open the current human manager's club, or open Clubs to search other teams.", "Open Staff to search the live human manager and staff identities, including CA/PA, club, nation and role candidates. Offline save import can add extended staff facts where available.", "Finances, facilities, stadium and contract values are shown only when retained by a source. Historical money fields must not be treated as current balances without checking their date and unit.");
+        Section("4 · Clubs and staff", "Open Clubs to search imported clubs. The My Club shortcut requires a verified live snapshot from the currently loaded career and remains unavailable while live scanning is paused.", "Open Staff to search staff included in the latest imported save snapshot. Existing live human-manager and staff profile integration remains in the database, but new live staff records are not scanned while the safety gate is off.", "Finances, facilities, stadium and contract values are shown only when retained by a source. Historical money fields must not be treated as current balances without checking their date and unit.");
         Section("5 · Atlas Assistant", "Use the Assistant for straightforward local queries such as players under a specified age or with an attribute threshold.", "The current assistant is a rule-based search composer, not an external generative AI model. It reports only filters it actually applied.", "For more detailed criteria, use Global Search. Keep the Assistant available as a quick way into the database.");
         Section("6 · Your data and safety", "The local database is stored at %LOCALAPPDATA%\\FmAtlas\\scouting.db.", "Offline save imports are retained as versioned snapshots. Career detection is active, but the large live player/staff/club memory scan is paused pending bounded-read, cancellation and FM stability verification. Existing live tables are retained for controlled tests and are not silently promoted to current-session data.", "The live connection is read-only and full live import is fail-closed. Live Apply/Undo remains disabled until every writable field and rollback path is independently certified. Back up the FmAtlas data folder before major changes or moving the application to another PC.");
         Section("7 · Analytics and Mass Edit", "Analytics discovers numeric season/match metrics retained by the latest imported save snapshot. Choose a metric, set minimum/maximum values and search.", "If xG, xA or tackles per 90 are not in the imported source, they will not appear. Atlas does not calculate or invent missing match statistics.", "Mass Edit changes filtered local Atlas player records only. Every changed player is recorded separately in Edit History. Save Atlas checkpoints the local database; it does not save the FM career.");
         Section("8 · Diagnostics", "Use Diagnostics in the top toolbar to export a support report. Check it before sharing because it may include player names, file paths and recent edit history.");
-        Section("Troubleshooting", "If Atlas cannot connect, confirm FM27 has finished loading a career and that the game build is supported. Close duplicate FM instances if more than one is open.", "If the save changed while Atlas was scanning, the session check discards the partial scan; the monitor will reconnect to the newly loaded career.", "Live CA/PA and attribute mappings remain provisional until compared against the FM UI. Use the optional offline save reader when you need historical or match-stat facts.", "After updating, run Build-FM-Atlas-27.bat. The build window must report 0 errors before launching the new executable.");
+        Section("Troubleshooting", "If Atlas cannot connect, confirm FM27 has finished loading a career and that the game build is supported. Close duplicate FM instances if more than one is open.", "If the save changes, the detector reports the new session generation. Full live scans are paused, so it will not automatically import a new snapshot.", "Live CA/PA and attribute mappings remain provisional until compared against the FM UI. Use the optional offline save reader when you need historical or match-stat facts.", "After updating, run Build-FM-Atlas-27.bat. The build window must report 0 errors before launching the new executable.");
         root.Children.Add(SoftButton("Open FM Atlas data folder", (_, _) => { var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas"); Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true }); }));
         return new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = root };
     }
@@ -2825,7 +2825,8 @@ public partial class MainWindow : Window
     }
 
     private bool IsCurrentLiveCareer(WorkspaceMetrics metrics)
-        => _currentLiveProbe is { IsCareerLoaded: true } probe
+        => LiveMemoryImportEnabled
+           && _currentLiveProbe is { IsCareerLoaded: true } probe
            && metrics.LiveSaveLoadCounter.HasValue
            && metrics.LiveSaveLoadCounter.Value == checked((long)probe.SaveLoadCounter);
 
@@ -2835,7 +2836,7 @@ public partial class MainWindow : Window
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
         if (!IsCurrentLiveCareer(metrics))
         {
-            MessageBox.Show(this, "No currently loaded FM27 career is connected. Open your career and let Atlas finish its automatic connection before opening the manager shortcut.", "Manager not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, "A career may be detected, but live entity-array import is paused. Import a COPY of the save for current data; manager shortcuts require a verified live snapshot.", "Manager not available", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         if (string.IsNullOrWhiteSpace(metrics.CurrentManager))
@@ -2853,7 +2854,7 @@ public partial class MainWindow : Window
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
         if (!IsCurrentLiveCareer(metrics))
         {
-            MessageBox.Show(this, "No currently loaded FM27 career is connected. Open your career and let Atlas finish its automatic connection before opening the club shortcut.", "Club not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, "A career may be detected, but live entity-array import is paused. Import a COPY of the save for current data; the My Club shortcut requires a verified live snapshot.", "Club not available", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         if (string.IsNullOrWhiteSpace(metrics.CurrentManagerClub))
