@@ -446,6 +446,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         if (value < 1 || value > 20) throw new ArgumentOutOfRangeException(nameof(value), "FM attributes must be between 1 and 20.");
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
@@ -475,6 +476,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         if (currentAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(currentAbility), "CA must be between 0 and 200.");
         if (potentialAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(potentialAbility), "PA must be between 0 and 200.");
         await using var db = new SqliteConnection(_connectionString);
@@ -510,6 +512,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         if (fields.Count == 0) return;
         if (fields.Count > 60) throw new ArgumentOutOfRangeException(nameof(fields), "A single attribute batch is limited to 60 fields.");
         if (fields.Any(x => string.IsNullOrWhiteSpace(x.AttributeName) || x.Value is < 1 or > 20 || !double.IsFinite(x.Value)))
@@ -553,6 +556,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         var column = fieldName switch { "CurrentAbility" => "CurrentAbility", "PotentialAbility" => "PotentialAbility", _ => throw new ArgumentOutOfRangeException(nameof(fieldName)) };
         if (value is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(value), "CA and PA must be between 0 and 200.");
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false);
@@ -580,6 +584,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false); await using var tx = await db.BeginTransactionAsync();
         var read = db.CreateCommand(); read.Transaction = (SqliteTransaction)tx;
         read.CommandText = "SELECT SourceId,PlayerName,FieldName,OldValue,NewValue,ChangeSource FROM EditHistory WHERE Id=$id;"; read.Parameters.AddWithValue("$id", historyId);
@@ -651,6 +656,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8);
         if (lines.Length < 2) return 0;
         var headers = ParseCsvLine(lines[0]).Select((h,i)=>(h,i)).ToDictionary(x=>x.h.Trim(),x=>x.i,StringComparer.OrdinalIgnoreCase);
@@ -696,6 +702,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8);
         var headerLine = Array.FindIndex(lines, x => x.StartsWith("Player,UID,Section,Field,Offset,Raw,Decoded,Applicability,Confidence,Notes", StringComparison.OrdinalIgnoreCase));
         if (headerLine < 0) throw new InvalidDataException("This is not an FM Atlas R3.4 full-intelligence report. Expected the Player,UID,Section... header.");
@@ -745,6 +752,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
         cmd.CommandText = "UPDATE LivePlayerFacts SET NumericValue=$value,TextValue=NULL,ValidationStatus=$status,UpdatedUtc=$utc WHERE PlayerUid=$uid AND FieldKey=$field;";
@@ -779,6 +787,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -798,6 +807,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -861,6 +871,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -880,6 +891,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         await using var tx = await db.BeginTransactionAsync();
@@ -1231,6 +1243,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         await using var documentStream = File.OpenRead(jsonPath);
         using var document = await JsonDocument.ParseAsync(documentStream, new JsonDocumentOptions { MaxDepth = 128 });
         var root = document.RootElement;
@@ -1428,6 +1441,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         var lines = await File.ReadAllLinesAsync(csvPath, Encoding.UTF8).ConfigureAwait(false);
         if (lines.Length < 2) throw new InvalidDataException("The FM View Exporter CSV is empty or has no data rows.");
         var delimiter = lines[0].Count(c => c == ';') > lines[0].Count(c => c == ',') ? ';' : ',';
@@ -1961,6 +1975,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -1978,6 +1993,7 @@ public sealed class ScoutDatabase
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
+        {
         if (string.IsNullOrWhiteSpace(attributeName)) throw new ArgumentException("Choose an attribute.", nameof(attributeName));
         if (double.IsNaN(value) || double.IsInfinity(value) || (operation.Equals("Set", StringComparison.OrdinalIgnoreCase) && (value < 0 || value > 20)))
             throw new ArgumentOutOfRangeException(nameof(value), "Set values must be between 0 and 20; Add and Scale accept signed adjustments.");
