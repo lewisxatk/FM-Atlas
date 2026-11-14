@@ -77,3 +77,8 @@ No third-party offsets or proprietary scoring formulas are copied. Atlas estimat
 Run the fresh Windows .NET 8 Release restore/build, full xUnit suite, Python save-adapter tests and self-contained Windows x64 publish on this branch. Then perform the planned Windows 10/11 runtime review, DPI review, FM27 Steam/Game Pass attachment tests, Advanced Search regression, Scouting Matrix shortlist round-trip, Tactical Lab role-screening checks, Player Development source checks and save-switch/cancellation acceptance.
 
 Do not merge or distribute as release-ready until these gates pass.
+
+
+## Stage 1 build correction — 14 November 2026
+
+The first V9 Windows Release build restored successfully and passed the Python save-adapter and supported fmsave-reader checks, but compilation stopped in `MainWindow.Intelligence.cs`. The compiler reported CS0165 (captured local variables used before definite assignment) and CS0841 (the Tactical Lab cancellation variable referenced before declaration). The UI event-handler lambdas captured controls and state declared later in the method. The correction moves the Tactical Lab results/cancellation state and dependent controls before the handlers, and moves the Player Development action-button handlers until after the result collections they capture are declared. This is a compile-order correction; it does not change the feature logic. A fresh Windows build is required to verify the correction and discover any subsequent issues.
