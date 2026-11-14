@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using FmAtlas.Models;
+using FmAtlas.Services;
 
 namespace FmAtlas;
 
@@ -28,6 +30,10 @@ public partial class MainWindow
             .ToList();
         var rows = new List<AdvancedSearchUiRow>();
         var results = new List<PlayerRecord>();
+        StackPanel conditionPanel = null!;
+        TextBlock status = null!;
+        Button searchButton = null!;
+        DataGrid grid = null!;
 
         var content = new StackPanel { Margin = new Thickness(2, 0, 2, 18) };
         var introduction = Card(new StackPanel(), 18, new Thickness(0, 0, 0, 12));
@@ -65,7 +71,7 @@ public partial class MainWindow
         toolbar.Children.Add(FilterControl("OPTIONAL PLAYER / CLUB / ID", searchText, 320));
         toolbar.Children.Add(FilterControl("MATCH LOGIC", logic, 180));
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
-        var searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
+        searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
         var resetButton = SoftButton("Reset filters", (_, _) => ResetFilters());
         toolbar.Children.Add(addButton);
         toolbar.Children.Add(searchButton);
@@ -74,10 +80,10 @@ public partial class MainWindow
         toolbar.Children.Add(SoftButton("Multi-entity Search", (_, _) => ShowGlobalSearch()));
         builderStack.Children.Add(toolbar);
 
-        var conditionPanel = new StackPanel();
+        conditionPanel = new StackPanel();
         builderStack.Children.Add(Txt("CONDITIONS · CHOOSE A CATEGORY, FIELD AND VALUE", 8, true, Muted));
         builderStack.Children.Add(conditionPanel);
-        var status = Txt(fields.Count == 0 ? "No fields are available yet. Import a career save copy or add local scouting data." : "Add one or more conditions, then run the search.", 10, false, Muted, wrap: true);
+        status = Txt(fields.Count == 0 ? "No fields are available yet. Import a career save copy or add local scouting data." : "Add one or more conditions, then run the search.", 10, false, Muted, wrap: true);
         status.Margin = new Thickness(2, 8, 2, 0);
         builderStack.Children.Add(status);
         content.Children.Add(builder);
@@ -90,7 +96,7 @@ public partial class MainWindow
         DockPanel.SetDock(resultHeader, Dock.Top);
         dock.Children.Add(resultHeader);
 
-        var grid = CreateGrid();
+        grid = CreateGrid();
         grid.MinHeight = 310;
         grid.MaxHeight = 560;
         grid.Columns.Add(Column("PLAYER", "Name", 1.2));
