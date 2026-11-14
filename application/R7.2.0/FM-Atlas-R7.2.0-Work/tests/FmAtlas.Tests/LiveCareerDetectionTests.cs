@@ -8,6 +8,26 @@ namespace FmAtlas.Tests;
 public sealed class LiveCareerDetectionTests
 {
     [Fact]
+    public void ProcessDiscoveryRequiresTheFootballManagerDataDirectory()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.ProcessProbe-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var executable = Path.Combine(folder, "fm.exe");
+            Assert.False(LiveCareerMonitor.IsFootballManagerInstallPath(executable));
+            Directory.CreateDirectory(Path.Combine(folder, "fm_Data"));
+            Assert.True(LiveCareerMonitor.IsFootballManagerInstallPath(executable));
+            Assert.False(LiveCareerMonitor.IsFootballManagerInstallPath(Path.Combine(folder, "not-fm.exe")));
+            Assert.False(LiveCareerMonitor.IsFootballManagerInstallPath(null));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public void SessionKeyIdentifiesOneLoadedCareerGeneration()
     {
         var probe = new LiveCareerProbe(
