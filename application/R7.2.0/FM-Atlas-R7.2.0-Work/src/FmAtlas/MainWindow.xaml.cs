@@ -1014,6 +1014,34 @@ public partial class MainWindow : Window
         Grid.SetColumn(heroStack, 1); heroGrid.Children.Add(heroStack);
         var actions = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         actions.Children.Add(WhiteButton("＋ Add to shortlist", async (_, _) => { _selectedPlayer = player; await AddSelectedToShortlistAsync(); }));
+        actions.Children.Add(SoftButton("Find similar players", async (_, _) =>
+        {
+            try
+            {
+                var candidates = await RunDatabaseAsync(() => _database.FindSimilarPlayersAsync(
+                    player.SourceId, limit: 100, minimumCommonAttributes: 4, minimumAnchorCoverage: 0.35));
+                new SimilarPlayersWindow(_database, player, candidates) { Owner = this }.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Similar Player Discovery from profile failed.", ex);
+                MessageBox.Show(this, "Similar Player Discovery failed: " + ex.Message, "FM Atlas", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+        actions.Children.Add(SoftButton("Compare open players", async (_, _) =>
+        {
+            var selected = new[] { player }.Concat(_openPlayerRecords.Values
+                    .Where(x => !x.SourceId.Equals(player.SourceId, StringComparison.OrdinalIgnoreCase)))
+                .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.First()).Take(4).ToList();
+            if (selected.Count < 2)
+            {
+                MessageBox.Show(this, "Open at least one other player profile first. Atlas compares up to four players at a time.",
+                    "FM Atlas · Player Comparison", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            await PlayerComparisonWindow.ShowAsync(this, _database, selected);
+        }));
         _profileExpandButton = SoftButton(_profileExpanded ? "Show search results" : "Expand full profile", (_, _) => ToggleProfileExpanded(!_profileExpanded));
         actions.Children.Add(_profileExpandButton);
         actions.Children.Add(SoftButton("Open in Editor Studio", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
@@ -1049,6 +1077,7 @@ public partial class MainWindow : Window
             : "";
         if (!string.IsNullOrWhiteSpace(liveStatus)) profilePanel.Children.Add(Txt(liveStatus, 10, true, Brush("#84612B"), wrap: true));
 
+        AddAttributeRadar(profilePanel, attributes);
         AddOrderedAttributeSections(profilePanel, attributes);
         AddPositionSuitabilityMap(profilePanel, positionFacts, liveFacts);
         AddProfileFactsSection(profilePanel, "POSITION SUITABILITY · SOURCE VALUES", positionFacts, 36);
@@ -1082,6 +1111,129 @@ public partial class MainWindow : Window
         panel.Children.Add(Txt(value, 22, true, Brush("#E8EEF4")));
         panel.Children.Add(Txt(note, 8, false, Brush("#9EADB9"), wrap: true));
         return new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(11), Margin = new Thickness(0, 0, 8, 0), Child = panel };
+    }
+
+
+    private static void AddAttributeRadar(Panel panel, IReadOnlyDictionary<string, double> values)
+    {
+        var categories = new[] { "Technical", "Set Pieces", "Mental", "Physical", "Goalkeeping" };
+        string Normalize(string value)
+        {
+            var last = value.Split(new[] { '·', '.', ':' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? value;
+            return Regex.Replace(last, "[^A-Za-z0-9]", "").ToLowerInvariant();
+        }
+
+        var lookup = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in values)
+        {
+            var key = Normalize(pair.Key);
+            if (key.Length == 0 || !double.IsFinite(pair.Value) || pair.Value is < 1 or > 20) continue;
+            if (!lookup.ContainsKey(key)) lookup[key] = pair.Value;
+        }
+
+        var averages = new List<(string Category, double Value, int Count)>();
+        foreach (var category in categories)
+        {
+            var available = PlayerAttributeSchema.Fields
+                .Where(x => x.Category.Equals(category, StringComparison.OrdinalIgnoreCase))
+                .Select(x => lookup.TryGetValue(Normalize(x.Label), out var rating) ? (double?)rating : null)
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .ToList();
+            if (available.Count > 0) averages.Add((category, available.Average(), available.Count));
+        }
+        if (averages.Count < 3)
+        {
+            panel.Children.Add(Txt("ATTRIBUTE RADAR · At least three attribute groups need imported 1–20 source values. Missing categories are not plotted as zero.",
+                9, false, Muted, wrap: true) is var note ? Configure(note, new Thickness(0, 10, 0, 3)) : new TextBlock());
+            return;
+        }
+
+        var host = new Border
+        {
+            Background = Brush("#171F28"),
+            BorderBrush = Brush("#303943"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(13),
+            Padding = new Thickness(12),
+            Margin = new Thickness(0, 12, 0, 10)
+        };
+        var layout = new StackPanel();
+        layout.Children.Add(Txt("ATTRIBUTE RADAR · IMPORTED AVERAGES", 9, true, Teal));
+        layout.Children.Add(Txt("Average of available source-backed 1–20 ratings per attribute group. This is descriptive, not the game's role formula; missing fields are excluded.",
+            9, false, Muted, wrap: true));
+        var canvas = new Canvas
+        {
+            Width = 570,
+            Height = 330,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Background = Brush("#141C25"),
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        const double centerX = 285, centerY = 158, radius = 108;
+        var gridBrush = Brush("#344656");
+        var axisBrush = Brush("#536B7E");
+        for (var ring = 1; ring <= 5; ring++)
+        {
+            var polygon = new Polygon
+            {
+                Stroke = gridBrush,
+                StrokeThickness = 1,
+                Fill = Brushes.Transparent,
+                Points = new PointCollection(Enumerable.Range(0, averages.Count).Select(index =>
+                {
+                    var angle = -Math.PI / 2 + index * (2 * Math.PI / averages.Count);
+                    var r = radius * ring / 5d;
+                    return new Point(centerX + Math.Cos(angle) * r, centerY + Math.Sin(angle) * r);
+                }))
+            };
+            canvas.Children.Add(polygon);
+        }
+
+        var scorePoints = new PointCollection();
+        for (var i = 0; i < averages.Count; i++)
+        {
+            var angle = -Math.PI / 2 + i * (2 * Math.PI / averages.Count);
+            var end = new Point(centerX + Math.Cos(angle) * radius, centerY + Math.Sin(angle) * radius);
+            canvas.Children.Add(new Line { X1 = centerX, Y1 = centerY, X2 = end.X, Y2 = end.Y, Stroke = axisBrush, StrokeThickness = 1 });
+            var value = averages[i].Value;
+            var pointRadius = radius * value / 20d;
+            scorePoints.Add(new Point(centerX + Math.Cos(angle) * pointRadius, centerY + Math.Sin(angle) * pointRadius));
+            var label = new TextBlock
+            {
+                Text = $"{averages[i].Category}\n{value:0.0}/20 · {averages[i].Count} attrs",
+                Foreground = Ink,
+                FontSize = 10,
+                TextAlignment = TextAlignment.Center,
+                Width = 104
+            };
+            Canvas.SetLeft(label, centerX + Math.Cos(angle) * (radius + 48) - 52);
+            Canvas.SetTop(label, centerY + Math.Sin(angle) * (radius + 45) - 17);
+            canvas.Children.Add(label);
+        }
+        canvas.Children.Add(new Polygon
+        {
+            Points = scorePoints,
+            Stroke = Brush("#75B9E7"),
+            StrokeThickness = 2,
+            Fill = new SolidColorBrush(Color.FromArgb(68, 76, 157, 207))
+        });
+        foreach (var point in scorePoints)
+        {
+            canvas.Children.Add(new Ellipse
+            {
+                Width = 7, Height = 7,
+                Fill = Brush("#A9D7F7"),
+                Stroke = Brush("#E8EEF4"),
+                StrokeThickness = 1
+            });
+            var dot = (Ellipse)canvas.Children[^1];
+            Canvas.SetLeft(dot, point.X - 3.5);
+            Canvas.SetTop(dot, point.Y - 3.5);
+        }
+        layout.Children.Add(canvas);
+        host.Child = layout;
+        panel.Children.Add(host);
     }
 
     private static void AddOrderedAttributeSections(Panel panel, Dictionary<string, double> values)
