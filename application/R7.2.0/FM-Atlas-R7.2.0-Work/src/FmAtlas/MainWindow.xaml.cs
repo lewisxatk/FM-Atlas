@@ -1552,6 +1552,245 @@ public partial class MainWindow : Window
         public string TargetValue { get; set; } = "";
     }
 
+
+    private async Task<UIElement> BuildLiveTacticalEffectivenessEditorAsync(string sourceId, string clubName)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 16, 0, 10) };
+        panel.Children.Add(Txt("TACTICAL EFFECTIVENESS · LIVE FM27", 9, true, Teal));
+        panel.Children.Add(Txt("Match Exposure", 18, true, Ink));
+        panel.Children.Add(Txt(
+            "These are the team's six tactical Match Exposure areas plus Position / Role Shapes. Changes are applied to players' live familiarity records for the tactic currently selected in FM. Training Contribution is calculated by FM from the training history and is not a direct numeric field.",
+            9, false, Muted, wrap: true));
+
+        if (!_editorEnabled)
+        {
+            panel.Children.Add(Txt("Enable Editor to stage and apply tactical changes.", 9, false, Muted));
+            return panel;
+        }
+        if (!sourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase)
+            || !uint.TryParse(sourceId["LIVE:".Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var clubUid))
+        {
+            panel.Children.Add(Txt("Tactical live editing is available only for clubs linked to a currently loaded FM27 career.", 9, false, Muted, wrap: true));
+            return panel;
+        }
+
+        var status = Txt("Reading active team tactic and player familiarity records…", 9, false, Muted, wrap: true);
+        panel.Children.Add(status);
+        try
+        {
+            var processId = await Task.Run(() => LiveEntityMemoryEditService.FindSupportedProcessId());
+            var snapshot = await Task.Run(() =>
+                LiveEntityMemoryEditService.ReadTacticalSnapshot(processId, clubUid, clubName));
+            var rows = new ObservableCollection<LiveTacticalAreaView>(snapshot.Areas.Select(x => new LiveTacticalAreaView
+            {
+                AreaKey = x.Key,
+                Area = x.Label,
+                CurrentValue = x.MatchExposure,
+                TargetValue = x.MatchExposure.ToString(CultureInfo.InvariantCulture),
+                TrainingContribution = x.TrainingContribution
+            }));
+            status.Text = snapshot.ProfileId + " · " + snapshot.PlayersWithFamiliarity.ToString(CultureInfo.InvariantCulture)
+                + " players with readable familiarity records · tactic resolved from FM's active selection.";
+
+            var grid = CreateGrid();
+            grid.IsReadOnly = false;
+            grid.CanUserAddRows = false;
+            grid.MinHeight = 180;
+            grid.MaxHeight = 320;
+            var areaColumn = Column("TACTICAL AREA", nameof(LiveTacticalAreaView.Area), 1.25);
+            areaColumn.IsReadOnly = true;
+            grid.Columns.Add(areaColumn);
+            var currentColumn = Column("CURRENT %", nameof(LiveTacticalAreaView.CurrentValue), .55);
+            currentColumn.IsReadOnly = true;
+            grid.Columns.Add(currentColumn);
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "TARGET %",
+                Binding = new Binding(nameof(LiveTacticalAreaView.TargetValue))
+                    { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(.65, DataGridLengthUnitType.Star)
+            });
+            grid.ItemsSource = rows;
+            panel.Children.Add(grid);
+
+            var trainingNote = Txt(
+                "TRAINING CONTRIBUTION · FM-MANAGED" + Environment.NewLine
+                + "FM calculates this from each player's training history. Atlas displays the distinction but does not pretend it is a directly editable score. It changes naturally as the game records training.",
+                9, false, Muted, wrap: true);
+            trainingNote.Margin = new Thickness(0, 7, 0, 7);
+            panel.Children.Add(trainingNote);
+
+            LiveEntityMemoryEditService.TacticalBatchPlan? staged = null;
+            LiveEntityMemoryEditService.TacticalBatchReceipt? applied = null;
+            Button? applyButton = null;
+            Button? undoButton = null;
+            var stageButton = PrimaryButton("Stage tactical changes", async (_, _) =>
+            {
+                grid.CommitEdit(DataGridEditingUnit.Cell, true);
+                grid.CommitEdit(DataGridEditingUnit.Row, true);
+                var targets = new List<LiveEntityMemoryEditService.TacticalTargetValue>();
+                foreach (var row in rows)
+                {
+                    if (!int.TryParse(row.TargetValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target)
+                        || target is < 0 or > 100)
+                    {
+                        MessageBox.Show(this, row.Area + " must be a whole-number percentage from 0 to 100.",
+                            "Tactical Effectiveness", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    if (target != row.CurrentValue)
+                        targets.Add(new LiveEntityMemoryEditService.TacticalTargetValue(row.AreaKey, target));
+                }
+                if (targets.Count == 0)
+                {
+                    MessageBox.Show(this, "Change at least one target percentage before staging.", "Tactical Effectiveness",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    staged = await Task.Run(() => LiveEntityMemoryEditService.StageTacticalExposureBatch(
+                        processId, clubUid, clubName, targets));
+                    status.Text = "TACTICAL CHANGES STAGED · " + staged.Changes.Count.ToString(CultureInfo.InvariantCulture)
+                        + " player-area lists · " + staged.ProfileId + " · no memory written";
+                    applyButton!.IsEnabled = true;
+                    undoButton!.IsEnabled = false;
+                    var preview = string.Join(Environment.NewLine, targets.Select(x => x.AreaKey + " → " + x.Value + "%"));
+                    MessageBox.Show(this,
+                        "Staged tactical Match Exposure for " + clubName + "." + Environment.NewLine
+                        + "Player-area list writes: " + staged.Changes.Count.ToString(CultureInfo.InvariantCulture)
+                        + Environment.NewLine + "Targets:" + Environment.NewLine + preview
+                        + Environment.NewLine + Environment.NewLine + "No FM values have been changed yet.",
+                        "FM Atlas · Tactical preview", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    staged = null;
+                    applyButton!.IsEnabled = false;
+                    status.Text = "TACTICAL STAGE BLOCKED · " + ex.Message;
+                    AtlasLog.Warning("Tactical Match Exposure stage was blocked: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "Tactical Effectiveness · Stage blocked",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+
+            var maxButton = SoftButton("Set all Match Exposure targets to 100%", (_, _) =>
+            {
+                foreach (var row in rows) row.TargetValue = "100";
+                grid.Items.Refresh();
+            });
+            applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
+            {
+                if (staged is null) return;
+                var answer = MessageBox.Show(this,
+                    "This changes Tactical Match Exposure in the currently loaded FM27 career for " + clubName + "." + Environment.NewLine
+                    + Environment.NewLine + "Use a separate offline career backup. Apply " + staged.Changes.Count.ToString(CultureInfo.InvariantCulture)
+                    + " player-area list changes? Save inside FM afterwards to persist them to disk.",
+                    "Confirm live Tactical Effectiveness edit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    applied = await Task.Run(() => LiveEntityMemoryEditService.ApplyTacticalExposureBatch(staged));
+                    foreach (var row in rows)
+                    {
+                        var target = staged.PlanTargetOrNull(row.AreaKey);
+                        if (target.HasValue)
+                        {
+                            row.CurrentValue = target.Value;
+                            row.TargetValue = target.Value.ToString(CultureInfo.InvariantCulture);
+                        }
+                    }
+                    status.Text = "LIVE TACTICAL EXPOSURE WRITTEN · " + applied.Changes.Count.ToString(CultureInfo.InvariantCulture)
+                        + " player-area lists · read-back verified. Save the career in FM to persist.";
+                    staged = null;
+                    applyButton!.IsEnabled = false;
+                    undoButton!.IsEnabled = true;
+                    AtlasLog.Info("Live FM27 tactical Match Exposure applied for club " + clubUid
+                        + " · list changes=" + applied.Changes.Count);
+                    MessageBox.Show(this,
+                        "FM27 accepted the tactical Match Exposure changes. Every updated list and header passed read-back verification."
+                        + Environment.NewLine + Environment.NewLine + "Save the career inside FM to persist the changes to the save file.",
+                        "FM Atlas · Tactical changes applied", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    status.Text = "TACTICAL APPLY BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Error("Tactical Match Exposure Apply failed for club " + clubUid, ex);
+                    MessageBox.Show(this, ex.Message, "Tactical Effectiveness · Apply failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            applyButton.IsEnabled = false;
+            undoButton = SoftButton("Undo last tactical batch", async (_, _) =>
+            {
+                if (applied is null) return;
+                var answer = MessageBox.Show(this,
+                    "Restore the original Tactical Match Exposure lists? Undo requires the same FM build, career, active tactic and unchanged player records.",
+                    "Confirm Tactical Effectiveness Undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    await Task.Run(() => LiveEntityMemoryEditService.UndoTacticalExposureBatch(applied));
+                    foreach (var row in rows)
+                    {
+                        var original = applied.Plan.Changes
+                            .Where(x => x.ChangesArea(row.AreaKey))
+                            .Select(x => x.OriginalAverageForArea(row.AreaKey))
+                            .FirstOrDefault();
+                        // The live team average is re-read below because per-player records may
+                        // have had different starting values; their original bytes are not one team value.
+                    }
+                    var refreshed = await Task.Run(() =>
+                        LiveEntityMemoryEditService.ReadTacticalSnapshot(processId, clubUid, clubName));
+                    foreach (var row in rows)
+                    {
+                        var value = refreshed.Areas.FirstOrDefault(x => x.Key.Equals(row.AreaKey, StringComparison.OrdinalIgnoreCase));
+                        if (value is null) continue;
+                        row.CurrentValue = value.MatchExposure;
+                        row.TargetValue = value.MatchExposure.ToString(CultureInfo.InvariantCulture);
+                    }
+                    status.Text = "TACTICAL UNDO VERIFIED · original player familiarity records restored.";
+                    AtlasLog.Info("Live FM27 tactical Match Exposure undo verified for club " + clubUid);
+                    applied = null;
+                    undoButton!.IsEnabled = false;
+                }
+                catch (Exception ex)
+                {
+                    status.Text = "TACTICAL UNDO BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Error("Tactical Match Exposure Undo failed for club " + clubUid, ex);
+                    MessageBox.Show(this, ex.Message, "Tactical Effectiveness · Undo failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            undoButton.IsEnabled = false;
+            var buttons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+            buttons.Children.Add(stageButton);
+            buttons.Children.Add(maxButton);
+            buttons.Children.Add(applyButton);
+            buttons.Children.Add(undoButton);
+            panel.Children.Add(buttons);
+        }
+        catch (Exception ex)
+        {
+            status.Text = "TACTICAL EDITOR UNAVAILABLE · " + ex.Message;
+            AtlasLog.Warning("Tactical Effectiveness editor could not load " + clubName + ": " + ex.Message);
+        }
+        return panel;
+    }
+
+    private sealed class LiveTacticalAreaView
+    {
+        public string AreaKey { get; set; } = "";
+        public string Area { get; set; } = "";
+        public int CurrentValue { get; set; }
+        public string TargetValue { get; set; } = "";
+        public string TrainingContribution { get; set; } = "";
+    }
+
     private async Task<UIElement> BuildLocalEntityFactEditorAsync(
         string entityType, string sourceId, string displayName, IReadOnlyList<AtlasFactRecord> sourceFacts)
     {
@@ -2580,6 +2819,8 @@ public partial class MainWindow : Window
             if (isLive)
                 stack.Children.Add(await BuildLiveEntityEditorAsync(
                     LiveEntityMemoryEditService.EntityKind.Club, club.SourceId, club.Name));
+            if (isLive && _editorEnabled)
+                stack.Children.Add(await BuildLiveTacticalEffectivenessEditorAsync(club.SourceId, club.Name));
 
             stack.Children.Add(Txt("CLUB STAFF", 9, true, Teal) is var staffHeading ? Configure(staffHeading, new Thickness(0, 17, 0, 6)) : new TextBlock());
             if (isLive)
