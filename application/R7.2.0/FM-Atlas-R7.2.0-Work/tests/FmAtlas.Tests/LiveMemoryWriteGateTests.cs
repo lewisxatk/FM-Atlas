@@ -68,6 +68,7 @@ public sealed class LiveMemoryWriteGateTests
         {
             "attribute.finishing", "attribute.consistency", "attribute.important_matches",
             "attribute.injury_proneness", "attribute.dirtiness", "attribute.versatility",
+            "date_of_birth", "contract.unhappiness",
             "position.gk", "position.amc", "personality.professionalism",
             "left_foot", "right_foot", "trait.0", "trait.63",
             "contract.wage", "contract.expires", "contract.squad_number",
@@ -84,7 +85,7 @@ public sealed class LiveMemoryWriteGateTests
         var keys = fields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var key in new[]
         {
-            "ability.current_ability", "ability.potential_ability", "reputation.world",
+            "ability.current_ability", "ability.potential_ability", "reputation.world", "date_of_birth",
             "attribute.goalkeeping", "attribute.judging_ability", "attribute.working_with_youngsters",
             "attribute.authority", "personality.professionalism", "contract.wage", "contract.expires"
         })
