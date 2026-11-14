@@ -113,3 +113,44 @@ Reference links:
 - Filter rows now wrap at narrow widths rather than forcing the entire category/field/value/action set onto one horizontal line.
 - Each condition can move up or down; visual order and criteria-capture order are updated together. Remove remains available.
 - This is a UI-only enhancement to the existing criteria/profile model. It does not alter query semantics, saved profile schema, field discovery, paging, sorting or the 60-condition limit.
+
+
+## FMRTE 27 search semantics, Genie Scout ratings and FMLibreEditor pitch/release patterns — 14 November 2026
+
+### Sources reviewed
+
+- FMRTE Search and Advanced Search documentation: https://docs.fmrte.com/scouting/search/
+- FMRTE player overview / positions and role ratings: https://docs.fmrte.com/players/overview/
+- FMRTE 27 build notes: https://www.fmrte.com/download/fmrte27/
+- Genie Scout 27 feature reference: https://geniescout.com/features/
+- FMLibreEditor repository: https://github.com/tozmoz/FMLibreEditor
+- FMLibreEditor development architecture: https://github.com/tozmoz/FMLibreEditor/blob/main/docs/DEVELOPING.md
+- FMLibreEditor release notes: https://github.com/tozmoz/FMLibreEditor/releases
+
+### Observed patterns and confidence
+
+- **FMRTE — high confidence for documented UI behaviour:** Quick Search is a fast name/ID lookup, while Advanced Search is a separate multi-criteria workspace. Its player/coach/club search scopes expose different field groups. Position criteria support ALL-selected and ANY-selected matching; a zero rating contributes no position requirement. Result grids support multi-column sorting and configurable columns.
+- **FMRTE — role/position presentation:** the player profile exposes familiarity by pitch position and role ratings at a selected position. Build notes describe game-formula role ratings and potential ratings; these are proprietary/game-derived semantics and must not be approximated without validated weights.
+- **Genie Scout — high confidence for published feature set, not its proprietary formula:** exposes general, positional and role ratings, current/peak views, hidden attributes, mental traits, saved searches, and role/duty filters in its paid edition. Treat this as a feature benchmark only.
+- **FMLibreEditor — high confidence for project architecture and published release behaviour:** documents a pitch-position map as part of its interface direction, separate-process native module reading, storefront-specific build support, save-change invalidation, and read-only fallback when a build/profile is not supported. Release notes also show that build support evolves independently for Steam and Game Pass.
+
+### Atlas decisions
+
+- Implemented a pitch-shaped profile view for all 15 canonical position slots. It is a display of existing source values, not a position recommender.
+- Kept the existing 1–20 display bands: 1–4 Low, 5–9 Limited, 10–14 Competent, 15–17 Strong, 18–20 Natural. These are Atlas presentation bands, not claims about FMRTE/Genie Scout's exact colour thresholds.
+- The pitch map is responsive through a Viewbox, and each position tile is selectable to show its source value and band.
+- Zero, missing, non-finite and out-of-range values remain Unrated. Legacy ST maps to canonical STC. Later explicit source values continue to take precedence.
+- Added regression tests covering all canonical slots, band boundaries, invalid/missing values, alias mapping and precedence.
+- Do not copy Genie Scout/FMRTE role formulas. A role-rating engine needs an independently evidenced FM27 weight schema, exact position familiarity semantics and golden comparisons with in-game/FMRTE output before it can be labelled anything other than an estimate.
+
+### Future implementation queue
+
+1. Add position AND/ANY grouping to Advanced Search with explicit minimum-rating semantics; preserve current saved profiles through a backward-compatible schema migration.
+2. Add a role/duty matrix only after the FM27 role-weight schema is independently sourced and versioned.
+3. Add current-versus-potential positional/role views only when the source exposes both values.
+4. Add pitch UI golden screenshots and DPI acceptance tests; do not treat the previous 5×3 grid as equivalent to the tactical pitch.
+5. Re-check FMLibreEditor release notes and storefront build coverage before changing the FM27 live reader's exact build registry.
+
+### Research record maintenance
+
+This file is the permanent reverse-engineering reference for future work. Add a dated entry for every new research batch, including links, reviewed files/pages, observed behaviour, confidence/limitations, implementation decisions and explicit future follow-ups. Update the V8 checklist and handover alongside any implementation.
