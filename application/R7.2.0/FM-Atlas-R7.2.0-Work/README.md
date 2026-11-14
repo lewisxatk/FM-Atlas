@@ -62,7 +62,7 @@ The licenses above apply to those projects. Their ideas and public game-layout o
 2. Import a COPY of the FM27 career save. Review fmsave build coverage and reader warnings.
 3. Compare a selection of CA/PA, attributes, personality and season statistics against the in-game UI. Import an FM View Exporter CSV to supplement the save reader.
 4. Scan the existing graphics root and inspect player/club profiles for face/logo resolution.
-5. Only after the exact Steam/Game Pass build profile matches and the source data checks pass, test one CA/PA edit and one visible attribute edit on an offline copied single-player career. Confirm in-game, press Continue, and test guarded Undo. Never use the only copy of a career.
+5. Live-memory scanning and Live Apply are paused in V8. Do not attempt to enable or test them. Revisit only after a bounded read-only scanner, independently witnessed field mappings and live-write regression/rollback tests have been completed on disposable offline careers.
 6. Send `build-logs/latest-build.log` and the redacted Tester & Logs support ZIP if anything fails.
 
 ## What is not complete yet
