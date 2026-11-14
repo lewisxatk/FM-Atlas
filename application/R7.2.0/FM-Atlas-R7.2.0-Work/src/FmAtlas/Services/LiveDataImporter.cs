@@ -22,7 +22,8 @@ public sealed record LiveStaffRecord(
     DateTime? DateOfBirth, int? Age, string? NationName, uint? NationUid,
     string? ClubName, uint? ClubUid, string? JobTitle, int? JobCode,
     int? CurrentAbility, int? PotentialAbility,
-    StaffJobPreferenceResult? JobPreferences = null);
+    StaffJobPreferenceResult? JobPreferences = null,
+    IReadOnlyDictionary<string, double>? Attributes = null);
 // ModuleSha256 is retained as the database/API field name for schema compatibility. The profile-matched
 // importer stores the PE build fingerprint (SizeOfImage + TimeDateStamp) here, not a cryptographic file hash.
 public sealed record LiveImportPayload(
@@ -360,10 +361,13 @@ public static class LiveDataImporter
 
                     var dob = TryReadDate(buffer, 0x188 + shift);
                     if (shift != 0 && !dob.HasValue) continue;
+                    // FMLibreEditor/FM27's staff layout places CA/PA and coaching attributes
+                    // outside the shifted human-manager identity block. Keep these offsets unshifted.
                     var caRaw = BitConverter.ToUInt16(buffer, 0xDA);
                     var paRaw = BitConverter.ToInt16(buffer, 0xDC);
                     int? ca = caRaw is >= 1 and <= 200 ? caRaw : null;
                     int? pa = paRaw is >= -10 and <= 200 ? paRaw : null;
+                    var staffAttributes = StaffAttributeDecoder.Decode(buffer);
 
                     string? nationName = null;
                     uint? nationUid = null;
@@ -411,7 +415,7 @@ public static class LiveDataImporter
                     var age = gameDate.HasValue && dob.HasValue ? CalculateAge(dob.Value, gameDate.Value) : (int?)null;
                     var jobPreferences = ReadStaffJobPreferences(handle, address, shift);
                     decoded = new LiveStaffRecord(uid, name, i, address, isHuman, dob, age, nationName, nationUid,
-                        clubName, clubUid, jobTitle, jobCode, ca, pa, jobPreferences);
+                        clubName, clubUid, jobTitle, jobCode, ca, pa, jobPreferences, staffAttributes);
                 }
                 if (decoded is not null && seen.Add(decoded.Uid))
                     staff.Add(decoded);
