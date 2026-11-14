@@ -223,7 +223,7 @@ public static class LiveDataImporter
                             if (field.Offset < 0 || field.Offset >= inline.Length) continue;
                             var raw = inline[field.Offset];
                             var shown = (raw + 2) / 5;
-                            if (raw <= 98 && shown is >= 1 and <= 20) attributes[field.Key] = shown;
+                            if (raw <= 100 && shown is >= 1 and <= 20) attributes[field.Key] = shown;
                         }
                         // Eight personality ratings sit in the person block. Resolve the same
                         // per-class +0xF8 shift used for names, DOB and nation; keep only 1–20 values.
