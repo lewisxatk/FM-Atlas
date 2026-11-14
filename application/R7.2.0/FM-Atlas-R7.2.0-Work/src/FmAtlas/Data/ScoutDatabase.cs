@@ -2378,6 +2378,255 @@ public sealed class ScoutDatabase
         return results.OrderByDescending(x => x.ValueIndex).ThenByDescending(x => x.PotentialUpside).ThenBy(x => x.Player.Value).Take(Math.Clamp(limit, 1, 5000)).ToList();
     }
 
+    public async Task<List<AdvancedSearchField>> GetAdvancedPlayerSearchFieldsAsync()
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var fields = new List<AdvancedSearchField>
+        {
+            new("player:Name", "Player name", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:Age", "Age", "General", AdvancedSearchFieldType.Number, "Players"),
+            new("player:Club", "Club", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:Nation", "Nationality", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:League", "League", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:Position", "Position", "Position", AdvancedSearchFieldType.Text, "Players"),
+            new("player:PreferredFoot", "Preferred foot", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:CurrentAbility", "Current ability", "Ability", AdvancedSearchFieldType.Number, "Players"),
+            new("player:PotentialAbility", "Potential ability", "Ability", AdvancedSearchFieldType.Number, "Players"),
+            new("player:Value", "Market value", "Contract & Value", AdvancedSearchFieldType.Number, "Players"),
+            new("player:LeftFoot", "Left foot", "Technical", AdvancedSearchFieldType.Number, "Players"),
+            new("player:RightFoot", "Right foot", "Technical", AdvancedSearchFieldType.Number, "Players"),
+            new("player:HomeGrownClub", "Home-grown at club", "General", AdvancedSearchFieldType.Boolean, "Players"),
+            new("player:HomeGrownNation", "Home-grown in nation", "General", AdvancedSearchFieldType.Boolean, "Players")
+        };
+
+        var attributeCommand = db.CreateCommand();
+        attributeCommand.CommandText = """
+            SELECT DISTINCT AttributeName,Category
+            FROM PlayerAttributes
+            WHERE SourceId NOT LIKE 'FMSAVE:%'
+               OR SourceId IN (
+                    SELECT PlayerSourceId FROM FmsavePlayerSnapshots
+                    WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+               )
+            ORDER BY Category,AttributeName;
+            """;
+        await using (var reader = await attributeCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                var key = reader.GetString(0);
+                var storedCategory = reader.IsDBNull(1) ? "Other" : reader.GetString(1);
+                var category = storedCategory.StartsWith("attributes:", StringComparison.OrdinalIgnoreCase)
+                    ? storedCategory["attributes:".Length..]
+                    : storedCategory.Equals("personality", StringComparison.OrdinalIgnoreCase) ? "Personality" : storedCategory;
+                fields.Add(new AdvancedSearchField("attribute:" + key, HumanizeMetric(key), category, AdvancedSearchFieldType.Number, "PlayerAttributes"));
+            }
+        }
+
+        var factCommand = db.CreateCommand();
+        factCommand.CommandText = """
+            SELECT FactGroup,FieldKey,
+                   MAX(CASE WHEN NumericValue IS NOT NULL THEN 1 ELSE 0 END),
+                   MAX(CASE WHEN TextValue IS NOT NULL THEN 1 ELSE 0 END)
+            FROM FmsavePlayerFacts
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+            GROUP BY FactGroup,FieldKey
+            ORDER BY FactGroup,FieldKey;
+            """;
+        await using (var reader = await factCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                var group = reader.GetString(0);
+                var key = reader.GetString(1);
+                var hasNumeric = reader.GetInt32(2) == 1;
+                var category = group switch
+                {
+                    "contract" => "Contract",
+                    "traits" => "Traits",
+                    "positions" or "natural_positions" or "accomplished_positions" => "Position",
+                    "general" => "General",
+                    "state" => "Status",
+                    "reputation" => "Reputation",
+                    "raw_attributes" => "Raw attributes",
+                    _ => HumanizeMetric(group)
+                };
+                var fieldType = hasNumeric ? AdvancedSearchFieldType.Number : AdvancedSearchFieldType.Text;
+                fields.Add(new AdvancedSearchField("fact:" + group + ":" + key, HumanizeMetric(key), category, fieldType, "FmsavePlayerFacts"));
+            }
+        }
+
+        return fields
+            .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .OrderBy(x => x.Category, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<List<PlayerRecord>> SearchAdvancedPlayersAsync(
+        string? search,
+        IReadOnlyList<AdvancedSearchCriterion> criteria,
+        bool matchAll = true,
+        int limit = 5000)
+    {
+        if (criteria.Count == 0) return new();
+        if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 conditions in one advanced player search.");
+
+        var coreColumns = new Dictionary<string, (string Column, AdvancedSearchFieldType Type)>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["player:Name"] = ("p.Name", AdvancedSearchFieldType.Text),
+            ["player:Age"] = ("p.Age", AdvancedSearchFieldType.Number),
+            ["player:Club"] = ("p.Club", AdvancedSearchFieldType.Text),
+            ["player:Nation"] = ("p.Nation", AdvancedSearchFieldType.Text),
+            ["player:League"] = ("p.League", AdvancedSearchFieldType.Text),
+            ["player:Position"] = ("p.Position", AdvancedSearchFieldType.Text),
+            ["player:PreferredFoot"] = ("p.PreferredFoot", AdvancedSearchFieldType.Text),
+            ["player:CurrentAbility"] = ("p.CurrentAbility", AdvancedSearchFieldType.Number),
+            ["player:PotentialAbility"] = ("p.PotentialAbility", AdvancedSearchFieldType.Number),
+            ["player:Value"] = ("p.Value", AdvancedSearchFieldType.Number),
+            ["player:LeftFoot"] = ("p.LeftFoot", AdvancedSearchFieldType.Number),
+            ["player:RightFoot"] = ("p.RightFoot", AdvancedSearchFieldType.Number),
+            ["player:HomeGrownClub"] = ("p.HomeGrownClub", AdvancedSearchFieldType.Boolean),
+            ["player:HomeGrownNation"] = ("p.HomeGrownNation", AdvancedSearchFieldType.Boolean)
+        };
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var cmd = db.CreateCommand();
+        var predicates = new List<string>();
+
+        for (var index = 0; index < criteria.Count; index++)
+        {
+            var criterion = criteria[index];
+            var key = criterion.FieldKey?.Trim() ?? "";
+            var minName = "$min" + index;
+            var maxName = "$max" + index;
+            var textName = "$text" + index;
+            var boolName = "$bool" + index;
+            if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("A search condition has no field key.", nameof(criteria));
+
+            if (coreColumns.TryGetValue(key, out var core))
+            {
+                if (core.Type == AdvancedSearchFieldType.Number)
+                {
+                    if (!criterion.Minimum.HasValue && !criterion.Maximum.HasValue) throw new ArgumentException($"Enter a minimum or maximum for {key}.", nameof(criteria));
+                    if (criterion.Minimum.HasValue && criterion.Maximum.HasValue && criterion.Minimum > criterion.Maximum) throw new ArgumentException($"Minimum cannot exceed maximum for {key}.", nameof(criteria));
+                    predicates.Add($"({core.Column} IS NOT NULL AND ({minName} IS NULL OR {core.Column}>={minName}) AND ({maxName} IS NULL OR {core.Column}<={maxName}))");
+                    cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
+                }
+                else if (core.Type == AdvancedSearchFieldType.Text)
+                {
+                    if (string.IsNullOrWhiteSpace(criterion.TextValue)) throw new ArgumentException($"Enter text to search for {key}.", nameof(criteria));
+                    predicates.Add($"(COALESCE({core.Column},'') LIKE {textName} COLLATE NOCASE)");
+                    cmd.Parameters.AddWithValue(textName, "%" + criterion.TextValue.Trim() + "%");
+                }
+                else
+                {
+                    if (!criterion.BooleanValue.HasValue) throw new ArgumentException($"Choose Yes or No for {key}.", nameof(criteria));
+                    predicates.Add($"({core.Column}={boolName})");
+                    cmd.Parameters.AddWithValue(boolName, criterion.BooleanValue.Value ? 1 : 0);
+                }
+                continue;
+            }
+
+            if (key.StartsWith("attribute:", StringComparison.OrdinalIgnoreCase))
+            {
+                var attributeName = key["attribute:".Length..];
+                if (string.IsNullOrWhiteSpace(attributeName) || (!criterion.Minimum.HasValue && !criterion.Maximum.HasValue))
+                    throw new ArgumentException("Each attribute condition needs a field and a minimum or maximum.", nameof(criteria));
+                if (criterion.Minimum is < 1 or > 20 || criterion.Maximum is < 1 or > 20)
+                    throw new ArgumentOutOfRangeException(nameof(criteria), "Player attribute values must be between 1 and 20.");
+                if (criterion.Minimum.HasValue && criterion.Maximum.HasValue && criterion.Minimum > criterion.Maximum)
+                    throw new ArgumentException($"Minimum cannot exceed maximum for {attributeName}.", nameof(criteria));
+                predicates.Add($"EXISTS (SELECT 1 FROM PlayerAttributes a{index} WHERE a{index}.SourceId=p.SourceId AND lower(a{index}.AttributeName)=lower($key{index}) AND ($min{index} IS NULL OR a{index}.AttributeValue >= $min{index}) AND ($max{index} IS NULL OR a{index}.AttributeValue <= $max{index}))");
+                cmd.Parameters.AddWithValue("$key" + index, attributeName);
+                cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
+                cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
+                continue;
+            }
+
+            if (key.StartsWith("fact:", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = key.Split(':', 3, StringSplitOptions.None);
+                if (parts.Length != 3 || string.IsNullOrWhiteSpace(parts[1]) || string.IsNullOrWhiteSpace(parts[2]))
+                    throw new ArgumentException("A save-fact search field is invalid.", nameof(criteria));
+                var factGroup = parts[1];
+                var factKey = parts[2];
+                if (criterion.Minimum.HasValue || criterion.Maximum.HasValue)
+                {
+                    if (criterion.Minimum.HasValue && criterion.Maximum.HasValue && criterion.Minimum > criterion.Maximum)
+                        throw new ArgumentException($"Minimum cannot exceed maximum for {factKey}.", nameof(criteria));
+                    predicates.Add($"EXISTS (SELECT 1 FROM FmsavePlayerFacts f{index} WHERE f{index}.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND f{index}.PlayerSourceId=p.SourceId AND f{index}.FactGroup=$group{index} AND f{index}.FieldKey=$fact{index} AND f{index}.NumericValue IS NOT NULL AND ($min{index} IS NULL OR f{index}.NumericValue >= $min{index}) AND ($max{index} IS NULL OR f{index}.NumericValue <= $max{index}))");
+                    cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
+                }
+                else if (!string.IsNullOrWhiteSpace(criterion.TextValue))
+                {
+                    predicates.Add($"EXISTS (SELECT 1 FROM FmsavePlayerFacts f{index} WHERE f{index}.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND f{index}.PlayerSourceId=p.SourceId AND f{index}.FactGroup=$group{index} AND f{index}.FieldKey=$fact{index} AND COALESCE(f{index}.TextValue,'') LIKE $text{index} COLLATE NOCASE)");
+                    cmd.Parameters.AddWithValue(textName, "%" + criterion.TextValue.Trim() + "%");
+                }
+                else
+                {
+                    throw new ArgumentException($"Enter a value to search for {factKey}.", nameof(criteria));
+                }
+                cmd.Parameters.AddWithValue("$group" + index, factGroup);
+                cmd.Parameters.AddWithValue("$fact" + index, factKey);
+                continue;
+            }
+
+            throw new ArgumentException($"Unsupported advanced search field: {key}", nameof(criteria));
+        }
+
+        var query = (search ?? string.Empty).Trim();
+        cmd.CommandText = $"""
+            SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,p.CurrentAbility,p.PotentialAbility,p.Value,
+                   p.HomeGrownClub,p.HomeGrownNation,p.DataOrigin,p.PreferredFoot,p.LeftFoot,p.RightFoot
+            FROM Players p
+            WHERE ($q='' OR p.Name LIKE $pattern COLLATE NOCASE OR COALESCE(p.Club,'') LIKE $pattern COLLATE NOCASE
+                OR COALESCE(p.Nation,'') LIKE $pattern COLLATE NOCASE OR p.SourceId LIKE $pattern)
+              AND ({string.Join(matchAll ? " AND " : " OR ", predicates)})
+              AND (p.SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerSnapshots s
+                    WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=p.SourceId
+              ))
+            ORDER BY CASE WHEN $q<>'' AND p.Name LIKE $prefix COLLATE NOCASE THEN 0 ELSE 1 END,p.Name COLLATE NOCASE
+            LIMIT $limit;
+            """;
+        cmd.Parameters.AddWithValue("$q", query);
+        cmd.Parameters.AddWithValue("$pattern", "%" + query + "%");
+        cmd.Parameters.AddWithValue("$prefix", query + "%");
+        cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 5000));
+
+        var results = new List<PlayerRecord>();
+        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            results.Add(new PlayerRecord
+            {
+                SourceId = reader.GetString(0),
+                Name = reader.GetString(1),
+                Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+                Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+                League = reader.IsDBNull(5) ? null : reader.GetString(5),
+                Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+                CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                Value = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetValue(9), System.Globalization.CultureInfo.InvariantCulture),
+                HomeGrownClub = reader.IsDBNull(10) ? null : reader.GetInt32(10) == 1,
+                HomeGrownNation = reader.IsDBNull(11) ? null : reader.GetInt32(11) == 1,
+                DataOrigin = reader.IsDBNull(12) ? "Unknown" : reader.GetString(12),
+                PreferredFoot = reader.IsDBNull(13) ? null : reader.GetString(13),
+                LeftFoot = reader.IsDBNull(14) ? null : reader.GetInt32(14),
+                RightFoot = reader.IsDBNull(15) ? null : reader.GetInt32(15)
+            });
+        }
+        return results;
+    }
+
     public async Task<List<PlayerRecord>> SearchPlayerAttributeCriteriaAsync(string? search, IReadOnlyList<AttributeSearchCriterion> criteria, int limit = 500, bool matchAll = true)
     {
         if (criteria.Count == 0) return new();
