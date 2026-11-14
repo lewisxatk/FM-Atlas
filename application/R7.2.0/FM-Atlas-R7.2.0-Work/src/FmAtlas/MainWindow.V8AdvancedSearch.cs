@@ -609,6 +609,20 @@ public partial class MainWindow
             UpdateValueControls(row);
         }
 
+        void MoveCondition(AdvancedSearchUiRow row, int offset)
+        {
+            var current = rows.IndexOf(row);
+            var target = current + offset;
+            if (current < 0 || target < 0 || target >= rows.Count) return;
+
+            // Keep the visual row order and the criteria-capture order identical.
+            rows.RemoveAt(current);
+            rows.Insert(target, row);
+            conditionPanel.Children.Remove(row.Container);
+            conditionPanel.Children.Insert(target, row.Container);
+            status.Text = $"Condition {target + 1} of {rows.Count:N0} · order updated.";
+        }
+
         AdvancedSearchUiRow? AddCondition(string? category = null, string? fieldKey = null)
         {
             if (rows.Count >= 60)
@@ -677,20 +691,35 @@ public partial class MainWindow
 
             var valueHost = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             Border container = null!;
+            var moveUp = SoftButton("↑", (_, _) => MoveCondition(row, -1));
+            moveUp.Width = 32;
+            moveUp.Height = 32;
+            moveUp.Margin = new Thickness(2, 0, 2, 0);
+            moveUp.ToolTip = "Move this condition earlier in the search.";
+            var moveDown = SoftButton("↓", (_, _) => MoveCondition(row, 1));
+            moveDown.Width = 32;
+            moveDown.Height = 32;
+            moveDown.Margin = new Thickness(2, 0, 2, 0);
+            moveDown.ToolTip = "Move this condition later in the search.";
             var remove = SoftButton("×", (_, _) =>
             {
                 conditionPanel.Children.Remove(container);
                 rows.RemoveAll(x => x.Container == container);
                 status.Text = $"{rows.Count:N0} condition(s) configured.";
             });
-            remove.Width = 34;
-            remove.Height = 34;
-            remove.Margin = new Thickness(0);
+            remove.Width = 32;
+            remove.Height = 32;
+            remove.Margin = new Thickness(2, 0, 2, 0);
+            remove.ToolTip = "Remove this condition.";
 
-            var rowPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            // Wrap controls instead of forcing a single horizontal strip. This keeps
+            // the filter builder usable at narrower window widths and higher DPI scales.
+            var rowPanel = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
             rowPanel.Children.Add(categoryPicker);
             rowPanel.Children.Add(fieldPicker);
             rowPanel.Children.Add(valueHost);
+            rowPanel.Children.Add(moveUp);
+            rowPanel.Children.Add(moveDown);
             rowPanel.Children.Add(remove);
             container = new Border
             {
