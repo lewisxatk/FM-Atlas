@@ -448,7 +448,7 @@ public partial class MainWindow
                     temporaryFile, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, useAsync: true))
                 await using (var writer = new StreamWriter(stream, new UTF8Encoding(true)))
                 {
-                    await writer.WriteLineAsync("Source ID,Player,Age,Club,League,Nation,Position,CA,PA,Market Value (Source Units),Home-grown at Club,Home-grown in Nation,Preferred Foot,Left Foot,Right Foot,Source");
+                    await writer.WriteLineAsync(CsvExportSafety.AdvancedPlayerHeader);
 
                     for (var offset = 0; offset < maximumRows; offset += batchSize)
                     {
@@ -458,26 +458,7 @@ public partial class MainWindow
                         foreach (var player in batch)
                         {
                             cancellation.Token.ThrowIfCancellationRequested();
-                            var cells = new[]
-                            {
-                                CsvExportSafety.QuoteText(player.SourceId),
-                                CsvExportSafety.QuoteText(player.Name),
-                                CsvExportSafety.QuoteText(player.Age?.ToString(CultureInfo.InvariantCulture), false),
-                                CsvExportSafety.QuoteText(player.Club),
-                                CsvExportSafety.QuoteText(player.League),
-                                CsvExportSafety.QuoteText(player.Nation),
-                                CsvExportSafety.QuoteText(player.Position),
-                                CsvExportSafety.QuoteText(player.CurrentAbility?.ToString(CultureInfo.InvariantCulture), false),
-                                CsvExportSafety.QuoteText(player.PotentialAbility?.ToString(CultureInfo.InvariantCulture), false),
-                                CsvExportSafety.QuoteText(player.Value?.ToString(CultureInfo.InvariantCulture), false),
-                                CsvExportSafety.QuoteText(player.DisplayHomeGrownClub),
-                                CsvExportSafety.QuoteText(player.DisplayHomeGrownNation),
-                                CsvExportSafety.QuoteText(player.PreferredFoot),
-                                CsvExportSafety.QuoteText(player.LeftFoot?.ToString(CultureInfo.InvariantCulture), false),
-                                CsvExportSafety.QuoteText(player.RightFoot?.ToString(CultureInfo.InvariantCulture), false),
-                                CsvExportSafety.QuoteText(player.DataOrigin)
-                            };
-                            await writer.WriteLineAsync(string.Join(",", cells));
+                            await writer.WriteLineAsync(CsvExportSafety.FormatAdvancedPlayerRow(player));
                             exported++;
                         }
                         status.Text = $"Exporting Advanced Search matches · {exported:N0} players written.";

@@ -1141,6 +1141,41 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public void AdvancedSearchCsvRowKeepsSourceFieldsAndUnknownsFormulaSafe()
+    {
+        var player = new PlayerRecord
+        {
+            SourceId = "FMSAVE:FM27:fixture:42",
+            Name = "=HYPERLINK(\"https://example.invalid\")",
+            Age = 19,
+            Club = "Test, FC",
+            League = "Test League",
+            Nation = "England",
+            Position = "STC",
+            CurrentAbility = 120,
+            PotentialAbility = null,
+            Value = 1250000m,
+            HomeGrownClub = null,
+            HomeGrownNation = false,
+            PreferredFoot = "Right",
+            LeftFoot = 8,
+            RightFoot = 18,
+            DataOrigin = "FMSave snapshot"
+        };
+
+        var cells = CsvExportSafety.FormatAdvancedPlayerRow(player).Split(',');
+
+        Assert.Equal(16, cells.Length);
+        Assert.Equal("\"FMSAVE:FM27:fixture:42\"", cells[0]);
+        Assert.Equal("\"'=HYPERLINK(\"\"https://example.invalid\"\")\"", cells[1]);
+        Assert.Equal("\"Test, FC\"", cells[3]);
+        Assert.Equal("\"—\"", cells[8]);
+        Assert.Equal("\"Unknown\"", cells[10]);
+        Assert.Equal("\"No\"", cells[11]);
+        Assert.Equal(CsvExportSafety.AdvancedPlayerHeader.Split(',').Length, 16);
+    }
+
+    [Fact]
     public void PositionSuitabilityMapsAllFifteenSourceSlotsAndFiveBands()
     {
         var source = new Dictionary<string, double?>
