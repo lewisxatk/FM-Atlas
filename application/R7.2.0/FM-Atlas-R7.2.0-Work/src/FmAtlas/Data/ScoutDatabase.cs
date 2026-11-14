@@ -1423,6 +1423,10 @@ public sealed class ScoutDatabase
             }
             playerCount++;
         }
+        if (isBundle && scannedPlayers != playerTotal)
+            throw new InvalidDataException($"Player NDJSON row count mismatch: manifest={playerTotal:N0}, read={scannedPlayers:N0}. The previous career snapshot was retained.");
+        if (playerCount != scannedPlayers)
+            warnings.Add($"Player rows skipped during indexing: read={scannedPlayers:N0}, indexed={playerCount:N0}. Rows without a usable identity or name were excluded.");
 
         var staffInsert = db.CreateCommand(); staffInsert.Transaction = (SqliteTransaction)tx;
         staffInsert.CommandText = "INSERT OR REPLACE INTO FmsaveStaffDirectory(SnapshotId,StaffUid,Name,ClubName,JobTitle,Age,Nation,RawJson) VALUES($snapshot,$uid,$name,$club,$job,$age,$nation,$raw);";
@@ -1444,6 +1448,10 @@ public sealed class ScoutDatabase
             SetNullable(staffInsert.Parameters["$age"], GetLong(item, "age")); SetNullable(staffInsert.Parameters["$nation"], GetString(item, "nationality"));
             staffInsert.Parameters["$raw"].Value = item.GetRawText(); await staffInsert.ExecuteNonQueryAsync(); staffCount++;
         }
+        if (isBundle && scannedStaff != staffTotal)
+            throw new InvalidDataException($"Staff NDJSON row count mismatch: manifest={staffTotal:N0}, read={scannedStaff:N0}. The previous career snapshot was retained.");
+        if (staffCount != scannedStaff)
+            warnings.Add($"Staff rows skipped during indexing: read={scannedStaff:N0}, indexed={staffCount:N0}. Rows without a usable identity or name were excluded.");
 
         var clubInsert = db.CreateCommand(); clubInsert.Transaction = (SqliteTransaction)tx;
         clubInsert.CommandText = "INSERT OR REPLACE INTO FmsaveClubDirectory(SnapshotId,ClubUid,Name,Nation,RawJson) VALUES($snapshot,$uid,$name,$nation,$raw);";
@@ -1464,6 +1472,10 @@ public sealed class ScoutDatabase
             SetNullable(clubInsert.Parameters["$nation"], GetString(item, "nation_name") ?? GetString(item, "nation"));
             clubInsert.Parameters["$raw"].Value = item.GetRawText(); await clubInsert.ExecuteNonQueryAsync(); clubCount++;
         }
+        if (isBundle && scannedClubs != clubTotal)
+            throw new InvalidDataException($"Club NDJSON row count mismatch: manifest={clubTotal:N0}, read={scannedClubs:N0}. The previous career snapshot was retained.");
+        if (clubCount != scannedClubs)
+            warnings.Add($"Club rows skipped during indexing: read={scannedClubs:N0}, indexed={clubCount:N0}. Rows without a usable identity or name were excluded.");
 
         // Keep all additional save tables in a lossless JSON sidecar table so later modules can build on them.
         var extraNames = new[] { "managed_clubs", "staff_lists", "contracts", "suspensions", "finances", "sponsorships", "facilities", "stadiums", "affiliates", "job_vacancies", "stages", "competitions", "nations", "injury_types", "injuries", "player_season_stats", "player_season_history", "player_match_stats", "fixtures", "league_tables", "competition_rules", "transfer_windows", "tactics", "training", "mentoring", "set_pieces", "selections" };
@@ -1513,6 +1525,8 @@ public sealed class ScoutDatabase
                     }
                 }
             }
+            if (isBundle && rowIndex != tableCounts.GetValueOrDefault(tableName))
+                throw new InvalidDataException($"{tableName} NDJSON row count mismatch: manifest={tableCounts.GetValueOrDefault(tableName):N0}, read={rowIndex:N0}. The previous career snapshot was retained.");
         }
         if (playerCount == 0)
             throw new InvalidDataException("The save bundle contained player rows, but none could be indexed. The previous committed career snapshot was retained.");
