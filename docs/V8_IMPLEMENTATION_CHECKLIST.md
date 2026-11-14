@@ -451,3 +451,22 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - [x] Artifact FM-Atlas-V8-win-x64: 68,894,168 bytes; SHA-256 e76e763e26b35dd73ad4ee9ab1e1b95ffb34b7c090269e406658a2ad7f627f93; expires 28 November 2026.
 - [ ] Manual Windows visual acceptance remains open: inspect Monolith Glass and the 15-position filter tiles at 100%, 125% and 150% DPI, including keyboard focus, contrast, dropdowns and text clipping.
 - [ ] Compare position ratings against the in-game FM27 Positions page. Live-memory values remain provisional until witnessed.
+
+
+## Integrated scouting and position-comparison milestone — 14 November 2026
+
+- [x] Review FMSuperScout source for versioned field maps, 15-position ratings, large player-table UX, shortlist/compare patterns and value-estimation limitations.
+- [x] Review FMLibreEditor architecture, player/profile UI and fail-closed save-generation/write-validation model.
+- [x] Record the research evidence, implementation decisions and limits in the permanent reverse-engineering notes.
+- [x] Add a numeric FM position-familiarity cohort filter to Performance vs Value analysis (selected position, minimum rating 1–20).
+- [x] Show the selected position's actual imported familiarity rating in the results grid, chart tooltip and CSV export.
+- [x] Keep the existing per-90, minimum minutes, sample floor, value percentiles, position/league percentiles, chart and CSV workflow.
+- [x] Apply Monolith Glass graphite/amber surfaces to the standalone Performance vs Value window, including controls and data grid.
+- [x] Add SQLite integration coverage for a position-rating-constrained scouting cohort.
+- [ ] Run fresh Windows Release build and complete xUnit suite after this batch.
+- [ ] Verify the new SQL cohort filter against an actual FM27 save import.
+- [ ] Compare the same player's 15 numeric position ratings against the FM27 in-game Positions page; capture a durable witness report before promoting live values.
+- [ ] Finish remaining custom dialogs, chart/empty/error states, keyboard focus and high-contrast styling across the entire application.
+- [ ] Visually inspect all four appearances at 100%, 125% and 150% Windows DPI.
+- [ ] Build reusable scouting metric bundles, comparison reports and value-gap shortlist workflow.
+- [ ] Do not fabricate event-level StatsBomb metrics or copy proprietary value/role formulas.
