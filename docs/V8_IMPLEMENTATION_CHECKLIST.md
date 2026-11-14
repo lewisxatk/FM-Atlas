@@ -176,6 +176,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Accessible icon controls | `f07c6e86` | Automation names and help text added to toolbar and navigation icon buttons; visual/accessibility acceptance still pending. |
 | 2026-11-14 | Windows workflow repair | `8531b0c0` | Consolidated duplicate YAML triggers and configured a Windows x64 self-contained publish ZIP and SHA-256 output. Build result remains unverified. |
 | 2026-11-14 | Draft V8 integration pull request | PR [#4](https://github.com/lewisxatk/FM-Atlas/pull/4) | Kept changes isolated from the integration branch pending build and PC acceptance. |
+| 2026-11-14 | Temporary career export cleanup | `8b4d1a0f`, `d2fb8f5e`, `8f60dc48`, `d40513fc` | Partial, failed, invalid and completed temporary save JSON exports are removed; the Cancel action is hidden when no import is active. |
 | 2026-11-14 | Initial V8 durable checklist | `b76f39d7` | Created this checklist; implementation and runtime validation intentionally separate. |
 | 2026-11-14 | Windows x64 build/package automation | `528dfb02` | Workflow now runs on V8 branch pushes, builds Release, publishes self-contained win-x64 output and uploads a ZIP artifact. CI result not yet observed. |
 | 2026-11-14 | SQLite writer coordination and busy timeout | `cb44d29`, `e63668db` | Added one process-wide writer semaphore around all identified mutations/imports/undo/checkpoint methods and a 30-second lock wait; the follow-up commit corrected the gate blocks. Concurrency behaviour still requires tests. |
