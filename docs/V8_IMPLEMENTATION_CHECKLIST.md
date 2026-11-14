@@ -100,8 +100,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Verify the 15-position suitability service, canonical STC and shared Players search-position catalogue in Windows Actions run #210; Release build, all integration tests, self-contained x64 publish and artifact upload passed.
 - [~] Main Players workspace now shows league and Home-grown at club/nation as Yes/No/Unknown, retains the legacy ST alias beside canonical STC, and includes home-grown data when choosing the richest save/live row. Windows verification pending.
 - [x] Add source-backed Home-grown at club / Home-grown in nation Boolean criteria to Advanced Search, with Yes/No/Unknown result values and regression coverage proving missing NULL data matches neither Yes nor No.
-- [ ] Add remaining league, nationality, contract and staff filters when available in source data.
-- [ ] Ensure missing/undecoded values are never silently treated as zero or as a failed filter match.
+- [~] League, nationality and imported contract facts are available in the universal Advanced Search field library and covered by combined ALL/AND regression tests. Staff search remains separate until a source-backed staff-field map is validated.
+- [x] Keep missing/undecoded values distinct from zero: numeric/attribute/fact predicates require a stored value, and nullable home-grown values match neither Yes nor No; result display retains Unknown where applicable.
 - [~] Add regression coverage for universal Advanced Search core fields, imported attributes, save facts, ALL/ANY logic, stable paging and the 60-condition guard. Broader mixed-field 40k+ dataset and full multi-sort validation remain outstanding.
 - [x] Four baseline Windows .NET integration tests passed on Actions run #168: valid NDJSON commit, manifest-count mismatch rollback, malformed extra-table rollback, and preservation of a previously committed snapshot.
 - [x] Cancellation-before-commit rollback and persisted skipped-staff-warning integration tests passed in Windows Actions run #208; subsequent run #210 also passed the expanded integration suite. WAL contention and broader relationship checks remain outstanding.
@@ -192,6 +192,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Provide final checklist report with links to commits, CI, build log and acceptance evidence.
 
 ## Work log
+
+| 2026-11-14 | Advanced Search full-result CSV export and filter coverage | Pending CI | Added cancellable, streaming CSV export of up to 50,000 Advanced Search matches in batches of 500, written to a temporary file and published only on completion. Exports source IDs and source-backed profile data with shared formula-safe CSV quoting. Regression now combines league, nationality and contract-fact filters. Windows verification pending. |
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|

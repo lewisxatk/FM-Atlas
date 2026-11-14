@@ -713,6 +713,17 @@ public sealed class FmsaveNdjsonImportTests
         var availableFields = await database.GetAdvancedPlayerSearchFieldsAsync();
         Assert.Contains(availableFields, x => x.Key.Equals("attribute:finishing", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(availableFields, x => x.Key.Equals("fact:contract:wage", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(availableFields, x => x.Key.Equals("player:League", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(availableFields, x => x.Key.Equals("player:Nation", StringComparison.OrdinalIgnoreCase));
+
+        var leagueNationContract = await database.SearchAdvancedPlayersAsync(null, new[]
+        {
+            new AdvancedSearchCriterion("player:League", null, null, "Test League", null),
+            new AdvancedSearchCriterion("player:Nation", null, null, "England", null),
+            new AdvancedSearchCriterion("fact:contract:wage", 5000, null, null, null)
+        }, matchAll: true, limit: 20);
+        Assert.Single(leagueNationContract);
+        Assert.Equal("FMSAVE:FM27:test-db:1001", leagueNationContract[0].SourceId);
 
         var all = await database.SearchAdvancedPlayersAsync(null, new[]
         {

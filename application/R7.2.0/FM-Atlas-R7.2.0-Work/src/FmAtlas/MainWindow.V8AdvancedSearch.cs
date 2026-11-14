@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -51,6 +53,7 @@ public partial class MainWindow
         DataGrid grid = null!;
         Button compareSelectedButton = null!;
         Button similarSelectedButton = null!;
+        Button exportMatchesButton = null!;
         (string Label, string Key)[] sortOptions = Array.Empty<(string Label, string Key)>();
         ComboBox primarySortPicker = null!;
         ComboBox primarySortDirection = null!;
@@ -101,16 +104,11 @@ public partial class MainWindow
         };
         if (savedProfiles.Count > 0) profilePicker.SelectedIndex = 0;
         var toolbar = new WrapPanel { Margin = new Thickness(0, 7, 0, 6) };
-        // Initialise captured sort state before event callbacks close over the search workflow.
-        (string Label, string Key)[] sortOptions = Array.Empty<(string Label, string Key)>();
-        ComboBox primarySortPicker = null!;
-        ComboBox primarySortDirection = null!;
-        ComboBox secondarySortPicker = null!;
-        ComboBox secondarySortDirection = null!;
         toolbar.Children.Add(FilterControl("OPTIONAL PLAYER / CLUB / ID", searchText, 320));
         toolbar.Children.Add(FilterControl("MATCH LOGIC", logic, 180));
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
         searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
+        exportMatchesButton = SoftButton("Export all matches CSV", async (_, _) => await ExportMatchingPlayersAsync());
         var shortlistSelectedButton = SoftButton("Add selected to shortlist", async (_, _) => await AddSelectedToShortlistAsync());
         compareSelectedButton = SoftButton("Compare selected (2–4)", async (_, _) => await CompareSelectedPlayersAsync());
         similarSelectedButton = SoftButton("Find similar players", async (_, _) => await FindSimilarForSelectedAsync());
@@ -124,6 +122,7 @@ public partial class MainWindow
         deleteProfileButton.IsEnabled = savedProfiles.Count > 0;
         toolbar.Children.Add(addButton);
         toolbar.Children.Add(searchButton);
+        toolbar.Children.Add(exportMatchesButton);
         toolbar.Children.Add(shortlistSelectedButton);
         toolbar.Children.Add(compareSelectedButton);
         toolbar.Children.Add(similarSelectedButton);
@@ -398,6 +397,128 @@ public partial class MainWindow
             finally
             {
                 similarSelectedButton.IsEnabled = true;
+            }
+        }
+
+        async Task ExportMatchingPlayersAsync()
+        {
+            if (activeSearchCancellation is not null)
+            {
+                status.Text = "Finish or cancel the current search before starting an export.";
+                return;
+            }
+
+            var criteria = CaptureCriteria(out var error);
+            if (error.Length > 0) { status.Text = error; return; }
+            if (criteria.Count == 0)
+            {
+                status.Text = "Enter at least one complete condition before exporting all matching players.";
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Export all matching Advanced Search players",
+                FileName = "FM-Atlas-advanced-search.csv",
+                Filter = "CSV files (*.csv)|*.csv"
+            };
+            if (dialog.ShowDialog(this) != true) return;
+
+            var query = searchText.Text;
+            var matchAll = logic.SelectedIndex == 0;
+            var sorts = CaptureSorts();
+            using var cancellation = new CancellationTokenSource();
+            activeSearchCancellation = cancellation;
+            cancelSearchButton.IsEnabled = true;
+            exportMatchesButton.IsEnabled = false;
+            searchButton.IsEnabled = false;
+            addButton.IsEnabled = false;
+            Mouse.OverrideCursor = Cursors.Wait;
+
+            var destination = dialog.FileName;
+            var temporaryFile = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            const int batchSize = 500;
+            const int maximumRows = 50000;
+            var exported = 0;
+            var truncated = false;
+            try
+            {
+                await using (var stream = new FileStream(
+                    temporaryFile, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+                await using (var writer = new StreamWriter(stream, new UTF8Encoding(true)))
+                {
+                    await writer.WriteLineAsync("Source ID,Player,Age,Club,League,Nation,Position,CA,PA,Market Value (Source Units),Home-grown at Club,Home-grown in Nation,Preferred Foot,Left Foot,Right Foot,Source");
+
+                    for (var offset = 0; offset < maximumRows; offset += batchSize)
+                    {
+                        cancellation.Token.ThrowIfCancellationRequested();
+                        var batch = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(
+                            query, criteria, matchAll, batchSize, offset, cancellation.Token, sorts));
+                        foreach (var player in batch)
+                        {
+                            cancellation.Token.ThrowIfCancellationRequested();
+                            var cells = new[]
+                            {
+                                CsvExportSafety.QuoteText(player.SourceId),
+                                CsvExportSafety.QuoteText(player.Name),
+                                CsvExportSafety.QuoteText(player.Age?.ToString(CultureInfo.InvariantCulture), false),
+                                CsvExportSafety.QuoteText(player.Club),
+                                CsvExportSafety.QuoteText(player.League),
+                                CsvExportSafety.QuoteText(player.Nation),
+                                CsvExportSafety.QuoteText(player.Position),
+                                CsvExportSafety.QuoteText(player.CurrentAbility?.ToString(CultureInfo.InvariantCulture), false),
+                                CsvExportSafety.QuoteText(player.PotentialAbility?.ToString(CultureInfo.InvariantCulture), false),
+                                CsvExportSafety.QuoteText(player.Value?.ToString(CultureInfo.InvariantCulture), false),
+                                CsvExportSafety.QuoteText(player.DisplayHomeGrownClub),
+                                CsvExportSafety.QuoteText(player.DisplayHomeGrownNation),
+                                CsvExportSafety.QuoteText(player.PreferredFoot),
+                                CsvExportSafety.QuoteText(player.LeftFoot?.ToString(CultureInfo.InvariantCulture), false),
+                                CsvExportSafety.QuoteText(player.RightFoot?.ToString(CultureInfo.InvariantCulture), false),
+                                CsvExportSafety.QuoteText(player.DataOrigin)
+                            };
+                            await writer.WriteLineAsync(string.Join(",", cells));
+                            exported++;
+                        }
+                        status.Text = $"Exporting Advanced Search matches · {exported:N0} players written.";
+                        if (batch.Count < batchSize) break;
+                    }
+
+                    if (exported == maximumRows)
+                    {
+                        cancellation.Token.ThrowIfCancellationRequested();
+                        var extra = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(
+                            query, criteria, matchAll, 1, maximumRows, cancellation.Token, sorts));
+                        truncated = extra.Count > 0;
+                    }
+                    await writer.FlushAsync();
+                }
+
+                cancellation.Token.ThrowIfCancellationRequested();
+                File.Move(temporaryFile, destination, overwrite: true);
+                status.Text = truncated
+                    ? $"Exported the first {exported:N0} matching players. The 50,000-row safety cap was reached; narrow the search to export a smaller complete set."
+                    : $"Exported all {exported:N0} matching players with source IDs and source-backed profile fields.";
+                AtlasLog.Info($"Advanced Search CSV export completed: rows={exported}; truncated={truncated}; conditions={criteria.Count}; matchAll={matchAll}.");
+            }
+            catch (OperationCanceledException)
+            {
+                try { if (File.Exists(temporaryFile)) File.Delete(temporaryFile); } catch { }
+                status.Text = $"Advanced Search CSV export cancelled · {exported:N0} rows collected; no partial CSV was published.";
+            }
+            catch (Exception ex)
+            {
+                try { if (File.Exists(temporaryFile)) File.Delete(temporaryFile); } catch { }
+                AtlasLog.Error("Advanced Search CSV export failed.", ex);
+                status.Text = "Advanced Search export failed: " + ex.Message;
+            }
+            finally
+            {
+                activeSearchCancellation = null;
+                cancelSearchButton.IsEnabled = false;
+                exportMatchesButton.IsEnabled = true;
+                searchButton.IsEnabled = true;
+                addButton.IsEnabled = true;
+                Mouse.OverrideCursor = null;
             }
         }
 
