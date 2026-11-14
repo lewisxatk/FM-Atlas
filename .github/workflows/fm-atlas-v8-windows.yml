@@ -1,12 +1,21 @@
 name: FM Atlas V8 — Windows Release Build
 
 on:
-  pull_request:
+  push:
     branches:
-      - fix/r7.2.0-release-build-integration
+      - rebuild/v8-full-product-rebuild
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
+      - "docs/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
+      - "docs/**"
+      - ".github/workflows/fm-atlas-v8-windows.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -29,6 +38,10 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Show toolchain
+        shell: pwsh
+        run: dotnet --info
+
       - name: Restore solution
         shell: pwsh
         run: |
@@ -47,14 +60,19 @@ jobs:
         shell: pwsh
         run: |
           $project = "application/R7.2.0/FM-Atlas-R7.2.0-Work/src/FmAtlas/FmAtlas.csproj"
-          dotnet publish $project --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/FM-Atlas-V8-win-x64
+          dotnet publish $project --configuration Release --runtime win-x64 --self-contained true --output artifacts/FM-Atlas-V8-win-x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path "artifacts/FM-Atlas-V8-win-x64/FmAtlas.exe")) {
+            throw "Publish output does not contain FmAtlas.exe."
+          }
+          Compress-Archive -Path "artifacts/FM-Atlas-V8-win-x64/*" -DestinationPath "artifacts/FM-Atlas-V8-win-x64.zip" -Force
+          Get-FileHash "artifacts/FM-Atlas-V8-win-x64.zip" -Algorithm SHA256 | Format-List
 
       - name: Upload V8 build artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: FM-Atlas-V8-win-x64
-          path: artifacts/FM-Atlas-V8-win-x64/
+          path: artifacts/FM-Atlas-V8-win-x64.zip
           if-no-files-found: error
           retention-days: 14
