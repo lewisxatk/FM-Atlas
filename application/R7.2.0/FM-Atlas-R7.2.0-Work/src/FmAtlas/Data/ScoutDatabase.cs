@@ -1450,6 +1450,22 @@ public sealed class ScoutDatabase
             }
             if (player.CurrentAbility.HasValue) SetLiveFact("ability.current_ability", player.CurrentAbility.Value);
             if (player.PotentialAbility.HasValue) SetLiveFact("ability.potential_ability", player.PotentialAbility.Value);
+            if (player.HeightCm.HasValue) SetLiveFact("height", player.HeightCm.Value);
+            if (player.Condition.HasValue) SetLiveFact("condition", player.Condition.Value);
+            if (player.MatchSharpness.HasValue) SetLiveFact("match_sharpness", player.MatchSharpness.Value);
+            if (player.Jadedness.HasValue) SetLiveFact("jadedness", player.Jadedness.Value);
+            if (player.Morale.HasValue) SetLiveFact("morale", player.Morale.Value);
+            if (player.HomeReputation.HasValue) SetLiveFact("reputation.home", player.HomeReputation.Value);
+            if (player.CurrentReputation.HasValue) SetLiveFact("reputation.current", player.CurrentReputation.Value);
+            if (player.WorldReputation.HasValue) SetLiveFact("reputation.world", player.WorldReputation.Value);
+            if (player.AskingPrice.HasValue) SetLiveFact("asking_price", player.AskingPrice.Value);
+            if (player.InternationalCaps.HasValue) SetLiveFact("international.caps", player.InternationalCaps.Value);
+            if (player.InternationalGoals.HasValue) SetLiveFact("international.goals", player.InternationalGoals.Value);
+            if (player.U21Caps.HasValue) SetLiveFact("international.u21_caps", player.U21Caps.Value);
+            if (player.U21Goals.HasValue) SetLiveFact("international.u21_goals", player.U21Goals.Value);
+            if (player.LeftFoot.HasValue) SetLiveFact("left_foot", player.LeftFoot.Value);
+            if (player.RightFoot.HasValue) SetLiveFact("right_foot", player.RightFoot.Value);
+            if (player.DateOfBirth.HasValue) SetLiveFact("date_of_birth", null, player.DateOfBirth.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
             if (player.NationUid.HasValue) SetLiveFact("identity.nation_uid", player.NationUid.Value);
             if (!string.IsNullOrWhiteSpace(player.NationName)) SetLiveFact("identity.nation_name", null, player.NationName);
             foreach (var field in player.Attributes ?? new Dictionary<string, double>())
