@@ -47,6 +47,12 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='league_tables';"));
         Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='officials';"));
         Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='squad_planner';"));
+        var teamMetrics = await database.SearchFmTeamMatchMetricsAsync("shots", "77", "10", "2026-11-01", "2026-11-01");
+        var shots = Assert.Single(teamMetrics);
+        Assert.Equal(14d, shots.Value);
+        Assert.True(shots.FixtureMatched);
+        Assert.Contains("competition_id", shots.FixtureJson ?? "", StringComparison.OrdinalIgnoreCase);
+
     }
 
     [Fact]
