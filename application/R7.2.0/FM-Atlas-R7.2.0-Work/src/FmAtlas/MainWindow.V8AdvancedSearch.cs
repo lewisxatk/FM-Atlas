@@ -801,12 +801,12 @@ public partial class MainWindow
             rowPanel.Children.Add(remove);
             container = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(28, 130, 170, 215)),
+                Background = Brush("#171F28"),
                 BorderBrush = Line,
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(8),
-                Margin = new Thickness(0, 4, 0, 4),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(10),
+                Margin = new Thickness(0, 5, 0, 5),
                 Child = rowPanel
             };
 
@@ -902,19 +902,19 @@ public partial class MainWindow
                             return new();
                         }
                         if (field.Key.StartsWith("attribute:", StringComparison.OrdinalIgnoreCase)
-                            && ((hasMin && lower is < 1 or > 20) || (hasMax && upper is < 1 or > 20)))
+                            && ((hasMin && (lower is < 1 or > 20 || !double.IsInteger(lower))) || (hasMax && (upper is < 1 or > 20 || !double.IsInteger(upper)))))
                         {
                             error = $"{field.DisplayName} must be between 1 and 20.";
                             return new();
                         }
                         if (field.Key.Equals("player:CurrentAbility", StringComparison.OrdinalIgnoreCase)
-                            && ((hasMin && lower is < 0 or > 200) || (hasMax && upper is < 0 or > 200)))
+                            && ((hasMin && (lower is < 0 or > 200 || !double.IsInteger(lower))) || (hasMax && (upper is < 0 or > 200 || !double.IsInteger(upper)))))
                         {
                             error = "Current Ability must be between 0 and 200.";
                             return new();
                         }
                         if (field.Key.Equals("player:PotentialAbility", StringComparison.OrdinalIgnoreCase)
-                            && ((hasMin && lower is < -10 or > 200) || (hasMax && upper is < -10 or > 200)))
+                            && ((hasMin && (lower is < -10 or > 200 || !double.IsInteger(lower))) || (hasMax && (upper is < -10 or > 200 || !double.IsInteger(upper)))))
                         {
                             error = "Potential Ability must be between -10 and 200, including negative random-potential values.";
                             return new();
@@ -1114,7 +1114,7 @@ public partial class MainWindow
             previousPageButton.IsEnabled = false;
             nextPageButton.IsEnabled = false;
             Mouse.OverrideCursor = Cursors.Wait;
-            status.Text = $"Searching {criteria.Count:N0} conditions across {(matchAll ? "ALL / AND" : "ANY / OR")} of the available fields…";
+            status.Text = $"Searching {criteria.Count:N0} general conditions and {positionFilter?.Positions?.Count ?? 0} position ratings…";
             try
             {
                 var activeSorts = CaptureSorts();
@@ -1134,7 +1134,7 @@ public partial class MainWindow
                 var sortSummary = string.Join(" → ", activeSorts.Select(x =>
                     $"{ResolveSortLabel(x.FieldKey)} {(x.Descending ? "↓" : "↑")}"));
                 status.Text = $"{results.Count:N0} players on this page · {criteria.Count:N0} general conditions · {(matchAll ? "ALL / AND" : "ANY / OR")} · {positionFilter?.Positions?.Count ?? 0} position ratings · {(positionFilter is null ? "positions off" : positionFilter.MatchAny ? "position ANY" : "position ALL")}{(positionFilter?.AtLeast == true ? " · minimum ratings" : " · exact ratings")} · sort: {sortSummary} · only actual stored fields and values were tested.";
-                AtlasLog.Info($"Universal advanced player search: conditions={criteria.Count}; matchAll={matchAll}; results={results.Count}.");
+                AtlasLog.Info($"Universal advanced player search: conditions={criteria.Count}; matchAll={matchAll}; positionCount={positionFilter?.Positions?.Count ?? 0}; positionAny={positionFilter?.MatchAny}; atLeast={positionFilter?.AtLeast}; results={results.Count}.");
             }
             catch (OperationCanceledException)
             {
