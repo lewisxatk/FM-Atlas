@@ -257,6 +257,9 @@ public sealed class ScoutDatabase
             CREATE INDEX IF NOT EXISTS IX_Players_Name ON Players(Name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_Players_Club ON Players(Club COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_SourceName ON PlayerAttributes(SourceId, AttributeName);
+CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_SourceNameNoCase ON PlayerAttributes(SourceId, AttributeName COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotPlayerGroupField ON FmsavePlayerFacts(SnapshotId, PlayerSourceId, FactGroup, FieldKey);
+CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotGroupFieldPlayer ON FmsavePlayerFacts(SnapshotId, FactGroup, FieldKey, PlayerSourceId);
             CREATE INDEX IF NOT EXISTS IX_LivePlayers_Name ON LivePlayers(PlayerName COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_LivePlayers_ClubUid ON LivePlayers(ClubUid);
             CREATE INDEX IF NOT EXISTS IX_LiveClubs_Name ON LiveClubs(ClubName COLLATE NOCASE);
@@ -2542,7 +2545,7 @@ public sealed class ScoutDatabase
                     throw new ArgumentOutOfRangeException(nameof(criteria), "Player attribute values must be between 1 and 20.");
                 if (criterion.Minimum.HasValue && criterion.Maximum.HasValue && criterion.Minimum > criterion.Maximum)
                     throw new ArgumentException($"Minimum cannot exceed maximum for {attributeName}.", nameof(criteria));
-                predicates.Add($"EXISTS (SELECT 1 FROM PlayerAttributes a{index} WHERE a{index}.SourceId=p.SourceId AND lower(a{index}.AttributeName)=lower($key{index}) AND ($min{index} IS NULL OR a{index}.AttributeValue >= $min{index}) AND ($max{index} IS NULL OR a{index}.AttributeValue <= $max{index}))");
+                predicates.Add($"EXISTS (SELECT 1 FROM PlayerAttributes a{index} WHERE a{index}.SourceId=p.SourceId AND a{index}.AttributeName=$key{index} COLLATE NOCASE AND ($min{index} IS NULL OR a{index}.AttributeValue >= $min{index}) AND ($max{index} IS NULL OR a{index}.AttributeValue <= $max{index}))");
                 cmd.Parameters.AddWithValue("$key" + index, attributeName);
                 cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
                 cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
