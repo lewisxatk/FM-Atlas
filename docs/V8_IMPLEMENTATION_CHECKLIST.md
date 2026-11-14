@@ -117,6 +117,11 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [x] Indexed statistic search pushes each metric's numeric threshold into SQLite's indexed candidate predicate, evaluates ALL/ANY with per-condition aggregation, applies per-90/minutes filters before materialisation, groups qualifying player-period rows server-side, and resolves only candidate player identities.
 - [ ] Verify indexed metric-search correctness against a real imported FM27 career and benchmark query latency on large stat tables.
+- [x] Centralise the weighted Role Fit calculation in `RoleFitService.CalculateScore`; only finite source-provided 1–20 attributes contribute, and the score returns separate available/expected counts and coverage. It remains explicitly an Atlas estimate, not the game's hidden role formula or star rating.
+- [x] Upgrade Role Fit Lab with minimum/maximum age, minimum CA, minimum PA, position-contains and minimum attribute-coverage filters. Candidate predicates are applied in SQLite before candidate limiting; role-coverage thresholds are applied before ranking/result limiting.
+- [x] Add cancellation through Role Fit database reading and scoring; a cancelled search keeps the last completed result set.
+- [x] Make Role Fit CSV exports traceable with player Source ID and attribute coverage counts, and guard untrusted text cells against spreadsheet-formula injection.
+- [ ] Verify the new Role Fit calculation, database filters, cancellation and export changes in the latest Windows build and automated tests.
 - [ ] Benchmark metric search, import throughput and peak memory using 40k+ player / large-stat fixtures.
 
 - [ ] Complete recruitment workspace and reusable role templates.
@@ -158,7 +163,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [x] Restore and compile full solution using .NET 8 on a hosted Windows runner (GitHub Actions run #79, commit `18d32e2d`).
 - [~] All compiler errors have been fixed and the Release build passed on run #168. Removed twelve unused legacy fields, replaced compile-time live-memory `const false` gates with non-constant fail-closed properties, and wrapped deferred profile restoration in an explicit error handler (`c1f5c153`). Run #172 will check whether the known CS0162/CS0169/CS4014 warnings have reduced; any remaining warnings need a fresh review.
-- [ ] Add unit tests for data mapping, identity joins, filter logic, calculations and validation.
+- [~] Add unit tests for data mapping, identity joins, filter logic, calculations and validation. New Role Fit scoring and database-filter regression tests are committed; current Windows Actions result is pending.
 - [ ] Add integration tests for import staging, rollback, SQLite contention, cancellation and retry.
 - [ ] Add performance benchmarks at 40k+ players, 28k+ clubs and large stats tables.
 - [ ] Record startup, navigation, query, profile-open and import timings against R7.2.0 baseline.
@@ -179,6 +184,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
+| 2026-11-14 | Role Fit scoring, recruitment filters and cancellation | `7d8cef6b`, `3e4acf28` | Extracted a reusable coverage-aware weighted score; added pre-limit age/CA/PA/position filters, adjustable minimum attribute coverage, cancellation, and regression tests for score math and database filters. Windows verification pending. |
+| 2026-11-14 | Traceable and safer Role Fit export | `2a6bfc80` | CSV now includes stable player Source IDs and available/expected attribute counts; untrusted text cells are guarded against spreadsheet formula injection. Windows verification pending. |
 | 2026-11-14 | Indexed metric-search pushdown | Pending CI | Added SQLite-side ALL/ANY evaluation using aggregated per-condition predicates, per-90/minutes filtering, candidate-row grouping, a composite fact-search index, lazy player identity resolution and an import/search regression fixture. Verification remains pending. |
 | 2026-11-14 | Atlas Liquid top toolbar, collapsible navigation, theme cycling, tooltips and responsive navigation | `2ccbbcc5`, `1447e6f7`, `5c1090b0` | Initial shell and deferred profile restoration committed; keyboard/tooltips/DPI acceptance not yet verified. |
 | 2026-11-14 | Blue accent mapping and system-aware workspace transition | `846b98af`, `2fc2e2e0` | Removed legacy lime accent mapping in favour of the Atlas Liquid blue palette; transition respects Windows client-area animation preference. |
