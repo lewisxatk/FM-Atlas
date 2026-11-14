@@ -20,12 +20,19 @@ public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int
 public sealed class ScoutDatabase
 {
     private readonly string _connectionString;
+    // All mutating operations across ScoutDatabase instances share one writer gate.
+    private static readonly SemaphoreSlim WriteGate = new(1, 1);
 
     public ScoutDatabase()
     {
         var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas");
         Directory.CreateDirectory(folder);
-        _connectionString = new SqliteConnectionStringBuilder { DataSource = Path.Combine(folder, "scouting.db") }.ToString();
+        _connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = Path.Combine(folder, "scouting.db"),
+            DefaultTimeout = 30,
+            ForeignKeys = true
+        }.ToString();
     }
 
     public async Task InitialiseAsync()
@@ -437,6 +444,8 @@ public sealed class ScoutDatabase
 
     public async Task SavePlayerAttributeAsync(string sourceId, string playerName, string attributeName, string category, double value, string changeSource = "FM Atlas local database only")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         if (value < 1 || value > 20) throw new ArgumentOutOfRangeException(nameof(value), "FM attributes must be between 1 and 20.");
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
@@ -454,10 +463,18 @@ public sealed class ScoutDatabase
         audit.Parameters.AddWithValue("$id", sourceId); audit.Parameters.AddWithValue("$player", playerName); audit.Parameters.AddWithValue("$field", attributeName); audit.Parameters.AddWithValue("$old", oldValue is null || oldValue == DBNull.Value ? DBNull.Value : Convert.ToString(oldValue, System.Globalization.CultureInfo.InvariantCulture)); audit.Parameters.AddWithValue("$new", value.ToString(System.Globalization.CultureInfo.InvariantCulture)); audit.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); audit.Parameters.AddWithValue("$source", changeSource);
         await audit.ExecuteNonQueryAsync();
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task SaveLocalAbilitiesAsync(string sourceId, string playerName, int currentAbility, int potentialAbility, string changeSource = "FM Atlas local database only")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         if (currentAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(currentAbility), "CA must be between 0 and 200.");
         if (potentialAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(potentialAbility), "PA must be between 0 and 200.");
         await using var db = new SqliteConnection(_connectionString);
@@ -481,10 +498,18 @@ public sealed class ScoutDatabase
             await audit.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task SavePlayerAttributeBatchAsync(string sourceId, string playerName, IReadOnlyList<(string AttributeName, string Category, double Value)> fields, string changeSource = "FM Atlas local database only")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         if (fields.Count == 0) return;
         if (fields.Count > 60) throw new ArgumentOutOfRangeException(nameof(fields), "A single attribute batch is limited to 60 fields.");
         if (fields.Any(x => string.IsNullOrWhiteSpace(x.AttributeName) || x.Value is < 1 or > 20 || !double.IsFinite(x.Value)))
@@ -516,10 +541,18 @@ public sealed class ScoutDatabase
             await audit.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task SaveLocalAbilityAsync(string sourceId, string playerName, string fieldName, int? value)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         var column = fieldName switch { "CurrentAbility" => "CurrentAbility", "PotentialAbility" => "PotentialAbility", _ => throw new ArgumentOutOfRangeException(nameof(fieldName)) };
         if (value is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(value), "CA and PA must be between 0 and 200.");
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false);
@@ -535,10 +568,18 @@ public sealed class ScoutDatabase
         audit.Parameters.AddWithValue("$old", oldValue is null || oldValue == DBNull.Value ? DBNull.Value : Convert.ToString(oldValue));
         audit.Parameters.AddWithValue("$new", (object?)value?.ToString() ?? DBNull.Value); audit.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); await audit.ExecuteNonQueryAsync();
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task UndoLocalEditAsync(long historyId)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false); await using var tx = await db.BeginTransactionAsync();
         var read = db.CreateCommand(); read.Transaction = (SqliteTransaction)tx;
         read.CommandText = "SELECT SourceId,PlayerName,FieldName,OldValue,NewValue,ChangeSource FROM EditHistory WHERE Id=$id;"; read.Parameters.AddWithValue("$id", historyId);
@@ -587,7 +628,13 @@ public sealed class ScoutDatabase
             : $"Undo of local edit #{historyId}";
         audit.Parameters.AddWithValue("$source", undoSource); await audit.ExecuteNonQueryAsync();
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<Dictionary<string, double>> GetPlayerAttributesAsync(string sourceId)
     {
@@ -602,6 +649,8 @@ public sealed class ScoutDatabase
 
     public async Task<int> ImportPlayersCsvAsync(string path)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8);
         if (lines.Length < 2) return 0;
         var headers = ParseCsvLine(lines[0]).Select((h,i)=>(h,i)).ToDictionary(x=>x.h.Trim(),x=>x.i,StringComparer.OrdinalIgnoreCase);
@@ -632,13 +681,21 @@ public sealed class ScoutDatabase
             }
         }
         await tx.CommitAsync().ConfigureAwait(false); return count;
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
 
     /// <summary>Imports an R3.4 full-intelligence CSV into the existing live-player fact store.
     /// Matches strictly by FM player UID; does not create or overwrite player identities.</summary>
     public async Task<(int MatchedPlayers, int FactsImported)> ImportFullIntelligenceReportAsync(string path)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8);
         var headerLine = Array.FindIndex(lines, x => x.StartsWith("Player,UID,Section,Field,Offset,Raw,Decoded,Applicability,Confidence,Notes", StringComparison.OrdinalIgnoreCase));
         if (headerLine < 0) throw new InvalidDataException("This is not an FM Atlas R3.4 full-intelligence report. Expected the Player,UID,Section... header.");
@@ -676,10 +733,18 @@ public sealed class ScoutDatabase
         }
         await tx.CommitAsync().ConfigureAwait(false);
         return (matched.Count,imported);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task UpdateLivePlayerFactAsync(long playerUid, string fieldKey, double value, string validationStatus = "Verified-UserUIWitness-ReadBack")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
         cmd.CommandText = "UPDATE LivePlayerFacts SET NumericValue=$value,TextValue=NULL,ValidationStatus=$status,UpdatedUtc=$utc WHERE PlayerUid=$uid AND FieldKey=$field;";
@@ -687,7 +752,13 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); cmd.Parameters.AddWithValue("$uid", playerUid); cmd.Parameters.AddWithValue("$field", fieldKey);
         var changed = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         if (changed == 0) AtlasLog.Warning($"Live field fact was not present to update after a read-back verified write: uid={playerUid}, field={fieldKey}.");
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<(string FieldKey,double? NumericValue,string? TextValue,string ValidationStatus)>> GetLivePlayerFactsAsync(long playerUid)
     {
@@ -706,6 +777,8 @@ public sealed class ScoutDatabase
 
     public async Task CreateShortlistAsync(string shortlistName)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -713,10 +786,18 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$name", shortlistName.Trim());
         cmd.Parameters.AddWithValue("$date", DateTime.UtcNow.ToString("O"));
         await cmd.ExecuteNonQueryAsync();
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task AddToShortlistAsync(PlayerRecord player, string shortlistName, string? notes = null)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -730,7 +811,13 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$notes", (object?)notes ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$date", DateTime.UtcNow.ToString("O"));
         await cmd.ExecuteNonQueryAsync();
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<string>> GetShortlistNamesAsync()
     {
@@ -772,6 +859,8 @@ public sealed class ScoutDatabase
 
     public async Task RemoveFromShortlistAsync(string sourceId, string shortlistName)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -779,10 +868,18 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$id", sourceId);
         cmd.Parameters.AddWithValue("$name", shortlistName);
         await cmd.ExecuteNonQueryAsync();
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<LiveImportResult> ImportLiveSnapshotAsync(FmAtlas.Services.LiveImportPayload payload)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         await using var tx = await db.BeginTransactionAsync();
@@ -914,7 +1011,13 @@ public sealed class ScoutDatabase
         finish.Parameters.AddWithValue("$c", payload.Clubs.Count); finish.Parameters.AddWithValue("$summary", $"Unnamed/unreadable player slots: {payload.UnnamedPlayers}; unresolved player-to-club links: {payload.UnlinkedPlayers}; imported player attribute/personality values: {liveAttributeCount}; CA/PA and attribute offsets remain provisional pending in-game UI witnesses"); finish.Parameters.AddWithValue("$id", runId);
         await finish.ExecuteNonQueryAsync(); await tx.CommitAsync().ConfigureAwait(false);
         return new LiveImportResult(runId, payload.PlayerSlots, payload.Players.Count, payload.Clubs.Count, payload.Clubs.Count, payload.UnnamedPlayers, payload.UnlinkedPlayers, liveAttributeCount);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<PlayerRecord>> SearchLivePlayersAsync(string? search, int limit = 5000, string? attributeName = null, double? minAttribute = null, double? maxAttribute = null, int? minAge = null, int? maxAge = null, DateTime? ageAsOf = null, string regenFilter = "Either", int offset = 0,
         int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null)
@@ -1126,6 +1229,8 @@ public sealed class ScoutDatabase
 
     public async Task<FmsaveImportResult> ImportFmsaveSnapshotAsync(string jsonPath)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         await using var documentStream = File.OpenRead(jsonPath);
         using var document = await JsonDocument.ParseAsync(documentStream, new JsonDocumentOptions { MaxDepth = 128 });
         var root = document.RootElement;
@@ -1311,10 +1416,18 @@ public sealed class ScoutDatabase
         await finish.ExecuteNonQueryAsync(); await tx.CommitAsync().ConfigureAwait(false);
         AtlasLog.Info($"FMSave snapshot indexed: snapshot={snapshotId}; playerStatFacts={statFactCount}; rawExtraRows={extraCount}.");
         return new FmsaveImportResult(snapshotId, playerCount, staffCount, clubCount, extraCount, tableCounts, warnings);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<(int ImportId, int RowsImported, int PlayersCreated, string Note)> ImportFmViewExporterCsvAsync(string csvPath)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         var lines = await File.ReadAllLinesAsync(csvPath, Encoding.UTF8).ConfigureAwait(false);
         if (lines.Length < 2) throw new InvalidDataException("The FM View Exporter CSV is empty or has no data rows.");
         var delimiter = lines[0].Count(c => c == ';') > lines[0].Count(c => c == ',') ? ';' : ',';
@@ -1423,7 +1536,13 @@ public sealed class ScoutDatabase
         await finish.ExecuteNonQueryAsync().ConfigureAwait(false);
         await tx.CommitAsync().ConfigureAwait(false);
         return (importId, imported, created.Count, $"{headers.Length} columns retained · source IDs matched to current FMSave players where possible · raw export rows preserved");
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<AtlasEditableAttribute>> GetPlayerAttributeRowsAsync(string sourceId)
     {
@@ -1840,15 +1959,25 @@ public sealed class ScoutDatabase
 
     public async Task CheckpointAsync()
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
         cmd.CommandText = "PRAGMA wal_checkpoint(PASSIVE);";
         await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<int> MassEditLocalAttributeAsync(string? search, string attributeName, string category, double value, int maxRecords = 5000, string operation = "Set")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
         if (string.IsNullOrWhiteSpace(attributeName)) throw new ArgumentException("Choose an attribute.", nameof(attributeName));
         if (double.IsNaN(value) || double.IsInfinity(value) || (operation.Equals("Set", StringComparison.OrdinalIgnoreCase) && (value < 0 || value > 20)))
             throw new ArgumentOutOfRangeException(nameof(value), "Set values must be between 0 and 20; Add and Scale accept signed adjustments.");
@@ -1899,7 +2028,13 @@ public sealed class ScoutDatabase
         }
         await tx.CommitAsync().ConfigureAwait(false);
         return changedCount;
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<StatMetricField>> GetSeasonMetricCatalogAsync()
     {
