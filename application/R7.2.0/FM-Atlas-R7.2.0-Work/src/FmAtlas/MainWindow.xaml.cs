@@ -652,6 +652,7 @@ public partial class MainWindow : Window
         AddNav("⌗", "Attribute Search");
         AddNav("∑", "Stats Search");
         AddNav("▦", "Scouting Matrix");
+        AddNav("◈", "Scouting Analytics");
         AddNav("↗", "Player Development");
         AddNav("▤", "Shortlists");
         AddNavGroup("SQUAD & ANALYSIS");
@@ -799,6 +800,7 @@ public partial class MainWindow : Window
                 "Analytics" => await AnalyticsPageAsync(),
                 "Stats Search" => await StatsSearchPageAsync(),
                 "Scouting Matrix" => await StatsSearchPageAsync(),
+                "Scouting Analytics" => await ScoutingEnginePageAsync(),
                 "Attribute Search" => await AttributeSearchPageAsync(),
                 "Value Finder" => await ValueFinderPageAsync(),
                 "Mass Edit" => await MassEditPageAsync(),
@@ -898,6 +900,7 @@ public partial class MainWindow : Window
         "Analytics" => "Season and match performance · metrics actually present in your save",
         "Stats Search" => "Multi-condition statistical discovery · grouped source metrics · per-90 sample controls",
         "Scouting Matrix" => "Reusable multi-metric scouting profiles · source-backed performance search · minutes and per-90 controls",
+        "Scouting Analytics" => "StatsBomb event data · Wyscout CSV · player comparisons · percentiles · recruitment discovery",
         "Attribute Search" => "Build precise player profiles with up to 60 simultaneous 1–20 ratings",
         "Value Finder" => "Spot players whose ability and potential rank ahead of their market-value percentile",
         "Mass Edit" => "Bulk local database edits · preview and audit before applying",
