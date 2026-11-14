@@ -17,6 +17,8 @@ Continue the integrated V8 rebuild without replacing existing R7.2.0 functionali
 - The Staff directory already merges offline-save and live staff rows, exposes CA/PA and other identity columns, and loads additional staff facts into the selected profile.
 - `GetFmsaveStaffFactsAsync` already strips the `LIVE:` prefix before reading `LiveStaffFacts`; this is covered by the existing `StaffSearchProfileAndCareerIdentityUseTheConnectedLiveManager` integration test.
 - The live staff query now supports name, club and UID matching; the integration test covers the linked club and UID search paths.
+- FM27 preferred-job ratings are now modelled independently using the public 15-group layout: a class-scoped pointer at person+0xD0, 15 byte ratings, 1–20 validation, tie-aware top-group selection and provisional fact persistence. The Staff profile displays the ratings without changing existing directory/search behaviour.
+- Reference findings and limitations are recorded in `docs/architecture/FM-ATLAS-V8-REFERENCE-TOOL-MAPPING-NOTES.md`; the implementation deliberately keeps group 7 unresolved and recruitment/performance analyst preferences combined.
 - Players search is paged at 250 rows, merges local and live source rows before paging, prefers the most complete source row, and restores open profile tabs after navigation. Existing Advanced Search must remain intact.
 
 ## Safety state
@@ -27,6 +29,13 @@ The current implementation checklist, architecture status and quick-start guidan
 
 ## Commits made in this continuation
 
+- `3952982e` — add validated 15-group staff preferred-job decoder.
+- `98232925` — read preferred-job ratings through the class-scoped FM27 staff identity shift.
+- `ae09f063` — persist provisional preferred-job ratings and top groups in live staff facts.
+- `d0a93333` — show preferred-job match and role-group ratings in Staff profiles.
+- `f0001c03`, `1acaa16b` — add decoder unit tests and SQLite/profile integration coverage.
+- `bd5dee45` — document independent FMLibreEditor, FMSuperScout and fmsave research.
+- `04d27606`, `781a79ee`, `c8ba6827` — update implementation status, live-career checklist and master checklist.
 - `8afe77a4` — intermediate safety correction; superseded by the bounded, cancellable read-only scanner described in the current source state.
 - `62a89c5b` — made SQLite live-snapshot publication cancellable and rollback-safe when the FM session changes.
 - `242bab86` — rechecked the exact FM process/build/save-generation immediately before and after the database publication.
@@ -55,6 +64,7 @@ The current implementation checklist, architecture status and quick-start guidan
 2. Full .NET integration suite, including the live staff fixture tests and Advanced Search regressions.
 3. Confirm monitor detects load/unload/new-generation changes during the bounded scan and cancels the worker when the session changes.
 4. Confirm the Staff directory searches by name, club and UID; select a live staff fixture and verify CA/PA, nation, job, club and all stored live facts.
+5. Verify preferred-job ratings and tie/threshold handling against the in-game FM27 Staff Search UI; do not promote these values beyond provisional before that comparison.
 5. Confirm the manager shortcut refuses stale data from a previous FM process even if the save-load counter is identical.
 6. Windows PC test of Advanced Search preservation, Players pagination, profile tabs and navigation restoration.
 7. FM27 real-save compatibility, two-minute scan duration, CPU/RAM/peak-memory testing and package acceptance.
