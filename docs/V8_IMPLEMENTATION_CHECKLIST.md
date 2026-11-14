@@ -63,7 +63,9 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 **Safety gate (2026-11-14):** `LiveMemoryImportEnabled` is ON for exact supported FM27 profiles. The read-only entity-array scan has a two-minute hard deadline, toolbar cancellation and save-generation cancellation. Live editing remains OFF; real FM performance and field-witness acceptance are still required.
 
-- [x] Add exact PE-fingerprint process detection for supported Windows FM27 Steam and Game Pass builds; unknown builds and duplicate supported processes fail closed.
+- [x] Add exact PE-fingerprint process detection for supported Windows FM27 Steam and Game Pass builds; unknown builds fail closed.
+- [x] Validate that the candidate executable is the real `fm.exe` installation with an adjacent `fm_Data` folder, following FMSuperScout's process-discovery method; report access-denied separately.
+- [x] When multiple supported FM processes exist, select the newest verified process deterministically and bind all imports to its PID/build/save-generation session; log the selected PID.
 - [x] Add read-only GAME_UI save-load generation detection. A career connection is keyed by process, build profile and the in-game load counter, not by a remembered save-file path.
 - [x] Start automatic live-career detection on application load; the monitor probes every three seconds and starts the profile-bounded read-only index when a supported career generation is loaded.
 - [x] Replace the legacy broad process-memory scan with profile-bounded player/staff/club array reads. The automatic monitor invokes the bounded extractor for a supported loaded career; it does not scan unknown builds or duplicate supported FM processes.
@@ -74,6 +76,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Add an independent FM27 staff preferred-job decoder for the 15 documented role groups; validate exact byte count and 1–20 range, retain every score, preserve small ties and do not invent a single winner for low scores or broad ties.
 - [x] Persist the 15 staff preference ratings and qualified top-group summary as provisional `LiveStaffFacts`; display them in the existing Staff profile without replacing the Staff directory.
 - [x] Decode the 19 FM27 staff coaching attributes and two direct 1–20 ratings from the documented staff layout; keep these base offsets unchanged for the human-manager identity shift.
+- [x] Align staff attribute fact keys with FMLibreEditor/FM27 layout names (`judging_ability`, `judging_potential`, `judging_staff`) and add regression coverage against invented aliases.
 - [x] Persist the decoded staff coaching/direct ratings as provisional `staff_attributes.*` facts and expose them automatically in the existing Staff profile fact groups.
 - [x] Decode the eight FM27 staff personality ratings using the identity-block shift (including the human-manager +0x340 layout) and persist them as provisional `staff_personality.*` facts.
 - [x] Read available staff contract facts from the documented contract object: weekly wage in GBP, signed date, expiry date and joined-club date; persist only range-valid/readable values.
@@ -86,7 +89,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Keep live CA/PA/attribute Apply and live editing disabled. The automatic connector is read-only.
 - [ ] Run the live-career database/search regression tests and the new staff attribute decoder tests against the exact current branch head in the Windows workflow.
 - [ ] Compare player/staff CA/PA, all mapped player attributes, eight personality ratings, position ratings, player-coach identity fields, manager identity, nation and club against the current FM27 UI on supported Steam and Game Pass builds.
-- [ ] Profile memory/CPU and FM responsiveness with FM closed, at menus and during a match; verify save switch, save close, game restart and duplicate-process behaviour.
+- [ ] Profile memory/CPU and FM responsiveness with FM closed, at menus and during a match; verify save switch, save close, game restart and duplicate-process behaviour, including two simultaneously running FM installs and permission mismatch.
 - [ ] Add a user-visible capability/status matrix for read-only, provisional and write-supported fields; maintain write gates until mapping, identity, read-back and rollback are independently validated.
 
 ## 4. Save import, data provenance and database reliability
