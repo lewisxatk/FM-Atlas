@@ -27,6 +27,21 @@ public sealed class LiveCareerDetectionTests
     }
 
     [Fact]
+    public void SessionKeyIsDifferentWhenProcessChangesEvenIfProfileAndCounterMatch()
+    {
+        var imported = new LiveCareerProbe(
+            IsGameRunning: true, IsSupportedBuild: true, IsCareerLoaded: true,
+            ProcessId: 1234, ProfileId: "steam-26385295", ProfileName: "FM27 Steam",
+            SaveLoadCounter: 7, PlayerSlots: 40286, StaffSlots: 28000, ClubSlots: 9000,
+            Status: "Career loaded");
+        var current = imported with { ProcessId = 5678 };
+
+        Assert.Equal(imported.SaveLoadCounter, current.SaveLoadCounter);
+        Assert.True(imported.MatchesSession(imported.SessionKey));
+        Assert.False(current.MatchesSession(imported.SessionKey));
+    }
+
+    [Fact]
     public void SessionKeyIsEmptyUntilCareerIsLoaded()
     {
         var probe = new LiveCareerProbe(
