@@ -53,8 +53,8 @@ public sealed class ScoutingAnalyticsServiceTests
 
         Assert.Equal(3, result.Count);
         Assert.All(result, x => Assert.Equal(3, x.CohortSize));
-        Assert.Equal(100, result[0].Percentile);
-        Assert.Equal(0, result[^1].Percentile);
+        Assert.Equal(100d, result[0].Percentile!.Value);
+        Assert.Equal(0d, result[^1].Percentile!.Value);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public sealed class ScoutingAnalyticsServiceTests
             minimumCohortSize: 3);
 
         Assert.Equal("A", result[0].SourceId);
-        Assert.Equal(100, result[0].Percentile);
+        Assert.Equal(100d, result[0].Percentile!.Value);
     }
 
     [Fact]
