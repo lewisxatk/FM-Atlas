@@ -40,6 +40,7 @@ public partial class MainWindow
         intro.Children.Add(Txt("RECRUITMENT INTELLIGENCE · EVENT DATA + FM SAVE DATA", 9, true, Teal));
         intro.Children.Add(Txt("Scouting analytics", 25, true, Ink));
         intro.Children.Add(Txt("A Wyscout / StatsBomb-inspired recruitment workspace. Import genuine event data or a user-owned Wyscout CSV, compare players within like-for-like cohorts, and inspect the source behind every metric. FM save statistics remain a separate source family.", 10, false, Muted, wrap: true));
+        intro.Children.Add(Txt("StatsBomb Open Data attribution is required when publishing or sharing analysis from that dataset. Wyscout imports use your own authorised CSV exports.", 8, false, Muted, wrap: true));
         var importBar = new WrapPanel { Margin = new Thickness(0, 10, 0, 4) };
         TextBlock status = null!;
         CancellationTokenSource? activeScoutingImport = null;
