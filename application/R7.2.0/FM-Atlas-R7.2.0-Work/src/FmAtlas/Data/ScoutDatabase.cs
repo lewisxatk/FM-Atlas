@@ -604,7 +604,7 @@ public sealed class ScoutDatabase
                     """;
                 audit.Parameters.AddWithValue("$id", $"ENTITY:{type}:{sourceId}");
                 audit.Parameters.AddWithValue("$name", displayName);
-                audit.Parameters.AddWithValue("$field", $"{field.Group}.{field.Field}");
+                audit.Parameters.AddWithValue("$field", $"EntityOverride::{field.Group}::{field.Field}");
                 audit.Parameters.AddWithValue("$old", oldValue);
                 audit.Parameters.AddWithValue("$new", field.Value);
                 audit.Parameters.AddWithValue("$utc", utc);
@@ -774,7 +774,63 @@ public sealed class ScoutDatabase
             oldValue=reader.IsDBNull(3)?null:reader.GetString(3); newValue=reader.IsDBNull(4)?null:reader.GetString(4);
             originalChangeSource=reader.IsDBNull(5)?"FM Atlas local database only":reader.GetString(5);
         }
-        if (fieldName is "CurrentAbility" or "PotentialAbility")
+        if (sourceId.StartsWith("ENTITY:", StringComparison.OrdinalIgnoreCase)
+            && fieldName.StartsWith("EntityOverride::", StringComparison.Ordinal))
+        {
+            var identity = sourceId.Split(':', 3);
+            var key = fieldName.Split(new[] { "::" }, 3, StringSplitOptions.None);
+            if (identity.Length != 3 || key.Length != 3)
+                throw new InvalidOperationException("The local entity override history key is malformed.");
+            var entityType = identity[1];
+            var entityId = identity[2];
+            var groupKey = key[1];
+            var valueKey = key[2];
+
+            var current = db.CreateCommand(); current.Transaction = (SqliteTransaction)tx;
+            current.CommandText = """
+                SELECT OverrideValue,OriginalValue FROM LocalEntityOverrides
+                WHERE EntityType=$type AND SourceId=$entity AND GroupKey=$group AND FieldKey=$field;
+                """;
+            current.Parameters.AddWithValue("$type", entityType); current.Parameters.AddWithValue("$entity", entityId);
+            current.Parameters.AddWithValue("$group", groupKey); current.Parameters.AddWithValue("$field", valueKey);
+            string? currentValue = null; string? sourceValue = null;
+            await using (var currentReader = await current.ExecuteReaderAsync().ConfigureAwait(false))
+            {
+                if (await currentReader.ReadAsync().ConfigureAwait(false))
+                {
+                    currentValue = currentReader.GetString(0);
+                    sourceValue = currentReader.GetString(1);
+                }
+            }
+            if (!string.Equals(currentValue, newValue, StringComparison.Ordinal))
+                throw new InvalidOperationException("Undo blocked: this local entity field has changed again since the selected edit. Refresh history and undo the newest change first.");
+
+            if (string.Equals(oldValue, sourceValue, StringComparison.Ordinal))
+            {
+                var delete = db.CreateCommand(); delete.Transaction = (SqliteTransaction)tx;
+                delete.CommandText = """
+                    DELETE FROM LocalEntityOverrides
+                    WHERE EntityType=$type AND SourceId=$entity AND GroupKey=$group AND FieldKey=$field;
+                    """;
+                delete.Parameters.AddWithValue("$type", entityType); delete.Parameters.AddWithValue("$entity", entityId);
+                delete.Parameters.AddWithValue("$group", groupKey); delete.Parameters.AddWithValue("$field", valueKey);
+                await delete.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                var update = db.CreateCommand(); update.Transaction = (SqliteTransaction)tx;
+                update.CommandText = """
+                    UPDATE LocalEntityOverrides SET OverrideValue=$value,UpdatedUtc=$utc
+                    WHERE EntityType=$type AND SourceId=$entity AND GroupKey=$group AND FieldKey=$field;
+                    """;
+                update.Parameters.AddWithValue("$value", (object?)oldValue ?? DBNull.Value);
+                update.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O"));
+                update.Parameters.AddWithValue("$type", entityType); update.Parameters.AddWithValue("$entity", entityId);
+                update.Parameters.AddWithValue("$group", groupKey); update.Parameters.AddWithValue("$field", valueKey);
+                await update.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+        }
+        else if (fieldName is "CurrentAbility" or "PotentialAbility")
         {
             var current = db.CreateCommand(); current.Transaction = (SqliteTransaction)tx; current.CommandText = $"SELECT {fieldName} FROM Players WHERE SourceId=$id;"; current.Parameters.AddWithValue("$id", sourceId);
             var currentValue = await current.ExecuteScalarAsync().ConfigureAwait(false);
