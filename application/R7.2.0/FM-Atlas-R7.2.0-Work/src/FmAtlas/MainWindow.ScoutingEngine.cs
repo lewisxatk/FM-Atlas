@@ -56,6 +56,7 @@ public partial class MainWindow
         Button similar = null!;
         Button undervalued = null!;
         Button export = null!;
+        Button eventLab = null!;
         intro.Children.Add(importBar);
         status = Txt($"{allRows.Count:N0} player-season records loaded · imports are stored locally on this PC.", 9, false, Muted, wrap: true);
         status.Margin = new Thickness(0, 4, 0, 2);
@@ -359,6 +360,65 @@ public partial class MainWindow
             finally { activeScoutingImport = null; cancelScoutingImport.IsEnabled = false; importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true; }
         }
 
+
+        async Task RunEventLabAsync()
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Select StatsBomb Open Data competitions.json",
+                Filter = "StatsBomb competitions.json|competitions.json|JSON files (*.json)|*.json",
+                CheckFileExists = true
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                eventLab.IsEnabled = false; importStatsBomb.IsEnabled = false; importWyscout.IsEnabled = false;
+                cancelScoutingImport.IsEnabled = true;
+                using var cancellation = new CancellationTokenSource();
+                activeScoutingImport = cancellation;
+                status.Text = "Building unified actions and fitting the empirical xT grid…";
+                var progress = new Progress<string>(message => status.Text = message);
+                var actions = await Task.Run(() => ScoutingActionAnalyticsService.ImportStatsBombActionsAsync(
+                    dialog.FileName, cancellation.Token, progress));
+                cancellation.Token.ThrowIfCancellationRequested();
+                if (actions.Count == 0) throw new InvalidDataException("No supported event actions were found in this StatsBomb dataset.");
+                if (actions.Select(x => x.MatchId).Distinct().Count() < 1)
+                    throw new InvalidDataException("No match-level training sample was available for xT.");
+                var model = await Task.Run(() => ScoutingActionAnalyticsService.FitExpectedThreat(actions, 1, 100), cancellation.Token);
+                var valued = ScoutingActionAnalyticsService.ValueActions(actions, model);
+                var chains = ScoutingActionAnalyticsService.BuildPossessionChains(valued);
+                var players = ScoutingActionAnalyticsService.AggregatePlayers(valued);
+                status.Text = $"Event Lab ready · {model.TrainingMatches:N0} matches · {actions.Count:N0} unified actions · {chains.Count:N0} possession chains · empirical {model.Columns}×{model.Rows} xT grid.";
+                var tabs = new TabControl { Margin = new Thickness(12) };
+                var playerGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = players, FrozenColumnCount = 2 };
+                var chainGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = chains, FrozenColumnCount = 2 };
+                var actionGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = valued.Take(5000), FrozenColumnCount = 3 };
+                tabs.Items.Add(new TabItem { Header = "Player impact", Content = playerGrid });
+                tabs.Items.Add(new TabItem { Header = "Possession chains", Content = chainGrid });
+                tabs.Items.Add(new TabItem { Header = "Unified actions (first 5,000)", Content = actionGrid });
+                var panel = new DockPanel();
+                var note = Txt($"ATLAS EMPIRICAL xT · {model.Columns} × {model.Rows} pitch grid\nTrained from {model.TrainingMatches:N0} matches and {model.TrainingActions:N0} event actions in this import. xT is the change in fitted zone threat for successful passes/carries; it does not value shots, failed actions or defensive actions. Model is dataset-specific and should be trained on a representative sample before cross-league comparisons.", 10, false, Muted, wrap: true);
+                note.Margin = new Thickness(16, 12, 16, 4);
+                DockPanel.SetDock(note, Dock.Top); panel.Children.Add(note); panel.Children.Add(tabs);
+                var window = new Window
+                {
+                    Title = "FM Atlas · Event Lab",
+                    Width = 1280, Height = 820, MinWidth = 850, MinHeight = 560,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Owner = this, Background = Panel, Foreground = Ink, Content = panel
+                };
+                window.ShowDialog();
+            }
+            catch (OperationCanceledException) { status.Text = "Event Lab import cancelled. Existing scouting datasets were not changed."; }
+            catch (Exception ex) { AtlasLog.Error("Event Lab analysis failed.", ex); status.Text = "Event Lab failed: " + ex.Message; }
+            finally
+            {
+                activeScoutingImport = null;
+                cancelScoutingImport.IsEnabled = false;
+                eventLab.IsEnabled = true; importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true;
+            }
+        }
+
         void ExportScoutingRows()
         {
             if (results.Count == 0) { MessageBox.Show(this, "Run a scouting search before exporting.", "FM Atlas · Scouting Analytics"); return; }
@@ -382,6 +442,8 @@ public partial class MainWindow
         fmMatrix = SoftButton("Open FM Scouting Matrix", async (_, _) => await NavigateAsync("Scouting Matrix"));
         cancelScoutingImport = SoftButton("Cancel import", (_, _) => activeScoutingImport?.Cancel());
         cancelScoutingImport.IsEnabled = false;
+        eventLab = SoftButton("Open Event Lab · xT / Possessions", async (_, _) => await RunEventLabAsync());
+        importBar.Children.Add(eventLab);
         importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload);
         importBar.Children.Add(fmMatrix); importBar.Children.Add(cancelScoutingImport);
 
