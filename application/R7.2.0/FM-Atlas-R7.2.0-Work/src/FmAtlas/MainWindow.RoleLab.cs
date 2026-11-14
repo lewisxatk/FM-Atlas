@@ -36,8 +36,9 @@ public partial class MainWindow
         var coverage = new ComboBox { Width = 132, Height = 36, Margin = new Thickness(0, 0, 8, 8), ToolTip = "Minimum percentage of the role's weighted attributes that must actually exist." };
         foreach (var value in new[] { "50% coverage", "60% coverage", "70% coverage", "80% coverage", "90% coverage", "100% coverage" }) coverage.Items.Add(value);
         coverage.SelectedIndex = 0;
+        Button cancel = null!;
         find = PrimaryButton("Find best fits", async (_, _) => await SearchAsync()); find.Margin = new Thickness(0, 0, 8, 8);
-        var cancel = SoftButton("Cancel search", (_, _) => activeSearchCancellation?.Cancel()); cancel.Margin = new Thickness(0, 0, 8, 8); cancel.IsEnabled = false;
+        cancel = SoftButton("Cancel search", (_, _) => activeSearchCancellation?.Cancel()); cancel.Margin = new Thickness(0, 0, 8, 8); cancel.IsEnabled = false;
         var export = SoftButton("Export results CSV", (_, _) => ExportResults()); export.Margin = new Thickness(0, 0, 8, 8);
         controls.Children.Add(role);
         controls.Children.Add(FilterControl("MIN AGE", minimumAge, 82));
@@ -87,10 +88,12 @@ public partial class MainWindow
         {
             if (role.SelectedItem is not RoleFitProfile selected || activeSearchCancellation is not null) return;
             RoleFitSearchFilters filters;
+            int? minAge = null;
+            int? maxAge = null;
             try
             {
-                var minAge = ReadOptionalInt(minimumAge, "Minimum age", 120);
-                var maxAge = ReadOptionalInt(maximumAge, "Maximum age", 120);
+                minAge = ReadOptionalInt(minimumAge, "Minimum age", 120);
+                maxAge = ReadOptionalInt(maximumAge, "Maximum age", 120);
                 if (minAge.HasValue && maxAge.HasValue && minAge > maxAge)
                     throw new FormatException("Minimum age cannot exceed maximum age.");
                 filters = new RoleFitSearchFilters(

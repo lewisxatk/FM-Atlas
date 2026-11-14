@@ -124,6 +124,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Add per-attribute weighted evidence to Role Fit scores, including the source attribute value, effective weight, weighted points and share of total; surface evidence in the ranked grid and CSV.
 - [x] Merge equivalent normalized attribute keys before database search so aliases such as `Finishing` and `finish_ing` do not throw duplicate-key errors or inflate coverage.
 - [ ] Verify the new Role Fit calculation, evidence breakdown, duplicate-key handling, database filters, cancellation and export changes in the latest Windows build and automated tests.
+- [x] Correct Role Fit Lab compile-time closure issues in the cancellation control and age-filter logging scope discovered by Windows CI run #179; a fresh Windows build is required to confirm the repair.
 - [ ] Benchmark metric search, import throughput and peak memory using 40k+ player / large-stat fixtures.
 
 - [ ] Complete recruitment workspace and reusable role templates.
