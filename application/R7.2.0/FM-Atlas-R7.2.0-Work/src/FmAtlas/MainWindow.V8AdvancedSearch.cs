@@ -196,11 +196,9 @@ public partial class MainWindow
                 FontSize = 10,
                 ToolTip = "Match Yes or No."
             };
+            booleanValue.Items.Add("Choose…");
             booleanValue.Items.Add("Yes");
             booleanValue.Items.Add("No");
-            booleanValue.SelectedIndex = 0;
-
-            booleanValue.Items.Add("Choose…");
             booleanValue.SelectedIndex = 0;
 
             var valueHost = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
