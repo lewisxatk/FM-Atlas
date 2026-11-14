@@ -30,6 +30,9 @@ public partial class MainWindow
             .ToList();
         var rows = new List<AdvancedSearchUiRow>();
         var results = new List<PlayerRecord>();
+        const int pageSize = 250;
+        var pageOffset = 0;
+        var hasNextPage = false;
         var savedProfiles = AdvancedSearchProfileStore.LoadAll().ToList();
         var resultColumns = new Dictionary<string, DataGridColumn>(StringComparer.OrdinalIgnoreCase);
         var columnChecks = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
@@ -37,6 +40,9 @@ public partial class MainWindow
         StackPanel conditionPanel = null!;
         TextBlock status = null!;
         Button searchButton = null!;
+        Button previousPageButton = null!;
+        Button nextPageButton = null!;
+        TextBlock pageStatus = null!;
         DataGrid grid = null!;
 
         var content = new StackPanel { Margin = new Thickness(2, 0, 2, 18) };
@@ -117,6 +123,27 @@ public partial class MainWindow
         var resultHeader = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
         resultHeader.Children.Add(Txt("PLAYER MATCHES", 9, true, Teal));
         resultHeader.Children.Add(Txt("Double-click a result to open its player profile. Source origin is shown so live identities, save records and local records stay distinguishable.", 10, false, Muted, wrap: true));
+        var pager = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 7, 0, 0) };
+        previousPageButton = SoftButton("← Previous", async (_, _) =>
+        {
+            if (pageOffset <= 0) return;
+            pageOffset = Math.Max(0, pageOffset - pageSize);
+            await RunSearchAsync(false);
+        });
+        nextPageButton = SoftButton("Next →", async (_, _) =>
+        {
+            if (!hasNextPage) return;
+            pageOffset += pageSize;
+            await RunSearchAsync(false);
+        });
+        pageStatus = Txt("No search results yet", 9, false, Muted);
+        pageStatus.Margin = new Thickness(8, 0, 8, 0);
+        previousPageButton.IsEnabled = false;
+        nextPageButton.IsEnabled = false;
+        pager.Children.Add(previousPageButton);
+        pager.Children.Add(pageStatus);
+        pager.Children.Add(nextPageButton);
+        resultHeader.Children.Add(pager);
         DockPanel.SetDock(resultHeader, Dock.Top);
         dock.Children.Add(resultHeader);
 
@@ -153,6 +180,7 @@ public partial class MainWindow
             {
                 Content = item.Label,
                 IsChecked = defaultVisibleColumns.Contains(item.Key, StringComparer.OrdinalIgnoreCase),
+                IsEnabled = !item.Key.Equals("Name", StringComparison.OrdinalIgnoreCase),
                 Foreground = Ink,
                 FontSize = 10,
                 Margin = new Thickness(0, 2, 13, 5),
@@ -167,9 +195,11 @@ public partial class MainWindow
         var columnCard = Card(new StackPanel(), 12, new Thickness(0, 0, 0, 8));
         ((StackPanel)columnCard.Child).Children.Add(Txt("RESULT COLUMNS", 8, true, Muted));
         ((StackPanel)columnCard.Child).Children.Add(columnPanel);
+        DockPanel.SetDock(columnCard, Dock.Top);
         dock.Children.Add(columnCard);
         void SetColumnVisibility(string key, bool visible)
         {
+            if (key.Equals("Name", StringComparison.OrdinalIgnoreCase)) visible = true;
             if (resultColumns.TryGetValue(key, out var column))
                 column.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -335,6 +365,11 @@ public partial class MainWindow
             searchText.Clear();
             logic.SelectedIndex = 0;
             AddCondition();
+            pageOffset = 0;
+            hasNextPage = false;
+            previousPageButton.IsEnabled = false;
+            nextPageButton.IsEnabled = false;
+            pageStatus.Text = "No search results yet";
             status.Text = "Filters reset. Existing data and saved career snapshots are unchanged.";
             grid.ItemsSource = null;
             results.Clear();
@@ -518,8 +553,9 @@ public partial class MainWindow
             }
         }
 
-        async Task RunSearchAsync()
+        async Task RunSearchAsync(bool resetPage = true)
         {
+            if (resetPage) pageOffset = 0;
             if (rows.Count == 0)
             {
                 status.Text = "Add at least one condition before searching.";
@@ -536,13 +572,23 @@ public partial class MainWindow
             var matchAll = logic.SelectedIndex == 0;
             searchButton.IsEnabled = false;
             addButton.IsEnabled = false;
+            previousPageButton.IsEnabled = false;
+            nextPageButton.IsEnabled = false;
             Mouse.OverrideCursor = Cursors.Wait;
             status.Text = $"Searching {criteria.Count:N0} conditions across {(matchAll ? "ALL / AND" : "ANY / OR")} of the available fields…";
             try
             {
-                results = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(searchText.Text, criteria, matchAll, 5000));
+                var pageRows = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(searchText.Text, criteria, matchAll, pageSize + 1, pageOffset));
+                hasNextPage = pageRows.Count > pageSize;
+                if (hasNextPage) pageRows.RemoveAt(pageRows.Count - 1);
+                results = pageRows;
                 grid.ItemsSource = results;
-                status.Text = $"{results.Count:N0} player matches · {criteria.Count:N0} conditions · {(matchAll ? "ALL / AND" : "ANY / OR")} · only actual stored fields and values were tested.";
+                previousPageButton.IsEnabled = pageOffset > 0;
+                nextPageButton.IsEnabled = hasNextPage;
+                pageStatus.Text = results.Count == 0
+                    ? "No results on this page"
+                    : $"Showing {pageOffset + 1:N0}–{pageOffset + results.Count:N0}" + (hasNextPage ? " · more available" : " · end of results");
+                status.Text = $"{results.Count:N0} players on this page · {criteria.Count:N0} conditions · {(matchAll ? "ALL / AND" : "ANY / OR")} · only actual stored fields and values were tested.";
                 AtlasLog.Info($"Universal advanced player search: conditions={criteria.Count}; matchAll={matchAll}; results={results.Count}.");
             }
             catch (Exception ex)
@@ -554,6 +600,8 @@ public partial class MainWindow
             {
                 searchButton.IsEnabled = true;
                 addButton.IsEnabled = true;
+                previousPageButton.IsEnabled = pageOffset > 0;
+                nextPageButton.IsEnabled = hasNextPage;
                 Mouse.OverrideCursor = null;
             }
         }
