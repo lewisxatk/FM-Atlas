@@ -155,8 +155,6 @@ These are source changes, not a claim that a Windows build, UI render or Footbal
 
 ## Performance and architecture requirements
 
-## Performance and architecture requirements
-
 - Separate UI, application/use-case, domain, data access and game-integration layers.
 - Move away from the monolithic MainWindow code-behind to MVVM or equivalent testable view models and services.
 - Background jobs must never block the WPF dispatcher. Use cancellation tokens, progress events, bounded concurrency and clear job state.
@@ -193,7 +191,7 @@ These are source changes, not a claim that a Windows build, UI render or Footbal
 ## Immediate investigation items
 
 - Diagnose the current import process: the log says it started but has no completion/failure record. The player workspace loading screen is not evidence that the import succeeded.
-- Profile PlayerWorkspaceAsync and the sequential open-profile restoration path.
+- Verify the deferred player-profile restoration under a 40k+ player fixture and benchmark cold/warm workspace activation.
 - Inspect fmsave 0.12.x reader coverage and the save validation JSON before trusting the current save import.
 - Explain the 40,292/28,497 live identity counts separately from the zero save snapshot counts everywhere.
 - Do not ask the user to repeatedly rebuild or test until a coherent integrated milestone is ready.
