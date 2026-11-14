@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private string? _activeLiveScanSessionKey;
     private CancellationTokenSource? _liveScanCancellation;
     private string? _lastAttemptedLiveSession;
+    private string? _lastImportedLiveSessionKey;
     private DateTime _nextLiveRetryUtc = DateTime.MinValue;
     private LiveCareerProbe? _currentLiveProbe;
     private CancellationTokenSource? _saveImportCancellation;
@@ -2847,6 +2848,7 @@ public partial class MainWindow : Window
     private bool IsCurrentLiveCareer(WorkspaceMetrics metrics)
         => LiveMemoryImportEnabled
            && _currentLiveProbe is { IsCareerLoaded: true } probe
+           && probe.MatchesSession(_lastImportedLiveSessionKey)
            && metrics.LiveSaveLoadCounter.HasValue
            && metrics.LiveSaveLoadCounter.Value == checked((long)probe.SaveLoadCounter);
 
@@ -2932,6 +2934,7 @@ public partial class MainWindow : Window
             scanCancellation.Token.ThrowIfCancellationRequested();
             if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Saving live career snapshot and manager context to Atlas…";
             var result = await RunDatabaseAsync(() => _database.ImportLiveSnapshotAsync(payload));
+            _lastImportedLiveSessionKey = session.SessionKey;
             AtlasLog.Info($"Live career import completed: players={result.PlayersImported:N0}/{result.PlayersSeen:N0}; staff={result.StaffImported:N0}/{result.StaffSeen:N0}; clubs={result.ClubsImported:N0}; player facts={result.AttributeRowsImported:N0}; session={session.SessionKey}.");
             _currentLiveProbe = session;
             _nextLiveRetryUtc = DateTime.MaxValue;
