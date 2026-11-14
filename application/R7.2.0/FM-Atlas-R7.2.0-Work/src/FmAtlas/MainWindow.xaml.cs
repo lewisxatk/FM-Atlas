@@ -651,6 +651,7 @@ public partial class MainWindow : Window
         AddNav("◆", "Value Finder");
         AddNav("⌗", "Attribute Search");
         AddNav("∑", "Stats Search");
+        AddNav("▦", "Scouting Matrix");
         AddNav("▤", "Shortlists");
         AddNavGroup("SQUAD & ANALYSIS");
         AddNav("▥", "Squad Architect");
@@ -795,6 +796,7 @@ public partial class MainWindow : Window
                 "Help & Tutorial" => TutorialPage(),
                 "Analytics" => await AnalyticsPageAsync(),
                 "Stats Search" => await StatsSearchPageAsync(),
+                "Scouting Matrix" => await StatsSearchPageAsync(),
                 "Attribute Search" => await AttributeSearchPageAsync(),
                 "Value Finder" => await ValueFinderPageAsync(),
                 "Mass Edit" => await MassEditPageAsync(),
@@ -893,6 +895,7 @@ public partial class MainWindow : Window
         "Staff" => "Staff directory · coaching and staff fields where supported by the source",
         "Analytics" => "Season and match performance · metrics actually present in your save",
         "Stats Search" => "Multi-condition statistical discovery · grouped source metrics · per-90 sample controls",
+        "Scouting Matrix" => "Reusable multi-metric scouting profiles · source-backed performance search · minutes and per-90 controls",
         "Attribute Search" => "Build precise player profiles with up to 60 simultaneous 1–20 ratings",
         "Value Finder" => "Spot players whose ability and potential rank ahead of their market-value percentile",
         "Mass Edit" => "Bulk local database edits · preview and audit before applying",
