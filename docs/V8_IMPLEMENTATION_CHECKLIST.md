@@ -53,6 +53,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Apply consistent themed DataGrid headers, rows, hover and selection states while keeping dense data cells opaque and readable.
 - [x] Dashboard hero now uses the shared glass card, correct FM Atlas branding and responsive 4/2/1 metric-card columns at desktop, medium and narrow workspace widths.
 - [x] Sidebar and top toolbar now use coordinated diagonal/vertical glass gradients, subtle edge highlights and restrained elevation.
+- [x] Advanced Search condition rows now wrap at narrower widths and provide move-up/move-down controls while keeping visual and query-capture order aligned; existing saved-profile and query models are unchanged.
 - [ ] Run a fresh Windows Release build and full test suite against the updated branch head; visually inspect all four appearances at 100%, 125% and 150% DPI.
 - [x] Monolith Glass is the first-run default, with graphite/charcoal surfaces, restrained orange accents and persisted theme preference; Glass Dark, Glass Light and Studio remain selectable.
 - [x] Top toolbar Connect / Refresh action connects to the current supported FM27 career; automatic entity-array indexing runs after a valid save-load generation is detected.
@@ -72,6 +73,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Navigation no longer disables all sidebar controls while a workspace is loading; latest destination can be queued.
 - [ ] Replace monolithic MainWindow code-behind with testable view models/services (incrementally; retain proven legacy workspaces until replacement).
 - [~] Add cancellable search operations: universal Advanced Search now has a Cancel button, propagates a CancellationToken to the SQLite query, retains the last successful result page when cancelled, and cancels on reset/profile load. Other workspace loads and stale query cancellation remain open.
+- [x] Preserve Advanced Search field discovery, saved profiles, ALL/ANY logic, two-key sorting, stable paging, cancellation, compare/similar/export/shortlist actions while adding adaptive condition-row layout and explicit condition reordering.
 - [x] Previously opened player profiles are restored after the Players workspace is displayed, not awaited in the navigation construction path.
 - [~] Add a background job centre with stages, elapsed time, cancellation, completion and failure details. The new Activity Centre reports active live scans/offline imports, elapsed time, current status, cancellation and the last task summary; a multi-job queue, staged subtask progress and persisted history remain open.
 - [ ] Persist selected workspace, open tabs, filters, grid columns and layout state.
@@ -365,3 +367,12 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - No Windows build/test result is claimed for the latest commits until a fresh Actions run reports success. Historical green runs do not validate the latest edits.
 - User PC/runtime acceptance, actual FM27 save compatibility, full import throughput/peak-memory, and packaged release acceptance remain outstanding.
 - Canonical handover companion: `docs/V8_HANDOVER.md`.
+
+
+## 2026-11-14 continuation — Advanced Search ergonomics and reference research
+
+- Advanced Search now uses wrapping condition rows and explicit move-up/move-down controls. Query order remains deterministic and matches the visible row order.
+- The sparse staff-decoder test was corrected to expect five valid decoded facts; zero and out-of-range raw bytes continue to be omitted.
+- FMRTE 27, Genie Scout 27 and FMLibreEditor research has been recorded in the reverse-engineering notes.
+- The latest available Windows workflow (run `43554026041`) passed Release build and Python adapter checks but had one test-fixture expectation failure (59/60); publish/artifact steps were skipped. The corrected head must pass a fresh complete workflow before the build is considered verified.
+- Glass implementation remains in source; real Windows visual acceptance, dialog/high-contrast and other remaining control-state polish are not yet complete.
