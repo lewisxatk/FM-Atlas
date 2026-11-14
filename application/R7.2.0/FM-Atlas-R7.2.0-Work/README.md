@@ -67,7 +67,7 @@ The licenses above apply to those projects. Their ideas and public game-layout o
 
 ## What is not complete yet
 
-This is an integrated V8 source milestone, not a claim that the entire FM Atlas vision is finished or that Windows compilation/gameplay testing has passed. The full V8 MVVM/service-layer migration, general-purpose FMRTE-style multi-category filter builder, cancellable streaming save-import pipeline, complete staff/club/contract/transfer field coverage, full Match Lab event/shot-map data, comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain unfinished. The user-side build and FM27 validation gates remain open. Broad FMRTE-style arbitrary field search across all entities, complete staff/club/contract/transfer live editing, full Match Lab event/shot-map data, a comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain on the roadmap. See:
+This is an integrated V8 source milestone, not a claim that the entire FM Atlas vision is finished or that Windows compilation/gameplay testing has passed. The full V8 MVVM/service-layer migration, general-purpose FMRTE-style multi-category filter builder, cancellable streaming save-import pipeline, complete staff/club/contract/transfer field coverage, full Match Lab event/shot-map data, comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain unfinished. The user-side build and FM27 validation gates remain open. See:
 
 - `docs/architecture/FM-ATLAS-V8-IMPLEMENTATION-STATUS.md`
 - `docs/R7.2.0-IMPLEMENTATION-STATUS.md`
