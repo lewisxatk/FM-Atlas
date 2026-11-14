@@ -55,6 +55,8 @@ Useful methods and constraints:
 - Treat module fingerprints as build selection, not field-level certification.
 - Use in-game witnesses and repeatable probes before promoting a candidate field.
 - Job-code interpretation and preferred-job grouping are different data: current contract job must not be substituted for preferred job.
+- The FM27 staff layout documents CA/PA at staff+0xDA/+0xDC and coaching attributes at their base staff-object offsets. The human-manager identity/person block shifts by +0x340, but CA/PA, coaching attributes and reputation remain unshifted.
+- Nineteen coaching attributes are raw bytes in the 0–100 range and display as `(raw + 2) / 5`; authority and working-with-youngsters are direct 1–20 ratings. Atlas now decodes and stores these as provisional staff profile facts, omitting invalid/missing bytes rather than filling defaults.
 
 FM Atlas retains its own C# implementation. Public GPL-licensed project code is not copied into this repository.
 
