@@ -1,40 +1,48 @@
-# FM Atlas
+# FM Atlas V8 — Atlas Liquid
 
-FM Atlas is a Windows desktop application for Football Manager scouting, player analysis, editing, analytics, database inspection and modding research.
+FM Atlas is a Windows desktop application for Football Manager scouting, career intelligence, recruitment, squad analysis, editing research and graphics tools.
 
-> **Repository status (2026-11-13):** The complete R7.2.0 application source has been imported on the isolated branch `recovery/r7.2.0-source-import`. GitHub's recursive tree confirms 106 tracked files in the application source directory and all required solution/project/source paths. The branch has not been merged into `main`. The Windows .NET 8 build, WPF startup, save import and in-game acceptance tests have **not** yet been run.
+> **V8 status (14 November 2026):** The integrated V8 source rebuild is in progress on the isolated branch `rebuild/v8-full-product-rebuild`. Draft pull request [#4 — FM Atlas V8 · Atlas Liquid](https://github.com/lewisxatk/FM-Atlas/pull/4) is open against `fix/r7.2.0-release-build-integration`. It is **not merged or release-ready**. A clean Windows Release build, startup test, full feature regression and Football Manager acceptance tests are still required.
 
-## Current source candidate
+## V8 design
 
-**R7.2.0 is the current working source candidate** (106 files; SHA-256 recorded in `recovery/RECOVERY-INVENTORY.md`). R7.1.0 (95 files) and R7.0.2 (83 files) remain documented historical comparison baselines; keep their original ZIP archives immutable offline. Their full application source trees have not been separately imported into this branch.
+The new visual identity is **Atlas Liquid**, with three coordinated appearances:
 
-## Current priority
+- **Glass Dark** — recommended default, deep navy surfaces and cool glass controls.
+- **Glass Light** — bright translucent controls over a light workspace.
+- **Studio** — denser scouting and analytics presentation, sharing the same shell and components.
 
-1. Build the imported R7.2.0 solution on Windows with .NET 8 and capture the full log.
-2. Fix compile/startup defects before feature development.
-3. Run R7.2.0 data/search/graphics acceptance checks on copies of user data and career saves.
-4. Keep live Apply/Undo disabled until exact process-profile and field mappings are independently validated on a disposable offline career.
-5. Resume the agreed MONOLITH design-system and FMRTE-style Advanced Search development sequence.
+The shell includes a glass-style top action toolbar, descriptive hover/focus tooltips, grouped collapsible side navigation, active-workspace highlighting, Ctrl+K Global Search and system-aware workspace motion. Data grids and detailed content retain strong readable surfaces rather than blurring every part of the app.
 
-## Start here
+## Current source milestone
 
-- [Master handover](docs/MASTER_HANDOVER.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Next steps](docs/NEXT_STEPS.md)
-- [Recovery inventory](recovery/RECOVERY-INVENTORY.md)
-- [R7.2.0 checkpoint notes](recovery/R7.2.0-CHECKPOINT.md)
-- [R7.2.0 static audit](recovery/R7.2.0-STATIC-AUDIT.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Changelog](docs/CHANGELOG.md)
-- [Known issues](docs/KNOWN_ISSUES.md)
-- [Research register](research/RESEARCH_REGISTER.md)
+The V8 branch preserves the R7.2.0 application and feature foundation while adding:
+- Atlas Liquid shell, toolbar, hover/focus help, three appearance modes and collapsible navigation.
+- Responsive navigation and improved player workspace activation.
+- Advanced Search workspace hub linking existing player, multi-attribute, statistical and global search engines.
+- A Windows .NET 8 Release and self-contained x64 build/package workflow.
+- Live-memory safety gates: the old full process scan and live Apply handlers are blocked in V8 until bounded scanning and field mappings pass independent validation.
+- SQLite writer coordination and a 30-second busy timeout.
+- Save-import reader progress, database indexing progress, elapsed time and a Cancel action; cancellation/failure before commit rolls back the active transaction and preserves the last committed snapshot.
+- Reduced duplicate allocation in the C# importer by lazily enumerating player/staff/club arrays.
 
-## Evidence and safety rules
+**Do not equate source implementation with verification.** The save bridge still creates a full JSON snapshot and the C# importer still parses the complete document in memory. The universal multi-category AND/OR filter builder, full MVVM separation, deeper development/tactics/recruitment systems, performance validation and other roadmap areas remain open. The durable checklist records the exact state.
 
-- Never overwrite or delete an existing project/archive until it has been inventoried and backed up.
-- Keep original release archives immutable; use versioned folders and dedicated branches.
-- Distinguish **source present**, **compiled**, **launched**, **tested with imported save**, and **verified in-game**.
-- Treat R7.2.0 live writing as implemented in source but unverified until exact build matching, identity checks, byte preflight, Apply/read-back, career-switch blocking and Undo pass on a disposable offline save.
-- Hidden attributes and unsupported structural edits remain blocked.
-- Do not invent game structures, offsets, formulas, hidden attributes or data mappings. Record evidence and uncertainty.
-- Keep secrets, personal settings, career saves and licensed third-party assets out of Git.
+## Durable progress and design documents
+
+- [V8 implementation checklist](docs/V8_IMPLEMENTATION_CHECKLIST.md) — ticked after each committed development unit; implementation and test verification tracked separately.
+- [V8 full rebuild specification](docs/architecture/FM-ATLAS-V8-FULL-REBUILD.md)
+- [V8 implementation status and limitations](docs/architecture/FM-ATLAS-V8-IMPLEMENTATION-STATUS.md)
+- [Application setup and test instructions](application/R7.2.0/FM-Atlas-R7.2.0-Work/README.md)
+- [Draft integration pull request #4](https://github.com/lewisxatk/FM-Atlas/pull/4)
+
+## Safety and testing
+
+- Use an extracted V8 folder separate from any existing FM Atlas installation. Existing local database and settings are preserved under `%LOCALAPPDATA%\\FmAtlas`; never delete that folder during testing.
+- For career data, import a **copy** of an FM save using the local read-only bridge.
+- The legacy live-memory scan and live Apply routes are deliberately disabled in this V8 source milestone. Do not try to use them or switch the gates on.
+- Build and package success must be confirmed by the Windows workflow and a clean Windows PC run. No successful V8 Windows build or runtime test is claimed by this README.
+
+## Historical source and research
+
+The original R7.2.0 checkpoint, recovery inventory, reverse-engineering notes and older roadmap remain available in the repository history and documentation. Game fields, hidden attributes, role ratings and any inferred metrics must retain explicit evidence and confidence; do not invent mappings or formulas.
