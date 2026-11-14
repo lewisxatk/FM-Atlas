@@ -224,6 +224,26 @@ public sealed class LiveCareerImportTests
     }
 
     [Fact]
+    public void LiveSessionIdentityIncludesProcessBuildAndSaveGeneration()
+    {
+        var first = new LiveCareerProbe(
+            IsGameRunning: true, IsSupportedBuild: true, IsCareerLoaded: true,
+            ProcessId: 1234, ProfileId: "steam-26385295", ProfileName: "FM27 Steam",
+            SaveLoadCounter: 42, PlayerSlots: 40_286, StaffSlots: 28_497,
+            ClubSlots: 8_000, Status: "Test career");
+        var same = first with { Status = "Re-probed career" };
+        var restartedGame = first with { ProcessId = 9876, SaveLoadCounter = 1 };
+        var differentBuild = first with { ProfileId = "gamepass-0.9.2435.0" };
+        var differentSave = first with { SaveLoadCounter = 43 };
+
+        Assert.True(first.MatchesSession(first.SessionKey));
+        Assert.True(same.MatchesSession(first.SessionKey));
+        Assert.False(restartedGame.MatchesSession(first.SessionKey));
+        Assert.False(differentBuild.MatchesSession(first.SessionKey));
+        Assert.False(differentSave.MatchesSession(first.SessionKey));
+    }
+
+    [Fact]
     public void LiveScannerHonoursCancellationBeforeOpeningTheGameProcess()
     {
         var probe = new LiveCareerProbe(
