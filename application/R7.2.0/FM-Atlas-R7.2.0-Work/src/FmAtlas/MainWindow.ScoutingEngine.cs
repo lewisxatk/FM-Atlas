@@ -223,13 +223,17 @@ public partial class MainWindow
                 radar.Children.Add(Txt("Radar requires the same provider, competition, season and position cohort.", 9, false, Muted, wrap: true));
                 return;
             }
-            var definitions = metric.Items.Cast<MetricChoice>().Select(x => x.Definition)
+            var cohort = allRows.Where(p => p.SourceName == a.SourceName && p.Competition == a.Competition &&
+                p.Season == a.Season && p.PositionGroup == a.PositionGroup).ToList();
+            var rankedMetrics = metric.Items.Cast<MetricChoice>().Select(x => x.Definition)
                 .Where(m => !new[] { "age", "market_value", "minutes_played" }.Contains(m.Key, StringComparer.OrdinalIgnoreCase))
                 .Where(m => a.Metrics.ContainsKey(m.Key) && b.Metrics.ContainsKey(m.Key))
+                .Select(m => (Definition: m, Ranked: ScoutingAnalyticsService.RankMetric(cohort, m, a.Competition, a.Season, a.PositionGroup, 3)))
+                .Where(x => x.Ranked.Count >= 3 && x.Ranked.Any(r => r.Percentile.HasValue))
                 .Take(6).ToList();
-            if (definitions.Count < 3)
+            if (rankedMetrics.Count < 3)
             {
-                radar.Children.Add(Txt("Not enough shared metrics for a radar profile.", 9, false, Muted, wrap: true));
+                radar.Children.Add(Txt("Not enough shared, sample-qualified metrics for a cohort radar.", 9, false, Muted, wrap: true));
                 return;
             }
             const double cx = 118, cy = 112, radius = 76;
@@ -237,23 +241,20 @@ public partial class MainWindow
             {
                 var r = radius * ring / 4d;
                 var points = new PointCollection();
-                for (var i = 0; i < definitions.Count; i++)
+                for (var i = 0; i < rankedMetrics.Count; i++)
                 {
-                    var angle = -Math.PI / 2 + 2 * Math.PI * i / definitions.Count;
+                    var angle = -Math.PI / 2 + 2 * Math.PI * i / rankedMetrics.Count;
                     points.Add(new Point(cx + Math.Cos(angle) * r, cy + Math.Sin(angle) * r));
                 }
                 radar.Children.Add(new Polygon { Points = points, Stroke = Brush("#3B4652"), StrokeThickness = 1, Fill = Brushes.Transparent });
             }
-            var cohort = allRows.Where(p => p.SourceName == a.SourceName && p.Competition == a.Competition &&
-                p.Season == a.Season && p.PositionGroup == a.PositionGroup).ToList();
             PointCollection BuildPoints(ScoutingPlayerSeason player)
             {
                 var points = new PointCollection();
-                foreach (var def in definitions)
+                foreach (var item in rankedMetrics)
                 {
-                    var ranked = ScoutingAnalyticsService.RankMetric(cohort, def, a.Competition, a.Season, a.PositionGroup, 3);
-                    var percentile = ranked.FirstOrDefault(x => x.SourceId == player.SourceId)?.Percentile ?? 50;
-                    var angle = -Math.PI / 2 + 2 * Math.PI * points.Count / definitions.Count;
+                    var percentile = item.Ranked.FirstOrDefault(x => x.SourceId == player.SourceId)?.Percentile ?? 0;
+                    var angle = -Math.PI / 2 + 2 * Math.PI * points.Count / rankedMetrics.Count;
                     points.Add(new Point(cx + Math.Cos(angle) * radius * percentile / 100d,
                         cy + Math.Sin(angle) * radius * percentile / 100d));
                 }
@@ -263,10 +264,10 @@ public partial class MainWindow
                 Fill = new SolidColorBrush(Color.FromArgb(45, 240, 138, 66)) });
             radar.Children.Add(new Polygon { Points = BuildPoints(b), Stroke = Brush("#63A9E8"), StrokeThickness = 2,
                 Fill = new SolidColorBrush(Color.FromArgb(35, 99, 169, 232)) });
-            for (var i = 0; i < definitions.Count; i++)
+            for (var i = 0; i < rankedMetrics.Count; i++)
             {
-                var angle = -Math.PI / 2 + 2 * Math.PI * i / definitions.Count;
-                var label = Txt(definitions[i].Label.Replace(" / 90", ""), 8, false, Muted);
+                var angle = -Math.PI / 2 + 2 * Math.PI * i / rankedMetrics.Count;
+                var label = Txt(rankedMetrics[i].Definition.Label.Replace(" / 90", ""), 8, false, Muted);
                 Canvas.SetLeft(label, cx + Math.Cos(angle) * (radius + 8) - 24);
                 Canvas.SetTop(label, cy + Math.Sin(angle) * (radius + 8) - 7);
                 radar.Children.Add(label);
@@ -276,9 +277,10 @@ public partial class MainWindow
         void UpdateComparison()
         {
             var selected = grid.SelectedItems.Cast<ScoutingGridRow>().Take(2).ToList();
-            if (selected.Count == 0) { comparison.Text = "No players selected."; return; }
+            if (selected.Count == 0) { radar.Children.Clear(); comparison.Text = "No players selected."; return; }
             if (selected.Count == 1)
             {
+                radar.Children.Clear();
                 var p = selected[0].Record;
                 comparison.Text = $"{p.PlayerName}\n{p.Club} · {p.PositionGroup} · {p.Competition} · {p.Season}\nMinutes: {p.MinutesPlayed:0}\nSource: {p.SourceName}";
                 evidence.Text = "Select a second player to compare shared metric values, or use Find similar to selected.";
