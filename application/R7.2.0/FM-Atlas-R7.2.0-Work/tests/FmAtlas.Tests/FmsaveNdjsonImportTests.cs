@@ -625,6 +625,106 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public async Task AdvancedSearchCombinesCoreAttributesAndSaveFactsWithAllAnyAndStablePaging()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "advanced-search", playerManifestCount: 1,
+            includeContractRow: false, includeSeasonStatsRow: false);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        await using (var db = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            await using var transaction = await db.BeginTransactionAsync();
+
+            var playerInsert = db.CreateCommand();
+            playerInsert.Transaction = (SqliteTransaction)transaction;
+            playerInsert.CommandText = """
+                INSERT INTO Players
+                    (SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,DataOrigin,UpdatedUtc)
+                VALUES
+                    ($source,$name,$age,'Advanced FC','England','Test League','CM',100,140,'Advanced Search fixture','2026-11-14');
+                """;
+            playerInsert.Parameters.Add("$source", SqliteType.Text);
+            playerInsert.Parameters.Add("$name", SqliteType.Text);
+            playerInsert.Parameters.Add("$age", SqliteType.Integer);
+            playerInsert.Prepare();
+
+            var attributeInsert = db.CreateCommand();
+            attributeInsert.Transaction = (SqliteTransaction)transaction;
+            attributeInsert.CommandText = """
+                INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc)
+                VALUES($source,'finishing','attributes:Technical',$value,'2026-11-14');
+                """;
+            attributeInsert.Parameters.Add("$source", SqliteType.Text);
+            attributeInsert.Parameters.Add("$value", SqliteType.Real);
+            attributeInsert.Prepare();
+
+            foreach (var local in new[]
+            {
+                (Source: "LOCAL:advanced:older", Name: "Alpha Older Prospect", Age: 42, Finishing: 10d),
+                (Source: "LOCAL:advanced:young", Name: "Zulu Under-21", Age: 19, Finishing: 12d)
+            })
+            {
+                playerInsert.Parameters["$source"].Value = local.Source;
+                playerInsert.Parameters["$name"].Value = local.Name;
+                playerInsert.Parameters["$age"].Value = local.Age;
+                await playerInsert.ExecuteNonQueryAsync();
+
+                attributeInsert.Parameters["$source"].Value = local.Source;
+                attributeInsert.Parameters["$value"].Value = local.Finishing;
+                await attributeInsert.ExecuteNonQueryAsync();
+            }
+
+            await transaction.CommitAsync();
+        }
+
+        var availableFields = await database.GetAdvancedPlayerSearchFieldsAsync();
+        Assert.Contains(availableFields, x => x.Key.Equals("attribute:finishing", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(availableFields, x => x.Key.Equals("fact:contract:wage", StringComparison.OrdinalIgnoreCase));
+
+        var all = await database.SearchAdvancedPlayersAsync(null, new[]
+        {
+            new AdvancedSearchCriterion("player:Age", 18, 25, null, null),
+            new AdvancedSearchCriterion("attribute:finishing", 15, null, null, null),
+            new AdvancedSearchCriterion("fact:contract:wage", 5000, null, null, null)
+        }, matchAll: true, limit: 20);
+
+        Assert.Single(all);
+        Assert.Equal("FMSAVE:FM27:test-db:1001", all[0].SourceId);
+
+        var any = await database.SearchAdvancedPlayersAsync(null, new[]
+        {
+            new AdvancedSearchCriterion("player:Age", 40, null, null, null),
+            new AdvancedSearchCriterion("attribute:finishing", 15, null, null, null)
+        }, matchAll: false, limit: 20);
+
+        Assert.Equal(2, any.Count);
+        Assert.Contains(any, x => x.SourceId == "FMSAVE:FM27:test-db:1001");
+        Assert.Contains(any, x => x.SourceId == "LOCAL:advanced:older");
+        Assert.DoesNotContain(any, x => x.SourceId == "LOCAL:advanced:young");
+
+        var ageRange = new[] { new AdvancedSearchCriterion("player:Age", 18, 60, null, null) };
+        var page0 = await database.SearchAdvancedPlayersAsync(null, ageRange, limit: 1, offset: 0);
+        var page1 = await database.SearchAdvancedPlayersAsync(null, ageRange, limit: 1, offset: 1);
+        var page2 = await database.SearchAdvancedPlayersAsync(null, ageRange, limit: 1, offset: 2);
+
+        Assert.Equal("LOCAL:advanced:older", Assert.Single(page0).SourceId);
+        Assert.Equal("FMSAVE:FM27:test-db:1001", Assert.Single(page1).SourceId);
+        Assert.Equal("LOCAL:advanced:young", Assert.Single(page2).SourceId);
+
+        var tooManyConditions = Enumerable.Range(0, 61)
+            .Select(_ => new AdvancedSearchCriterion("player:Age", 18, 60, null, null))
+            .ToList();
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            database.SearchAdvancedPlayersAsync(null, tooManyConditions));
+    }
+
+    [Fact]
     public void RoleFitProfileStoreAtomicallySavesReplacesLoadsAndDeletesCustomTemplates()
     {
         using var temp = new TemporaryFolder();

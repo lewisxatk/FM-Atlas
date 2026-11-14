@@ -100,7 +100,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Support all 15 FM positions and validated five-level suitability display.
 - [ ] Add league, nationality, home-grown, contract and staff filters when available in source data.
 - [ ] Ensure missing/undecoded values are never silently treated as zero or as a failed filter match.
-- [ ] Add test fixtures for filter semantics, combined logic, paging, sorting and 40k+ player datasets.
+- [~] Add regression coverage for universal Advanced Search core fields, imported attributes, save facts, ALL/ANY logic, stable paging and the 60-condition guard. Broader mixed-field 40k+ dataset and full multi-sort validation remain outstanding.
 - [x] Four baseline Windows .NET integration tests passed on Actions run #168: valid NDJSON commit, manifest-count mismatch rollback, malformed extra-table rollback, and preservation of a previously committed snapshot.
 - [~] Two additional Windows .NET integration tests are now committed: cancellation immediately before commit must roll back all new rows, and skipped staff rows must leave reconciliation warnings persisted in `WarningsJson`. The latest Windows run #172 includes both tests; their result is not confirmed yet. WAL contention and broader relationship checks remain outstanding.
 
@@ -190,6 +190,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
+| 2026-11-14 | Advanced Search cross-source regression coverage | Pending CI | Added an integration fixture combining core player fields, imported 1–20 attributes and latest-snapshot contract facts; verifies ALL/ANY semantics, missing-value exclusion, deterministic paging and rejection beyond 60 conditions. The existing Advanced Search workspace, saved profiles and result actions remain unchanged. Windows verification pending. |
 | 2026-11-14 | Full-cohort Performance vs Value ranking | `af5f82d0` | Removed the alphabetical pre-percentile SQL cap; overall, position and league cohort percentiles and coverage now use every eligible player in the imported snapshot, with the requested result limit applied only after ranking. Added a regression fixture where the strongest value-gap player is alphabetically outside the first two records. Windows verification pending. |
 | 2026-11-14 | Performance vs Value cohort filters | Pending CI | Added position and league selectors plus a clear-filters action. Chart and CSV use the visible filtered rows while all overall and cohort percentiles remain anchored to the full eligible metric/value pool. Windows verification pending. |
 | 2026-11-14 | Role Fit scoring, recruitment filters and cancellation | `7d8cef6b`, `3e4acf28` | Extracted a reusable coverage-aware weighted score; added pre-limit age/CA/PA/position filters, adjustable minimum attribute coverage, cancellation, and regression tests for score math and database filters. Windows verification pending. |
