@@ -9,7 +9,7 @@ using FmAtlas.Services;
 namespace FmAtlas.Data;
 
 public sealed record LiveClubSummary(long ClubUid, string Name, string ValidationStatus, int LinkedPlayers);
-public sealed record WorkspaceMetrics(int LivePlayers, int LiveClubs, int LiveStaff, int SavePlayers, int SaveClubs, int SaveStaff, int LocalAttributeFacts, int LiveFacts, string? LastSaveImportUtc, string? LastLiveImportUtc, string? LastSaveFileName, string? SaveGame, string? SaveBuild, bool? SaveBuildKnown, string? SaveGameDate, string? SaveValidationJson, string? CurrentManager, string? CurrentManagerClub, string? CurrentManagerNation = null);
+public sealed record WorkspaceMetrics(int LivePlayers, int LiveClubs, int LiveStaff, int SavePlayers, int SaveClubs, int SaveStaff, int LocalAttributeFacts, int LiveFacts, string? LastSaveImportUtc, string? LastLiveImportUtc, string? LastSaveFileName, string? SaveGame, string? SaveBuild, bool? SaveBuildKnown, string? SaveGameDate, string? SaveValidationJson, string? CurrentManager, string? CurrentManagerClub, string? CurrentManagerNation = null, long? LiveSaveLoadCounter = null);
 public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club, string? Job, int? Age, string? Nation, string ValidationStatus, int? CurrentAbility = null, int? PotentialAbility = null, bool IsHumanManager = false);
 public sealed record AtlasClubRecord(string SourceId, string Name, string? Nation, int PlayerCount, string DataSource);
 public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerName, string FieldName, string? OldValue, string? NewValue, string ChangedUtc, string ChangeSource);
@@ -1280,15 +1280,37 @@ public sealed class ScoutDatabase
         cmd.CommandText = """
             SELECT p.PlayerUid, p.PlayerName, c.ClubName, p.NameValidation, p.RelationshipValidation,
                    p.DateOfBirth, p.RegenStatus, p.RegenConfidence,
-                   (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.NumericValue IS NOT NULL AND f.ValidationStatus LIKE '%Verified%' LIMIT 1),
-                   (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.NumericValue IS NOT NULL AND f.ValidationStatus LIKE '%Verified%' LIMIT 1)
+                   (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                      AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                      AND f.NumericValue IS NOT NULL
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      LIMIT 1),
+                   (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                      AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                      AND f.NumericValue IS NOT NULL
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      LIMIT 1)
             FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
             WHERE ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
-              AND ($attribute='' OR EXISTS (SELECT 1 FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND substr(f.FieldKey,instr(f.FieldKey,'.')+1)=$attribute AND f.ValidationStatus LIKE '%Verified%' AND ($min IS NULL OR f.NumericValue >= $min) AND ($max IS NULL OR f.NumericValue <= $max)))
-              AND ($minCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1) >= $minCa)
-              AND ($maxCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1) <= $maxCa)
-              AND ($minPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1) >= $minPa)
-              AND ($maxPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1) <= $maxPa)
+              AND ($attribute='' OR EXISTS (
+                    SELECT 1 FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid
+                      AND lower(substr(f.FieldKey,instr(f.FieldKey,'.')+1))=lower($attribute)
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      AND ($min IS NULL OR f.NumericValue >= $min)
+                      AND ($max IS NULL OR f.NumericValue <= $max)))
+              AND ($minCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                    AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                    AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minCa)
+              AND ($maxCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                    AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                    AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) <= $maxCa)
+              AND ($minPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                    AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                    AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minPa)
+              AND ($maxPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                    AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                    AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) <= $maxPa)
               AND ($minAge IS NULL OR (p.DateOfBirth IS NOT NULL AND CAST(strftime('%Y',$asOf) AS INTEGER)-CAST(substr(p.DateOfBirth,1,4) AS INTEGER)-CASE WHEN strftime('%m-%d',$asOf) < substr(p.DateOfBirth,6,5) THEN 1 ELSE 0 END >= $minAge))
               AND ($maxAge IS NULL OR (p.DateOfBirth IS NOT NULL AND CAST(strftime('%Y',$asOf) AS INTEGER)-CAST(substr(p.DateOfBirth,1,4) AS INTEGER)-CASE WHEN strftime('%m-%d',$asOf) < substr(p.DateOfBirth,6,5) THEN 1 ELSE 0 END <= $maxAge))
               AND ($regen='Either' OR p.RegenStatus=$regen)
@@ -2212,15 +2234,17 @@ public sealed class ScoutDatabase
         var knownBuildText = await ScalarText("SELECT CASE WHEN KnownBuild=1 THEN 'true' WHEN KnownBuild=0 THEN 'false' ELSE NULL END FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1");
         bool? knownBuild = bool.TryParse(knownBuildText, out var parsedKnownBuild) ? parsedKnownBuild : null;
         string? currentManager = null; string? currentManagerClub = null; string? currentManagerNation = null;
+        long? liveSaveLoadCounter = null;
         var liveIdentity = db.CreateCommand();
-        liveIdentity.CommandText = "SELECT ManagerName,ManagerClubName,ManagerNation FROM LiveCareerIdentity ORDER BY RunId DESC LIMIT 1;";
+        liveIdentity.CommandText = "SELECT SaveLoadCounter,ManagerName,ManagerClubName,ManagerNation FROM LiveCareerIdentity ORDER BY RunId DESC LIMIT 1;";
         await using (var liveReader = await liveIdentity.ExecuteReaderAsync().ConfigureAwait(false))
         {
             if (await liveReader.ReadAsync().ConfigureAwait(false))
             {
-                currentManager = liveReader.IsDBNull(0) ? null : liveReader.GetString(0);
-                currentManagerClub = liveReader.IsDBNull(1) ? null : liveReader.GetString(1);
-                currentManagerNation = liveReader.IsDBNull(2) ? null : liveReader.GetString(2);
+                liveSaveLoadCounter = liveReader.IsDBNull(0) ? null : liveReader.GetInt64(0);
+                currentManager = liveReader.IsDBNull(1) ? null : liveReader.GetString(1);
+                currentManagerClub = liveReader.IsDBNull(2) ? null : liveReader.GetString(2);
+                currentManagerNation = liveReader.IsDBNull(3) ? null : liveReader.GetString(3);
             }
         }
         var managerQuery = db.CreateCommand();
@@ -2261,7 +2285,7 @@ public sealed class ScoutDatabase
             knownBuild,
             await ScalarText("SELECT GameDate FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1"),
             await ScalarText("SELECT ValidationJson FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1"),
-            currentManager, currentManagerClub, currentManagerNation);
+            currentManager, currentManagerClub, currentManagerNation, liveSaveLoadCounter);
     }
 
     public async Task<List<AtlasStaffRecord>> SearchFmsaveStaffAsync(string? search)
@@ -2316,34 +2340,55 @@ public sealed class ScoutDatabase
                     reader.IsDBNull(8) ? null : reader.GetInt32(8),
                     !reader.IsDBNull(9) && reader.GetDouble(9) >= 1));
         }
-        return rows.GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase).Select(x => x.First()).OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Take(5000).ToList();
+        return rows
+            .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(x => x.ValidationStatus.Contains("ProfileMatched", StringComparison.OrdinalIgnoreCase)
+                    || x.ValidationStatus.Contains("HumanManager", StringComparison.OrdinalIgnoreCase))
+                .First())
+            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(5000)
+            .ToList();
     }
 
     public async Task<List<AtlasFactRecord>> GetFmsaveStaffFactsAsync(string staffUid)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
+        var facts = new List<AtlasFactRecord>();
         var cmd = db.CreateCommand();
         cmd.CommandText = "SELECT RawJson FROM FmsaveStaffDirectory WHERE StaffUid=$uid AND SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) LIMIT 1;";
         cmd.Parameters.AddWithValue("$uid", staffUid);
         var json = Convert.ToString(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
         if (!string.IsNullOrWhiteSpace(json))
         {
-            using var doc = JsonDocument.Parse(json);
-            return FlattenScalarFacts(doc.RootElement).Where(x => !string.IsNullOrWhiteSpace(x.Key)).Take(150)
-                .Select(x => new AtlasFactRecord("Staff", x.Key, x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)).ToList();
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                facts.AddRange(FlattenScalarFacts(doc.RootElement)
+                    .Where(x => !string.IsNullOrWhiteSpace(x.Key))
+                    .Take(150)
+                    .Select(x => new AtlasFactRecord("Career save · imported", x.Key,
+                        x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)));
+            }
+            catch (JsonException) { /* Keep any live facts even if an offline staff JSON row is malformed. */ }
         }
+
         var liveStaffId = staffUid.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) ? staffUid[5..] : staffUid;
-        if (!long.TryParse(liveStaffId, out var staffId)) return new List<AtlasFactRecord>();
+        if (!long.TryParse(liveStaffId, out var staffId)) return facts;
         var live = db.CreateCommand();
-        live.CommandText = "SELECT FieldKey,NumericValue,TextValue FROM LiveStaffFacts WHERE StaffUid=$id ORDER BY FieldKey LIMIT 150;";
+        live.CommandText = "SELECT FieldKey,NumericValue,TextValue,ValidationStatus FROM LiveStaffFacts WHERE StaffUid=$id ORDER BY FieldKey LIMIT 150;";
         live.Parameters.AddWithValue("$id", staffId);
-        var facts = new List<AtlasFactRecord>();
         await using var reader = await live.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
-            var value = reader.IsDBNull(1) ? (reader.IsDBNull(2) ? null : reader.GetString(2)) : reader.GetDouble(1).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            facts.Add(new AtlasFactRecord("Live FM27 · candidate field", reader.GetString(0), value));
+            var value = reader.IsDBNull(1)
+                ? (reader.IsDBNull(2) ? null : reader.GetString(2))
+                : reader.GetDouble(1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var status = reader.GetString(3);
+            facts.Add(new AtlasFactRecord(
+                "Live FM27 · " + (status.Contains("Verified", StringComparison.OrdinalIgnoreCase) ? "verified" : "provisional"),
+                reader.GetString(0), value));
         }
         return facts;
     }
