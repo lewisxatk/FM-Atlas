@@ -3621,7 +3621,7 @@ public sealed class ScoutDatabase
                         SELECT 1 FROM FmsavePlayerFacts pf
                         WHERE pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
                           AND pf.PlayerSourceId=p.SourceId
-                          AND pf.FactGroup IN ('positions','natural_positions','accomplished_positions')
+                          AND pf.FactGroup='positions'
                           AND (upper(pf.FieldKey)={keyParameter} OR upper(pf.FieldKey)={aliasParameter})
                           AND pf.NumericValue IS NOT NULL
                           AND pf.NumericValue {comparison} {valueParameter}
