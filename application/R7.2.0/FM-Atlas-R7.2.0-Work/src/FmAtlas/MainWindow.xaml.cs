@@ -1622,6 +1622,7 @@ public partial class MainWindow : Window
 
             LiveEntityMemoryEditService.TacticalBatchPlan? staged = null;
             LiveEntityMemoryEditService.TacticalBatchReceipt? applied = null;
+            List<LiveEntityMemoryEditService.TacticalTargetValue>? stagedTargets = null;
             Button? applyButton = null;
             Button? undoButton = null;
             var stageButton = PrimaryButton("Stage tactical changes", async (_, _) =>
@@ -1652,6 +1653,7 @@ public partial class MainWindow : Window
                     Mouse.OverrideCursor = Cursors.Wait;
                     staged = await Task.Run(() => LiveEntityMemoryEditService.StageTacticalExposureBatch(
                         processId, clubUid, clubName, targets));
+                    stagedTargets = targets;
                     status.Text = "TACTICAL CHANGES STAGED · " + staged.Changes.Count.ToString(CultureInfo.InvariantCulture)
                         + " player-area lists · " + staged.ProfileId + " · no memory written";
                     applyButton!.IsEnabled = true;
@@ -1696,13 +1698,15 @@ public partial class MainWindow : Window
                     applied = await Task.Run(() => LiveEntityMemoryEditService.ApplyTacticalExposureBatch(staged));
                     foreach (var row in rows)
                     {
-                        var target = staged.PlanTargetOrNull(row.AreaKey);
-                        if (target.HasValue)
+                        var target = stagedTargets?.FirstOrDefault(x =>
+                            x.AreaKey.Equals(row.AreaKey, StringComparison.OrdinalIgnoreCase));
+                        if (target is not null)
                         {
                             row.CurrentValue = target.Value;
                             row.TargetValue = target.Value.ToString(CultureInfo.InvariantCulture);
                         }
                     }
+                    grid.Items.Refresh();
                     status.Text = "LIVE TACTICAL EXPOSURE WRITTEN · " + applied.Changes.Count.ToString(CultureInfo.InvariantCulture)
                         + " player-area lists · read-back verified. Save the career in FM to persist.";
                     staged = null;
@@ -1735,15 +1739,6 @@ public partial class MainWindow : Window
                 {
                     Mouse.OverrideCursor = Cursors.Wait;
                     await Task.Run(() => LiveEntityMemoryEditService.UndoTacticalExposureBatch(applied));
-                    foreach (var row in rows)
-                    {
-                        var original = applied.Plan.Changes
-                            .Where(x => x.ChangesArea(row.AreaKey))
-                            .Select(x => x.OriginalAverageForArea(row.AreaKey))
-                            .FirstOrDefault();
-                        // The live team average is re-read below because per-player records may
-                        // have had different starting values; their original bytes are not one team value.
-                    }
                     var refreshed = await Task.Run(() =>
                         LiveEntityMemoryEditService.ReadTacticalSnapshot(processId, clubUid, clubName));
                     foreach (var row in rows)
@@ -1753,6 +1748,7 @@ public partial class MainWindow : Window
                         row.CurrentValue = value.MatchExposure;
                         row.TargetValue = value.MatchExposure.ToString(CultureInfo.InvariantCulture);
                     }
+                    grid.Items.Refresh();
                     status.Text = "TACTICAL UNDO VERIFIED · original player familiarity records restored.";
                     AtlasLog.Info("Live FM27 tactical Match Exposure undo verified for club " + clubUid);
                     applied = null;
