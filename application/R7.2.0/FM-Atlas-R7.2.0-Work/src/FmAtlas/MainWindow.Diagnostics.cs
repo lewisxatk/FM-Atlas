@@ -120,7 +120,11 @@ public partial class MainWindow
                 var available = await FmsaveBridgeService.IsAvailableAsync();
                 return (available, available ? "Python Launcher and fmsave are detected" : "Not detected · run Setup-FMAtlas-Save-Bridge.ps1 to enable save imports");
             });
-            await Add("Football Manager process", () => Task.FromResult((true, GameProcessDetector.Detect().Detail)));
+            await Add("Football Manager process", () =>
+            {
+                var status = GameProcessDetector.Detect();
+                return Task.FromResult((status.IsRunning && status.ModuleFound && status.MemoryReadVerified, status.Detail));
+            });
             await Add("Imported career snapshot", async () =>
             {
                 var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
