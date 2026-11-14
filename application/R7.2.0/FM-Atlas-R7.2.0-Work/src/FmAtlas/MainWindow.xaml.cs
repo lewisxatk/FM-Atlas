@@ -1399,6 +1399,8 @@ public partial class MainWindow : Window
 
             LiveEntityMemoryEditService.BatchPlan? stagedPlan = null;
             LiveEntityMemoryEditService.BatchReceipt? appliedReceipt = null;
+            Button? applyButton = null;
+            Button? undoButton = null;
             var stageButton = PrimaryButton("Stage live changes", async (_, _) =>
             {
                 grid.CommitEdit(DataGridEditingUnit.Cell, true);
@@ -1426,8 +1428,8 @@ public partial class MainWindow : Window
                         processId, entityType, uid, displayName, changes));
                     status.Text = "STAGED · " + stagedPlan.Values.Count.ToString("N0", CultureInfo.InvariantCulture)
                         + " field(s) · " + stagedPlan.ProfileId + " · no memory written";
-                    applyButton.IsEnabled = true;
-                    undoButton.IsEnabled = false;
+                    applyButton!.IsEnabled = true;
+                    undoButton!.IsEnabled = false;
                     var preview = string.Join(Environment.NewLine, stagedPlan.Values.Take(30).Select(x =>
                         x.FieldKey + ": " + x.CurrentValue.ToString(CultureInfo.InvariantCulture)
                         + " → " + x.TargetValue.ToString(CultureInfo.InvariantCulture)));
@@ -1445,7 +1447,7 @@ public partial class MainWindow : Window
                 catch (Exception ex)
                 {
                     stagedPlan = null;
-                    applyButton.IsEnabled = false;
+                    applyButton!.IsEnabled = false;
                     status.Text = "STAGE BLOCKED · " + ex.Message;
                     AtlasLog.Warning("Live entity edit staging was blocked: " + ex.Message);
                     MessageBox.Show(this, ex.Message, "FM Atlas · Stage blocked", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -1453,7 +1455,7 @@ public partial class MainWindow : Window
                 finally { Mouse.OverrideCursor = null; }
             });
 
-            var applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
+            applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
             {
                 if (stagedPlan is null) return;
                 var answer = MessageBox.Show(this,
@@ -1478,8 +1480,8 @@ public partial class MainWindow : Window
                     status.Text = "LIVE WRITE VERIFIED · " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
                         + " field(s) written and read back from FM memory. Save the career inside FM to persist to disk.";
                     stagedPlan = null;
-                    applyButton.IsEnabled = false;
-                    undoButton.IsEnabled = true;
+                    applyButton!.IsEnabled = false;
+                    undoButton!.IsEnabled = true;
                     AtlasLog.Info("Live FM27 write verified for " + entityType + " " + uid + " · fields=" + appliedReceipt.Plan.Values.Count);
                     MessageBox.Show(this,
                         "FM27 accepted " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
@@ -1496,7 +1498,7 @@ public partial class MainWindow : Window
                 finally { Mouse.OverrideCursor = null; }
             });
             applyButton.IsEnabled = false;
-            var undoButton = SoftButton("Undo last live batch", async (_, _) =>
+            undoButton = SoftButton("Undo last live batch", async (_, _) =>
             {
                 if (appliedReceipt is null) return;
                 var answer = MessageBox.Show(this,
@@ -1517,7 +1519,7 @@ public partial class MainWindow : Window
                     status.Text = "LIVE UNDO VERIFIED · original values restored in the same FM career session.";
                     AtlasLog.Info("Live FM27 undo verified for " + entityType + " " + uid);
                     appliedReceipt = null;
-                    undoButton.IsEnabled = false;
+                    undoButton!.IsEnabled = false;
                 }
                 catch (Exception ex)
                 {
