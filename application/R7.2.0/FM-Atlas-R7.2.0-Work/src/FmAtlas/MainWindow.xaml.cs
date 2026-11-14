@@ -2018,7 +2018,7 @@ public partial class MainWindow : Window
                 && !x.Field.StartsWith("staff_personality.", StringComparison.OrdinalIgnoreCase)
                 && !x.Field.StartsWith("contract.", StringComparison.OrdinalIgnoreCase)).ToList();
             profileStack.Children.Add(Txt("IMPORTED STAFF FACTS", 9, true, Teal) is var h ? Configure(h, new Thickness(0, 17, 0, 6)) : new TextBlock());
-            if (remainingFacts.Count == 0 && coachingFacts.Count == 0 && personalityFacts.Count == 0 && contractFacts.Count == 0)
+            if (remainingFacts.Count == 0 && coachingFacts.Count == 0 && personalityFacts.Count == 0 && contractFacts.Count == 0 && preferenceFacts.Count == 0)
                 profileStack.Children.Add(Txt("No additional staff facts were imported.", 10, false, Muted));
             foreach (var group in remainingFacts.GroupBy(x => x.Group))
             {
