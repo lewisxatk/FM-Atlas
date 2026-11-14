@@ -323,7 +323,6 @@ public static partial class LiveEntityMemoryEditService
             fields.Add(F("left_foot","Left Foot",entity,Place.Object,0x177,1,EncodingKind.DirectByte,1,20,0,20));
             fields.Add(F("right_foot","Right Foot",entity,Place.Object,0x178,1,EncodingKind.DirectByte,1,20,0,20));
             fields.Add(F("height","Height (cm)",entity,Place.Object,0x22E,2,EncodingKind.UInt16,140,220,100,250));
-            fields.Add(F("transfer_value","Transfer Value (GBP)",entity,Place.Object,0x234,4,EncodingKind.Int32,0,300_000_000,-1,int.MaxValue,blank:-1));
             fields.Add(F("asking_price","Asking Price (GBP)",entity,Place.Object,0x238,4,EncodingKind.Int32,0,2_000_000_000,-1,int.MaxValue,blank:-1));
             fields.Add(F("condition","Condition",entity,Place.Object,0x25C,2,EncodingKind.UInt16,0,10_000,0,10_000));
             fields.Add(F("match_sharpness","Match Sharpness",entity,Place.Object,0x258,2,EncodingKind.UInt16,3_500,10_000,0,10_000));
@@ -420,7 +419,6 @@ public static partial class LiveEntityMemoryEditService
             fields.Add(F(prefix+"signed","Contract Signed (YYYYMMDD)",entity,Place.Contract,0x44,4,EncodingKind.Date,20000101,21001231,0,22001231));
             fields.Add(F(prefix+"expires","Contract Expiry (YYYYMMDD)",entity,Place.Contract,0x48,4,EncodingKind.Date,20000101,21001231,0,22001231));
             fields.Add(F(prefix+"joined","Joined Club (YYYYMMDD)",entity,Place.Contract,0x4C,4,EncodingKind.Date,20000101,21001231,0,22001231));
-            fields.Add(F(prefix+"type","Contract Type",entity,Place.Contract,0xC3,1,EncodingKind.UInt8,0,11,0,11,choices:new[]{0,1,2,3,4,10,11}));
             fields.Add(F(prefix+"squad_number","Squad Number",entity,Place.Contract,0x5D,1,EncodingKind.UInt8,1,99,1,255,blank:255));
             fields.Add(F(prefix+"squad_status","Squad Status",entity,Place.Contract,0x54,1,EncodingKind.UInt8,1,5,0,40,choices:new[]{1,2,3,4,5}));
             fields.Add(F(prefix+"transfer_listed","Transfer Listed",entity,Place.Contract,0x57,1,EncodingKind.Flag,0,1,0,1,bit:0));
@@ -674,6 +672,19 @@ public static partial class LiveEntityMemoryEditService
     private static void ValidateCrossFieldConstraints(nint handle,ResolvedEntity target,IReadOnlyList<PlannedValue> values,ulong financeClass,ulong stadiumClass)
     {
         if(target.Address==0)return;
+        var mixKeys = new[] { "supporters.mix.hardcore", "supporters.mix.core", "supporters.mix.family",
+            "supporters.mix.fair_weather", "supporters.mix.corporate", "supporters.mix.casual" };
+        if (values.Any(x => mixKeys.Contains(x.FieldKey, StringComparer.OrdinalIgnoreCase)))
+        {
+            var total = 0;
+            foreach (var key in mixKeys)
+            {
+                var changed = values.FirstOrDefault(x => x.FieldKey.Equals(key, StringComparison.OrdinalIgnoreCase));
+                total += changed?.TargetValue ?? ReadCurrentForKey(handle, target, key, financeClass, stadiumClass);
+            }
+            if (total != 100)
+                throw new InvalidOperationException("Supporter profile percentages must add up to exactly 100%. Adjust the six groups together before staging.");
+        }
         var cap=values.FirstOrDefault(x=>x.FieldKey=="stadium.capacity");
         var seats=values.FirstOrDefault(x=>x.FieldKey=="stadium.seating");
         var used=values.FirstOrDefault(x=>x.FieldKey=="stadium.used");
