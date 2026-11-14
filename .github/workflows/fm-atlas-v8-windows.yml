@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/v9-all-roadmap
+      - feature/fm27-fmrte-parity-editor
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
