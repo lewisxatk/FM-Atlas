@@ -206,7 +206,8 @@ public sealed class LiveCareerDetectionTests
         Assert.Equal(17, decoded["authority"]);
         Assert.Equal(19, decoded["working_with_youngsters"]);
         Assert.False(decoded.ContainsKey("defending"));
-        Assert.Equal(20, decoded.Count);
+        // Only five valid values were seeded; zero/missing and out-of-range bytes are omitted.
+        Assert.Equal(5, decoded.Count);
     }
 
     [Fact]
