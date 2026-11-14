@@ -930,6 +930,8 @@ public partial class MainWindow : Window
     {
         if (_playerResultsGrid is null || _playerCountText is null) return;
         var term = _playerSearch?.Text.Trim() ?? string.Empty;
+        var pos = _positionPicker?.SelectedItem?.ToString();
+        if (string.IsNullOrWhiteSpace(pos) || pos == "Any position") pos = null;
         if (!TryParseOptionalInt(_playerMinCaInput?.Text, 1, 200, out var minCa)
             || !TryParseOptionalInt(_playerMaxCaInput?.Text, 1, 200, out var maxCa)
             || !TryParseOptionalInt(_playerMinPaInput?.Text, -10, 200, out var minPa)
@@ -945,13 +947,14 @@ public partial class MainWindow : Window
             return;
         }
         var hasAbilityFilters = minCa.HasValue || maxCa.HasValue || minPa.HasValue || maxPa.HasValue;
-        if (term.Length < 2 && !hasAbilityFilters)
+        var hasPositionFilter = pos is not null;
+        if (term.Length < 2 && !hasAbilityFilters && !hasPositionFilter)
         {
             ++_playerSearchRequestId; // invalidate any search still completing in the background
             Mouse.OverrideCursor = null;
             _players.Clear();
             _playerCountText.Text = "Search the career database";
-            _playerPageStatus!.Text = "Enter at least two characters or set a CA/PA range · the full player database is not loaded into the screen";
+            _playerPageStatus!.Text = "Enter two characters or choose a position / CA / PA filter · the full player database is not loaded into the screen";
             _previousPlayerPageButton!.IsEnabled = false;
             _nextPlayerPageButton!.IsEnabled = false;
             ClearProfile("Choose a player from search results. Your open profile tabs will remain available.");
@@ -963,8 +966,6 @@ public partial class MainWindow : Window
         {
             Mouse.OverrideCursor = Cursors.Wait;
             if (_playerPageStatus is not null) _playerPageStatus.Text = "Searching…";
-            var pos = _positionPicker?.SelectedItem?.ToString();
-            if (string.IsNullOrWhiteSpace(pos) || pos == "Any position") pos = null;
             // Query enough from each source to construct one correctly ordered merged page.
             // Applying the same OFFSET independently to both sources creates skipped/duplicated
             // records whenever save and live rows overlap.
