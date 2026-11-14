@@ -1110,6 +1110,42 @@ public partial class MainWindow : Window
         positionsTab.Children.Add(Txt(
             "Role Fit scores are Atlas estimates based on available 1–20 attributes, not Football Manager's hidden role rating. Open Role Lab for the selected role profiles and coverage explanation.",
             9, false, Muted, wrap: true));
+        positionsTab.Children.Add(Txt("BEST-SUPPORTED ROLE MATCHES", 9, true, Teal)
+            is var roleHeading ? Configure(roleHeading, new Thickness(0, 16, 0, 5)) : new TextBlock());
+        positionsTab.Children.Add(Txt(
+            "Calculated from this player's imported 1–20 footballing attributes using the same weighted Role Fit engine as Role Lab. Each row includes coverage; these are Atlas estimates, not FM star ratings.",
+            9, false, Muted, wrap: true));
+        var profileRoleMatches = RoleFitService.GetProfiles()
+            .Select(profile => new
+            {
+                Profile = profile,
+                Score = RoleFitService.CalculateScore(profile, attributes, minimumCoverage: 0.5)
+            })
+            .Where(x => x.Score is not null)
+            .OrderByDescending(x => x.Score!.Score)
+            .ThenByDescending(x => x.Score!.Coverage)
+            .ThenBy(x => x.Profile.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .ToList();
+        if (profileRoleMatches.Count == 0)
+            positionsTab.Children.Add(Txt("No role profile has enough source-backed attributes to calculate a reliable estimate for this player.", 9, false, Muted, wrap: true));
+        else
+        {
+            foreach (var match in profileRoleMatches)
+            {
+                var score = match.Score!;
+                var roleCard = Card(new StackPanel(), 10, new Thickness(0, 5, 0, 5));
+                var roleContent = (StackPanel)roleCard.Child;
+                roleContent.Children.Add(Txt(match.Profile.Name, 11, true, Ink));
+                roleContent.Children.Add(Txt(
+                    $"{match.Profile.Phase} · {match.Profile.PositionGroup} · {score.Score:0.00}/20 · {score.Coverage:P0} coverage · {score.AttributesAvailable}/{score.AttributesExpected} attributes",
+                    9, false, Muted, wrap: true));
+                roleContent.Children.Add(Txt(
+                    string.Join(" · ", score.Contributions.Take(3).Select(x => $"{x.Attribute} {x.Value:0.#}")),
+                    9, false, Muted, wrap: true));
+                positionsTab.Children.Add(roleCard);
+            }
+        }
 
         AddProfileFactsSection(contractTab, "CONTRACT & REGISTRATION", contractFacts, 30);
         if (contractFacts.Count == 0)

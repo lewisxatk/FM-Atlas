@@ -109,7 +109,11 @@ public static class RoleFitService
     }
 
     private static string NormalizeAttributeKey(string value)
-        => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+    {
+        var separator = value.LastIndexOf(" · ", StringComparison.Ordinal);
+        var attribute = separator >= 0 ? value[(separator + 3)..] : value;
+        return new(attribute.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+    }
 
     public static IReadOnlyList<RoleFitProfile> GetProfiles() => Profiles;
 }

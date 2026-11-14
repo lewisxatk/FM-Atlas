@@ -252,6 +252,31 @@ public sealed class FmsaveNdjsonImportTests
 
 
     [Fact]
+    public void RoleFitScoringAcceptsCategoryPrefixedPlayerProfileAttributes()
+    {
+        var profile = new RoleFitProfile(
+            "Profile mapping regression", "Both", "Test", "Category-prefixed imported attributes.",
+            new Dictionary<string, double>
+            {
+                ["Finishing"] = 2,
+                ["Pace"] = 1
+            });
+        var score = RoleFitService.CalculateScore(profile, new Dictionary<string, double>
+        {
+            ["Technical · Finishing"] = 18,
+            ["Physical · Pace"] = 15,
+            ["Personality · Professionalism"] = 20
+        }, minimumCoverage: 1);
+
+        Assert.NotNull(score);
+        Assert.Equal(17d, score!.Score, 2);
+        Assert.Equal(2, score.AttributesAvailable);
+        Assert.Equal(2, score.AttributesExpected);
+        Assert.Equal(1d, score.Coverage, 5);
+        Assert.Equal(2, score.Contributions.Count);
+    }
+
+    [Fact]
     public void RoleFitBreakdownExplainsWeightedScoreAndNormalizesAttributeNames()
     {
         var profile = new RoleFitProfile(
@@ -901,35 +926,6 @@ public sealed class FmsaveNdjsonImportTests
             SourceId = "LOCAL:shortlist:prospect-2",
             Name = "Local Prospect"
         };
-        var invalid = new PlayerRecord();
-
-        var added = await database.AddPlayersToShortlistAsync(
-            new[] { imported, local, imported, invalid }, "Summer Recruitment", "Added from similar player discovery");
-        var duplicateAdd = await database.AddPlayersToShortlistAsync(
-            new[] { imported, local }, "Summer Recruitment", "This should not overwrite existing notes");
-        var records = await database.GetShortlistAsync("Summer Recruitment");
-
-        Assert.Equal(2, added);
-        Assert.Equal(0, duplicateAdd);
-        Assert.Equal(2, records.Count);
-        Assert.All(records, x => Assert.Equal("Added from similar player discovery", x.Notes));
-        Assert.Contains(records, x => x.SourceId == imported.SourceId);
-        Assert.Contains(records, x => x.SourceId == local.SourceId);
-        Assert.Contains("Summer Recruitment", await database.GetShortlistNamesAsync());
-    }
-
-    [Fact]
-    public async Task BulkShortlistAddsOnlyNewPlayerIdsAndKeepsOriginalNotes()
-    {
-        using var temp = new TemporaryFolder();
-        var databasePath = Path.Combine(temp.Path, "scouting.db");
-        var database = new ScoutDatabase(databasePath);
-        await database.InitialiseAsync();
-        var bundle = CreateBundle(temp.Path, "shortlist-bulk", playerManifestCount: 1, includeContractRow: false);
-        await database.ImportFmsaveSnapshotAsync(bundle);
-
-        var imported = new PlayerRecord { SourceId = "FMSAVE:FM27:test-db:1001", Name = "Fixture Player" };
-        var local = new PlayerRecord { SourceId = "LOCAL:shortlist:prospect-2", Name = "Local Prospect" };
         var invalid = new PlayerRecord();
 
         var added = await database.AddPlayersToShortlistAsync(
