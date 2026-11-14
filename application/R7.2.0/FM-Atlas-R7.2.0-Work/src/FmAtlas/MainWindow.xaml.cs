@@ -3145,16 +3145,116 @@ public partial class MainWindow : Window
             catch (Exception ex) { AtlasLog.Error("Local player attribute edit failed.", ex); MessageBox.Show(this, ex.Message, "Local editor", MessageBoxButton.OK, MessageBoxImage.Warning); }
         });
         saveAttributes.Margin = new Thickness(0, 9, 0, 0); DockPanel.SetDock(saveAttributes, Dock.Bottom); dock.Children.Add(saveAttributes);
+        if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase)
+            && long.TryParse(_selectedPlayer.SourceId["LIVE:".Length..], out var livePlayerUid))
+        {
+            var liveFacts = await RunDatabaseAsync(() => _database.GetLivePlayerFactsAsync(livePlayerUid));
+            var stageRows = new ObservableCollection<LiveFieldStageView>();
+            foreach (var fact in liveFacts)
+            {
+                if (!fact.NumericValue.HasValue || !double.IsFinite(fact.NumericValue.Value)
+                    || Math.Abs(fact.NumericValue.Value - Math.Round(fact.NumericValue.Value)) > 0.0001
+                    || !LiveMemoryEditService.SupportsPlayerFieldPreview(fact.FieldKey))
+                    continue;
+                var currentValue = checked((int)Math.Round(fact.NumericValue.Value));
+                stageRows.Add(new LiveFieldStageView
+                {
+                    FieldKey = fact.FieldKey,
+                    CurrentValue = currentValue,
+                    TargetValue = currentValue.ToString(CultureInfo.InvariantCulture)
+                });
+            }
+
+            var stagePanel = new StackPanel { Margin = new Thickness(0, 12, 0, 10) };
+            stagePanel.Children.Add(Txt("LIVE FIELD PREVIEW · READ ONLY", 9, true, Teal));
+            stagePanel.Children.Add(Txt(
+                "The FM27 field catalogue currently supports staged previews for player attributes, positions, personality, foot ratings, CA/PA, height, condition, match sharpness, jadedness, morale, reputation, asking price and international statistics. This reads the current player again, checks the build and save session, and prepares a change plan. Apply/Undo remains hard-disabled.",
+                9, false, Muted, wrap: true));
+            var stageGrid = CreateGrid();
+            stageGrid.IsReadOnly = false;
+            stageGrid.CanUserAddRows = false;
+            stageGrid.MinHeight = 150;
+            stageGrid.MaxHeight = 260;
+            var stageFieldColumn = Column("FM FIELD KEY", nameof(LiveFieldStageView.FieldKey), 1.5); stageFieldColumn.IsReadOnly = true; stageGrid.Columns.Add(stageFieldColumn);
+            var stageCurrentColumn = Column("CURRENT", nameof(LiveFieldStageView.CurrentValue), .6); stageCurrentColumn.IsReadOnly = true; stageGrid.Columns.Add(stageCurrentColumn);
+            stageGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "TARGET",
+                Binding = new Binding(nameof(LiveFieldStageView.TargetValue)) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(.7, DataGridLengthUnitType.Star)
+            });
+            stageGrid.ItemsSource = stageRows;
+            stagePanel.Children.Add(Txt($"{stageRows.Count:N0} live values have a supported, range-checked preview mapping.", 8, true, Muted));
+            stagePanel.Children.Add(stageGrid);
+            var stageStatus = Txt("No live preview staged.", 9, false, Muted, wrap: true);
+            stagePanel.Children.Add(PrimaryButton("Stage read-only live preview", async (_, _) =>
+            {
+                stageGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+                stageGrid.CommitEdit(DataGridEditingUnit.Row, true);
+                var changes = new List<LiveMemoryEditService.Change>();
+                foreach (var row in stageRows)
+                {
+                    if (!int.TryParse(row.TargetValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target))
+                    {
+                        MessageBox.Show(this, $"Enter a whole-number target for {row.FieldKey}.", "Live preview", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    if (target == row.CurrentValue) continue;
+                    changes.Add(new LiveMemoryEditService.Change(row.FieldKey, row.CurrentValue, target));
+                }
+                if (changes.Count == 0)
+                {
+                    MessageBox.Show(this, "Change at least one target value before staging a preview.", "Live preview", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    var plan = await Task.Run(() =>
+                    {
+                        var processId = LiveMemoryEditService.FindSupportedProcessId();
+                        return LiveMemoryEditService.StageBatch(processId, checked((uint)livePlayerUid), _selectedPlayer.Name, changes);
+                    });
+                    stageStatus.Text = $"PREVIEW READY · {plan.Changes.Count:N0} field(s) · {plan.ProfileId} · no writes made";
+                    var preview = string.Join("\n", plan.Changes.Take(24).Select(x =>
+                        $"{x.FieldKey}: {x.ExpectedCurrentValue:N0} → {x.TargetValue:N0}  (offset 0x{x.Offset:X})"));
+                    if (plan.Changes.Count > 24) preview += $"\n…and {plan.Changes.Count - 24:N0} more field(s).";
+                    MessageBox.Show(this,
+                        $"A read-only live preview was staged for {_selectedPlayer.Name}.\n\nBuild: {plan.ProfileId}\nFields: {plan.Changes.Count:N0}\n\n{preview}\n\nNo memory was written. Apply and Undo remain disabled.",
+                        "FM Atlas · Preview only", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    stageStatus.Text = "PREVIEW BLOCKED · " + ex.Message;
+                    AtlasLog.Warning("Live player-field preview was blocked: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Live preview blocked", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            }));
+            stagePanel.Children.Add(stageStatus);
+            var disabledApply = SoftButton("Apply live changes · disabled pending acceptance", (_, _) => { });
+            disabledApply.IsEnabled = false;
+            disabledApply.ToolTip = "Live writes remain hard-disabled until the exact field witnesses, disposable-save checks and rollback acceptance are complete.";
+            stagePanel.Children.Add(disabledApply);
+            DockPanel.SetDock(stagePanel, Dock.Bottom); dock.Children.Add(stagePanel);
+        }
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            var liveAttributeApply = SoftButton("Live attribute Apply disabled in V8", (_, _) => { });
+            var liveAttributeApply = SoftButton("Live attribute Apply disabled in V10", (_, _) => { });
             liveAttributeApply.IsEnabled = false;
-            liveAttributeApply.ToolTip = "Live memory writes are hard-disabled. The enabled editor saves changes to the FM Atlas database only.";
+            liveAttributeApply.ToolTip = "Live memory writes are hard-disabled. Save local edits or prepare a read-only preview only.";
             liveAttributeApply.Margin = new Thickness(0, 8, 0, 0);
             DockPanel.SetDock(liveAttributeApply, Dock.Bottom);
             dock.Children.Add(liveAttributeApply);
         }
         Grid.SetRow(editor, 1); root.Children.Add(editor); return root;
+    }
+
+    private sealed class LiveFieldStageView
+    {
+        public string FieldKey { get; set; } = "";
+        public int CurrentValue { get; set; }
+        public string TargetValue { get; set; } = "";
     }
 
     private sealed class EditableAttributeView
