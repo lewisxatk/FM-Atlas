@@ -132,17 +132,4 @@ public static class ScoutingRecruitmentService
         }).OrderByDescending(x => x.CompositeScore).ToList();
     }
 
-    private static Dictionary<string, double> Normalized(ScoutingPlayerSeason p, IReadOnlyList<ScoutingMetricDefinition> metrics)
-    {
-        var result = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        foreach (var m in metrics)
-        {
-            if (!p.Metrics.TryGetValue(m.Key, out var raw) || !raw.HasValue || !double.IsFinite(raw.Value)) continue;
-            var value = m.IsRatePer90
-                ? p.MinutesPlayed is > 0 && p.MinutesPlayed >= m.MinimumSampleMinutes ? raw.Value * 90 / p.MinutesPlayed.Value : double.NaN
-                : raw.Value;
-            if (double.IsFinite(value)) result[m.Key] = value;
-        }
-        return result;
-    }
 }
