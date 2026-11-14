@@ -422,8 +422,6 @@ public static partial class LiveEntityMemoryEditService
             fields.Add(F(prefix+"joined","Joined Club (YYYYMMDD)",entity,Place.Contract,0x4C,4,EncodingKind.Date,20000101,21001231,0,22001231));
             fields.Add(F(prefix+"squad_number","Squad Number",entity,Place.Contract,0x5D,1,EncodingKind.UInt8,1,99,1,255,blank:255));
             fields.Add(F(prefix+"squad_status","Squad Status",entity,Place.Contract,0x54,1,EncodingKind.UInt8,1,5,0,40,choices:new[]{1,2,3,4,5}));
-            fields.Add(F(prefix+"type","Contract Type",entity,Place.Contract,0xC3,1,EncodingKind.UInt8,0,11,0,11,
-                choices:new[]{0,1,2,3,4,10,11}));
             fields.Add(F(prefix+"transfer_listed","Transfer Listed",entity,Place.Contract,0x57,1,EncodingKind.Flag,0,1,0,1,bit:0));
             fields.Add(F(prefix+"loan_listed","Loan Listed",entity,Place.Contract,0x57,1,EncodingKind.Flag,0,1,0,1,bit:1));
             fields.Add(F(prefix+"loyalty_bonus","Loyalty Bonus (GBP/week)",entity,Place.Contract,0x38,4,EncodingKind.Int32,0,10_000_000,0,int.MaxValue));
