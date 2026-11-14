@@ -15,6 +15,7 @@ Continue the integrated V8 rebuild without replacing existing R7.2.0 functionali
 - The read-only live extractor contains staff and human-manager recognition, including staff CA/PA, age/DOB, nationality, club relationship and role/job mapping.
 - The database already contains transactional live staff persistence and the `LiveCareerIdentity` record.
 - The Staff directory already merges offline-save and live staff rows, exposes CA/PA and other identity columns, and loads additional staff facts into the selected profile.
+- The selected Staff profile now groups live coaching attributes, personality and contract facts into dedicated sections, while retaining preferred-job ratings and generic imported facts. Wage is explicitly displayed as GBP/week; all live facts remain provisional.
 - `GetFmsaveStaffFactsAsync` already strips the `LIVE:` prefix before reading `LiveStaffFacts`; this is covered by the existing `StaffSearchProfileAndCareerIdentityUseTheConnectedLiveManager` integration test.
 - The live staff query now supports name, club and UID matching; the integration test covers the linked club and UID search paths.
 - FM27 preferred-job ratings are now modelled independently using the public 15-group layout: a class-scoped pointer at person+0xD0, 15 byte ratings, 1–20 validation, tie-aware top-group selection and provisional fact persistence. The Staff profile displays the ratings without changing existing directory/search behaviour.
@@ -79,6 +80,7 @@ The current implementation checklist, architecture status and quick-start guidan
 - `4b25d4b3` — pass the active position into the filtered source counts.
 - `58f9adac` — extend CA/PA search regression coverage to position filters.
 - `d2949e9a`, `17f0b800` — allow position-only searches and show the active position/CA/PA filter summary.
+- `8e864b67`, `46b95d21` — organise staff coaching, personality and contract facts into dedicated profile sections.
 - The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
 
 ## Second reference/reverse-engineering batch
