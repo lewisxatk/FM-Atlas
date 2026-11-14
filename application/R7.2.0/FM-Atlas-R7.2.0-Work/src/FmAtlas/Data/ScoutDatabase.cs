@@ -2800,9 +2800,9 @@ public sealed class ScoutDatabase
             JOIN latest l ON l.SnapshotId=f.SnapshotId
             LEFT JOIN FmsaveExtraTables fx
               ON fx.SnapshotId=f.SnapshotId AND fx.TableName='fixtures'
-             AND json_extract(fx.RawJson,'$.competition_id')=f.CompetitionId
-             AND json_extract(fx.RawJson,'$.home_team_id')=f.HomeTeamId
-             AND json_extract(fx.RawJson,'$.away_team_id')=f.AwayTeamId
+             AND CAST(json_extract(fx.RawJson,'$.competition_id') AS TEXT)=f.CompetitionId
+             AND CAST(json_extract(fx.RawJson,'$.home_team_id') AS TEXT)=f.HomeTeamId
+             AND CAST(json_extract(fx.RawJson,'$.away_team_id') AS TEXT)=f.AwayTeamId
              AND json_extract(fx.RawJson,'$.date')=f.MatchDate
             WHERE f.FieldKey LIKE $metric COLLATE NOCASE
               AND f.CompetitionId LIKE $competition COLLATE NOCASE
