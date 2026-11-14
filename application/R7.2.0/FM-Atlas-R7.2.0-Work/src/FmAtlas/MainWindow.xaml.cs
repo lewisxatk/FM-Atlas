@@ -109,8 +109,13 @@ public partial class MainWindow : Window
         Loaded += WindowLoaded;
         Closed += (_, _) =>
         {
+            // Do not leave background work running after the WPF shell exits.
+            // Cancellation is cooperative: active importers roll back unpublished
+            // snapshots and retain the last committed database state.
             _liveCareerTimer?.Stop();
-            AtlasLog.Info("Main window closed.");
+            _liveScanCancellation?.Cancel();
+            _saveImportCancellation?.Cancel();
+            AtlasLog.Info("Main window closed; active live scan/save import cancellation requested.");
         };
         PreviewKeyDown += (_, e) =>
         {
