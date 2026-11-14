@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Text;
 
 namespace FmAtlas.Services;
@@ -73,7 +74,7 @@ public static class WyscoutCsvImporter
             }
             metrics["minutes_played"] = minutes.Value;
             if (ParseNumber(Find(row, "Age")) is { } age) metrics["age"] = age;
-            if (ParseNumber(Find(row, "Value")) is { } value) metrics["market_value"] = value;
+            if (ParseNumber(Find(row, "Value")) is { } marketValue) metrics["market_value"] = marketValue;
             var season = Find(row, "Season") ?? "Unspecified season";
             result.Add(new ScoutingPlayerSeason(
                 "WY:" + (id ?? name) + ":" + Find(row, "Team") + ":" + Find(row, "Competition") + ":" + season, name,
