@@ -2469,7 +2469,8 @@ public sealed class ScoutDatabase
         string? search,
         IReadOnlyList<AdvancedSearchCriterion> criteria,
         bool matchAll = true,
-        int limit = 5000)
+        int limit = 250,
+        int offset = 0)
     {
         if (criteria.Count == 0) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 conditions in one advanced player search.");
@@ -2592,13 +2593,14 @@ public sealed class ScoutDatabase
                     SELECT 1 FROM FmsavePlayerSnapshots s
                     WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=p.SourceId
               ))
-            ORDER BY CASE WHEN $q<>'' AND p.Name LIKE $prefix COLLATE NOCASE THEN 0 ELSE 1 END,p.Name COLLATE NOCASE
-            LIMIT $limit;
+            ORDER BY CASE WHEN $q<>'' AND p.Name LIKE $prefix COLLATE NOCASE THEN 0 ELSE 1 END,p.Name COLLATE NOCASE,p.SourceId
+            LIMIT $limit OFFSET $offset;
             """;
         cmd.Parameters.AddWithValue("$q", query);
         cmd.Parameters.AddWithValue("$pattern", "%" + query + "%");
         cmd.Parameters.AddWithValue("$prefix", query + "%");
-        cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 5000));
+        cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 500));
+        cmd.Parameters.AddWithValue("$offset", Math.Clamp(offset, 0, 1_000_000));
 
         var results = new List<PlayerRecord>();
         await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
