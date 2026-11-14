@@ -3109,7 +3109,7 @@ public partial class MainWindow : Window
         if (open.ShowDialog(this) != true) return;
         if (!await FmsaveBridgeService.IsAvailableAsync())
         {
-            var answer = MessageBox.Show(this, "The local save reader is not installed. Run Setup-FMAtlas-Save-Bridge.ps1 from the extracted FM Atlas folder, then restart the app.\n\nWould you like to open the setup script's folder?", "Save bridge not installed", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            var answer = MessageBox.Show(this, "The local save reader is missing or out of date. FM Atlas requires fmsave 0.12.4 or newer. Run Setup-FMAtlas-Save-Bridge.ps1 from the extracted FM Atlas folder, then restart the app.\n\nWould you like to open the setup script's folder?", "Save bridge not installed", MessageBoxButton.YesNo, MessageBoxImage.Information);
             if (answer == MessageBoxResult.Yes) Process.Start(new ProcessStartInfo("explorer.exe", AppContext.BaseDirectory) { UseShellExecute = true });
             return;
         }
