@@ -50,8 +50,10 @@ public static class ScoutingAnalyticsService
                 if (!p.Metrics.TryGetValue(definition.Key, out var raw) || raw is null || !double.IsFinite(raw.Value))
                     return (Player: p, Raw: (double?)null, Value: (double?)null);
                 var minutes = p.MinutesPlayed;
-                if (definition.IsRatePer90 && (!minutes.HasValue || !double.IsFinite(minutes.Value) ||
-                    minutes.Value <= 0 || minutes.Value < Math.Max(0, definition.MinimumSampleMinutes)))
+                if (definition.MinimumSampleMinutes > 0 &&
+                    (!minutes.HasValue || !double.IsFinite(minutes.Value) || minutes.Value < definition.MinimumSampleMinutes))
+                    return (Player: p, Raw: raw, Value: (double?)null);
+                if (definition.IsRatePer90 && (!minutes.HasValue || !double.IsFinite(minutes.Value) || minutes.Value <= 0))
                     return (Player: p, Raw: raw, Value: (double?)null);
                 var normalized = definition.IsRatePer90 ? raw.Value * 90d / minutes!.Value : raw.Value;
                 return (Player: p, Raw: raw, Value: double.IsFinite(normalized) ? normalized : null);
