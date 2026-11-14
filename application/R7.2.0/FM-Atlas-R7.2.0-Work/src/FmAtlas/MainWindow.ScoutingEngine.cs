@@ -410,7 +410,7 @@ public partial class MainWindow
                     Title = "FM Atlas · Event Lab",
                     Width = 1280, Height = 820, MinWidth = 850, MinHeight = 560,
                     WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                    Owner = this, Background = Panel, Foreground = Ink, Content = panel
+                    Owner = this, Background = this.Background, Foreground = this.Foreground, Content = panel
                 };
                 window.ShowDialog();
             }
