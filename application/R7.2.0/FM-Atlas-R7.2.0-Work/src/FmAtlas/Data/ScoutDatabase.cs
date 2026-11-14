@@ -1072,8 +1072,9 @@ public sealed class ScoutDatabase
         try
         {
         await using var db = new SqliteConnection(_connectionString);
-        await db.OpenAsync().ConfigureAwait(false);
-        await using var tx = await db.BeginTransactionAsync();
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await using var tx = await db.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         var now = DateTime.UtcNow.ToString("O");
         var run = db.CreateCommand(); run.Transaction = (SqliteTransaction)tx;
         run.CommandText = "INSERT INTO LiveImportRuns(GameVersion,ModuleSha256,StartedUtc,CompletedUtc,Status,PlayersSeen,ClubsSeen) VALUES($v,$h,$s,NULL,'Importing',$p,$c); SELECT last_insert_rowid();";
@@ -1133,6 +1134,7 @@ public sealed class ScoutDatabase
 
             void SetStaffFact(string key, double? numeric, string? textValue = null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 staffFactUpsert.Parameters["$uid"].Value = (long)member.Uid;
                 staffFactUpsert.Parameters["$key"].Value = key;
                 staffFactUpsert.Parameters["$number"].Value = (object?)numeric ?? DBNull.Value;
@@ -1244,6 +1246,7 @@ public sealed class ScoutDatabase
             // They are visible for investigation, but do not count as independently verified write permissions.
             void SetLiveFact(string key, double? numeric, string? textValue = null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 liveFactUpsert.Parameters["$uid"].Value = (long)player.Uid;
                 liveFactUpsert.Parameters["$key"].Value = key;
                 liveFactUpsert.Parameters["$number"].Value = (object?)numeric ?? DBNull.Value;
