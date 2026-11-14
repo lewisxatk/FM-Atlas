@@ -74,7 +74,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 ## 4. Save import, data provenance and database reliability
 
 - [ ] Confirm fmsave bridge setup and exact FM27 table support/version; retain unsupported-table warnings.
-- [ ] Replace single giant JSON snapshot materialisation with bounded streaming/table batches.
+- [x] Remove duplicate full-array/List copies from the C# importer for players, staff and clubs by using lazy JsonElement array enumeration and O(1) array counts (commit `26104ba3`).
+- [ ] Replace the remaining full Python table materialisation and single giant JSON snapshot with bounded streaming/table batches.
 - [x] Add table-by-table save-reader progress, database indexing progress, toolbar Cancel action and elapsed-time reporting; propagate cancellation through the bridge and SQLite importer.
 - [ ] Import into staging snapshot; validate counts/relationships; publish atomically only after success.
 - [x] Preserve the last committed snapshot on cancellation, parse errors or database lock: the reader process is stopped and an uncommitted SQLite transaction is rolled back before commit.
@@ -183,3 +184,4 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Save-reader progress stream and table stages | `517a25de`, `755c69d3` | The Python adapter reports each table start, row count and warnings to stderr; the desktop bridge consumes it line-by-line for UI progress. |
 | 2026-11-14 | Cancellable career snapshot indexing | `1ed64ed2` | Cancellation is checked during player, staff, club and additional-table indexing; progress is reported and cancellation before commit rolls back the active transaction. |
 | 2026-11-14 | Cancellable save-import UI and elapsed time | `005af6a0`, `f0701bb1` | Added a toolbar Cancel action, visible import status, elapsed time and a clear message that the previous committed snapshot is retained. |
+| 2026-11-14 | Reduce duplicate JSON array allocations | `26104ba3` | Player, staff and club arrays are now lazily enumerated from JsonDocument rather than being copied into duplicate arrays and Lists. Full envelope memory is still materialised; true bounded streaming remains open. |
