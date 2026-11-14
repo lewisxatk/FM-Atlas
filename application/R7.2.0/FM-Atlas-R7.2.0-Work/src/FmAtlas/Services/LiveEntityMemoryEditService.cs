@@ -375,6 +375,7 @@ public static partial class LiveEntityMemoryEditService
         {
             fields.Add(F("reputation","Club Reputation",entity,Place.SeniorTeam,0xA8,2,EncodingKind.UInt16,0,10_000,0,10_000));
             fields.Add(F("club.season_tickets","Season Tickets",entity,Place.ClubInfo,0xC0,4,EncodingKind.UInt32,0,2_000_000,0,10_000_000));
+            fields.Add(F("club.founded","Founded Year",entity,Place.ClubInfo,0xD8,2,EncodingKind.UInt16,1700,2026,1500,2100));
             fields.Add(F("club.social_media","Social Media Followers",entity,Place.ClubInfo,0xF8,4,EncodingKind.UInt32,0,2_000_000_000,0,int.MaxValue));
             var supporterMix = new[] { "hardcore", "core", "family", "fair_weather", "corporate", "casual" };
             for (var i = 0; i < supporterMix.Length; i++)
