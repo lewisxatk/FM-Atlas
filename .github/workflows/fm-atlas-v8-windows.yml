@@ -1,6 +1,12 @@
 name: FM Atlas V9 — Windows Release Build
 
 on:
+  push:
+    branches:
+      - feature/v9-all-roadmap
+    paths:
+      - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
+      - ".github/workflows/fm-atlas-v8-windows.yml"
   pull_request:
     branches:
       - fix/r7.2.0-release-build-integration
