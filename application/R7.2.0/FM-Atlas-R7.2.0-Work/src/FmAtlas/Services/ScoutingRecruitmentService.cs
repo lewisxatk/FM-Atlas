@@ -1,6 +1,6 @@
 namespace FmAtlas.Services;
 
-public sealed record ScoutingMetricGroup(string Name, IReadOnlyList<ScoutingMetricDefinition> Metrics);
+public sealed record ScoutingMetricGroup(string Name, IReadOnlyList<ScoutingMetricDefinition> Metrics);\npublic sealed record ScoutingRoleProfile(string Name, string PositionGroup, IReadOnlyList<string> PreferredMetricKeys);
 public sealed record SimilarPlayerResult(ScoutingPlayerSeason Player, double Similarity, double Coverage, IReadOnlyList<string> SharedMetrics);
 public sealed record UndervaluedPlayerResult(ScoutingPlayerSeason Player, double PerformancePercentile, double AgeScore,
     double ValueScore, double CompositeScore, double? MarketValue, string Explanation);
@@ -11,6 +11,18 @@ public static class ScoutingRecruitmentService
     private static ScoutingMetricDefinition D(string key, string label, string unit = "actions", bool higher = true,
         double minutes = 450, string family = "Event data") =>
         new(key, label, unit, true, higher, minutes, family);
+
+    public static IReadOnlyList<ScoutingRoleProfile> RoleProfiles { get; } = new[]
+    {
+        new ScoutingRoleProfile("Goalkeeper", "Goalkeeper", new[] { "saves", "claims", "punches", "sweeper_actions", "goalkeeper_actions" }),
+        new ScoutingRoleProfile("Centre-back", "Defender", new[] { "aerial_duels_won", "interceptions", "clearances", "blocks", "passes_completed", "long_passes" }),
+        new ScoutingRoleProfile("Full-back / Wing-back", "Defender", new[] { "tackles", "recoveries", "pressures", "carries", "dribbles_completed", "key_passes" }),
+        new ScoutingRoleProfile("Defensive midfielder", "Midfielder", new[] { "pressures", "tackles", "interceptions", "recoveries", "passes_completed" }),
+        new ScoutingRoleProfile("Central midfielder", "Midfielder", new[] { "passes_completed", "key_passes", "carries", "pressures", "xg" }),
+        new ScoutingRoleProfile("Attacking midfielder", "Attacker", new[] { "key_passes", "assists", "xg", "shots", "dribbles_completed" }),
+        new ScoutingRoleProfile("Winger", "Attacker", new[] { "dribbles_completed", "carries", "key_passes", "xg", "shots" }),
+        new ScoutingRoleProfile("Striker", "Attacker", new[] { "goals", "xg", "shots_on_target", "shots", "aerial_duels_won" })
+    };
 
     public static IReadOnlyList<ScoutingMetricGroup> MetricGroups { get; } = new[]
     {
