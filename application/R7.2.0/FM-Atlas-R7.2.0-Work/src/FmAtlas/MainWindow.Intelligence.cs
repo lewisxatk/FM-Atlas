@@ -278,7 +278,7 @@ public partial class MainWindow
                 var lowerAge = Parse(minAge, "Minimum age", 0, 120);
                 var upperAge = Parse(maxAge, "Maximum age", 0, 120);
                 var lowerCa = Parse(minCa, "Minimum CA", 0, 200);
-                var lowerPa = Parse(minPa, "Minimum PA", -10, 200);
+                var lowerPa = Parse(minPa, "Minimum PA", 0, 200);
                 if (lowerAge.HasValue && upperAge.HasValue && lowerAge > upperAge)
                     throw new FormatException("Minimum age cannot exceed maximum age.");
                 var minimumCoverage = coverage.SelectedIndex < 0 ? .6 : .5 + coverage.SelectedIndex * .1;
