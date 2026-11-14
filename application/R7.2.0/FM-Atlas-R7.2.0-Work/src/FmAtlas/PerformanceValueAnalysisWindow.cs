@@ -57,8 +57,9 @@ public sealed class PerformanceValueAnalysisWindow : Window
             Text = "Compare a discovered career metric against transfer-value percentiles. Each player is ranked against the same eligible source-data pool; the gap is a screening signal, not a claim about asking price or player quality.",
             Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), FontSize = 11, TextWrapping = TextWrapping.Wrap
         });
+        header.Margin = new Thickness(0);
         DockPanel.SetDock(header, Dock.Top);
-        root.Children.Add(header);
+        root.Children.Add(GlassSurface(header));
 
         var controls = new WrapPanel { Margin = new Thickness(0, 0, 0, 10) };
         _metricPicker = new ComboBox { Width = 340, Height = 34, Margin = new Thickness(0, 0, 8, 6), ItemsSource = metrics, DisplayMemberPath = nameof(StatMetricField.PickerLabel), IsTextSearchEnabled = true };
@@ -105,11 +106,11 @@ public sealed class PerformanceValueAnalysisWindow : Window
         controls.Children.Add(analyse);
         controls.Children.Add(export);
         DockPanel.SetDock(controls, Dock.Top);
-        root.Children.Add(controls);
+        root.Children.Add(GlassSurface(controls));
 
         _status = new TextBlock { Text = "Choose a metric and analyse the latest imported snapshot.", Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), FontSize = 11, Margin = new Thickness(0, 0, 0, 9), TextWrapping = TextWrapping.Wrap };
         DockPanel.SetDock(_status, Dock.Top);
-        root.Children.Add(_status);
+        root.Children.Add(GlassSurface(_status));
 
         _chart = new Canvas
         {
@@ -120,7 +121,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
         DrawEmptyChart();
         var chartScroll = new ScrollViewer { Content = _chart, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Margin = new Thickness(0, 0, 0, 12) };
         DockPanel.SetDock(chartScroll, Dock.Top);
-        root.Children.Add(chartScroll);
+        root.Children.Add(GlassSurface(chartScroll));
 
         _grid = new DataGrid
         {
@@ -145,7 +146,8 @@ public sealed class PerformanceValueAnalysisWindow : Window
         AddColumn("SAMPLE", nameof(PerformanceValueCandidate.SampleSize), .5);
         AddColumn("LATEST PERIOD", nameof(PerformanceValueCandidate.LatestPeriod), .8);
         AddColumn("VALUE · SOURCE UNITS", "Player.Value", .85);
-        root.Children.Add(_grid);
+        root.Children.Add(GlassSurface(_grid));
+        ApplyMonolithGlassControlStyles(root);
         Content = root;
 
         void AddColumn(string title, string path, double width)
@@ -169,6 +171,53 @@ public sealed class PerformanceValueAnalysisWindow : Window
         var window = new PerformanceValueAnalysisWindow(database, metrics) { Owner = owner };
         window.Show();
         await window.AnalyseAsync();
+    }
+
+    private static Border GlassSurface(UIElement content)
+        => new()
+        {
+            Child = content,
+            Background = new LinearGradientBrush(
+                Color.FromRgb(43, 44, 49),
+                Color.FromRgb(23, 24, 28),
+                90),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(118, 202, 145, 82)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(10),
+            Margin = new Thickness(0, 0, 0, 10),
+            SnapsToDevicePixels = true
+        };
+
+    private static void ApplyMonolithGlassControlStyles(DependencyObject parent)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            switch (child)
+            {
+                case ComboBox combo:
+                    combo.Background = new SolidColorBrush(Color.FromRgb(27, 29, 34));
+                    combo.Foreground = new SolidColorBrush(Color.FromRgb(237, 232, 223));
+                    combo.BorderBrush = new SolidColorBrush(Color.FromRgb(91, 76, 59));
+                    combo.BorderThickness = new Thickness(1);
+                    break;
+                case TextBox textBox:
+                    textBox.Background = new SolidColorBrush(Color.FromRgb(24, 26, 30));
+                    textBox.Foreground = new SolidColorBrush(Color.FromRgb(237, 232, 223));
+                    textBox.BorderBrush = new SolidColorBrush(Color.FromRgb(91, 76, 59));
+                    textBox.BorderThickness = new Thickness(1);
+                    textBox.CaretBrush = new SolidColorBrush(Color.FromRgb(224, 158, 83));
+                    break;
+                case Button button:
+                    button.Background = new SolidColorBrush(Color.FromRgb(39, 40, 45));
+                    button.Foreground = new SolidColorBrush(Color.FromRgb(239, 233, 224));
+                    button.BorderBrush = new SolidColorBrush(Color.FromRgb(103, 81, 57));
+                    button.BorderThickness = new Thickness(1);
+                    button.Cursor = Cursors.Hand;
+                    break;
+            }
+            ApplyMonolithGlassControlStyles(child);
+        }
     }
 
     private void UpdatePer90Availability()
