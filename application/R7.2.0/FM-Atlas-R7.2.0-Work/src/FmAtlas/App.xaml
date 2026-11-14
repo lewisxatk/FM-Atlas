@@ -26,7 +26,6 @@
         </Style>
 
         <Style TargetType="{x:Type Button}">
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
         </Style>
     </Application.Resources>
