@@ -1,4 +1,4 @@
-# FM Atlas V10 — Controlled Test Report
+# FM Atlas V11 — Controlled Test Report
 
 Do not attach the original career save or the Atlas SQLite database.
 
@@ -44,11 +44,13 @@ For every mismatch, include the exact source key and enough context to reproduce
 |---|---|---|---|---:|---:|---|
 
 ## Safety check
-- Tester & Logs says live-memory write gate DISABLED: yes / no
-- Live Apply attempted: no
-- Live Undo attempted: no
+- Tester & Logs legacy player preview path says READ-ONLY: yes / no
+- Live editor session gate says OFF before explicit opt-in: yes / no
+- Live Apply attempted: yes / no
+- Live Undo attempted: yes / no
 - Any unexpected memory-write control visible: yes / no
-- Any original/online/shared save used: no
+- Disposable offline backup career used: yes / no
+- Read-only FM module probe run: yes / no
 
 ## Issue detail
 - Workspace/page:
