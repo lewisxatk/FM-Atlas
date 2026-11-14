@@ -124,3 +124,14 @@ The current implementation checklist, architecture status and quick-start guidan
 10. FM27 real-save compatibility, two-minute scan duration, CPU/RAM/peak-memory testing and package acceptance.
 
 Do not mark a verification item complete based only on source inspection or a historical Actions run.
+
+
+## Monolith Glass surface refinement — 2026-11-14
+
+Continued the V8 visual foundation without changing the data/search/import paths:
+
+- Commit `e8b59302`: replaced the shared `Card` helper's flat translucent fill with a layered glass surface: vertical material gradient, subtle inner edge, fine top reflection and restrained elevation. All content remains crisp; no blur is applied to tables or text.
+- Commit `bba2b816`: refined the sidebar rail and top action toolbar with coordinated translucent gradients, light-catching edges and restrained shadows; toolbar icon buttons now use a warm layered material.
+- Commit `96eff9e0` (checklist update): records the implementation and keeps the Windows build, complete test suite and DPI/theme visual review explicitly pending.
+
+**Verification boundary:** source changes are committed to `rebuild/v8-full-product-rebuild`. They have not yet been compiled or visually reviewed on Windows. Do not mark the glass system release-verified until the current branch head passes the Windows workflow and 100%/125%/150% DPI checks. Dialogs, tabs, filters, grids, charts, empty/loading/error states and accessibility/high-contrast coverage remain on the design-system backlog.
