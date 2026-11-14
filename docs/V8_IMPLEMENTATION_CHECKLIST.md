@@ -27,7 +27,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Atlas Liquid visual specification, top toolbar, hover tooltips and side navigation made mandatory.
 - [x] This durable checklist created.
 - [ ] Record a per-commit V8 work log entry whenever implementation changes are committed.
-- [ ] Add a reproducible Windows build and publish script.
+- [x] Add a reproducible Windows build and publish workflow for V8 branch (commit `528dfb02`).
 - [ ] Produce a single integrated Release package with versioned installer/portable ZIP and checksums.
 - [ ] Verify clean install, upgrade path, uninstall and preservation of the user's existing Atlas database/settings.
 - [ ] Create a rollback package / previous-version recovery instructions.
@@ -168,4 +168,5 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
-| 2026-11-14 | Initial V8 durable checklist | To be recorded after commit | Created checklist; implementation and runtime validation intentionally separate. |
+| 2026-11-14 | Initial V8 durable checklist | `b76f39d7` | Created this checklist; implementation and runtime validation intentionally separate. |
+| 2026-11-14 | Windows x64 build/package automation | `528dfb02` | Workflow now runs on V8 branch pushes, builds Release, publishes self-contained win-x64 output and uploads a ZIP artifact. CI result not yet observed. |
