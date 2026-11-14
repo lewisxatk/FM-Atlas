@@ -203,7 +203,7 @@ public partial class MainWindow
                 { MinimumSampleMinutes = Math.Max(x.Definition.MinimumSampleMinutes, floor) })
                 .Where(m => !new[] { "age", "market_value", "minutes_played" }.Contains(m.Key, StringComparer.OrdinalIgnoreCase))
                 .ToList();
-            var candidates = allRows.Where(p => p.Competition == selected.Record.Competition && p.Season == selected.Record.Season && p.PositionGroup == selected.Record.PositionGroup).ToList();
+            var candidates = allRows.Where(p => p.SourceName == selected.Record.SourceName && p.Competition == selected.Record.Competition && p.Season == selected.Record.Season && p.PositionGroup == selected.Record.PositionGroup).ToList();
             var similarRows = ScoutingRecruitmentService.FindSimilar(selected.Record, candidates, metrics, 50, .35);
             results = similarRows.Select(x => new ScoutingGridRow(x.Player.PlayerName, x.Player.Club ?? "—",
                 x.Player.PositionGroup ?? "—", x.Player.Competition ?? "—", x.Player.Season, x.Player.MinutesPlayed ?? 0,
@@ -223,7 +223,8 @@ public partial class MainWindow
             { status.Text = "Enter a valid age range."; return; }
             var cohort = SelectedCohort();
             var def = choice.Definition with { MinimumSampleMinutes = Math.Max(450, choice.Definition.MinimumSampleMinutes) };
-            var found = ScoutingRecruitmentService.FindUndervalued(allRows, def, cohort.Competition, cohort.Season,
+            var sourceRows = allRows.Where(p => cohort.Source is null || p.SourceName == cohort.Source).ToList();
+            var found = ScoutingRecruitmentService.FindUndervalued(sourceRows, def, cohort.Competition, cohort.Season,
                 cohort.Position, limit, Math.Max(450, int.TryParse(minimumMinutes.Text, out var floor) ? floor : 450), 5, lowAge, highAge);
             results = found.Select(x => new ScoutingGridRow(x.Player.PlayerName, x.Player.Club ?? "—",
                 x.Player.PositionGroup ?? "—", x.Player.Competition ?? "—", x.Player.Season, x.Player.MinutesPlayed ?? 0,
