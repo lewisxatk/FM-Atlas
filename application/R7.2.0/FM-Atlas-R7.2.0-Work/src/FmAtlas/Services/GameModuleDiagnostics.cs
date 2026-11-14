@@ -145,7 +145,11 @@ public static class GameModuleDiagnostics
         safe = safe.Replace(ManagerWitness, "[redacted manager]", StringComparison.OrdinalIgnoreCase);
         foreach (var witness in PlayerWitnesses)
             safe = safe.Replace(witness.Name, "[redacted player]", StringComparison.OrdinalIgnoreCase);
-        safe = Regex.Replace(safe, @"(?i)(common|first|last|display|joined)='[^']*'", "$1='[redacted]'");
+        // The read-only probe can decode names from player and club witnesses.
+        // Redact every diagnostic string value that may contain a person/club name,
+        // not only the hard-coded witnesses used to validate the layout.
+        safe = Regex.Replace(s, @"(?i)(common|first|last|display|joined|decoded|expected|full-name|short-name)='[^']*'", "$1='[redacted]'");
+        safe = Regex.Replace(safe, @"(?i)(expected club:\\s*)[^)]+", "$1[redacted]");
         // Redact absolute paths, including install paths and user-profile paths.
         safe = Regex.Replace(safe, @"(?i)\\\\[^\r\n]+", "[path redacted]");
         safe = Regex.Replace(safe, @"(?i)\b[A-Z]:\\[^\r\n]+", "[path redacted]");
