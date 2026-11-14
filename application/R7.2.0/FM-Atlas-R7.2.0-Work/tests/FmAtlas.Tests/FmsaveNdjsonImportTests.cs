@@ -838,21 +838,46 @@ public sealed class FmsaveNdjsonImportTests
 
         var database = new ScoutDatabase(databasePath);
         await database.InitialiseAsync();
-        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM pragma_table_info('Shortlists') WHERE name='Stage';"));
+        foreach (var column in new[] { "Stage", "Priority", "TargetFee", "TargetWage", "NextAction", "ReviewDate" })
+            Assert.Equal(1, await ScalarIntAsync(databasePath, $"SELECT COUNT(*) FROM pragma_table_info('Shortlists') WHERE name='{column}';"));
         Assert.Equal("Identified", await ScalarStringAsync(databasePath, "SELECT Stage FROM Shortlists WHERE SourceId='LOCAL:legacy:1';"));
+        Assert.Equal("Normal", await ScalarStringAsync(databasePath, "SELECT Priority FROM Shortlists WHERE SourceId='LOCAL:legacy:1';"));
 
-        await database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Monitoring", "Rewatch the last three matches.");
+        await database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets",
+            "Monitoring", "Rewatch the last three matches.", "High", 250000, 15000, "Call the selling club", "2026-12-01");
         var row = Assert.Single(await database.GetShortlistAsync("Recruitment targets"));
         Assert.Equal("Monitoring", row.Stage);
+        Assert.Equal("High", row.Priority);
+        Assert.Equal(250000d, row.TargetFee);
+        Assert.Equal(15000d, row.TargetWage);
+        Assert.Equal("Call the selling club", row.NextAction);
+        Assert.Equal("2026-12-01", row.ReviewDate);
         Assert.Equal("Rewatch the last three matches.", row.Notes);
+
         await database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Offer", null);
         row = Assert.Single(await database.GetShortlistAsync("Recruitment targets"));
         Assert.Equal("Offer", row.Stage);
+        Assert.Equal("Normal", row.Priority);
         Assert.Null(row.Notes);
+        Assert.Null(row.TargetFee);
+        Assert.Null(row.TargetWage);
+        Assert.Null(row.NextAction);
+        Assert.Null(row.ReviewDate);
+
         await Assert.ThrowsAsync<ArgumentException>(() =>
             database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Invented stage", "test"));
         await Assert.ThrowsAsync<ArgumentException>(() =>
             database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Signed", new string('x', 2001)));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Signed", null, "Urgent"));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Signed", null, targetFee: -1));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Signed", null, targetWage: double.NaN));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Signed", null, nextAction: new string('x', 301)));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Signed", null, reviewDate: "01/12/2026"));
     }
 
 

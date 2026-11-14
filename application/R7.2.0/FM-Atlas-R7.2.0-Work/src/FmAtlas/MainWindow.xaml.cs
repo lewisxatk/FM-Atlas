@@ -1898,6 +1898,11 @@ public partial class MainWindow : Window
 
         TextBlock selectedPlayerLabel = null!;
         ComboBox stagePicker = null!;
+        ComboBox priorityPicker = null!;
+        TextBox targetFeeBox = null!;
+        TextBox targetWageBox = null!;
+        TextBox nextActionBox = null!;
+        DatePicker reviewDatePicker = null!;
         TextBox notesEditor = null!;
         TextBlock detailsStatus = null!;
         Button saveDetails = null!;
@@ -1907,14 +1912,24 @@ public partial class MainWindow : Window
         dg.Columns.Add(Column("PLAYER", "PlayerName", 1.2));
         dg.Columns.Add(Column("CLUB", "DisplayClub", 1));
         dg.Columns.Add(Column("POSITION", "DisplayPosition", .65));
+        dg.Columns.Add(Column("PRIORITY", "Priority", .65));
         dg.Columns.Add(Column("STAGE", "Stage", .9));
-        dg.Columns.Add(Column("ADDED", "AddedUtc", .9));
+        dg.Columns.Add(Column("NEXT ACTION", "NextAction", 1.1));
+        dg.Columns.Add(Column("REVIEW", "ReviewDate", .75));
         dg.SelectionChanged += (_, _) =>
         {
             if (dg.SelectedItem is ShortlistRecord selected)
             {
                 stagePicker.SelectedItem = ShortlistRecord.PipelineStages.FirstOrDefault(x =>
                     x.Equals(selected.Stage, StringComparison.OrdinalIgnoreCase)) ?? ShortlistRecord.DefaultStage;
+                priorityPicker.SelectedItem = ShortlistRecord.PipelinePriorities.FirstOrDefault(x =>
+                    x.Equals(selected.Priority, StringComparison.OrdinalIgnoreCase)) ?? ShortlistRecord.DefaultPriority;
+                targetFeeBox.Text = selected.TargetFee?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                targetWageBox.Text = selected.TargetWage?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                nextActionBox.Text = selected.NextAction ?? "";
+                reviewDatePicker.SelectedDate = DateTime.TryParseExact(selected.ReviewDate, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var reviewDate)
+                    ? reviewDate : null;
                 notesEditor.Text = selected.Notes ?? "";
                 selectedPlayerLabel.Text = selected.PlayerName + (string.IsNullOrWhiteSpace(selected.DisplayClub) ? "" : " · " + selected.DisplayClub);
                 detailsStatus.Text = "Edit this candidate's pipeline stage or private recruitment notes.";
@@ -1939,8 +1954,13 @@ public partial class MainWindow : Window
         };
         dock.Children.Add(dg);
 
-        var right = Card(new StackPanel(), 14);
-        var side = (StackPanel)right.Child;
+        var side = new StackPanel();
+        var right = Card(new ScrollViewer
+        {
+            Content = side,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        }, 14);
         side.Children.Add(Txt("RECRUITMENT WORKFLOW", 9, true, Teal));
         side.Children.Add(Txt("Candidate details", 19, true, Ink));
         selectedPlayerLabel = Txt("Select a candidate", 11, true, Muted, wrap: true);
@@ -1956,6 +1976,32 @@ public partial class MainWindow : Window
             FontSize = 11
         };
         side.Children.Add(FilterControl("PIPELINE STAGE", stagePicker, 330));
+        priorityPicker = new ComboBox
+        {
+            ItemsSource = ShortlistRecord.PipelinePriorities,
+            SelectedItem = ShortlistRecord.DefaultPriority,
+            Height = 36,
+            Margin = new Thickness(0, 3, 0, 10),
+            FontSize = 11
+        };
+        side.Children.Add(FilterControl("RECRUITMENT PRIORITY", priorityPicker, 330));
+
+        targetFeeBox = Input("Target fee · source units");
+        targetFeeBox.Width = 200;
+        side.Children.Add(FilterControl("TARGET TRANSFER FEE · SOURCE UNITS", targetFeeBox, 330));
+        targetWageBox = Input("Target wage · source units");
+        targetWageBox.Width = 200;
+        side.Children.Add(FilterControl("TARGET WAGE · SOURCE UNITS", targetWageBox, 330));
+        nextActionBox = Input("Next recruitment action");
+        nextActionBox.Width = 320;
+        side.Children.Add(FilterControl("NEXT ACTION · MAX 300 CHARACTERS", nextActionBox, 340));
+        reviewDatePicker = new DatePicker
+        {
+            SelectedDateFormat = DatePickerFormat.Short,
+            Height = 36,
+            Margin = new Thickness(0, 3, 0, 10)
+        };
+        side.Children.Add(FilterControl("NEXT REVIEW DATE", reviewDatePicker, 330));
 
         notesEditor = new TextBox
         {
@@ -1977,6 +2023,15 @@ public partial class MainWindow : Window
         detailsStatus = Txt("Select a player from the shortlist to edit their stage and notes.", 9, false, Muted, wrap: true);
         detailsStatus.Margin = new Thickness(0, 5, 0, 6);
         side.Children.Add(detailsStatus);
+        double? ReadOptionalSourceAmount(TextBox box, string label)
+        {
+            if (string.IsNullOrWhiteSpace(box.Text)) return null;
+            if (!double.TryParse(box.Text.Trim(), System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var amount)
+                || !double.IsFinite(amount) || amount < 0 || amount > 1_000_000_000_000d)
+                throw new FormatException($"{label} must be a finite non-negative amount in source units.");
+            return amount;
+        }
         saveDetails = PrimaryButton("Save candidate details", async (_, _) =>
         {
             if (dg.SelectedItem is not ShortlistRecord selected || _shortlistPicker?.SelectedItem is not string name) return;
@@ -1984,7 +2039,10 @@ public partial class MainWindow : Window
             {
                 await RunDatabaseAsync(() => _database.UpdateShortlistDetailsAsync(
                     selected.SourceId, name, stagePicker.SelectedItem?.ToString() ?? ShortlistRecord.DefaultStage,
-                    notesEditor.Text));
+                    notesEditor.Text, priorityPicker.SelectedItem?.ToString() ?? ShortlistRecord.DefaultPriority,
+                    ReadOptionalSourceAmount(targetFeeBox, "Target fee"),
+                    ReadOptionalSourceAmount(targetWageBox, "Target wage"),
+                    nextActionBox.Text, reviewDatePicker.SelectedDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)));
                 await RefreshShortlistRowsAsync(dg);
                 detailsStatus.Text = $"Saved {selected.PlayerName} · {stagePicker.SelectedItem}.";
             }
@@ -2581,9 +2639,26 @@ public partial class MainWindow : Window
         var rows = await RunDatabaseAsync(() => _database.GetShortlistAsync(name));
         var save = new SaveFileDialog { Filter = "CSV file (*.csv)|*.csv", FileName = $"{SanitizeFileName(name)}.csv" };
         if (save.ShowDialog(this) != true) return;
-        static string Escape(string? value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
-        var lines = new[] { "Player,Club,Position,Stage,SourceId,Notes" }.Concat(rows.Select(x => string.Join(',', Escape(x.PlayerName), Escape(x.DisplayClub), Escape(x.DisplayPosition), Escape(x.Stage), Escape(x.SourceId), Escape(x.Notes))));
-        await File.WriteAllLinesAsync(save.FileName, lines);
+        static string Escape(string? value)
+        {
+            var text = value ?? "";
+            var trimmed = text.TrimStart();
+            if (trimmed.Length > 0 && trimmed[0] is '=' or '+' or '-' or '@') text = "'" + text;
+            return "\"" + text.Replace("\"", "\"\"") + "\"";
+        }
+        var lines = new List<string>
+        {
+            "Player,Club,Position,Stage,Priority,TargetFeeSourceUnits,TargetWageSourceUnits,NextAction,ReviewDate,SourceId,Notes"
+        };
+        lines.AddRange(rows.Select(x => string.Join(",", new[]
+        {
+            Escape(x.PlayerName), Escape(x.DisplayClub), Escape(x.DisplayPosition),
+            Escape(x.Stage), Escape(x.Priority),
+            x.TargetFee?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "",
+            x.TargetWage?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "",
+            Escape(x.NextAction), Escape(x.ReviewDate), Escape(x.SourceId), Escape(x.Notes)
+        })));
+        await File.WriteAllLinesAsync(save.FileName, lines, new System.Text.UTF8Encoding(true));
         MessageBox.Show(this, $"Exported {rows.Count:N0} shortlist entries.", "Export complete");
     }
 

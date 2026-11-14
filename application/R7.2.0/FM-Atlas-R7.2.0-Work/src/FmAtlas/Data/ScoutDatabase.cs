@@ -197,6 +197,22 @@ public sealed class ScoutDatabase
         var shortlistStageIndex = db.CreateCommand();
         shortlistStageIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Shortlists_Stage ON Shortlists(ShortlistName, Stage);";
         await shortlistStageIndex.ExecuteNonQueryAsync().ConfigureAwait(false);
+        await EnsureColumnAsync(db, "Shortlists", "Priority", "TEXT NOT NULL DEFAULT 'Normal'");
+        await EnsureColumnAsync(db, "Shortlists", "TargetFee", "REAL NULL");
+        await EnsureColumnAsync(db, "Shortlists", "TargetWage", "REAL NULL");
+        await EnsureColumnAsync(db, "Shortlists", "NextAction", "TEXT NULL");
+        await EnsureColumnAsync(db, "Shortlists", "ReviewDate", "TEXT NULL");
+        var shortlistReviewIndex = db.CreateCommand();
+        shortlistReviewIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Shortlists_ReviewDate ON Shortlists(ReviewDate) WHERE ReviewDate IS NOT NULL;";
+        await shortlistReviewIndex.ExecuteNonQueryAsync().ConfigureAwait(false);
+        await EnsureColumnAsync(db, "Shortlists", "Priority", "TEXT NOT NULL DEFAULT 'Normal'");
+        await EnsureColumnAsync(db, "Shortlists", "TargetFee", "REAL NULL");
+        await EnsureColumnAsync(db, "Shortlists", "TargetWage", "REAL NULL");
+        await EnsureColumnAsync(db, "Shortlists", "NextAction", "TEXT NULL");
+        await EnsureColumnAsync(db, "Shortlists", "ReviewDate", "TEXT NULL");
+        var shortlistPipelineIndex = db.CreateCommand();
+        shortlistPipelineIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Shortlists_ReviewDate ON Shortlists(ReviewDate) WHERE ReviewDate IS NOT NULL;";
+        await shortlistPipelineIndex.ExecuteNonQueryAsync().ConfigureAwait(false);
 
         var snapshotSchema = db.CreateCommand();
         snapshotSchema.CommandText = """
@@ -939,7 +955,9 @@ public sealed class ScoutDatabase
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
         cmd.CommandText = """
-          SELECT s.SourceId, COALESCE(p.Name,lp.PlayerName), s.ShortlistName, s.Notes, s.AddedUtc, COALESCE(p.Club,c.ClubName), p.Position, s.Stage
+          SELECT s.SourceId, COALESCE(p.Name,lp.PlayerName), s.ShortlistName, s.Notes, s.AddedUtc,
+                 COALESCE(p.Club,c.ClubName), p.Position, s.Stage, s.Priority, s.TargetFee,
+                 s.TargetWage, s.NextAction, s.ReviewDate
           FROM Shortlists s LEFT JOIN Players p ON p.SourceId=s.SourceId
           LEFT JOIN LivePlayers lp ON s.SourceId=('LIVE:' || lp.PlayerUid)
           LEFT JOIN LiveClubs c ON c.ClubUid=lp.ClubUid
@@ -954,13 +972,21 @@ public sealed class ScoutDatabase
             AddedUtc = DateTime.TryParse(reader.GetString(4), out var dt) ? dt : DateTime.MinValue,
             DisplayClub = reader.IsDBNull(5) ? "—" : reader.GetString(5),
             DisplayPosition = reader.IsDBNull(6) ? "—" : reader.GetString(6),
-            Stage = reader.IsDBNull(7) ? ShortlistRecord.DefaultStage : reader.GetString(7)
+            Stage = reader.IsDBNull(7) ? ShortlistRecord.DefaultStage : reader.GetString(7),
+            Priority = reader.IsDBNull(8) ? ShortlistRecord.DefaultPriority : reader.GetString(8),
+            TargetFee = reader.IsDBNull(9) ? null : reader.GetDouble(9),
+            TargetWage = reader.IsDBNull(10) ? null : reader.GetDouble(10),
+            NextAction = reader.IsDBNull(11) ? null : reader.GetString(11),
+            ReviewDate = reader.IsDBNull(12) ? null : reader.GetString(12)
         });
         return rows;
     }
 
 
-    public async Task UpdateShortlistDetailsAsync(string sourceId, string shortlistName, string stage, string? notes)
+    public async Task UpdateShortlistDetailsAsync(
+        string sourceId, string shortlistName, string stage, string? notes,
+        string priority = ShortlistRecord.DefaultPriority, double? targetFee = null,
+        double? targetWage = null, string? nextAction = null, string? reviewDate = null)
     {
         if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("A shortlist source ID is required.", nameof(sourceId));
         if (string.IsNullOrWhiteSpace(shortlistName)) throw new ArgumentException("A shortlist name is required.", nameof(shortlistName));
@@ -968,8 +994,25 @@ public sealed class ScoutDatabase
             x.Equals(stage?.Trim(), StringComparison.OrdinalIgnoreCase));
         if (selectedStage is null)
             throw new ArgumentException("Choose a stage from the supported recruitment pipeline.", nameof(stage));
+        var selectedPriority = ShortlistRecord.PipelinePriorities.FirstOrDefault(x =>
+            x.Equals(priority?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (selectedPriority is null)
+            throw new ArgumentException("Choose Low, Normal or High candidate priority.", nameof(priority));
+        static void ValidateSourceAmount(double? value, string label)
+        {
+            if (value.HasValue && (!double.IsFinite(value.Value) || value.Value < 0 || value.Value > 1_000_000_000_000d))
+                throw new ArgumentOutOfRangeException(label, "Source-unit target amounts must be finite and between 0 and 1,000,000,000,000.");
+        }
+        ValidateSourceAmount(targetFee, nameof(targetFee));
+        ValidateSourceAmount(targetWage, nameof(targetWage));
         var cleanNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         if (cleanNotes?.Length > 2000) throw new ArgumentException("Shortlist notes cannot exceed 2,000 characters.", nameof(notes));
+        var cleanAction = string.IsNullOrWhiteSpace(nextAction) ? null : nextAction.Trim();
+        if (cleanAction?.Length > 300) throw new ArgumentException("Next action cannot exceed 300 characters.", nameof(nextAction));
+        var cleanReviewDate = string.IsNullOrWhiteSpace(reviewDate) ? null : reviewDate.Trim();
+        if (cleanReviewDate is not null && !DateOnly.TryParseExact(cleanReviewDate, "yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _))
+            throw new ArgumentException("Review date must use YYYY-MM-DD.", nameof(reviewDate));
 
         await WriteGate.WaitAsync().ConfigureAwait(false);
         try
@@ -979,11 +1022,17 @@ public sealed class ScoutDatabase
             var command = db.CreateCommand();
             command.CommandText = """
                 UPDATE Shortlists
-                SET Stage=$stage, Notes=$notes
+                SET Stage=$stage, Notes=$notes, Priority=$priority, TargetFee=$fee,
+                    TargetWage=$wage, NextAction=$action, ReviewDate=$review
                 WHERE SourceId=$source AND ShortlistName=$name;
                 """;
             command.Parameters.AddWithValue("$stage", selectedStage);
             command.Parameters.AddWithValue("$notes", (object?)cleanNotes ?? DBNull.Value);
+            command.Parameters.AddWithValue("$priority", selectedPriority);
+            command.Parameters.AddWithValue("$fee", (object?)targetFee ?? DBNull.Value);
+            command.Parameters.AddWithValue("$wage", (object?)targetWage ?? DBNull.Value);
+            command.Parameters.AddWithValue("$action", (object?)cleanAction ?? DBNull.Value);
+            command.Parameters.AddWithValue("$review", (object?)cleanReviewDate ?? DBNull.Value);
             command.Parameters.AddWithValue("$source", sourceId);
             command.Parameters.AddWithValue("$name", shortlistName.Trim());
             var changed = await command.ExecuteNonQueryAsync().ConfigureAwait(false);
