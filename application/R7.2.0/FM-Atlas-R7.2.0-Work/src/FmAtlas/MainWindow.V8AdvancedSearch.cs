@@ -200,10 +200,14 @@ public partial class MainWindow
             booleanValue.Items.Add("No");
             booleanValue.SelectedIndex = 0;
 
+            booleanValue.Items.Add("Choose…");
+            booleanValue.SelectedIndex = 0;
+
             var valueHost = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            Border container = null!;
             var remove = SoftButton("×", (_, _) =>
             {
-                conditionPanel.Children.Remove(rows.First(x => x.Container == container).Container);
+                conditionPanel.Children.Remove(container);
                 rows.RemoveAll(x => x.Container == container);
                 status.Text = $"{rows.Count:N0} condition(s) configured.";
             });
@@ -216,7 +220,7 @@ public partial class MainWindow
             rowPanel.Children.Add(fieldPicker);
             rowPanel.Children.Add(valueHost);
             rowPanel.Children.Add(remove);
-            var container = new Border
+            container = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(28, 130, 170, 215)),
                 BorderBrush = Line,
@@ -299,8 +303,8 @@ public partial class MainWindow
                     }
                     case AdvancedSearchFieldType.Boolean:
                     {
-                        if (row.BooleanValue.SelectedIndex < 0) continue;
-                        criteria.Add(new AdvancedSearchCriterion(field.Key, null, null, null, row.BooleanValue.SelectedIndex == 0));
+                        if (row.BooleanValue.SelectedIndex < 1) continue;
+                        criteria.Add(new AdvancedSearchCriterion(field.Key, null, null, null, row.BooleanValue.SelectedIndex == 1));
                         break;
                     }
                 }
