@@ -1445,15 +1445,32 @@ public sealed class ScoutDatabase
         return Math.Max(0, age);
     }
 
-    public async Task<int> CountLocalPlayersAsync(string? search = null)
+    public async Task<int> CountLocalPlayersAsync(string? search = null,
+        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM Players WHERE SourceId NOT LIKE 'LIVE:%' AND ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p) AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=Players.SourceId));";
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM Players
+            WHERE SourceId NOT LIKE 'LIVE:%'
+              AND ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p)
+              AND ($minCa IS NULL OR CurrentAbility >= $minCa)
+              AND ($maxCa IS NULL OR CurrentAbility <= $maxCa)
+              AND ($minPa IS NULL OR PotentialAbility >= $minPa)
+              AND ($maxPa IS NULL OR PotentialAbility <= $maxPa)
+              AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (
+                  SELECT 1 FROM FmsavePlayerSnapshots s
+                  WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                    AND s.PlayerSourceId=Players.SourceId));
+            """;
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$p", $"%{q}%");
+        cmd.Parameters.AddWithValue("$minCa", (object?)minCa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maxCa", (object?)maxCa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$minPa", (object?)minPa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maxPa", (object?)maxPa ?? DBNull.Value);
         return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
     }
 
@@ -1493,15 +1510,38 @@ public sealed class ScoutDatabase
         return rows;
     }
 
-    public async Task<int> CountLivePlayersAsync(string? search = null)
+    public async Task<int> CountLivePlayersAsync(string? search = null,
+        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed') WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed') AND ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern);";
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM LivePlayers p
+            LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
+              AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
+              AND ($minCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minCa)
+              AND ($maxCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) <= $maxCa)
+              AND ($minPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minPa)
+              AND ($maxPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) <= $maxPa);
+            """;
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$pattern", $"%{q}%");
+        cmd.Parameters.AddWithValue("$minCa", (object?)minCa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maxCa", (object?)maxCa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$minPa", (object?)minPa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maxPa", (object?)maxPa ?? DBNull.Value);
         return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
     }
 
