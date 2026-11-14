@@ -807,6 +807,62 @@ public sealed class ScoutDatabase
         }
 }
 
+    public async Task<int> AddPlayersToShortlistAsync(IReadOnlyList<PlayerRecord> players, string shortlistName, string? notes = null)
+    {
+        ArgumentNullException.ThrowIfNull(players);
+        var name = string.IsNullOrWhiteSpace(shortlistName) ? "My Shortlist" : shortlistName.Trim();
+        var uniquePlayers = players
+            .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.SourceId))
+            .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .ToList();
+        if (uniquePlayers.Count == 0) return 0;
+
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await using var db = new SqliteConnection(_connectionString);
+            await db.OpenAsync().ConfigureAwait(false);
+            await using var transaction = await db.BeginTransactionAsync().ConfigureAwait(false);
+
+            var group = db.CreateCommand();
+            group.Transaction = (SqliteTransaction)transaction;
+            group.CommandText = "INSERT OR IGNORE INTO ShortlistGroups(ShortlistName, CreatedUtc) VALUES($name, $created);";
+            group.Parameters.AddWithValue("$name", name);
+            group.Parameters.AddWithValue("$created", DateTime.UtcNow.ToString("O"));
+            await group.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            var command = db.CreateCommand();
+            command.Transaction = (SqliteTransaction)transaction;
+            command.CommandText = """
+                INSERT INTO Shortlists(SourceId, ShortlistName, Notes, AddedUtc)
+                VALUES($id, $name, $notes, $date)
+                ON CONFLICT(SourceId, ShortlistName)
+                DO UPDATE SET Notes=COALESCE(excluded.Notes,Shortlists.Notes);
+                """;
+            command.Parameters.Add("$id", SqliteType.Text);
+            command.Parameters.AddWithValue("$name", name);
+            command.Parameters.Add("$notes", SqliteType.Text);
+            command.Parameters.Add("$date", SqliteType.Text);
+            await command.PrepareAsync().ConfigureAwait(false);
+
+            foreach (var player in uniquePlayers)
+            {
+                command.Parameters["$id"].Value = player.SourceId;
+                command.Parameters["$notes"].Value = (object?)notes ?? DBNull.Value;
+                command.Parameters["$date"].Value = DateTime.UtcNow.ToString("O");
+                await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+
+            await transaction.CommitAsync().ConfigureAwait(false);
+            return uniquePlayers.Count;
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+    }
+
     public async Task AddToShortlistAsync(PlayerRecord player, string shortlistName, string? notes = null)
     {
         await WriteGate.WaitAsync().ConfigureAwait(false);
