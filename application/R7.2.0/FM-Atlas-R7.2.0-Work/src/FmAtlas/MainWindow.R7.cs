@@ -302,6 +302,7 @@ public partial class MainWindow
                 BorderBrush = Brush("#91AA9D"),
                 BorderThickness = new Thickness(1),
                 Cursor = System.Windows.Input.Cursors.Hand,
+                Focusable = true,
                 ToolTip = has
                     ? $"{position.Label} · {rating:0.##}/20 · {position.BandLabel} (source rating)"
                     : $"{position.Label} · Unrated (no valid numeric source value)",
@@ -325,21 +326,31 @@ public partial class MainWindow
         }
 
         var selectedPositionDetail = Txt("Select any position to inspect its source rating and suitability band.", 9, false, Muted, wrap: true);
+        void SelectPosition(PositionSuitabilityEntry position, Border tile)
+        {
+            foreach (var candidate in pitchTiles.Values)
+            {
+                candidate.BorderBrush = Brush("#91AA9D");
+                candidate.BorderThickness = new Thickness(1);
+            }
+            tile.BorderBrush = Brush("#F0A04B");
+            tile.BorderThickness = new Thickness(2);
+            selectedPositionDetail.Text = position.Rating.HasValue
+                ? $"{position.Label} · {position.Rating:0.##}/20 · {position.BandLabel} · source rating; no Atlas-generated score."
+                : $"{position.Label} · Unrated · no valid numeric source value was supplied.";
+        }
+
         foreach (var position in positions)
         {
             if (!pitchTiles.TryGetValue(position.Code, out var tile)) continue;
-            tile.MouseLeftButtonUp += (_, _) =>
+            tile.MouseLeftButtonUp += (_, _) => SelectPosition(position, tile);
+            tile.KeyDown += (_, e) =>
             {
-                foreach (var candidate in pitchTiles.Values)
+                if (e.Key is System.Windows.Input.Key.Enter or System.Windows.Input.Key.Space)
                 {
-                    candidate.BorderBrush = Brush("#91AA9D");
-                    candidate.BorderThickness = new Thickness(1);
+                    e.Handled = true;
+                    SelectPosition(position, tile);
                 }
-                tile.BorderBrush = Brush("#F0A04B");
-                tile.BorderThickness = new Thickness(2);
-                selectedPositionDetail.Text = position.Rating.HasValue
-                    ? $"{position.Label} · {position.Rating:0.##}/20 · {position.BandLabel} · source rating; no Atlas-generated score."
-                    : $"{position.Label} · Unrated · no valid numeric source value was supplied.";
             };
         }
         var pitchView = new Viewbox { Stretch = Stretch.Uniform, MaxHeight = 340, Child = pitchBackground };
