@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using Path = System.IO.Path;
@@ -25,7 +26,7 @@ public partial class MainWindow : Window
 {
     private static string _themeMode = LoadThemeMode();
     // Keep the legacy live-memory features fail-closed without compile-time constant folding.
-    private static bool LiveMemoryImportEnabled => false;
+    private static bool LiveMemoryImportEnabled => true;
     private static bool LiveMemoryEditingEnabled => false;
     private static Brush Ink => Brush("#E8EEF4");
     private static Brush Teal => Brush("#C6F36B");
@@ -49,6 +50,11 @@ public partial class MainWindow : Window
     private Ellipse? _connectionDot;
     private Button? _liveLoadButton;
     private Button? _cancelImportButton;
+    private DispatcherTimer? _liveCareerTimer;
+    private bool _liveCareerProbeBusy;
+    private bool _liveImportBusy;
+    private string? _lastAttemptedLiveSession;
+    private LiveCareerProbe? _currentLiveProbe;
     private CancellationTokenSource? _saveImportCancellation;
     private ProgressBar? _liveLoadProgress;
     private TextBlock? _liveLoadStatus;
@@ -123,6 +129,7 @@ public partial class MainWindow : Window
             RefreshConnectionStatus();
             await RefreshCareerStatusAsync();
             await NavigateAsync("Dashboard");
+            StartLiveCareerMonitor();
         }
         catch (Exception ex)
         {
@@ -180,8 +187,10 @@ public partial class MainWindow : Window
         actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
         actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
         actions.Children.Add(ToolbarIcon("\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
-        _liveLoadButton = ToolbarIcon("\uE72C", "Live-memory scanning is paused in V8 until bounded scanning is independently validated. Use offline save import instead.", (_, _) => ShowLiveScanPaused());
-        _liveLoadButton.IsEnabled = false;
+        actions.Children.Add(ToolbarIcon("\uE80F", "Open your human-manager profile in the Staff directory.", async (_, _) => await OpenMyManagerAsync()));
+        actions.Children.Add(ToolbarIcon("\uE77B", "Open your current club in the Club directory.", async (_, _) => await OpenMyClubAsync()));
+        _liveLoadButton = ToolbarIcon("\uE72C", "Connect to the currently loaded FM27 career or refresh it. Atlas also detects new save loads automatically.", async (_, _) => await LoadLiveCareerAsync());
+        _liveLoadButton.IsEnabled = true;
         actions.Children.Add(_liveLoadButton);
         actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle Glass Dark, Glass Light and Studio.", async (_, _) => await CycleThemeAsync()));
         actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
@@ -209,11 +218,11 @@ public partial class MainWindow : Window
             careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var careerStack = new StackPanel();
-            careerStack.Children.Add(Txt("CAREER DATA STATUS", 9, true, Teal));
-            careerStack.Children.Add(Txt("Career identity awaiting verification", 15, true, Ink));
+            careerStack.Children.Add(Txt("MONOLITH GLASS · LIVE CAREER", 9, true, Teal));
+            careerStack.Children.Add(Txt("Waiting for your FM27 career", 15, true, Ink));
             _connectionSummary = Txt("Open Football Manager 27 and load a career, or import a local save copy.", 10, false, Muted);
             careerStack.Children.Add(_connectionSummary);
-            _liveLoadStatus = Txt("Live-memory scan paused · offline import available", 9, false, Muted);
+            _liveLoadStatus = Txt("Automatic career detection is active · read-only connection", 9, false, Muted);
             _liveLoadStatus.Margin = new Thickness(0, 5, 0, 0);
             careerStack.Children.Add(_liveLoadStatus);
             _liveLoadProgress = new ProgressBar { Height = 4, Minimum = 0, Maximum = 100, Value = 0, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 5, 0, 0), Foreground = Brush("#3988C8"), Background = Brush("#DCE8F2") };
@@ -642,7 +651,7 @@ public partial class MainWindow : Window
         statusStack.Children.Add(Txt("CAREER SNAPSHOT", 9, true, Teal)); statusStack.Children.Add(Txt("Latest data import", 19, true, Ink));
         statusStack.Children.Add(Txt(metrics.LastSaveFileName ?? "No save snapshot imported yet", 12, true, Ink, wrap: true));
         if (!string.IsNullOrWhiteSpace(metrics.CurrentManager))
-            statusStack.Children.Add(Txt($"Human manager: {metrics.CurrentManager}{(string.IsNullOrWhiteSpace(metrics.CurrentManagerClub) ? "" : " · " + metrics.CurrentManagerClub)}", 10, true, Teal, wrap: true));
+            statusStack.Children.Add(Txt($"Human manager: {metrics.CurrentManager}{(string.IsNullOrWhiteSpace(metrics.CurrentManagerClub) ? "" : " · " + metrics.CurrentManagerClub)}{(string.IsNullOrWhiteSpace(metrics.CurrentManagerNation) ? "" : " · " + metrics.CurrentManagerNation)}", 10, true, Teal, wrap: true));
         statusStack.Children.Add(Txt(metrics.LastSaveImportUtc is null ? "—" : "Imported " + FormatDate(metrics.LastSaveImportUtc), 10, false, Muted));
         if (!string.IsNullOrWhiteSpace(metrics.SaveBuild)) statusStack.Children.Add(Txt($"{metrics.SaveGame ?? "Football Manager"} · {metrics.SaveBuild} · In-game date {metrics.SaveGameDate ?? "unknown"}", 10, true, Teal, wrap: true));
         if (metrics.SaveBuildKnown == false) statusStack.Children.Add(Txt("UNVERIFIED BUILD LAYOUT — inspect reader report before relying on fields.", 9, true, Brush("#B45B2F"), wrap: true));
@@ -1824,14 +1833,14 @@ public partial class MainWindow : Window
     {
         var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var header = Card(new StackPanel(), 14, new Thickness(0, 0, 0, 10)); var s = (StackPanel)header.Child; s.Children.Add(Txt("STAFF INTELLIGENCE", 9, true, Teal)); s.Children.Add(Txt("Staff directory", 20, true, Ink));
-        s.Children.Add(Txt("Staff identity, job, club, contract and preferences are shown where the save reader exposes them. The published reader currently locates only one rated staff attribute (adaptability); it does not provide the complete staff attribute panel shown in FM.", 10, false, Muted, wrap: true));
+        s.Children.Add(Txt("Search staff and your human-manager record from the currently loaded FM27 career or an offline save snapshot. Live CA/PA, role, club and nation are shown where the running build exposes them; unsupported fields remain blank.", 10, false, Muted, wrap: true));
         Grid.SetRow(header, 0); root.Children.Add(header);
         var body = new Grid(); body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.15, GridUnitType.Star) }); body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(.85, GridUnitType.Star) });
         var panel = Card(new DockPanel(), 14, new Thickness(0, 0, 9, 0)); var dock = (DockPanel)panel.Child; var search = Input("Search staff, club or ID");
         if (!string.IsNullOrWhiteSpace(_pendingStaffSearchQuery)) { search.Text = _pendingStaffSearchQuery; _pendingStaffSearchQuery = null; }
         DockPanel.SetDock(search, Dock.Top); dock.Children.Add(search);
         var staffStatus = Txt("Enter at least two characters to search the imported staff index.", 9, false, Muted, wrap: true); DockPanel.SetDock(staffStatus, Dock.Bottom); dock.Children.Add(staffStatus);
-        var dg = CreateGrid(); dg.Columns.Add(Column("NAME", "Name", 1.3)); dg.Columns.Add(Column("ROLE", "Job", 1)); dg.Columns.Add(Column("CLUB", "Club", 1.2)); dg.Columns.Add(Column("AGE", "Age", .5)); dg.ItemsSource = _staff; dock.Children.Add(dg); Grid.SetColumn(panel, 0); body.Children.Add(panel);
+        var dg = CreateGrid(); dg.Columns.Add(Column("NAME", "Name", 1.3)); dg.Columns.Add(Column("ROLE", "Job", .9)); dg.Columns.Add(Column("CLUB", "Club", 1)); dg.Columns.Add(Column("AGE", "Age", .4)); dg.Columns.Add(Column("CA", "CurrentAbility", .35)); dg.Columns.Add(Column("PA", "PotentialAbility", .35)); dg.Columns.Add(Column("NATION", "Nation", .8)); dg.ItemsSource = _staff; dock.Children.Add(dg); Grid.SetColumn(panel, 0); body.Children.Add(panel);
         var profile = Card(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = new StackPanel() }, 14); var profileStack = (StackPanel)((ScrollViewer)profile.Child).Content;
         profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt("Select a staff member", 19, true, Ink)); profileStack.Children.Add(Txt("Staff profiles are limited to fields actually present in the imported save.", 10, false, Muted, wrap: true));
         Grid.SetColumn(profile, 1); body.Children.Add(profile); Grid.SetRow(body, 1); root.Children.Add(body);
@@ -1842,7 +1851,7 @@ public partial class MainWindow : Window
             var facts = await RunDatabaseAsync(() => _database.GetFmsaveStaffFactsAsync(person.SourceId));
             if (requestVersion != staffProfileVersion) return;
             profileStack.Children.Clear(); profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt(person.Name, 22, true, Ink));
-            AddDetailRow(profileStack, "Role", person.Job); AddDetailRow(profileStack, "Club", person.Club); AddDetailRow(profileStack, "Age", person.Age?.ToString()); AddDetailRow(profileStack, "Nation ID (save-local)", person.Nation); AddDetailRow(profileStack, "Record ID", person.SourceId);
+            AddDetailRow(profileStack, "Role", person.Job); AddDetailRow(profileStack, "Club", person.Club); AddDetailRow(profileStack, "Age", person.Age?.ToString()); AddDetailRow(profileStack, "Nation", person.Nation); AddDetailRow(profileStack, "Current ability", person.CurrentAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Potential ability", person.PotentialAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Human manager", person.IsHumanManager ? "Yes" : "No / not identified"); AddDetailRow(profileStack, "Record ID", person.SourceId);
             profileStack.Children.Add(Txt("IMPORTED STAFF FACTS", 9, true, Teal) is var h ? Configure(h, new Thickness(0, 17, 0, 6)) : new TextBlock());
             if (facts.Count == 0) profileStack.Children.Add(Txt("No additional staff facts were imported.", 10, false, Muted));
             foreach (var group in facts.GroupBy(x => x.Group))
@@ -1873,7 +1882,7 @@ public partial class MainWindow : Window
                 _staff.Clear(); dg.ItemsSource = _staff;
                 staffStatus.Text = "Type two or more characters. Staff records are not bulk-loaded on first open.";
                 profileStack.Children.Clear(); profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt("Search for a staff member", 19, true, Ink));
-                profileStack.Children.Add(Txt("This reader currently imports staff only from supported career-save snapshots. The live identity probe has not populated staff records.", 10, false, Muted, wrap: true));
+                profileStack.Children.Add(Txt("Live FM27 staff identities and CA/PA appear here after Atlas connects to a loaded career. Historical and extended facts appear when supplied by an offline save snapshot.", 10, false, Muted, wrap: true));
                 return;
             }
             staffStatus.Text = "Searching staff…";
@@ -2706,54 +2715,144 @@ public partial class MainWindow : Window
             root.Children.Add(card);
         }
 
-        Section("1 · Connect to a career", "Start Football Manager 27 and load the career you want to inspect.", "Press Load Game to capture the supported live identity information. The live reader imports supported player/club identities, selected CA/PA and 1–20 attribute candidates. Values retain build/source provenance; they are not all independently verified and must be compared with the FM UI.", "For deeper player, staff and club information, choose Import Career Save and select a COPY of your save file. Keep your original save untouched.");
-        Section("2 · Find players", "Press Global Search or Ctrl + F. Choose Players, Staff, Clubs or All records.", "Search by name, club or ID. Use position, age, CA/PA and nationality filters when those values are available.", "Double-click a result or select Open selected record. Player profiles open in their own closable tabs.", "Use Previous and Next in the player directory to browse pages. FM Atlas does not draw tens of thousands of player cards at once.");
+        Section("1 · Connect to a career", "Start Football Manager 27 and load your career. Keep FM Atlas open and it will detect the supported loaded save automatically.", "Atlas watches FM's save-load generation counter and reconnects when you load a different career. It imports read-only player, staff and club identities, the human-manager record, CA/PA and mapped player attributes. Click the connect icon in the top toolbar to refresh manually.", "The live reader does not change your career. Full historical and match-stat coverage still depends on the read-only save-data source; a save-file import is optional when you need facts not exposed by the live reader.");
+        Section("2 · Find people", "Use Global Search, Ctrl + K or the Players and Staff directories.", "Search by name, club, nation or UID. CA and PA are included for live player and staff identities where the FM build exposes them; negative PA values are retained for random-potential ranges.", "Open a result to inspect all facts available from the live scan and imported snapshots. A missing field remains blank rather than being guessed.", "The player finder is paged and virtualised so large FM databases stay responsive.");
         Section("3 · Read a player profile", "The profile displays attributes in Technical, Set Pieces, Mental, Physical, Goalkeeping and Hidden groups.", "A dash means the source did not supply a value. It is not zero and is never guessed.", "CA/PA and other parsed FM27 fields can be build-dependent and are marked as source-derived. Cross-check values in the game before making decisions.");
         Section("4 · Clubs and staff", "Open Clubs, search for a club and select it to inspect available club facts and its linked squad.", "Open Staff to browse staff included in the latest imported career snapshot. If no staff records were included, re-export and import a save snapshot.", "Finances, facilities, stadium and contract values are shown only when retained by the parser. Historical money fields must not be treated as current balances without checking their date and unit.");
         Section("5 · Atlas Assistant", "Use the Assistant for straightforward local queries such as players under a specified age or with an attribute threshold.", "The current assistant is a rule-based search composer, not an external generative AI model. It reports only filters it actually applied.", "For more detailed criteria, use Global Search. Keep the Assistant available as a quick way into the database.");
         Section("6 · Your data and safety", "The local database is stored at %LOCALAPPDATA%\\FmAtlas\\scouting.db.", "Save imports are versioned snapshots. The importer adds a new snapshot; it does not delete earlier source records.", "Atlas local edits are separate from Football Manager. A separate early live-write path supports CA, PA and 47 visible standard player attributes only for exact supported Windows FM27 profiles; it is OFF by default and requires preview, explicit Apply, session/identity/current-value checks and read-back. Hidden attributes and broader entity editing remain blocked.", "Back up the FmAtlas data folder before major changes or moving the application to another PC.");
         Section("7 · Analytics and Mass Edit", "Analytics discovers numeric season/match metrics retained by the latest imported save snapshot. Choose a metric, set minimum/maximum values and search.", "If xG, xA or tackles per 90 are not in the imported source, they will not appear. Atlas does not calculate or invent missing match statistics.", "Mass Edit changes filtered local Atlas player records only. Every changed player is recorded separately in Edit History. Save Atlas checkpoints the local database; it does not save the FM career.");
         Section("8 · Diagnostics", "Use Diagnostics in the top toolbar to export a support report. Check it before sharing because it may include player names, file paths and recent edit history.");
-        Section("Troubleshooting", "If a page appears busy, wait for its progress state to finish. Navigation is locked during a page build to prevent overlapping loads.", "If CA/PA or attributes are blank after Load Game, use Import Career Save from a copy. Identity counts are not the same as complete attribute counts.", "If a club has no squad, verify that a save snapshot was imported and that the club-to-player links are present in the source export.", "After updating, run Build-FM-Atlas-27.bat. The build window must report 0 errors before launching the new executable.");
+        Section("Troubleshooting", "If Atlas cannot connect, confirm FM27 has finished loading a career and that the game build is supported. Close duplicate FM instances if more than one is open.", "If the save changed while Atlas was scanning, the session check discards the partial scan; the monitor will reconnect to the newly loaded career.", "Live CA/PA and attribute mappings remain provisional until compared against the FM UI. Use the optional offline save reader when you need historical or match-stat facts.", "After updating, run Build-FM-Atlas-27.bat. The build window must report 0 errors before launching the new executable.");
         root.Children.Add(SoftButton("Open FM Atlas data folder", (_, _) => { var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas"); Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true }); }));
         return new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = root };
     }
 
-    private async Task LoadLiveCareerAsync()
+    private void StartLiveCareerMonitor()
     {
-        if (!LiveMemoryImportEnabled)
+        if (_liveCareerTimer is not null) return;
+        _liveCareerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _liveCareerTimer.Tick += async (_, _) =>
         {
-            ShowLiveScanPaused();
-            AtlasLog.Warning("Live-memory import request blocked by the V8 safety gate.");
+            if (_liveCareerProbeBusy || _liveImportBusy) return;
+            _liveCareerProbeBusy = true;
+            try
+            {
+                var probe = await Task.Run(LiveCareerMonitor.Probe);
+                _currentLiveProbe = probe;
+                if (probe.IsCareerLoaded)
+                {
+                    if (_connectionSummary is not null) _connectionSummary.Text = probe.Status;
+                    if (_connectionDot is not null) _connectionDot.Fill = Brush("#2BA578");
+                    if (!string.Equals(_lastAttemptedLiveSession, probe.SessionKey, StringComparison.Ordinal))
+                        await LoadLiveCareerAsync(probe, automatic: true);
+                }
+                else if (probe.IsGameRunning)
+                {
+                    if (_connectionSummary is not null) _connectionSummary.Text = probe.Status;
+                    if (_connectionDot is not null) _connectionDot.Fill = Brush(probe.IsSupportedBuild ? "#D8A34A" : "#C7797B");
+                }
+                else
+                {
+                    _lastAttemptedLiveSession = null;
+                    if (_connectionSummary is not null &&
+                        (_connectionSummary.Text.StartsWith("FM27", StringComparison.OrdinalIgnoreCase)
+                         || _connectionSummary.Text.StartsWith("Waiting for Football Manager", StringComparison.OrdinalIgnoreCase)))
+                        _connectionSummary.Text = "FM27 is not running · your local Atlas database remains available.";
+                    if (_connectionDot is not null) _connectionDot.Fill = Brush("#C7797B");
+                }
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Warning("The automatic FM27 career check failed: " + ex.Message);
+            }
+            finally { _liveCareerProbeBusy = false; }
+        };
+        _liveCareerTimer.Start();
+    }
+
+    private async Task OpenMyManagerAsync()
+    {
+        var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+        if (string.IsNullOrWhiteSpace(metrics.CurrentManager))
+        {
+            MessageBox.Show(this, "Atlas has not identified one human manager in the currently loaded career yet. Keep FM27 open and let the automatic connection finish, or search the Staff directory.", "Manager not available", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        if (_liveLoadButton is not null) { _liveLoadButton.IsEnabled = false; _liveLoadButton.Content = "Loading…"; }
+        _pendingStaffSearchQuery = metrics.CurrentManager;
+        await NavigateAsync("Staff");
+    }
+
+    private async Task OpenMyClubAsync()
+    {
+        var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+        if (string.IsNullOrWhiteSpace(metrics.CurrentManagerClub))
+        {
+            MessageBox.Show(this, "Atlas has not identified the human manager's club yet. Check that a career is loaded and the supported live scan has completed.", "Club not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        _pendingClubSearchQuery = metrics.CurrentManagerClub;
+        await NavigateAsync("Clubs");
+    }
+
+    private async Task LoadLiveCareerAsync(LiveCareerProbe? expectedSession = null, bool automatic = false)
+    {
+        if (_liveImportBusy) return;
+        var session = expectedSession ?? await Task.Run(LiveCareerMonitor.Probe);
+        if (!session.IsCareerLoaded)
+        {
+            if (_connectionSummary is not null) _connectionSummary.Text = session.Status;
+            if (!automatic)
+                MessageBox.Show(this, session.Status + "\n\nLoad a supported FM27 career and Atlas will connect automatically.", "FM Atlas · Connect career", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        _liveImportBusy = true;
+        _lastAttemptedLiveSession = session.SessionKey;
+        if (_liveLoadButton is not null) _liveLoadButton.IsEnabled = false;
         if (_liveLoadProgress is not null) { _liveLoadProgress.Visibility = Visibility.Visible; _liveLoadProgress.IsIndeterminate = true; }
-        if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connecting to Football Manager · validating supported build…";
+        if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connecting to the loaded FM27 career · checking save generation…";
+        if (_connectionSummary is not null) _connectionSummary.Text = session.Status;
         try
         {
             await Dispatcher.Yield(DispatcherPriority.Background);
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Reading career identities and relationships…";
-            AtlasLog.Info("Starting read-only live identity scan.");
-            var payload = await Task.Run(LiveDataImporter.Extract);
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Writing validated snapshot to local database…";
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Reading players, staff, clubs and your manager…";
+            AtlasLog.Info($"Starting read-only FM27 live scan: pid={session.ProcessId}; profile={session.ProfileId}; saveLoadCounter={session.SaveLoadCounter}.");
+            var payload = await Task.Run(() => LiveDataImporter.Extract(session));
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Saving live career snapshot and manager context to Atlas…";
             var result = await RunDatabaseAsync(() => _database.ImportLiveSnapshotAsync(payload));
-            AtlasLog.Info($"Live profile import completed: slots={result.PlayersSeen}, named={result.PlayersImported}, clubs={result.ClubsImported}, attributeFacts={result.AttributeRowsImported}, unreadable={result.UnnamedPlayers}, unresolvedLinks={result.UnlinkedPlayers}.");
-            RefreshConnectionStatus();
+            AtlasLog.Info($"Live career import completed: players={result.PlayersImported:N0}/{result.PlayersSeen:N0}; staff={result.StaffImported:N0}/{result.StaffSeen:N0}; clubs={result.ClubsImported:N0}; player facts={result.AttributeRowsImported:N0}; session={session.SessionKey}.");
+            _currentLiveProbe = session;
             await RefreshCareerStatusAsync();
-            MessageBox.Show(this, $"FM27 live profile snapshot imported.\n\nPlayer slots scanned: {result.PlayersSeen:N0}\nNamed players: {result.PlayersImported:N0}\nClubs: {result.ClubsImported:N0}\nRange-valid attribute/personality rows stored: {result.AttributeRowsImported:N0}\nUnreadable player slots: {result.UnnamedPlayers:N0}\nUnresolved club links: {result.UnlinkedPlayers:N0}\n\nImportant: the module profile matched exactly, but CA/PA and attribute offsets are still provisional field mappings. They are visible in Atlas for comparison with the in-game UI, not certified as safe live-edit targets. Staff, contract, match-stat and club-finance live extraction remain separate work.", "FM Atlas · Live career import", MessageBoxButton.OK, MessageBoxImage.Information);
-            await NavigateAsync("Dashboard");
+            if (_liveLoadStatus is not null)
+                _liveLoadStatus.Text = $"Connected · {result.PlayersImported:N0} players · {result.StaffImported:N0} staff · {result.ClubsImported:N0} clubs";
+            if (!automatic)
+            {
+                var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+                var managerLine = string.IsNullOrWhiteSpace(metrics.CurrentManager)
+                    ? "Human manager: not uniquely identified"
+                    : $"Your manager: {metrics.CurrentManager}\nClub: {metrics.CurrentManagerClub ?? "unavailable"} · Nation: {metrics.CurrentManagerNation ?? "unavailable"}";
+                MessageBox.Show(this,
+                    $"FM27 career connected successfully.\n\n{managerLine}\n\nPlayers: {result.PlayersImported:N0}\nStaff: {result.StaffImported:N0}\nClubs: {result.ClubsImported:N0}\nPlayer attribute facts: {result.AttributeRowsImported:N0}\n\nThe scan is read-only. Live CA/PA and attribute mappings are still provisional until compared with the FM UI. Live editing remains disabled.",
+                    "FM Atlas · Career connected", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            if (!automatic && string.Equals(_activePage, "Dashboard", StringComparison.OrdinalIgnoreCase))
+                await NavigateAsync("Dashboard");
         }
         catch (Exception ex)
         {
-            AtlasLog.Error("Live identity import failed; no import committed.", ex);
-            MessageBox.Show(this, "No live import was committed.\n\n" + ex.Message, "FM Atlas · Live import stopped safely", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AtlasLog.Error("Live career import failed; no partial snapshot was committed.", ex);
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connection stopped safely · " + ex.Message;
+            if (_connectionSummary is not null) _connectionSummary.Text = "FM27 connection stopped safely · " + ex.Message;
+            if (!automatic)
+                MessageBox.Show(this, "No live snapshot was committed. Atlas will keep your existing local data.\n\n" + ex.Message,
+                    "FM Atlas · Connection stopped safely", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
-            if (_liveLoadButton is not null) { _liveLoadButton.IsEnabled = false; }
+            _liveImportBusy = false;
+            if (_liveLoadButton is not null) _liveLoadButton.IsEnabled = true;
             if (_liveLoadProgress is not null) { _liveLoadProgress.IsIndeterminate = false; _liveLoadProgress.Visibility = Visibility.Collapsed; }
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Ready · profile-matched live identity + provisional player field snapshot";
         }
     }
 
@@ -2866,7 +2965,7 @@ public partial class MainWindow : Window
     {
         var status = GameProcessDetector.Detect();
         if (_connectionDot is not null) _connectionDot.Fill = Brush(status.MemoryReadVerified ? "#2BA578" : status.IsRunning ? "#D8A34A" : "#C7797B");
-        if (_connectionSummary is not null) _connectionSummary.Text = status.Detail + (status.MemoryReadVerified ? " · memory probe only; full career import remains separately gated" : "");
+        if (_connectionSummary is not null) _connectionSummary.Text = status.Detail + (status.MemoryReadVerified ? " · waiting for FM27 save-generation verification" : "");
     }
 
 
@@ -2874,11 +2973,20 @@ public partial class MainWindow : Window
     {
         if (_connectionSummary is null) return;
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+        if (!string.IsNullOrWhiteSpace(metrics.CurrentManager))
+        {
+            _connectionSummary.Text = $"Live FM27 career · {metrics.CurrentManager} · {metrics.CurrentManagerClub ?? "club unavailable"} · {metrics.CurrentManagerNation ?? "nation unavailable"} · live field values remain source-derived candidates.";
+            if (_connectionDot is not null) _connectionDot.Fill = Brush("#2BA578");
+            return;
+        }
         if (!string.IsNullOrWhiteSpace(metrics.SaveBuild))
         {
             var buildStatus = metrics.SaveBuildKnown == true ? "registered parser layout" : metrics.SaveBuildKnown == false ? "unregistered parser layout" : "parser layout status unknown";
-            _connectionSummary.Text = $"Local career snapshot loaded · {metrics.SaveGame ?? "Football Manager"} {metrics.SaveBuild} · {metrics.SaveGameDate ?? "date unknown"} · {buildStatus}. FM27 field meanings remain unconfirmed.";
+            _connectionSummary.Text = $"Local career snapshot loaded · {metrics.SaveGame ?? "Football Manager"} {metrics.SaveBuild} · {metrics.SaveGameDate ?? "date unknown"} · {buildStatus}.";
+            return;
         }
+        if (metrics.LivePlayers > 0)
+            _connectionSummary.Text = $"Live FM27 player index · {metrics.LivePlayers:N0} players · awaiting a unique human-manager record.";
     }
 
     private async Task AddSelectedToShortlistAsync()
@@ -2986,7 +3094,35 @@ public partial class MainWindow : Window
         => new() { Header = header, Binding = new Binding(property), Width = new DataGridLength(weight, DataGridLengthUnitType.Star), ElementStyle = new Style(typeof(TextBlock)) { Setters = { new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center), new Setter(TextBlock.MarginProperty, new Thickness(7, 0, 5, 0)), new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis) } } };
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
-        => new() { Background = Brush("#F8FCFA"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(radius), Padding = new Thickness(15), Margin = margin ?? new Thickness(0), Child = child };
+    {
+        var light = _themeMode == "Glass Light";
+        var background = light
+            ? new SolidColorBrush(Color.FromArgb(226, 255, 255, 255))
+            : _themeMode == "Studio"
+                ? new SolidColorBrush(Color.FromArgb(226, 12, 23, 38))
+                : new SolidColorBrush(Color.FromArgb(198, 23, 38, 58));
+        var border = light
+            ? new SolidColorBrush(Color.FromArgb(172, 151, 188, 220))
+            : new SolidColorBrush(Color.FromArgb(122, 169, 207, 238));
+        return new Border
+        {
+            Background = background,
+            BorderBrush = border,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(radius),
+            Padding = new Thickness(15),
+            Margin = margin ?? new Thickness(0),
+            Effect = new DropShadowEffect
+            {
+                Color = light ? Color.FromRgb(69, 104, 140) : Color.FromRgb(0, 0, 0),
+                BlurRadius = 22,
+                ShadowDepth = 4,
+                Opacity = light ? 0.10 : 0.24
+            },
+            SnapsToDevicePixels = true,
+            Child = child
+        };
+    }
 
     private static TextBlock Txt(string text, double size, bool bold, Brush foreground, bool wrap = false)
         => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
