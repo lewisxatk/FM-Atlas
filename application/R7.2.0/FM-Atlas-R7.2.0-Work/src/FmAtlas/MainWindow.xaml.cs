@@ -1603,6 +1603,9 @@ public partial class MainWindow : Window
             var currentColumn = Column("CURRENT %", nameof(LiveTacticalAreaView.CurrentValue), .55);
             currentColumn.IsReadOnly = true;
             grid.Columns.Add(currentColumn);
+            var trainingColumn = Column("TRAINING CONTRIBUTION", nameof(LiveTacticalAreaView.TrainingContribution), 1.15);
+            trainingColumn.IsReadOnly = true;
+            grid.Columns.Add(trainingColumn);
             grid.Columns.Add(new DataGridTextColumn
             {
                 Header = "TARGET %",
@@ -1614,8 +1617,8 @@ public partial class MainWindow : Window
             panel.Children.Add(grid);
 
             var trainingNote = Txt(
-                "TRAINING CONTRIBUTION · FM-MANAGED" + Environment.NewLine
-                + "FM calculates this from each player's training history. Atlas displays the distinction but does not pretend it is a directly editable score. It changes naturally as the game records training.",
+                "TRAINING CONTRIBUTION · HISTORY-BASED" + Environment.NewLine
+                + "FM calculates this from each player's saved training history. Use the separate Max Training Contribution action to rewrite those history entries for the active tactic; this is not a synthetic percentage field.",
                 9, false, Muted, wrap: true);
             trainingNote.Margin = new Thickness(0, 7, 0, 7);
             panel.Children.Add(trainingNote);
@@ -1623,6 +1626,7 @@ public partial class MainWindow : Window
             LiveEntityMemoryEditService.TacticalBatchPlan? staged = null;
             LiveEntityMemoryEditService.TacticalBatchReceipt? applied = null;
             List<LiveEntityMemoryEditService.TacticalTargetValue>? stagedTargets = null;
+            var maxTrainingRequested = false;
             Button? applyButton = null;
             Button? undoButton = null;
             var stageButton = PrimaryButton("Stage tactical changes", async (_, _) =>
@@ -1642,6 +1646,8 @@ public partial class MainWindow : Window
                     if (target != row.CurrentValue)
                         targets.Add(new LiveEntityMemoryEditService.TacticalTargetValue(row.AreaKey, target));
                 }
+                if (maxTrainingRequested)
+                    targets.Add(new LiveEntityMemoryEditService.TacticalTargetValue("training_contribution", 100));
                 if (targets.Count == 0)
                 {
                     MessageBox.Show(this, "Change at least one target percentage before staging.", "Tactical Effectiveness",
@@ -1658,7 +1664,10 @@ public partial class MainWindow : Window
                         + " player-area lists · " + staged.ProfileId + " · no memory written";
                     applyButton!.IsEnabled = true;
                     undoButton!.IsEnabled = false;
-                    var preview = string.Join(Environment.NewLine, targets.Select(x => x.AreaKey + " → " + x.Value + "%"));
+                    var preview = string.Join(Environment.NewLine, targets.Select(x =>
+                        x.AreaKey.Equals("training_contribution", StringComparison.OrdinalIgnoreCase)
+                            ? "Max Training Contribution · rebuild FM training-history entries"
+                            : x.AreaKey + " → " + x.Value + "%"));
                     MessageBox.Show(this,
                         "Staged tactical Match Exposure for " + clubName + "." + Environment.NewLine
                         + "Player-area list writes: " + staged.Changes.Count.ToString(CultureInfo.InvariantCulture)
@@ -1683,6 +1692,18 @@ public partial class MainWindow : Window
                 foreach (var row in rows) row.TargetValue = "100";
                 grid.Items.Refresh();
             });
+            var maxTrainingButtonText = Txt("Training contribution max not selected", 8, true, Muted, wrap: true);
+            var maxTrainingButton = PrimaryButton("Max Training Contribution for active tactic", (_, _) =>
+            {
+                maxTrainingRequested = !maxTrainingRequested;
+                maxTrainingButtonText.Text = maxTrainingRequested
+                    ? "MAX TRAINING CONTRIBUTION · WILL APPLY"
+                    : "Training contribution max not selected";
+                status.Text = maxTrainingRequested
+                    ? "Max Training Contribution queued · rewrites existing FM training-history lists for the active tactic."
+                    : "Max Training Contribution removed from the next staged batch.";
+            });
+            panel.Children.Add(maxTrainingButtonText);
             applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
             {
                 if (staged is null) return;
@@ -1766,6 +1787,7 @@ public partial class MainWindow : Window
             var buttons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
             buttons.Children.Add(stageButton);
             buttons.Children.Add(maxButton);
+            buttons.Children.Add(maxTrainingButton);
             buttons.Children.Add(applyButton);
             buttons.Children.Add(undoButton);
             panel.Children.Add(buttons);
