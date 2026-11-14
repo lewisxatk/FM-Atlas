@@ -87,7 +87,8 @@ public sealed class PlayerComparisonWindow : Window
             .ToList();
         if (selected.Count < 2) return;
         var attributeSets = await Task.WhenAll(selected.Select(x => database.GetPlayerAttributesAsync(x.SourceId)));
-        var window = new PlayerComparisonWindow(selected, attributeSets) { Owner = owner };
+        var positionRatings = await database.GetImportedPositionSuitabilityAsync();
+        var window = new PlayerComparisonWindow(selected, attributeSets, positionRatings) { Owner = owner };
         window.ShowDialog();
     }
 
