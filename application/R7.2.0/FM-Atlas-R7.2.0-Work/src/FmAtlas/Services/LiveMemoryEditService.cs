@@ -11,7 +11,7 @@ namespace FmAtlas.Services;
 /// it does not embed or copy another editor's code. It only supports an exact known
 /// Windows FM27 module profile and a player whose UID and name can be re-resolved.
 /// </summary>
-public static class LiveMemoryEditService
+public static partial class LiveMemoryEditService
 {
     private const uint ProcessVmOperation = 0x0008;
     private const uint ProcessVmRead = 0x0010;
