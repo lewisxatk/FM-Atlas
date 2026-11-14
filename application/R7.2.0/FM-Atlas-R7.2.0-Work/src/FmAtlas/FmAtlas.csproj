@@ -2,16 +2,16 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <Version>10.0.0</Version>
-    <InformationalVersion>10.0.0-advanced-analytics</InformationalVersion>
-    <AssemblyVersion>10.0.0.0</AssemblyVersion>
-    <FileVersion>10.0.0.0</FileVersion>
+    <Version>11.0.0</Version>
+    <InformationalVersion>11.0.0-live-editor-diagnostics</InformationalVersion>
+    <AssemblyVersion>11.0.0.0</AssemblyVersion>
+    <FileVersion>11.0.0.0</FileVersion>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\FmAtlas.ico</ApplicationIcon>
     <RootNamespace>FmAtlas</RootNamespace>
-    <Product>FM Atlas V10 · Monolith Glass</Product>
+    <Product>FM Atlas V11 · Monolith Glass</Product>
     <Company>FM Atlas</Company>
-    <Description>FM Atlas V10 · Monolith Glass scouting, analytics, squad planning and guarded editing workspace.</Description>
+    <Description>FM Atlas V11 · Monolith Glass scouting, analytics, squad planning and guarded live editing workspace.</Description>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
