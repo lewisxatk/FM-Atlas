@@ -14,6 +14,8 @@ public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club
 public sealed record AtlasClubRecord(string SourceId, string Name, string? Nation, int PlayerCount, string DataSource);
 public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerName, string FieldName, string? OldValue, string? NewValue, string ChangedUtc, string ChangeSource);
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
+public sealed record AtlasLocalEntityOverride(string EntityType, string SourceId, string Group, string Field, string OriginalValue, string OverrideValue, string SourceLabel, string UpdatedUtc);
+public sealed record AtlasLocalEntityEdit(string Group, string Field, string OriginalValue, string Value, string SourceLabel);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
 public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value);
 public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int StaffImported, int ClubsImported, int ExtraRowsImported, IReadOnlyDictionary<string,int> TableCounts, IReadOnlyList<string> Warnings);
@@ -76,6 +78,14 @@ public sealed class ScoutDatabase
               ChangeSource TEXT NOT NULL DEFAULT 'FM Atlas local editor'
             );
             CREATE INDEX IF NOT EXISTS IX_EditHistory_Player ON EditHistory(SourceId, ChangedUtc DESC);
+            CREATE TABLE IF NOT EXISTS LocalEntityOverrides (
+              EntityType TEXT NOT NULL, SourceId TEXT NOT NULL, GroupKey TEXT NOT NULL,
+              FieldKey TEXT NOT NULL, OriginalValue TEXT NOT NULL, OverrideValue TEXT NOT NULL,
+              SourceLabel TEXT NOT NULL, UpdatedUtc TEXT NOT NULL,
+              PRIMARY KEY(EntityType, SourceId, GroupKey, FieldKey)
+            );
+            CREATE INDEX IF NOT EXISTS IX_LocalEntityOverrides_Entity ON LocalEntityOverrides(EntityType, SourceId);
+
             CREATE INDEX IF NOT EXISTS IX_Players_Name ON Players(Name);
             CREATE INDEX IF NOT EXISTS IX_Players_Age ON Players(Age);
             CREATE TABLE IF NOT EXISTS Shortlists (
@@ -503,6 +513,110 @@ public sealed class ScoutDatabase
         await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false)) items.Add(reader.GetString(0));
         return items;
+    }
+
+
+    /// <summary>
+    /// Local overlay for any scalar fact imported from an FM save or live read.
+    /// This never writes into Football Manager memory or mutates the imported snapshot.
+    /// </summary>
+    public async Task<List<AtlasLocalEntityOverride>> GetLocalEntityOverridesAsync(
+        string entityType, string sourceId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(entityType) || string.IsNullOrWhiteSpace(sourceId))
+            return new List<AtlasLocalEntityOverride>();
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            SELECT EntityType,SourceId,GroupKey,FieldKey,OriginalValue,OverrideValue,SourceLabel,UpdatedUtc
+            FROM LocalEntityOverrides
+            WHERE EntityType=$type AND SourceId=$id
+            ORDER BY GroupKey,FieldKey;
+            """;
+        cmd.Parameters.AddWithValue("$type", entityType.Trim().ToLowerInvariant());
+        cmd.Parameters.AddWithValue("$id", sourceId);
+        var rows = new List<AtlasLocalEntityOverride>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            rows.Add(new AtlasLocalEntityOverride(reader.GetString(0), reader.GetString(1), reader.GetString(2),
+                reader.GetString(3), reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7)));
+        return rows;
+    }
+
+    public async Task SaveLocalEntityOverridesAsync(
+        string entityType, string sourceId, string displayName,
+        IReadOnlyList<AtlasLocalEntityEdit> fields, CancellationToken cancellationToken = default)
+    {
+        var type = (entityType ?? string.Empty).Trim().ToLowerInvariant();
+        if (type is not ("player" or "staff" or "club" or "competition" or "nation" or "stadium" or "other"))
+            throw new ArgumentOutOfRangeException(nameof(entityType), "Unsupported local entity type.");
+        if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("An entity source ID is required.", nameof(sourceId));
+        if (fields.Count == 0) return;
+        if (fields.Count > 2000) throw new ArgumentOutOfRangeException(nameof(fields), "A local entity edit batch is limited to 2,000 fields.");
+        if (fields.Any(x => string.IsNullOrWhiteSpace(x.Group) || string.IsNullOrWhiteSpace(x.Field)
+            || x.Group.Length > 180 || x.Field.Length > 240
+            || x.Value is null || x.Value.Length > 4096 || x.OriginalValue is null || x.OriginalValue.Length > 4096
+            || x.SourceLabel.Length > 180))
+            throw new ArgumentException("Every edited field must have a group, field name and values no longer than 4,096 characters.", nameof(fields));
+        var unique = fields.Select(x => x.Group.Trim() + "\u001f" + x.Field.Trim()).ToList();
+        if (unique.Distinct(StringComparer.OrdinalIgnoreCase).Count() != fields.Count)
+            throw new ArgumentException("A field can appear only once in a local entity edit batch.", nameof(fields));
+
+        await WriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await using var db = new SqliteConnection(_connectionString);
+            await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await using var tx = await db.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            var utc = DateTime.UtcNow.ToString("O");
+            foreach (var field in fields)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var old = db.CreateCommand(); old.Transaction = (SqliteTransaction)tx;
+                old.CommandText = """
+                    SELECT OverrideValue FROM LocalEntityOverrides
+                    WHERE EntityType=$type AND SourceId=$id AND GroupKey=$group AND FieldKey=$field;
+                    """;
+                old.Parameters.AddWithValue("$type", type); old.Parameters.AddWithValue("$id", sourceId);
+                old.Parameters.AddWithValue("$group", field.Group.Trim()); old.Parameters.AddWithValue("$field", field.Field.Trim());
+                var prior = await old.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                var oldValue = prior is null || prior == DBNull.Value ? field.OriginalValue : Convert.ToString(prior, System.Globalization.CultureInfo.InvariantCulture) ?? field.OriginalValue;
+
+                var save = db.CreateCommand(); save.Transaction = (SqliteTransaction)tx;
+                save.CommandText = """
+                    INSERT INTO LocalEntityOverrides(EntityType,SourceId,GroupKey,FieldKey,OriginalValue,OverrideValue,SourceLabel,UpdatedUtc)
+                    VALUES($type,$id,$group,$field,$original,$value,$source,$utc)
+                    ON CONFLICT(EntityType,SourceId,GroupKey,FieldKey) DO UPDATE SET
+                      OverrideValue=excluded.OverrideValue,SourceLabel=excluded.SourceLabel,UpdatedUtc=excluded.UpdatedUtc;
+                    """;
+                save.Parameters.AddWithValue("$type", type); save.Parameters.AddWithValue("$id", sourceId);
+                save.Parameters.AddWithValue("$group", field.Group.Trim()); save.Parameters.AddWithValue("$field", field.Field.Trim());
+                save.Parameters.AddWithValue("$original", field.OriginalValue); save.Parameters.AddWithValue("$value", field.Value);
+                save.Parameters.AddWithValue("$source", string.IsNullOrWhiteSpace(field.SourceLabel) ? "Imported FM fact" : field.SourceLabel);
+                save.Parameters.AddWithValue("$utc", utc);
+                await save.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+                var audit = db.CreateCommand(); audit.Transaction = (SqliteTransaction)tx;
+                audit.CommandText = """
+                    INSERT INTO EditHistory(SourceId,PlayerName,FieldName,OldValue,NewValue,ChangedUtc,ChangeSource)
+                    VALUES($id,$name,$field,$old,$new,$utc,$source);
+                    """;
+                audit.Parameters.AddWithValue("$id", $"ENTITY:{type}:{sourceId}");
+                audit.Parameters.AddWithValue("$name", displayName);
+                audit.Parameters.AddWithValue("$field", $"{field.Group}.{field.Field}");
+                audit.Parameters.AddWithValue("$old", oldValue);
+                audit.Parameters.AddWithValue("$new", field.Value);
+                audit.Parameters.AddWithValue("$utc", utc);
+                audit.Parameters.AddWithValue("$source", $"FM Atlas local {type} override · not written to game");
+                await audit.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+            await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
     }
 
     public async Task SavePlayerAttributeAsync(string sourceId, string playerName, string attributeName, string category, double value, string changeSource = "FM Atlas local database only", CancellationToken cancellationToken = default)
