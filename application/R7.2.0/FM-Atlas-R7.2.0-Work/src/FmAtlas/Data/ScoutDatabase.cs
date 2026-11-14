@@ -2755,8 +2755,32 @@ public sealed class ScoutDatabase
             return output;
         }
 
+        static Dictionary<string, double?> GroupPercentiles<T>(
+            IReadOnlyList<T> items, Func<T, string?> groupKey, Func<T, double> value, Func<T, string> id)
+        {
+            var output = items.ToDictionary(id, _ => (double?)null, StringComparer.OrdinalIgnoreCase);
+            foreach (var group in items
+                .Where(x => !string.IsNullOrWhiteSpace(groupKey(x)))
+                .GroupBy(x => groupKey(x)!.Trim(), StringComparer.OrdinalIgnoreCase))
+            {
+                var cohort = group.ToList();
+                if (cohort.Count < 3) continue;
+                foreach (var pair in Percentiles(cohort, value, id))
+                    output[pair.Key] = pair.Value;
+            }
+            return output;
+        }
+
         var performancePercentiles = Percentiles(raw, x => x.Performance, x => x.Player.SourceId);
         var valuePercentiles = Percentiles(raw, x => (double)x.Player.Value!.Value, x => x.Player.SourceId);
+        var positionPercentiles = GroupPercentiles(raw, x => x.Player.Position, x => x.Performance, x => x.Player.SourceId);
+        var leaguePercentiles = GroupPercentiles(raw, x => x.Player.League, x => x.Performance, x => x.Player.SourceId);
+        var positionCounts = raw.Where(x => !string.IsNullOrWhiteSpace(x.Player.Position))
+            .GroupBy(x => x.Player.Position!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
+        var leagueCounts = raw.Where(x => !string.IsNullOrWhiteSpace(x.Player.League))
+            .GroupBy(x => x.Player.League!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
         var poolCommand = db.CreateCommand();
         poolCommand.Parameters.AddWithValue("$snapshot", snapshotId);
         poolCommand.CommandText = """
@@ -2772,9 +2796,15 @@ public sealed class ScoutDatabase
         {
             var performancePercentile = performancePercentiles[x.Player.SourceId];
             var valuePercentile = valuePercentiles[x.Player.SourceId];
+            var position = x.Player.Position?.Trim();
+            var league = x.Player.League?.Trim();
             return new PerformanceValueCandidate(
                 x.Player, metric.Key, metric.DisplayName, x.Performance, per90, x.Minutes,
                 x.SampleSize, x.Period, performancePercentile, valuePercentile,
+                positionPercentiles[x.Player.SourceId],
+                position is not null && positionCounts.TryGetValue(position, out var positionCount) ? positionCount : 0,
+                leaguePercentiles[x.Player.SourceId],
+                league is not null && leagueCounts.TryGetValue(league, out var leagueCount) ? leagueCount : 0,
                 performancePercentile - valuePercentile, dataCoverage);
         })
         .OrderByDescending(x => x.ValueGap)

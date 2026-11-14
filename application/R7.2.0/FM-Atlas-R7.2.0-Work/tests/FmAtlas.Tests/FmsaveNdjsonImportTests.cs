@@ -474,6 +474,10 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(1, results[0].SampleSize);
         Assert.Equal(50d, results[0].PerformancePercentile);
         Assert.Equal(50d, results[0].ValuePercentile);
+        Assert.Null(results[0].PositionPerformancePercentile);
+        Assert.Equal(1, results[0].PositionCohortSize);
+        Assert.Null(results[0].LeaguePerformancePercentile);
+        Assert.Equal(1, results[0].LeagueCohortSize);
         Assert.Equal(0d, results[0].ValueGap);
         Assert.Equal(100d, results[0].DataCoverage);
     }

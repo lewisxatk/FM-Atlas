@@ -98,6 +98,8 @@ public sealed class PerformanceValueAnalysisWindow : Window
         AddColumn("PERFORMANCE", nameof(PerformanceValueCandidate.DisplayPerformanceValue), .75);
         AddColumn("PERF PCTL", nameof(PerformanceValueCandidate.DisplayPerformancePercentile), .6);
         AddColumn("VALUE PCTL", nameof(PerformanceValueCandidate.DisplayValuePercentile), .6);
+        AddColumn("POS PCTL", nameof(PerformanceValueCandidate.DisplayPositionPercentile), .6);
+        AddColumn("LEAGUE PCTL", nameof(PerformanceValueCandidate.DisplayLeaguePercentile), .7);
         AddColumn("VALUE GAP", nameof(PerformanceValueCandidate.DisplayValueGap), .65);
         AddColumn("MINUTES", nameof(PerformanceValueCandidate.DisplayMinutes), .7);
         AddColumn("SAMPLE", nameof(PerformanceValueCandidate.SampleSize), .5);
@@ -237,13 +239,14 @@ public sealed class PerformanceValueAnalysisWindow : Window
             if (trimmed.Length > 0 && trimmed[0] is '=' or '+' or '-' or '@') text = "'" + text;
             return "\"" + text.Replace("\"", "\"\"") + "\"";
         }
-        var lines = new List<string> { "Player,SourceId,Club,Position,Metric,Performance,PerformancePercentile,ValuePercentile,ValueGap,Minutes,SampleSize,LatestPeriod,TransferValueSourceUnits" };
+        var lines = new List<string> { "Player,SourceId,Club,Position,League,Metric,Performance,PerformancePercentile,ValuePercentile,PositionPerformancePercentile,LeaguePerformancePercentile,ValueGap,Minutes,SampleSize,LatestPeriod,TransferValueSourceUnits" };
         lines.AddRange(_results.Select(x => string.Join(",", new[]
         {
-            Q(x.Player.Name),Q(x.Player.SourceId),Q(x.Player.Club),Q(x.Player.Position),Q(x.MetricName),
+            Q(x.Player.Name),Q(x.Player.SourceId),Q(x.Player.Club),Q(x.Player.Position),Q(x.Player.League),Q(x.MetricName),
             Q(x.PerformanceValue.ToString("0.0000",CultureInfo.InvariantCulture)),
             Q(x.PerformancePercentile.ToString("0.0",CultureInfo.InvariantCulture)),
             Q(x.ValuePercentile.ToString("0.0",CultureInfo.InvariantCulture)),
+            Q(x.DisplayPositionPercentile),Q(x.DisplayLeaguePercentile),
             Q(x.ValueGap.ToString("0.0",CultureInfo.InvariantCulture)),
             Q(x.TotalMinutes.ToString("0",CultureInfo.InvariantCulture)),
             Q(x.SampleSize.ToString(CultureInfo.InvariantCulture)),Q(x.LatestPeriod),
