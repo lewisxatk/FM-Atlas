@@ -1324,6 +1324,232 @@ public partial class MainWindow : Window
     }
 
 
+
+    private async Task<UIElement> BuildLiveEntityEditorAsync(
+        LiveEntityMemoryEditService.EntityKind entityType, string sourceId, string displayName)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 16, 0, 10) };
+        panel.Children.Add(Txt("LIVE FM27 EDITOR · " + entityType.ToString().ToUpperInvariant(), 9, true, Teal));
+        panel.Children.Add(Txt(
+            "These values are read from the currently loaded FM27 career. Apply writes the selected, verified fields into the running game and reads each value back. Use a separate offline career copy for first testing, then save inside Football Manager to commit the changes to the career file.",
+            9, false, Muted, wrap: true));
+
+        if (!_editorEnabled)
+        {
+            panel.Children.Add(Txt("Enable the Editor at the top of this profile to edit the live career. Atlas-local overrides remain separate.", 9, false, Muted, wrap: true));
+            return panel;
+        }
+        if (!sourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase)
+            || !uint.TryParse(sourceId["LIVE:".Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var uid))
+        {
+            panel.Children.Add(Txt("This record is not linked to a live FM27 UID. Live writing is available only for the current loaded career, not an offline import.", 9, false, Muted, wrap: true));
+            return panel;
+        }
+
+        var rows = new ObservableCollection<LiveEntityEditView>();
+        var status = Txt("Reading the current FM27 values…", 9, false, Muted, wrap: true);
+        panel.Children.Add(status);
+        try
+        {
+            var processId = await Task.Run(() => LiveEntityMemoryEditService.FindSupportedProcessId());
+            var catalogue = LiveEntityMemoryEditService.GetEditableFields(entityType);
+            var current = await Task.Run(() => LiveEntityMemoryEditService.ReadCurrentValues(
+                processId, entityType, uid, displayName, catalogue.Select(x => x.Key).ToList()));
+            var descriptors = catalogue.Where(x => current.ContainsKey(x.Key)).ToList();
+            foreach (var field in descriptors.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var value = current[field.Key];
+                rows.Add(new LiveEntityEditView
+                {
+                    FieldKey = field.Key,
+                    Label = field.Label,
+                    CurrentValue = value,
+                    TargetValue = value.ToString(CultureInfo.InvariantCulture)
+                });
+            }
+
+            if (rows.Count == 0)
+            {
+                status.Text = "No editable live fields could be resolved for this record. It may lack a contract, full finance record, or a verified stadium object.";
+                return panel;
+            }
+
+            status.Text = rows.Count.ToString("N0", CultureInfo.InvariantCulture)
+                + " live fields resolved · optional records omitted where FM does not provide them.";
+            var grid = CreateGrid();
+            grid.IsReadOnly = false;
+            grid.CanUserAddRows = false;
+            grid.MinHeight = 180;
+            grid.MaxHeight = 520;
+            var fieldColumn = Column("FM27 FIELD", nameof(LiveEntityEditView.Label), 1.3);
+            fieldColumn.IsReadOnly = true;
+            grid.Columns.Add(fieldColumn);
+            var currentColumn = Column("CURRENT", nameof(LiveEntityEditView.CurrentValue), .55);
+            currentColumn.IsReadOnly = true;
+            grid.Columns.Add(currentColumn);
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "TARGET",
+                Binding = new Binding(nameof(LiveEntityEditView.TargetValue))
+                    { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(.7, DataGridLengthUnitType.Star)
+            });
+            grid.ItemsSource = rows;
+            panel.Children.Add(grid);
+
+            LiveEntityMemoryEditService.BatchPlan? stagedPlan = null;
+            LiveEntityMemoryEditService.BatchReceipt? appliedReceipt = null;
+            var stageButton = PrimaryButton("Stage live changes", async (_, _) =>
+            {
+                grid.CommitEdit(DataGridEditingUnit.Cell, true);
+                grid.CommitEdit(DataGridEditingUnit.Row, true);
+                var changes = new List<LiveEntityMemoryEditService.TargetValue>();
+                foreach (var row in rows)
+                {
+                    if (!int.TryParse(row.TargetValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target))
+                    {
+                        MessageBox.Show(this, "Enter a whole number for " + row.FieldKey + ".", "FM27 live editor", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    if (target != row.CurrentValue)
+                        changes.Add(new LiveEntityMemoryEditService.TargetValue(row.FieldKey, target));
+                }
+                if (changes.Count == 0)
+                {
+                    MessageBox.Show(this, "There are no changed target values to stage.", "FM27 live editor", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    stagedPlan = await Task.Run(() => LiveEntityMemoryEditService.StageBatch(
+                        processId, entityType, uid, displayName, changes));
+                    status.Text = "STAGED · " + stagedPlan.Values.Count.ToString("N0", CultureInfo.InvariantCulture)
+                        + " field(s) · " + stagedPlan.ProfileId + " · no memory written";
+                    applyButton.IsEnabled = true;
+                    undoButton.IsEnabled = false;
+                    var preview = string.Join(Environment.NewLine, stagedPlan.Values.Take(30).Select(x =>
+                        x.FieldKey + ": " + x.CurrentValue.ToString(CultureInfo.InvariantCulture)
+                        + " → " + x.TargetValue.ToString(CultureInfo.InvariantCulture)));
+                    if (stagedPlan.Values.Count > 30)
+                        preview += Environment.NewLine + "… and " + (stagedPlan.Values.Count - 30).ToString(CultureInfo.InvariantCulture) + " more fields.";
+                    MessageBox.Show(this,
+                        "Live edit staged for " + displayName + "." + Environment.NewLine + Environment.NewLine
+                        + "Build: " + stagedPlan.ProfileId + Environment.NewLine
+                        + "Fields: " + stagedPlan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                        + Environment.NewLine + Environment.NewLine + preview
+                        + Environment.NewLine + Environment.NewLine
+                        + "No FM values have been changed yet.",
+                        "FM Atlas · Live edit staged", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    stagedPlan = null;
+                    applyButton.IsEnabled = false;
+                    status.Text = "STAGE BLOCKED · " + ex.Message;
+                    AtlasLog.Warning("Live entity edit staging was blocked: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Stage blocked", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+
+            var applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
+            {
+                if (stagedPlan is null) return;
+                var answer = MessageBox.Show(this,
+                    "This writes directly into the currently loaded Football Manager career in memory." + Environment.NewLine
+                    + Environment.NewLine + "Make sure this is an offline career and you have a separate backup copy. "
+                    + "Changes become part of the career file when you save inside Football Manager." + Environment.NewLine
+                    + Environment.NewLine + "Apply " + stagedPlan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                    + " field(s) to " + displayName + "?",
+                    "Confirm live FM27 edit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    appliedReceipt = await Task.Run(() => LiveEntityMemoryEditService.ApplyBatch(stagedPlan));
+                    foreach (var row in rows)
+                    {
+                        var item = stagedPlan.Values.FirstOrDefault(x => x.FieldKey.Equals(row.FieldKey, StringComparison.OrdinalIgnoreCase));
+                        if (item is null) continue;
+                        row.CurrentValue = item.TargetValue;
+                        row.TargetValue = item.TargetValue.ToString(CultureInfo.InvariantCulture);
+                    }
+                    status.Text = "LIVE WRITE VERIFIED · " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                        + " field(s) written and read back from FM memory. Save the career inside FM to persist to disk.";
+                    stagedPlan = null;
+                    applyButton.IsEnabled = false;
+                    undoButton.IsEnabled = true;
+                    AtlasLog.Info("Live FM27 write verified for " + entityType + " " + uid + " · fields=" + appliedReceipt.Plan.Values.Count);
+                    MessageBox.Show(this,
+                        "FM27 accepted " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                        + " change(s) for " + displayName + ". Every field passed read-back verification." + Environment.NewLine
+                        + Environment.NewLine + "Save the career in Football Manager to persist the changes to the save file. Undo remains available in this profile while the same career session is loaded.",
+                        "FM Atlas · Live changes applied", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    status.Text = "APPLY BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Error("Live entity Apply failed for " + entityType + " " + uid, ex);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Live Apply failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            applyButton.IsEnabled = false;
+            var undoButton = SoftButton("Undo last live batch", async (_, _) =>
+            {
+                if (appliedReceipt is null) return;
+                var answer = MessageBox.Show(this,
+                    "Restore the original values in Football Manager for the last applied batch? Undo is allowed only while every field still contains the value Atlas wrote and the same career remains loaded.",
+                    "Confirm live Undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    await Task.Run(() => LiveEntityMemoryEditService.UndoBatch(appliedReceipt));
+                    foreach (var row in rows)
+                    {
+                        var item = appliedReceipt.Plan.Values.FirstOrDefault(x => x.FieldKey.Equals(row.FieldKey, StringComparison.OrdinalIgnoreCase));
+                        if (item is null) continue;
+                        row.CurrentValue = item.CurrentValue;
+                        row.TargetValue = item.CurrentValue.ToString(CultureInfo.InvariantCulture);
+                    }
+                    status.Text = "LIVE UNDO VERIFIED · original values restored in the same FM career session.";
+                    AtlasLog.Info("Live FM27 undo verified for " + entityType + " " + uid);
+                    appliedReceipt = null;
+                    undoButton.IsEnabled = false;
+                }
+                catch (Exception ex)
+                {
+                    status.Text = "UNDO BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Error("Live entity Undo failed for " + entityType + " " + uid, ex);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Live Undo failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            undoButton.IsEnabled = false;
+            var buttons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+            buttons.Children.Add(stageButton);
+            buttons.Children.Add(applyButton);
+            buttons.Children.Add(undoButton);
+            panel.Children.Add(buttons);
+        }
+        catch (Exception ex)
+        {
+            status.Text = "LIVE FIELDS UNAVAILABLE · " + ex.Message;
+            AtlasLog.Warning("Live entity editor could not load " + entityType + " " + uid + ": " + ex.Message);
+        }
+        return panel;
+    }
+
+    private sealed class LiveEntityEditView
+    {
+        public string FieldKey { get; set; } = "";
+        public string Label { get; set; } = "";
+        public int CurrentValue { get; set; }
+        public string TargetValue { get; set; } = "";
+    }
+
     private async Task<UIElement> BuildLocalEntityFactEditorAsync(
         string entityType, string sourceId, string displayName, IReadOnlyList<AtlasFactRecord> sourceFacts)
     {
@@ -1751,6 +1977,9 @@ public partial class MainWindow : Window
                 .ToList();
             profileEditorTab.Children.Add(await BuildLocalEntityFactEditorAsync(
                 "player", player.SourceId, player.Name, allPlayerFacts));
+            if (_editorEnabled && player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+                profileEditorTab.Children.Add(await BuildLiveEntityEditorAsync(
+                    LiveEntityMemoryEditService.EntityKind.Player, player.SourceId, player.Name));
         }
         if (attributes.Count == 0)
             attributesTab.Children.Add(Txt("No player attribute rows were supplied by the selected source.", 10, false, Muted, wrap: true));
@@ -2346,6 +2575,9 @@ public partial class MainWindow : Window
                 stack.Children.Add(await BuildLocalEntityFactEditorAsync("club", club.SourceId, club.Name, facts));
             else
                 stack.Children.Add(Txt("Enable the local club editor above to create auditable overrides for every imported club, finance, facility and stadium fact. These changes remain inside Atlas.", 9, false, Muted, wrap: true));
+            if (isLive)
+                stack.Children.Add(await BuildLiveEntityEditorAsync(
+                    LiveEntityMemoryEditService.EntityKind.Club, club.SourceId, club.Name));
 
             stack.Children.Add(Txt("CLUB STAFF", 9, true, Teal) is var staffHeading ? Configure(staffHeading, new Thickness(0, 17, 0, 6)) : new TextBlock());
             if (isLive)
@@ -2573,6 +2805,9 @@ public partial class MainWindow : Window
                 profileStack.Children.Add(await BuildLocalEntityFactEditorAsync("staff", person.SourceId, person.Name, facts));
             else
                 profileStack.Children.Add(Txt("Enable the local staff editor above to create auditable overrides for every imported staff fact. These changes remain inside Atlas.", 9, false, Muted, wrap: true));
+            if (person.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+                profileStack.Children.Add(await BuildLiveEntityEditorAsync(
+                    LiveEntityMemoryEditService.EntityKind.Staff, person.SourceId, person.Name));
         }
 
         dg.SelectionChanged += async (_, _) =>
