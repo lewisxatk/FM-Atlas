@@ -87,7 +87,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Display all available provisional live position ratings and the eight personality ratings on player profiles with explicit source-confidence warnings; show live nation and primary position in the player directory.
 - [x] Bind My Manager / My Club shortcuts to the currently detected save-load generation; do not display a previous career's manager as current when FM closes or changes career.
 - [x] Keep live CA/PA/attribute Apply and live editing disabled. The automatic connector is read-only.
-- [ ] Run the live-career database/search regression tests and the new staff attribute decoder tests against the exact current branch head in the Windows workflow.
+- [ ] Run the live-career database/search regression tests, the staff attribute/personality decoder tests, and the new live/offline CA/PA count-filter tests against the exact current branch head in the Windows workflow.
 - [ ] Compare player/staff CA/PA, all mapped player attributes, eight personality ratings, position ratings, player-coach identity fields, manager identity, nation and club against the current FM27 UI on supported Steam and Game Pass builds.
 - [ ] Profile memory/CPU and FM responsiveness with FM closed, at menus and during a match; verify save switch, save close, game restart and duplicate-process behaviour, including two simultaneously running FM installs and permission mismatch.
 - [ ] Add a user-visible capability/status matrix for read-only, provisional and write-supported fields; maintain write gates until mapping, identity, read-back and rollback are independently validated.
@@ -112,6 +112,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 ## 5. Player discovery and advanced search
 
 - [x] Main Players directory retains fast name/club/nation/UID lookup, position filtering, paged/virtualized results and player-profile opening; live player CA/PA values are now surfaced by database search, including explicit provisional field status.
+- [x] Add direct CA/PA min/max filters to the existing Players finder for both offline and live sources; accept signed PA values (-10 to 200), validate ranges, support filter-only searches, and keep source counts aligned with the active bounds.
 - [~] Existing player results are indexed/paged in source; cancellation and full stable sorting still require validation and implementation.
 - [x] Add a unified Advanced Search workspace combining core player fields, dynamically discovered PlayerAttributes and latest-save facts in one field/category builder.
 - [x] Add a Cancel search action with cancellation propagated through SQLite and last successful result-page retention.
