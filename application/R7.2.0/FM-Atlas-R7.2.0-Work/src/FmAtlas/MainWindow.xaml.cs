@@ -343,6 +343,7 @@ public partial class MainWindow : Window
         AddNav("▦", "Dashboard");
         AddNavGroup("SCOUTING");
         AddNav("♟", "Players");
+        AddNav("⌕", "Advanced Search");
         AddNav("⌕", "Recruitment");
         AddNav("◆", "Value Finder");
         AddNav("⌗", "Attribute Search");
@@ -468,6 +469,7 @@ public partial class MainWindow : Window
             UIElement content = page switch
             {
                 "Dashboard" => await DashboardPageAsync(),
+                "Advanced Search" => await AdvancedSearchWorkspaceAsync(),
                 "Players" => await PlayerWorkspaceAsync(false),
                 "Recruitment" => await PlayerWorkspaceAsync(true),
                 "Clubs" => await ClubsPageAsync(),
@@ -572,6 +574,7 @@ public partial class MainWindow : Window
     private static string PageDescription(string page) => page switch
     {
         "Dashboard" => "Your career at a glance · data coverage · import health",
+        "Advanced Search" => "Choose player identity, attributes/personality or performance-stat criteria",
         "Players" => "Player intelligence · search · profile · attributes",
         "Recruitment" => "Build an explainable shortlist from your imported career data",
         "Squad Architect" => "Inspect club squads, age distribution and positional coverage",
