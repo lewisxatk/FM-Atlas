@@ -60,7 +60,7 @@ public partial class MainWindow
         var competition = new ComboBox { Width = 180, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Competition cohort" };
         var season = new ComboBox { Width = 140, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Season cohort" };
         var position = new ComboBox { Width = 130, Height = 34, Margin = new Thickness(3), ItemsSource = new[] { "All positions", "Goalkeeper", "Defender", "Midfielder", "Attacker" }, SelectedIndex = 0 };
-        var roleProfile = new ComboBox { Width = 190, Height = 34, Margin = new Thickness(3), IsTextSearchEnabled = true };
+        var roleProfile = new ComboBox { Width = 190, Height = 34, Margin = new Thickness(3), IsTextSearchEnabled = true, DisplayMemberPath = nameof(ScoutingRoleProfile.Name) };
         roleProfile.Items.Add("All roles");
         foreach (var profile in ScoutingRecruitmentService.RoleProfiles) roleProfile.Items.Add(profile);
         roleProfile.SelectedIndex = 0;
