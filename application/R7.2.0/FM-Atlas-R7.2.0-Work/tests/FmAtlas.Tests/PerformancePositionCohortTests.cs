@@ -83,6 +83,9 @@ public sealed class PerformancePositionCohortTests
         }
         finally
         {
+            // Microsoft.Data.Sqlite pools connections by default; clear the pool before
+            // deleting the temporary database on Windows.
+            SqliteConnection.ClearAllPools();
             if (File.Exists(databasePath)) File.Delete(databasePath);
             if (File.Exists(databasePath + "-wal")) File.Delete(databasePath + "-wal");
             if (File.Exists(databasePath + "-shm")) File.Delete(databasePath + "-shm");
