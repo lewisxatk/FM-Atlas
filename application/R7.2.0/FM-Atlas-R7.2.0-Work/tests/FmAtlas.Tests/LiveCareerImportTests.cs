@@ -20,6 +20,8 @@ public sealed class LiveCareerImportTests
         Assert.Equal(147, player.CurrentAbility);
         Assert.Equal(-8, player.PotentialAbility);
         Assert.Equal("Fixture FC", player.Club);
+        Assert.Equal("England", player.Nation);
+        Assert.Equal("ST", player.Position);
         Assert.Contains("provisional", player.DataOrigin, StringComparison.OrdinalIgnoreCase);
 
         var byAbility = await database.SearchLivePlayersAsync("Fixture Player", minCa: 140, minPa: -9, maxPa: -5);
@@ -28,6 +30,23 @@ public sealed class LiveCareerImportTests
         var byAttribute = await database.SearchLivePlayersAsync(
             "Fixture Player", attributeName: "finishing", minAttribute: 16, maxAttribute: 18);
         Assert.Single(byAttribute);
+
+        var byPersonality = await database.SearchLivePlayersAsync(
+            "Fixture Player", attributeName: "professionalism", minAttribute: 16, maxAttribute: 19);
+        Assert.Single(byPersonality);
+
+        var byPosition = await database.SearchLivePlayersAsync("Fixture Player", positionFilter: "ST");
+        Assert.Single(byPosition);
+        var wrongPosition = await database.SearchLivePlayersAsync("Fixture Player", positionFilter: "GK");
+        Assert.Empty(wrongPosition);
+
+        var advanced = await database.SearchAsync(
+            "Fixture Player", null, null, "ATTACKERS", null, "England", null,
+            minCa: 140, minPa: -9, maxPa: -5);
+        Assert.Contains(advanced, result => result.SourceId == "LIVE:7001");
+
+        var personality = await database.GetPlayerAttributesAsync("LIVE:7001");
+        Assert.Equal(18d, personality["professionalism"]);
 
         var tooHigh = await database.SearchLivePlayersAsync("Fixture Player", minCa: 180);
         Assert.Empty(tooHigh);
@@ -197,8 +216,9 @@ public sealed class LiveCareerImportTests
             "Generated-player evidence is not mapped in this regression fixture.",
             147, -8,
             new Dictionary<string, double> { ["Finishing"] = 17 },
-            new Dictionary<string, double>(),
-            new Dictionary<string, double> { ["ST"] = 18 });
+            new Dictionary<string, double> { ["professionalism"] = 18, ["ambition"] = 15 },
+            new Dictionary<string, double> { ["ST"] = 18 },
+            NationName: "England", NationUid: 1646);
         var manager = new LiveStaffRecord(
             9001, "Fixture Manager", 0, 0x130000, true,
             new DateTime(1985, 7, 8), 41, "England", 1646,
