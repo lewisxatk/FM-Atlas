@@ -254,4 +254,73 @@ public sealed class LiveCareerDetectionTests
         Assert.Equal(20, humanManager["controversy"]);
         Assert.Throws<ArgumentOutOfRangeException>(() => StaffAttributeDecoder.DecodePersonality(staffObject, 0x100));
     }
+
+    [Fact]
+    public async Task AbilityRangeSearchAndCountsFilterLiveAndOfflinePeopleConsistently()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.AbilityFilters-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+
+        try
+        {
+            var database = new ScoutDatabase(databasePath);
+            await database.InitialiseAsync();
+            await using (var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder { DataSource = databasePath, ForeignKeys = true }.ToString()))
+            {
+                await connection.OpenAsync();
+                var run = connection.CreateCommand();
+                run.CommandText = """
+                    INSERT INTO LiveImportRuns(GameVersion,ModuleSha256,StartedUtc,CompletedUtc,Status,PlayersSeen,PlayersImported,ClubsSeen,ClubsImported,StaffSeen,StaffImported)
+                    VALUES('FM27 Steam','profile-fingerprint','2026-11-14T00:00:00Z','2026-11-14T00:00:05Z','Completed',2,2,0,0,0,0);
+                    SELECT last_insert_rowid();
+                    """;
+                var runId = Convert.ToInt64(await run.ExecuteScalarAsync());
+
+                var livePlayers = connection.CreateCommand();
+                livePlayers.CommandText = """
+                    INSERT INTO LivePlayers(PlayerUid,PlayerName,ArrayIndex,ObjectAddress,SourceRunId,NameValidation,RelationshipValidation,UpdatedUtc)
+                    VALUES
+                    (101,'Live Target',0,'0x10000',$run,'ProfileMatched-Provisional','ProfileMatched-Provisional','2026-11-14T00:00:05Z'),
+                    (102,'Live Other',1,'0x20000',$run,'ProfileMatched-Provisional','ProfileMatched-Provisional','2026-11-14T00:00:05Z');
+                    """;
+                livePlayers.Parameters.AddWithValue("$run", runId);
+                await livePlayers.ExecuteNonQueryAsync();
+
+                var liveFacts = connection.CreateCommand();
+                liveFacts.CommandText = """
+                    INSERT INTO LivePlayerFacts(PlayerUid,FieldKey,NumericValue,TextValue,ValidationStatus,SourceRunId,UpdatedUtc) VALUES
+                    (101,'ability.current_ability',145,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (101,'ability.potential_ability',-8,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (102,'ability.current_ability',95,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (102,'ability.potential_ability',160,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z');
+                    """;
+                liveFacts.Parameters.AddWithValue("$run", runId);
+                await liveFacts.ExecuteNonQueryAsync();
+
+                var localPlayers = connection.CreateCommand();
+                localPlayers.CommandText = """
+                    INSERT INTO Players(SourceId,Name,CurrentAbility,PotentialAbility,DataOrigin,UpdatedUtc) VALUES
+                    ('LOCAL:1','Local Target',145,-8,'Fixture','2026-11-14T00:00:05Z'),
+                    ('LOCAL:2','Local Other',95,160,'Fixture','2026-11-14T00:00:05Z');
+                    """;
+                await localPlayers.ExecuteNonQueryAsync();
+            }
+
+            var localRows = await database.SearchAsync("", null, null, null, null, null, null,
+                minCa: 120, minPa: -10, maxPa: -1);
+            Assert.Equal("LOCAL:1", Assert.Single(localRows).SourceId);
+            Assert.Equal(1, await database.CountLocalPlayersAsync("", minCa: 120, minPa: -10, maxPa: -1));
+
+            Assert.Equal(1, await database.CountLivePlayersAsync("", minCa: 120, minPa: -10, maxPa: -1));
+            Assert.Equal(0, await database.CountLivePlayersAsync("", minCa: 150));
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
 }
