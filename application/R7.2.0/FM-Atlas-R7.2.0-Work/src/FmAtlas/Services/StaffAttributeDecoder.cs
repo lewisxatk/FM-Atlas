@@ -67,7 +67,7 @@ public static class StaffAttributeDecoder
         {
             if ((uint)field.Offset >= (uint)staffObject.Length) continue;
             var raw = staffObject[field.Offset];
-            if (raw > 100) continue;
+            if (raw is < 1 or > 100) continue;
             values[field.Key] = (raw + 2) / 5;
         }
 
