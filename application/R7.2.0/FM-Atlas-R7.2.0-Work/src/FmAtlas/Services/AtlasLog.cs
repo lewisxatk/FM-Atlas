@@ -31,6 +31,9 @@ public static class AtlasLog
     public static void Error(string message, Exception? exception = null)
         => Write("ERROR", exception is null ? message : message + " | " + exception.GetType().Name + ": " + exception.Message);
 
+    /// <summary>Applies the same privacy rules used by the rolling support log.</summary>
+    public static string RedactForSupport(string value) => Redact(value);
+
     private static void Write(string level, string message)
     {
         try
@@ -55,6 +58,9 @@ public static class AtlasLog
         // and standalone Football Manager save filenames before writing to the default support log.
         text = Regex.Replace(text, @"(?i)\b[A-Z]:\\[^\s""<>|]+", "[path redacted]");
         text = Regex.Replace(text, @"(?i)\b[^\\/\s]+\.(?:fm|fmf|dat)\b", "[save-file]");
+        // Identity-conflict diagnostics can contain actual and expected person names.
+        // Quoted values are not needed to diagnose the failure; omit them from support logs.
+        text = Regex.Replace(text, @"'[^']*'", "'[redacted]'");
         return text.Length > 4000 ? text[..4000] + "…" : text;
     }
 
