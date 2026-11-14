@@ -78,6 +78,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Decode the 19 FM27 staff coaching attributes and two direct 1–20 ratings from the documented staff layout; keep these base offsets unchanged for the human-manager identity shift.
 - [x] Align staff attribute fact keys with FMLibreEditor/FM27 layout names (`judging_ability`, `judging_potential`, `judging_staff`) and add regression coverage against invented aliases.
 - [x] Persist the decoded staff coaching/direct ratings as provisional `staff_attributes.*` facts and expose them automatically in the existing Staff profile fact groups.
+- [x] Present staff coaching attributes, personality and contract facts in dedicated sections of the existing Staff profile, with weekly wage explicitly labelled GBP/week and source values kept provisional.
 - [x] Decode the eight FM27 staff personality ratings using the identity-block shift (including the human-manager +0x340 layout) and persist them as provisional `staff_personality.*` facts.
 - [x] Read available staff contract facts from the documented contract object: weekly wage in GBP, signed date, expiry date and joined-club date; persist only range-valid/readable values.
 - [ ] Compare staff coaching attributes, authority and working-with-youngsters against the FM27 staff profile on the installed build before promoting any field beyond provisional.
