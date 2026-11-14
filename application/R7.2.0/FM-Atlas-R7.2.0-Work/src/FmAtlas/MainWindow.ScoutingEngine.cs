@@ -42,11 +42,14 @@ public partial class MainWindow
         intro.Children.Add(Txt("A Wyscout / StatsBomb-inspired recruitment workspace. Import genuine event data or a user-owned Wyscout CSV, compare players within like-for-like cohorts, and inspect the source behind every metric. FM save statistics remain a separate source family.", 10, false, Muted, wrap: true));
         var importBar = new WrapPanel { Margin = new Thickness(0, 10, 0, 4) };
         TextBlock status = null!;
+        CancellationTokenSource? activeScoutingImport = null;
         var importStatsBomb = PrimaryButton("Import StatsBomb Open Data", async (_, _) => await ImportStatsBombAsync());
         var importWyscout = SoftButton("Import Wyscout CSV", async (_, _) => await ImportWyscoutAsync());
         var reload = SoftButton("Reload saved datasets", async (_, _) => { allRows = (await LoadScoutingDatasetAsync()).ToList(); RefreshChoices(); status.Text = $"Loaded {allRows.Count:N0} player-season records from local datasets."; });
         var fmMatrix = SoftButton("Open FM Scouting Matrix", async (_, _) => await NavigateAsync("Scouting Matrix"));
-        importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload); importBar.Children.Add(fmMatrix);
+        var cancelScoutingImport = SoftButton("Cancel import", (_, _) => activeScoutingImport?.Cancel());
+        cancelScoutingImport.IsEnabled = false;
+        importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload); importBar.Children.Add(fmMatrix); importBar.Children.Add(cancelScoutingImport);
         intro.Children.Add(importBar);
         status = Txt($"{allRows.Count:N0} player-season records loaded · imports are stored locally on this PC.", 9, false, Muted, wrap: true);
         status.Margin = new Thickness(0, 4, 0, 2);
@@ -306,10 +309,12 @@ public partial class MainWindow
             if (dialog.ShowDialog(this) != true) return;
             try
             {
-                importStatsBomb.IsEnabled = false; importWyscout.IsEnabled = false;
+                importStatsBomb.IsEnabled = false; importWyscout.IsEnabled = false; cancelScoutingImport.IsEnabled = true;
+                using var cancellation = new CancellationTokenSource();
+                activeScoutingImport = cancellation;
                 status.Text = "Reading StatsBomb matches, lineups and event files…";
                 var progress = new Progress<string>(x => status.Text = x);
-                var imported = await Task.Run(() => StatsBombOpenDataImporter.ImportAsync(dialog.FileName, CancellationToken.None, progress));
+                var imported = await Task.Run(() => StatsBombOpenDataImporter.ImportAsync(dialog.FileName, cancellation.Token, progress));
                 allRows.RemoveAll(x => x.SourceName == "StatsBomb Open Data");
                 allRows.AddRange(imported.Players);
                 await SaveScoutingDatasetAsync(allRows);
@@ -317,7 +322,7 @@ public partial class MainWindow
                 status.Text = $"StatsBomb import complete · {imported.Summary.MatchesImported:N0} matches · {imported.Summary.EventsRead:N0} events · {imported.Players.Count:N0} player/competition/season records. {string.Join(" ", imported.Summary.Warnings.Take(3))}";
             }
             catch (Exception ex) { AtlasLog.Error("StatsBomb Open Data import failed.", ex); status.Text = "StatsBomb import failed: " + ex.Message; }
-            finally { importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true; }
+            finally { activeScoutingImport = null; cancelScoutingImport.IsEnabled = false; importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true; }
         }
 
         async Task ImportWyscoutAsync()
@@ -326,9 +331,11 @@ public partial class MainWindow
             if (dialog.ShowDialog(this) != true) return;
             try
             {
-                importStatsBomb.IsEnabled = false; importWyscout.IsEnabled = false;
+                importStatsBomb.IsEnabled = false; importWyscout.IsEnabled = false; cancelScoutingImport.IsEnabled = true;
+                using var cancellation = new CancellationTokenSource();
+                activeScoutingImport = cancellation;
                 status.Text = "Importing user-owned Wyscout season statistics…";
-                var imported = await Task.Run(() => WyscoutCsvImporter.ImportAsync(dialog.FileName));
+                var imported = await Task.Run(() => WyscoutCsvImporter.ImportAsync(dialog.FileName, cancellation.Token));
                 allRows.RemoveAll(x => x.SourceName == "Wyscout user CSV");
                 allRows.AddRange(imported);
                 await SaveScoutingDatasetAsync(allRows);
@@ -336,7 +343,7 @@ public partial class MainWindow
                 status.Text = $"Wyscout CSV import complete · {imported.Count:N0} player-season records. Provider fields and source units are preserved.";
             }
             catch (Exception ex) { AtlasLog.Error("Wyscout CSV import failed.", ex); status.Text = "Wyscout CSV import failed: " + ex.Message; }
-            finally { importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true; }
+            finally { activeScoutingImport = null; cancelScoutingImport.IsEnabled = false; importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true; }
         }
 
         void ExportScoutingRows()
