@@ -7,6 +7,7 @@ on:
       - feature/v9-all-roadmap
       - feature/fm27-fmrte-parity-editor
       - feature/fm27-live-editor-write-parity
+      - feature/fm27-live-editor-activation
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
@@ -14,6 +15,7 @@ on:
     branches:
       - fix/r7.2.0-release-build-integration
       - rebuild/v8-full-product-rebuild
+      - feature/v9-all-roadmap
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
