@@ -59,10 +59,6 @@ The current implementation checklist, architecture status and quick-start guidan
 - `54600473` — add staff personality and contract fields to the live staff reader.
 - `011f54e0` — persist staff personality and contract facts in the staff profile store.
 - `dcfe6f52`, `38b1b02d` — add personality-shift and expanded staff-fact regression coverage.
-- `b39c3ae9` — decode staff personality with the ordinary/human-manager identity shift.
-- `54600473` — add staff personality and contract fields to the live staff reader.
-- `011f54e0` — persist staff personality and contract facts in the staff profile store.
-- `dcfe6f52`, `38b1b02d` — add personality-shift and expanded staff-fact regression coverage.
 - The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
 
 ## Current user workflow
