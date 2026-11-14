@@ -51,6 +51,11 @@ public partial class MainWindow
         DataGrid grid = null!;
         Button compareSelectedButton = null!;
         Button similarSelectedButton = null!;
+        (string Label, string Key)[] sortOptions = Array.Empty<(string Label, string Key)>();
+        ComboBox primarySortPicker = null!;
+        ComboBox primarySortDirection = null!;
+        ComboBox secondarySortPicker = null!;
+        ComboBox secondarySortDirection = null!;
 
         var content = new StackPanel { Margin = new Thickness(2, 0, 2, 18) };
         var introduction = Card(new StackPanel(), 18, new Thickness(0, 0, 0, 12));
@@ -126,7 +131,7 @@ public partial class MainWindow
         toolbar.Children.Add(SoftButton("Multi-entity Search", (_, _) => ShowGlobalSearch()));
         builderStack.Children.Add(toolbar);
 
-        var sortOptions = new (string Label, string Key)[]
+        sortOptions = new (string Label, string Key)[]
         {
             ("Player name", "player:Name"),
             ("Age", "player:Age"),
@@ -138,27 +143,27 @@ public partial class MainWindow
             ("Potential ability", "player:PotentialAbility"),
             ("Market value", "player:Value")
         };
-        var primarySortPicker = new ComboBox
+        primarySortPicker = new ComboBox
         {
             Width = 175, Height = 32, FontSize = 10, Margin = new Thickness(0, 0, 8, 0),
             ItemsSource = sortOptions.Select(x => x.Label).ToList(),
             ToolTip = "Primary sort. Applied in SQLite before paging, not just to the visible page."
         };
         primarySortPicker.SelectedItem = "Player name";
-        var primarySortDirection = new ComboBox
+        primarySortDirection = new ComboBox
         {
             Width = 112, Height = 32, FontSize = 10, Margin = new Thickness(0, 0, 8, 0),
             ItemsSource = new[] { "Ascending", "Descending" }
         };
         primarySortDirection.SelectedIndex = 0;
-        var secondarySortPicker = new ComboBox
+        secondarySortPicker = new ComboBox
         {
             Width = 175, Height = 32, FontSize = 10, Margin = new Thickness(0, 0, 8, 0),
             ItemsSource = new[] { "(None)" }.Concat(sortOptions.Select(x => x.Label)).ToList(),
             ToolTip = "Optional secondary sort for ties in the primary field."
         };
         secondarySortPicker.SelectedIndex = 0;
-        var secondarySortDirection = new ComboBox
+        secondarySortDirection = new ComboBox
         {
             Width = 112, Height = 32, FontSize = 10, Margin = new Thickness(0, 0, 8, 0),
             ItemsSource = new[] { "Ascending", "Descending" }

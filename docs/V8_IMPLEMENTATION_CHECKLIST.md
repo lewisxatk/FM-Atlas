@@ -103,7 +103,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Ensure missing/undecoded values are never silently treated as zero or as a failed filter match.
 - [~] Add regression coverage for universal Advanced Search core fields, imported attributes, save facts, ALL/ANY logic, stable paging and the 60-condition guard. Broader mixed-field 40k+ dataset and full multi-sort validation remain outstanding.
 - [x] Four baseline Windows .NET integration tests passed on Actions run #168: valid NDJSON commit, manifest-count mismatch rollback, malformed extra-table rollback, and preservation of a previously committed snapshot.
-- [~] Two additional Windows .NET integration tests are now committed: cancellation immediately before commit must roll back all new rows, and skipped staff rows must leave reconciliation warnings persisted in `WarningsJson`. The latest Windows run #172 includes both tests; their result is not confirmed yet. WAL contention and broader relationship checks remain outstanding.
+- [x] Cancellation-before-commit rollback and persisted skipped-staff-warning integration tests passed in Windows Actions run #208; subsequent run #210 also passed the expanded integration suite. WAL contention and broader relationship checks remain outstanding.
 
 ## 6. Player profiles and development
 
@@ -191,6 +191,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
+| 2026-11-14 | Advanced Search sort-control definite-assignment repair | Pending CI | Release run #212 exposed that search-button callbacks capture the sort-option array and four sort pickers before their declarations. Predeclared the typed sort state at workspace scope, then assigned the controls before rendering the sort toolbar; the two-level SQL whitelist, paging and saved-profile behaviour remain unchanged. Windows verification pending. |
 | 2026-11-14 | Multi-player shared-category comparison radar | Pending CI | Added a separate comparison-radar service and overlay while preserving the full side-by-side table. Categories are averaged from actual 1–20 source ratings and plotted only when every selected player has data for that category; Hidden and Personality are excluded. Added tests for category means, shared coverage and missing-category handling. Windows verification pending. |
 | 2026-11-14 | Advanced Search multi-sort and position filter parity | Pending CI | Added two-key SQL-whitelisted server-side sorting before pagination, persisted primary/secondary sort fields and directions in local profiles, and wired the Players dropdown to the shared canonical 15-position catalogue including Sweeper. Added a database regression for sort tie-breaks across pages and the SW position filter. Windows verification pending. |
 | 2026-11-14 | Fifteen-slot position suitability mapping | Pending CI | Added a dedicated tested service for the 15 source position slots and five 1–20 display bands; canonical STC is used with ST/position aliases accepted. Zero, missing, non-finite, out-of-range and unknown fields are unrated. The profile map consumes imported position facts and Verified live facts only. Windows verification pending. |
