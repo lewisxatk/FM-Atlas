@@ -25,10 +25,9 @@ namespace FmAtlas;
 public partial class MainWindow : Window
 {
     private static string _themeMode = LoadThemeMode();
-    // Career/session detection stays on, but full entity-array memory reads remain fail-closed
-    // until bounded cancellation and real FM performance/field-witness checks are complete.
-    // Keep the importer and database integration available for controlled test fixtures.
-    private static bool LiveMemoryImportEnabled => false;
+    // Read-only entity-array scans are bounded by a two-minute deadline and can be cancelled
+    // from the toolbar. Live editing remains fail-closed until field-level write evidence passes.
+    private static bool LiveMemoryImportEnabled => true;
     private static bool LiveMemoryEditingEnabled => false;
     private static Brush Ink => Brush("#E8EEF4");
     private static Brush Teal => Brush("#C6F36B");
@@ -55,6 +54,9 @@ public partial class MainWindow : Window
     private DispatcherTimer? _liveCareerTimer;
     private bool _liveCareerProbeBusy;
     private bool _liveImportBusy;
+    private bool _liveScanCancelledByUser;
+    private string? _activeLiveScanSessionKey;
+    private CancellationTokenSource? _liveScanCancellation;
     private string? _lastAttemptedLiveSession;
     private DateTime _nextLiveRetryUtc = DateTime.MinValue;
     private LiveCareerProbe? _currentLiveProbe;
@@ -183,20 +185,25 @@ public partial class MainWindow : Window
         actions.Children.Add(ToolbarIcon("\uE721", "Global search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
         actions.Children.Add(ToolbarIcon("\uE71C", "Open Advanced Search and choose player, attribute or performance-stat filters.", async (_, _) => await NavigateAsync("Advanced Search")));
         actions.Children.Add(ToolbarIcon("\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
-        _cancelImportButton = ToolbarIcon("\uE711", "Cancel the current career-save import. Any uncommitted database transaction is rolled back.", (_, _) =>
+        _cancelImportButton = ToolbarIcon("\uE711", "Cancel the current live-game scan or career-save import. An uncommitted snapshot is not published.", (_, _) =>
         {
+            if (_liveScanCancellation is not null)
+            {
+                _liveScanCancelledByUser = true;
+                _liveScanCancellation.Cancel();
+            }
             _saveImportCancellation?.Cancel();
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Cancellation requested — safely stopping at the next import checkpoint…";
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Cancellation requested — safely stopping at the next scan/import checkpoint…";
         });
-        _cancelImportButton.IsEnabled = _saveImportCancellation is not null;
-        _cancelImportButton.Visibility = _saveImportCancellation is null ? Visibility.Collapsed : Visibility.Visible;
+        _cancelImportButton.IsEnabled = _saveImportCancellation is not null || _liveScanCancellation is not null;
+        _cancelImportButton.Visibility = _saveImportCancellation is not null || _liveScanCancellation is not null ? Visibility.Visible : Visibility.Collapsed;
         actions.Children.Add(_cancelImportButton);
         actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
         actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
         actions.Children.Add(ToolbarIcon("\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
         actions.Children.Add(ToolbarIcon("\uE80F", "Open your human-manager profile in the Staff directory.", async (_, _) => await OpenMyManagerAsync()));
         actions.Children.Add(ToolbarIcon("\uE77B", "Open your current club in the Club directory.", async (_, _) => await OpenMyClubAsync()));
-        _liveLoadButton = ToolbarIcon("\uE72C", "Detect the loaded FM27 career. Full live-memory scanning is paused pending bounded-read and FM stability verification.", async (_, _) => await LoadLiveCareerAsync());
+        _liveLoadButton = ToolbarIcon("\uE72C", "Connect to or refresh the currently loaded FM27 career. Atlas also detects save changes automatically.", async (_, _) => await LoadLiveCareerAsync());
         _liveLoadButton.IsEnabled = true;
         actions.Children.Add(_liveLoadButton);
         actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle Monolith Glass, Glass Dark, Glass Light and Studio.", async (_, _) => await CycleThemeAsync()));
@@ -419,9 +426,9 @@ public partial class MainWindow : Window
             bottomStack.Children.Add(Txt("GAME CONNECTION", 9, true, Teal));
             var stateRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 3) };
             stateRow.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
-            stateRow.Children.Add(Txt("Optional · offline-first", 10, true, Ink));
+            stateRow.Children.Add(Txt("Automatic · read-only", 10, true, Ink));
             bottomStack.Children.Add(stateRow);
-            bottomStack.Children.Add(Txt("Career save import is read-only. Live scanning and writes are paused in V8.", 8, false, Muted, wrap: true));
+            bottomStack.Children.Add(Txt("FM27 career detection and cancellable live indexing are active. Live editing remains disabled.", 8, false, Muted, wrap: true));
         }
         else
         {
@@ -2769,12 +2776,20 @@ public partial class MainWindow : Window
         _liveCareerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _liveCareerTimer.Tick += async (_, _) =>
         {
-            if (_liveCareerProbeBusy || _liveImportBusy) return;
+            if (_liveCareerProbeBusy) return;
             _liveCareerProbeBusy = true;
             try
             {
                 var probe = await Task.Run(LiveCareerMonitor.Probe);
                 _currentLiveProbe = probe;
+                if (_liveImportBusy)
+                {
+                    // Keep checking the generation while the worker scans. Cancel promptly
+                    // if FM switches save, exits or changes to an unsupported build.
+                    if (!probe.IsCareerLoaded || !string.Equals(probe.SessionKey, _activeLiveScanSessionKey, StringComparison.Ordinal))
+                        _liveScanCancellation?.Cancel();
+                    return;
+                }
                 if (probe.IsCareerLoaded)
                 {
                     if (_connectionSummary is not null) _connectionSummary.Text = probe.Status;
@@ -2873,7 +2888,7 @@ public partial class MainWindow : Window
             if (!automatic) ShowLiveScanPaused();
             return;
         }
-        if (_liveImportBusy) return;
+        if (_liveImportBusy || _saveImportCancellation is not null) return;
         var session = expectedSession ?? await Task.Run(LiveCareerMonitor.Probe);
         if (!session.IsCareerLoaded)
         {
@@ -2884,18 +2899,32 @@ public partial class MainWindow : Window
         }
 
         _liveImportBusy = true;
+        _liveScanCancelledByUser = false;
+        _activeLiveScanSessionKey = session.SessionKey;
         _lastAttemptedLiveSession = session.SessionKey;
-        _nextLiveRetryUtc = DateTime.UtcNow.AddSeconds(30);
+        _nextLiveRetryUtc = DateTime.UtcNow.AddMinutes(5);
+        using var scanCancellation = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        _liveScanCancellation = scanCancellation;
         if (_liveLoadButton is not null) _liveLoadButton.IsEnabled = false;
+        if (_cancelImportButton is not null)
+        {
+            _cancelImportButton.IsEnabled = true;
+            _cancelImportButton.Visibility = Visibility.Visible;
+        }
         if (_liveLoadProgress is not null) { _liveLoadProgress.Visibility = Visibility.Visible; _liveLoadProgress.IsIndeterminate = true; }
         if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connecting to the loaded FM27 career · checking save generation…";
         if (_connectionSummary is not null) _connectionSummary.Text = session.Status;
         try
         {
             await Dispatcher.Yield(DispatcherPriority.Background);
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Reading players, staff, clubs and your manager…";
-            AtlasLog.Info($"Starting read-only FM27 live scan: pid={session.ProcessId}; profile={session.ProfileId}; saveLoadCounter={session.SaveLoadCounter}.");
-            var payload = await Task.Run(() => LiveDataImporter.Extract(session));
+            var scanProgress = new Progress<string>(message =>
+            {
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = message;
+            });
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Reading players, staff, clubs and your manager… (2-minute safety limit; Cancel available)";
+            AtlasLog.Info($"Starting bounded read-only FM27 live scan: pid={session.ProcessId}; profile={session.ProfileId}; saveLoadCounter={session.SaveLoadCounter}; maximumDuration=00:02:00.");
+            var payload = await Task.Run(() => LiveDataImporter.Extract(session, scanCancellation.Token, scanProgress, TimeSpan.FromMinutes(2)));
+            scanCancellation.Token.ThrowIfCancellationRequested();
             if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Saving live career snapshot and manager context to Atlas…";
             var result = await RunDatabaseAsync(() => _database.ImportLiveSnapshotAsync(payload));
             AtlasLog.Info($"Live career import completed: players={result.PlayersImported:N0}/{result.PlayersSeen:N0}; staff={result.StaffImported:N0}/{result.StaffSeen:N0}; clubs={result.ClubsImported:N0}; player facts={result.AttributeRowsImported:N0}; session={session.SessionKey}.");
@@ -2917,10 +2946,33 @@ public partial class MainWindow : Window
             if (!automatic && string.Equals(_activePage, "Dashboard", StringComparison.OrdinalIgnoreCase))
                 await NavigateAsync("Dashboard");
         }
+        catch (OperationCanceledException)
+        {
+            var sessionChanged = _currentLiveProbe is null
+                || !string.Equals(_currentLiveProbe.SessionKey, session.SessionKey, StringComparison.Ordinal);
+            if (_liveScanCancelledByUser)
+            {
+                _lastAttemptedLiveSession = session.SessionKey;
+                _nextLiveRetryUtc = DateTime.MaxValue;
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Live scan cancelled. Your previous snapshot remains intact; use Connect / Refresh to try again.";
+            }
+            else if (sessionChanged)
+            {
+                _lastAttemptedLiveSession = null;
+                _nextLiveRetryUtc = DateTime.MinValue;
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Career changed during scan. Discarded the partial read; connecting to the newly loaded career.";
+            }
+            else
+            {
+                _nextLiveRetryUtc = DateTime.UtcNow.AddMinutes(5);
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Live scan reached its 2-minute safety limit. Previous snapshot retained; use Connect / Refresh to retry.";
+            }
+            AtlasLog.Warning("The live career scan was cancelled or reached its safety deadline. No partial snapshot was committed.");
+        }
         catch (Exception ex)
         {
-            AtlasLog.Error("Live career import failed; no partial snapshot was committed. Atlas will retry this same career in 30 seconds.", ex);
-            _nextLiveRetryUtc = DateTime.UtcNow.AddSeconds(30);
+            AtlasLog.Error("Live career import failed; no partial snapshot was committed. Atlas will retry after a five-minute cooldown.", ex);
+            _nextLiveRetryUtc = DateTime.UtcNow.AddMinutes(5);
             if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connection stopped safely · retry scheduled · " + ex.Message;
             if (_connectionSummary is not null) _connectionSummary.Text = "FM27 connection stopped safely · " + ex.Message;
             if (!automatic)
@@ -2930,6 +2982,13 @@ public partial class MainWindow : Window
         finally
         {
             _liveImportBusy = false;
+            _activeLiveScanSessionKey = null;
+            if (ReferenceEquals(_liveScanCancellation, scanCancellation)) _liveScanCancellation = null;
+            if (_saveImportCancellation is null && _cancelImportButton is not null)
+            {
+                _cancelImportButton.IsEnabled = false;
+                _cancelImportButton.Visibility = Visibility.Collapsed;
+            }
             if (_liveLoadButton is not null) _liveLoadButton.IsEnabled = true;
             if (_liveLoadProgress is not null) { _liveLoadProgress.IsIndeterminate = false; _liveLoadProgress.Visibility = Visibility.Collapsed; }
         }
@@ -2937,7 +2996,7 @@ public partial class MainWindow : Window
 
     private async Task ImportCareerSaveAsync()
     {
-        if (_saveImportCancellation is not null) return;
+        if (_saveImportCancellation is not null || _liveImportBusy) return;
         var open = new OpenFileDialog { Title = "Select a COPY of your Football Manager career save", Filter = "Football Manager saves (*.fm;*.fmf;*.dat)|*.fm;*.fmf;*.dat|All files (*.*)|*.*", CheckFileExists = true };
         if (open.ShowDialog(this) != true) return;
         if (!await FmsaveBridgeService.IsAvailableAsync())
