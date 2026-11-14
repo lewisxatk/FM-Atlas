@@ -78,7 +78,9 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add import stages, progress reporting, cancellation and elapsed-time reporting.
 - [ ] Import into staging snapshot; validate counts/relationships; publish atomically only after success.
 - [ ] Preserve last known-good snapshot on cancellation, parse errors or database lock.
-- [ ] Coordinate SQLite writes with a single-writer queue, busy timeout, prepared commands and tested WAL usage.
+- [x] Add a process-wide SQLite writer semaphore around mutating/import/undo/checkpoint operations and a 30-second busy timeout (commit `e63668db`).
+- [ ] Stress-test the writer gate under concurrent imports and page reads; verify WAL checkpoint/backup behaviour.
+- [ ] Further optimise imports with prepared commands and bounded batch inserts; retain existing indexes and transaction safety.
 - [ ] Add retryable lock handling without hiding database failures.
 - [ ] Keep live identity, career-save records, validated facts and local edits clearly separated in storage and UI.
 - [ ] Show source, snapshot ID, evidence/validation status and coverage on relevant fields and metrics.
@@ -170,3 +172,4 @@ Implementation and verification are tracked separately. A feature can be impleme
 |---|---|---|---|
 | 2026-11-14 | Initial V8 durable checklist | `b76f39d7` | Created this checklist; implementation and runtime validation intentionally separate. |
 | 2026-11-14 | Windows x64 build/package automation | `528dfb02` | Workflow now runs on V8 branch pushes, builds Release, publishes self-contained win-x64 output and uploads a ZIP artifact. CI result not yet observed. |
+| 2026-11-14 | SQLite writer coordination and busy timeout | `e63668db` | Added one process-wide writer semaphore around all identified mutations/imports/undo/checkpoint methods and a 30-second lock wait. Concurrency behaviour still requires tests. |
