@@ -190,7 +190,9 @@ public partial class MainWindow
         {
             if (grid.SelectedItem is not ScoutingGridRow selected || metric.SelectedItem is not MetricChoice choice)
             { status.Text = "Select a player in the results first."; return; }
-            var metrics = metric.Items.Cast<MetricChoice>().Select(x => x.Definition)
+            var floor = int.TryParse(minimumMinutes.Text, out var parsedFloor) ? Math.Max(0, parsedFloor) : 450;
+            var metrics = metric.Items.Cast<MetricChoice>().Select(x => x.Definition with
+                { MinimumSampleMinutes = Math.Max(x.Definition.MinimumSampleMinutes, floor) })
                 .Where(m => !new[] { "age", "market_value", "minutes_played" }.Contains(m.Key, StringComparer.OrdinalIgnoreCase))
                 .ToList();
             var candidates = allRows.Where(p => p.Competition == selected.Record.Competition && p.Season == selected.Record.Season && p.PositionGroup == selected.Record.PositionGroup).ToList();
@@ -238,6 +240,7 @@ public partial class MainWindow
             var rankedMetrics = metric.Items.Cast<MetricChoice>().Select(x => x.Definition)
                 .Where(m => !new[] { "age", "market_value", "minutes_played" }.Contains(m.Key, StringComparer.OrdinalIgnoreCase))
                 .Where(m => a.Metrics.ContainsKey(m.Key) && b.Metrics.ContainsKey(m.Key))
+                .Select(m => m with { MinimumSampleMinutes = Math.Max(m.MinimumSampleMinutes, int.TryParse(minimumMinutes.Text, out var floor) ? floor : 450) })
                 .Select(m => (Definition: m, Ranked: ScoutingAnalyticsService.RankMetric(cohort, m, a.Competition, a.Season, a.PositionGroup, 3)))
                 .Where(x => x.Ranked.Count >= 3 && x.Ranked.Any(r => r.SourceId == a.SourceId && r.Percentile.HasValue) && x.Ranked.Any(r => r.SourceId == b.SourceId && r.Percentile.HasValue))
                 .Take(6).ToList();
