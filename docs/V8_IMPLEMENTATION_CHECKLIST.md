@@ -470,3 +470,12 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - [ ] Visually inspect all four appearances at 100%, 125% and 150% Windows DPI.
 - [ ] Build reusable scouting metric bundles, comparison reports and value-gap shortlist workflow.
 - [ ] Do not fabricate event-level StatsBomb metrics or copy proprietary value/role formulas.
+
+
+### Scouting cohort comparison refinement — 14 November 2026
+
+- [x] Add chart basis selector: overall eligible pool, position cohort or league cohort.
+- [x] Omit chart points when a position/league cohort is too small to support a percentile; do not fill missing percentiles with zero or a synthetic rank.
+- [x] Include the selected FM position familiarity in the chart tooltip and CSV.
+- [x] Test both a filtered FM position cohort and an unrestricted cohort where the rating is not populated.
+- [ ] Fresh Windows build and all tests after the latest chart/test changes.
