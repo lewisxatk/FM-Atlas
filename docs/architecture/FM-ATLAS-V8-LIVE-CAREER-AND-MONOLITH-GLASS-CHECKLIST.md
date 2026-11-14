@@ -74,12 +74,16 @@
 - [x] Add database integration coverage for live manager context, staff search, staff fact profiles and signed PA.
 - [x] Add an independently implemented FM27 15-group preferred-job decoder; validate 15-byte length and 1–20 range, preserve ties, and avoid inventing a preferred job for low scores or broad ties.
 - [x] Persist all available preferred-job ratings and the provisional top group(s) as LiveStaffFacts; surface them in the existing Staff profile without replacing the directory.
+- [x] Decode 19 FM27 staff coaching attributes from the documented raw-byte offsets and convert them using the reference display scale.
+- [x] Decode the two direct staff ratings (authority and working with youngsters) as 1–20 values.
+- [x] Persist staff coaching/direct ratings as provisional `staff_attributes.*` facts; the existing Staff profile renders them without a replacement UI.
+- [ ] Compare all 21 staff coaching/direct fields with the in-game FM27 staff profile before promotion to verified.
 - [ ] Compare preferred-job group ratings and displayed top preference against FM27's Staff Search / staff profile on the user's supported build.
 
 ### Known boundary
 
 - The live identity scan does not provide every historical or match-performance statistic. Those facts are still supplied by the optional read-only fmsave save import or FM View Exporter CSVs.
-- The current live staff extractor does not claim complete personality, all staff attributes, wage/contract, training or staff history coverage.
+- The current live staff extractor now includes 19 coaching attributes and two direct staff ratings from the public FM27 layout, in addition to CA/PA, identity and preferred-job groups. They remain provisional pending in-game witnesses; it still does not claim complete staff personality, wage/contract, training or staff history coverage.
 - Any field not actually supplied by the source remains blank; a module fingerprint is not proof that every field offset is verified.
 - The existing player Advanced Search and Attribute Search are retained; this pass does not claim that every entity type now has one universal, identical filter builder.
 
@@ -128,7 +132,7 @@ Reference code and profile files are subject to their own licences. Atlas does n
 ## 6. Release / user test gate
 
 - [ ] Fresh Windows .NET 8 restore and Release build for this exact branch head.
-- [ ] All xUnit and Python adapter tests pass on that exact commit.
+- [ ] All xUnit and Python adapter tests pass on that exact commit, including the new staff attribute decoder tests.
 - [ ] Self-contained Windows x64 artifact is produced.
 - [ ] Atlas launches and initializes without changing/deleting the user's existing database.
 - [ ] Detection-only monitor correctly identifies supported Steam or Game Pass process/build/session; confirm the full bounded read completes and the user can cancel it safely.
