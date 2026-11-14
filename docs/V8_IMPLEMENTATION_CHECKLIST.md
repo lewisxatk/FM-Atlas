@@ -94,7 +94,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 4. Save import, data provenance and database reliability
 
-- [ ] Confirm fmsave bridge setup and exact FM27 table support/version; retain unsupported-table warnings.
+- [x] Pin the local save bridge to upstream fmsave 0.12.4; reject older installed versions and verify the same package in the Windows workflow.
+- [ ] Confirm fmsave 0.12.4 coverage on the user's exact FM27 save/build; retain unsupported-table and unverified-layout warnings.
 - [x] Remove duplicate full-array/List copies from the C# importer for players, staff and clubs by using lazy JsonElement array enumeration and O(1) array counts (commit `26104ba3`).
 - [x] Replace the single giant JSON snapshot with a temporary per-table NDJSON bundle. The adapter streams Polars rows via `iter_rows(named=True)` and normalises player/staff/club rows one at a time; it does not retain the complete set of tables in memory. A compatibility fallback for non-Polars reader wrappers still uses `to_dicts()` for that one table.
 - [x] Refuse to write into an existing adapter output folder; the adapter never recursively deletes a caller-supplied path. Added a regression test that verifies a pre-existing sentinel file survives.
