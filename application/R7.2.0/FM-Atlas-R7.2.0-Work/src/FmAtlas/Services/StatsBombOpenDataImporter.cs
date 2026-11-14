@@ -115,11 +115,9 @@ public static class StatsBombOpenDataImporter
                     var teamName = Str(ev, "team", "name");
                     var a = Get(matchPlayers, playerId, playerName, teamName);
                     var type = Str(ev, "type", "name") ?? "";
-                    var minute = Number(ev, "minute") ?? 0;
-                    if (type.Equals("Substitution", StringComparison.OrdinalIgnoreCase))
+                                        if (type.Equals("Substitution", StringComparison.OrdinalIgnoreCase))
                     {
-                        var offId = Str(ev, "player", "id");
-                        var replacement = Str(ev, "substitution", "replacement", "id");
+                                                var replacement = Str(ev, "substitution", "replacement", "id");
                         if (replacement is not null && Str(ev, "substitution", "replacement", "name") is { } replacementName)
                             Get(matchPlayers, replacement, replacementName, teamName);
                         continue;
@@ -139,7 +137,9 @@ public static class StatsBombOpenDataImporter
                         case "Shot":
                             a.Add("shots");
                             var shot = Prop(ev, "shot");
-                            if (Str(shot, "outcome", "name") == "Goal") a.Add("goals");
+                            var shotOutcome = Str(shot, "outcome", "name");
+                            if (shotOutcome == "Goal") a.Add("goals");
+                            if (shotOutcome is "Goal" or "Saved" or "Saved to Post") a.Add("shots_on_target");
                             if (Number(shot, "statsbomb_xg") is { } xg) a.Add("xg", xg);
                             if (Str(shot, "type", "name") == "Penalty") a.Add("penalty_shots");
                             break;
@@ -153,9 +153,18 @@ public static class StatsBombOpenDataImporter
                             a.Add("duels");
                             if (Str(ev, "duel", "type", "name") == "Aerial Lost" || Str(ev, "duel", "type", "name") == "Aerial Won") a.Add("aerial_duels");
                             if (Str(ev, "duel", "type", "name") == "Aerial Won") a.Add("aerial_duels_won");
+                            if (Str(ev, "duel", "type", "name") == "Tackle") a.Add("tackles");
                             break;
                         case "Interception": a.Add("interceptions"); break;
                         case "Ball Recovery": a.Add("recoveries"); break;
+                        case "Goal Keeper":
+                            a.Add("goalkeeper_actions");
+                            var keeperAction = Str(ev, "goalkeeper", "type", "name") ?? "";
+                            if (keeperAction.Contains("Save", StringComparison.OrdinalIgnoreCase)) a.Add("saves");
+                            if (keeperAction.Contains("Claim", StringComparison.OrdinalIgnoreCase)) a.Add("claims");
+                            if (keeperAction.Contains("Punch", StringComparison.OrdinalIgnoreCase)) a.Add("punches");
+                            if (keeperAction.Contains("Sweeper", StringComparison.OrdinalIgnoreCase)) a.Add("sweeper_actions");
+                            break;
                         case "Clearance": a.Add("clearances"); break;
                         case "Block": a.Add("blocks"); break;
                         case "Tackle": a.Add("tackles"); break;
@@ -195,6 +204,12 @@ public static class StatsBombOpenDataImporter
         {
             var metrics = p.M.ToDictionary(x => x.Key, x => (double?)x.Value, StringComparer.OrdinalIgnoreCase);
             metrics["minutes_played"] = p.Minutes;
+            if (p.M.GetValueOrDefault("passes_attempted") > 0)
+                metrics["pass_completion_pct"] = 100d * p.M.GetValueOrDefault("passes_completed") / p.M["passes_attempted"];
+            if (p.M.GetValueOrDefault("dribbles_attempted") > 0)
+                metrics["dribble_success_pct"] = 100d * p.M.GetValueOrDefault("dribbles_completed") / p.M["dribbles_attempted"];
+            if (p.M.GetValueOrDefault("aerial_duels") > 0)
+                metrics["aerial_duel_win_pct"] = 100d * p.M.GetValueOrDefault("aerial_duels_won") / p.M["aerial_duels"];
             return new ScoutingPlayerSeason("SB:" + p.Id + ":" + p.Competition + ":" + p.Season + ":" + p.Team, p.Name, p.Team, p.Competition, p.Season ?? "Unknown season", PositionGroup(p.Position), p.Minutes,
                 metrics, "StatsBomb Open Data", "open-data JSON", true);
         }).ToList();
