@@ -46,6 +46,25 @@ public static class LiveCareerMonitor
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool CloseHandle(nint handle);
 
+    /// <summary>
+    /// FMSuperScout-style process discovery: an executable named fm.exe is not enough.
+    /// Confirm the adjacent fm_Data directory before treating it as Football Manager.
+    /// </summary>
+    public static bool IsFootballManagerInstallPath(string? executablePath)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath)) return false;
+        try
+        {
+            var fullPath = Path.GetFullPath(executablePath);
+            if (!string.Equals(Path.GetFileName(fullPath), "fm.exe", StringComparison.OrdinalIgnoreCase))
+                return false;
+            var directory = Path.GetDirectoryName(fullPath);
+            return !string.IsNullOrWhiteSpace(directory)
+                && Directory.Exists(Path.Combine(directory, "fm_Data"));
+        }
+        catch { return false; }
+    }
+
     public static LiveCareerProbe Probe()
     {
         var processes = Process.GetProcessesByName("fm");
@@ -54,41 +73,88 @@ public static class LiveCareerMonitor
                 "Waiting for Football Manager 27. Leave Atlas open; it will connect when a career is loaded.");
 
         var supported = new List<(Process Process, ProcessModule Module, Fm27BuildProfile Profile)>();
+        var sawRealGame = false;
         var sawGameModule = false;
+        var accessDenied = false;
         try
         {
             foreach (var process in processes)
             {
                 try
                 {
-                    var module = process.Modules.Cast<ProcessModule>().FirstOrDefault(x =>
-                        string.Equals(Path.GetFileName(x.ModuleName), "game_plugin.dll", StringComparison.OrdinalIgnoreCase));
+                    string? executablePath;
+                    try { executablePath = process.MainModule?.FileName; }
+                    catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 5)
+                    {
+                        accessDenied = true;
+                        continue;
+                    }
+
+                    // Do not attach to unrelated programs which happen to use the process
+                    // name "fm". FMSuperScout uses this adjacent installation marker too.
+                    if (!IsFootballManagerInstallPath(executablePath)) continue;
+                    sawRealGame = true;
+
+                    ProcessModule? module;
+                    try
+                    {
+                        module = process.Modules.Cast<ProcessModule>().FirstOrDefault(x =>
+                            string.Equals(Path.GetFileName(x.ModuleName), "game_plugin.dll", StringComparison.OrdinalIgnoreCase));
+                    }
+                    catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 5)
+                    {
+                        accessDenied = true;
+                        continue;
+                    }
+
                     if (module is null) continue;
                     sawGameModule = true;
                     using var readHandle = new SafeProcessReadHandle(OpenProcess(QueryInformation | VmRead, false, process.Id));
-                    if (readHandle.Value == 0) continue;
+                    if (readHandle.Value == 0)
+                    {
+                        accessDenied |= Marshal.GetLastWin32Error() == 5;
+                        continue;
+                    }
                     var profile = MatchProfile(readHandle.Value, (ulong)module.BaseAddress.ToInt64());
                     if (profile is not null) supported.Add((process, module, profile));
+                }
+                catch (InvalidOperationException) { /* Process exited during discovery. */ }
+                catch (System.ComponentModel.Win32Exception ex)
+                {
+                    if (ex.NativeErrorCode == 5) accessDenied = true;
                 }
                 catch { /* A partially started or inaccessible game process is not attachable. */ }
             }
 
             if (supported.Count == 0)
                 return new(true, false, false, 0, null, null, 0, 0, 0, 0,
-                    sawGameModule
-                        ? "Football Manager is running, but this game build is not in Atlas's verified profile list."
-                        : "Football Manager is starting. Waiting for game_plugin.dll and a supported build profile.");
+                    accessDenied
+                        ? "Football Manager is running, but Windows denied process access. Run FM Atlas and Football Manager at the same permission level."
+                        : sawGameModule
+                            ? "Football Manager is running, but this game build is not in Atlas's verified profile list."
+                            : sawRealGame
+                                ? "Football Manager is starting. Waiting for game_plugin.dll and a supported build profile."
+                                : "A process named fm.exe was found, but it is not a recognised Football Manager installation.");
+
+            // Match FMSuperScout's deterministic multi-process rule: use the most recently
+            // started real FM process. If two valid installations are open, the active newer
+            // session is the likely user target; the chosen PID is still session-keyed.
+            var current = supported.OrderByDescending(x =>
+            {
+                try { return x.Process.StartTime; }
+                catch { return DateTime.MinValue; }
+            }).First();
 
             if (supported.Count > 1)
-                return new(true, true, false, 0, null, null, 0, 0, 0, 0,
-                    "More than one supported FM27 process is running. Close the duplicate game instance so Atlas cannot attach to the wrong career.");
+                AtlasLog.Warning($"Multiple supported FM27 processes found ({supported.Count}); selecting newest process PID {current.Process.Id}, matching FMSuperScout's process-selection strategy.");
 
-            var current = supported[0];
             var pid = current.Process.Id;
             using var handle = new SafeProcessReadHandle(OpenProcess(QueryInformation | VmRead, false, pid));
             if (handle.Value == 0)
                 return new(true, true, false, pid, current.Profile.Id, current.Profile.DisplayName, 0, 0, 0, 0,
-                    "FM27 was found, but Windows denied read-only access. Run Atlas and Football Manager at the same permission level.");
+                    Marshal.GetLastWin32Error() == 5
+                        ? "FM27 was found, but Windows denied read-only access. Run Atlas and Football Manager at the same permission level."
+                        : "FM27 was found, but its process handle could not be opened. Atlas will retry automatically.");
 
             var baseAddress = (ulong)current.Module.BaseAddress.ToInt64();
             if (current.Profile.GameUiRva == 0)
@@ -116,7 +182,6 @@ public static class LiveCareerMonitor
         }
         finally
         {
-            foreach (var item in supported) { /* Process instances are disposed below. */ }
             foreach (var process in processes) process.Dispose();
         }
     }
