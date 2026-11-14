@@ -70,9 +70,15 @@ public static class FmsaveBridgeService
         await stderrTask;
         var stderr = stderrBuffer.ToString();
         if (process.ExitCode != 0)
+        {
+            try { if (File.Exists(output)) File.Delete(output); } catch { /* Best-effort cleanup of failed export output. */ }
             throw new InvalidOperationException($"The fmsave adapter failed (exit code {process.ExitCode}).\n{stderr}\n{stdout}".Trim());
+        }
         if (!File.Exists(output) || new FileInfo(output).Length < 32)
+        {
+            try { if (File.Exists(output)) File.Delete(output); } catch { /* Best-effort cleanup of invalid export output. */ }
             throw new InvalidDataException("The fmsave adapter finished without creating a valid snapshot file.");
+        }
         return new FmsaveBridgeResult(output, stdout, stderr);
     }
 }
