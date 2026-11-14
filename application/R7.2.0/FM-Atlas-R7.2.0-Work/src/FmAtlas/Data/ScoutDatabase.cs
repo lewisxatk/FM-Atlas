@@ -1515,6 +1515,24 @@ public sealed class ScoutDatabase
                 }
             }
         }
+        if (playerCount == 0)
+            throw new InvalidDataException("The save bundle contained player rows, but none could be indexed. The previous committed career snapshot was retained.");
+
+        if (playerCount != playerTotal)
+            warnings.Add($"Player row reconciliation: manifest={playerTotal:N0}, indexed={playerCount:N0}. Invalid or incomplete player rows were skipped.");
+        if (staffCount != staffTotal)
+            warnings.Add($"Staff row reconciliation: manifest={staffTotal:N0}, indexed={staffCount:N0}. Rows without a usable staff identity/name were skipped.");
+        if (clubCount != clubTotal)
+            warnings.Add($"Club row reconciliation: manifest={clubTotal:N0}, indexed={clubCount:N0}. Rows without a usable club identity/name were skipped.");
+
+        var expectedExtraRows = tableCounts
+            .Where(x => !x.Key.Equals("players", StringComparison.OrdinalIgnoreCase)
+                && !x.Key.Equals("staff", StringComparison.OrdinalIgnoreCase)
+                && !x.Key.Equals("clubs", StringComparison.OrdinalIgnoreCase))
+            .Sum(x => (long)x.Value);
+        if (expectedExtraRows != extraCount)
+            warnings.Add($"Additional table row reconciliation: manifest={expectedExtraRows:N0}, indexed={extraCount:N0}. Check the bridge bundle before relying on full table coverage.");
+
         var finish = db.CreateCommand(); finish.Transaction = (SqliteTransaction)tx;
         finish.CommandText = "UPDATE FmsaveImportRuns SET PlayersImported=$players,StaffImported=$staff,ClubsImported=$clubs,ExtraRowsImported=$extra WHERE SnapshotId=$id;";
         finish.Parameters.AddWithValue("$players", playerCount); finish.Parameters.AddWithValue("$staff", staffCount); finish.Parameters.AddWithValue("$clubs", clubCount); finish.Parameters.AddWithValue("$extra", extraCount); finish.Parameters.AddWithValue("$id", snapshotId);
