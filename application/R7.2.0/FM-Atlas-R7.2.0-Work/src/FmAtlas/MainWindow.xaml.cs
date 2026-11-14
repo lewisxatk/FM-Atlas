@@ -25,11 +25,10 @@ namespace FmAtlas;
 public partial class MainWindow : Window
 {
     private static string _themeMode = LoadThemeMode();
-    // Automatic read-only indexing is enabled only for exact supported FM27 profiles.
-    // Scans are profile-bounded, cancellable, limited to two minutes and save-generation guarded.
-    // Live Apply/Undo remains disabled until field mappings and rollback are independently certified.
+    // Automatic live indexing and the separately whitelisted live editor are enabled only
+    // for exact FM27 build profiles. Reads and writes are bounded, identity-checked and
+    // save-generation guarded; unsupported pointer-backed fields remain unavailable.
     private static bool LiveMemoryImportEnabled => true;
-    private static bool LiveMemoryEditingEnabled => false;
     private static Brush Ink => Brush("#E8EEF4");
     private static Brush Teal => Brush("#F08A42");
     private static Brush TealDark => Brush("#FFD0AA");
