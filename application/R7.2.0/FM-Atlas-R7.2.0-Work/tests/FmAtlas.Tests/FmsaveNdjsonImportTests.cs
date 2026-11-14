@@ -516,6 +516,77 @@ public sealed class FmsaveNdjsonImportTests
         Assert.False(File.Exists(path));
     }
 
+
+    [Fact]
+    public void RoleFitTemplateStoreRoundTripsCustomWeightsAndRecruitmentFilters()
+    {
+        using var temp = new TemporaryFolder();
+        var path = Path.Combine(temp.Path, "role-fit-templates.json");
+        var store = new RoleFitTemplateStore(path);
+        var profile = new RoleFitProfile(
+            "Advanced Pressing Forward", "Out of Possession", "Attacker", "Custom pressing forward.",
+            new Dictionary<string, double>
+            {
+                ["Work Rate"] = 3,
+                ["Stamina"] = 2,
+                ["Finishing"] = 0.5
+            });
+        var filters = new RoleFitSearchFilters(
+            MinimumAge: 17,
+            MaximumAge: 24,
+            MinimumCurrentAbility: 95,
+            MinimumPotentialAbility: 135,
+            PositionContains: "ST",
+            MinimumCoverage: 0.8,
+            ResultLimit: 125);
+
+        store.Save(new RoleFitSavedTemplate("U24 Pressing 9", profile, filters));
+
+        var loaded = Assert.Single(store.LoadAll());
+        Assert.Equal("U24 Pressing 9", loaded.Name);
+        Assert.Equal("Advanced Pressing Forward", loaded.Profile.Name);
+        Assert.Equal(3, loaded.Profile.Weights["Work Rate"]);
+        Assert.Equal(0.5, loaded.Profile.Weights["Finishing"]);
+        Assert.Equal(17, loaded.Filters.MinimumAge);
+        Assert.Equal(24, loaded.Filters.MaximumAge);
+        Assert.Equal(95, loaded.Filters.MinimumCurrentAbility);
+        Assert.Equal(135, loaded.Filters.MinimumPotentialAbility);
+        Assert.Equal("ST", loaded.Filters.PositionContains);
+        Assert.Equal(0.8, loaded.Filters.MinimumCoverage);
+        Assert.Equal(125, loaded.Filters.ResultLimit);
+
+        store.Save(new RoleFitSavedTemplate(
+            "U24 Pressing 9",
+            profile with { Weights = new Dictionary<string, double> { ["Work Rate"] = 4 } },
+            filters with { MinimumCoverage = 0.9 }));
+        var replaced = Assert.Single(store.LoadAll());
+        Assert.Equal(4, replaced.Profile.Weights["Work Rate"]);
+        Assert.Equal(0.9, replaced.Filters.MinimumCoverage);
+        Assert.True(store.Delete("U24 Pressing 9"));
+        Assert.Empty(store.LoadAll());
+        Assert.False(store.Delete("U24 Pressing 9"));
+    }
+
+    [Fact]
+    public void RoleFitTemplateStoreRejectsInvalidWeightsAndPreservesExistingTemplates()
+    {
+        using var temp = new TemporaryFolder();
+        var store = new RoleFitTemplateStore(Path.Combine(temp.Path, "templates.json"));
+        var profile = new RoleFitProfile(
+            "Valid Role", "Both", "Any", "Valid base.",
+            new Dictionary<string, double> { ["Finishing"] = 2 });
+        store.Save(new RoleFitSavedTemplate("Valid Template", profile, new RoleFitSearchFilters()));
+
+        var invalid = profile with
+        {
+            Weights = new Dictionary<string, double> { ["Finishing"] = double.NaN }
+        };
+        Assert.Throws<ArgumentException>(() =>
+            store.Save(new RoleFitSavedTemplate("Broken Template", invalid, new RoleFitSearchFilters())));
+        Assert.Single(store.LoadAll());
+        Assert.Equal("Valid Template", store.LoadAll()[0].Name);
+    }
+
     private static string CreateBundle(
         string root,
         string name,

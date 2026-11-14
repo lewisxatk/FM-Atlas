@@ -10,6 +10,8 @@ namespace FmAtlas;
 
 public partial class MainWindow
 {
+    private sealed record RoleFitRoleChoice(string DisplayName, RoleFitProfile Profile, RoleFitSearchFilters? SavedFilters, string? TemplateName);
+
     private async Task<UIElement> RoleLabPageAsync()
     {
         var root = new Grid();
@@ -18,6 +20,17 @@ public partial class MainWindow
         DataGrid grid = null!;
         List<RoleFitCandidate> results = new();
         CancellationTokenSource? activeSearchCancellation = null;
+        var templateStore = new RoleFitTemplateStore();
+        List<RoleFitSavedTemplate> savedTemplates;
+        string? templateLoadWarning = null;
+        try { savedTemplates = templateStore.LoadAll(); }
+        catch (Exception ex)
+        {
+            savedTemplates = new List<RoleFitSavedTemplate>();
+            templateLoadWarning = "Saved Role Fit templates could not be loaded: " + ex.Message;
+            AtlasLog.Error("Role Fit template load failed.", ex);
+        }
+        var roleChoices = new List<RoleFitRoleChoice>();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 10));
@@ -57,6 +70,7 @@ public partial class MainWindow
         controls.Children.Add(FilterControl("POSITION", positionFilter, 124));
         controls.Children.Add(FilterControl("DATA COVERAGE", coverage, 138));
         controls.Children.Add(find); controls.Children.Add(cancel); controls.Children.Add(export);
+        controls.Children.Add(saveTemplateButton); controls.Children.Add(deleteTemplateButton);
         controls.Children.Add(saveTemplate); controls.Children.Add(deleteTemplate);
         hs.Children.Add(controls);
         var description = Txt("", 9, false, Muted, wrap: true); hs.Children.Add(description);
@@ -301,26 +315,163 @@ public partial class MainWindow
             return value;
         }
 
-        async Task SearchAsync()
+        RoleFitSearchFilters CaptureCurrentFilters()
         {
-            if (role.SelectedItem is not RoleFitProfile selected || activeSearchCancellation is not null) return;
-            RoleFitSearchFilters filters;
-            int? minAge = null;
-            int? maxAge = null;
+            var minAge = ReadOptionalInt(minimumAge, "Minimum age", 120);
+            var maxAge = ReadOptionalInt(maximumAge, "Maximum age", 120);
+            if (minAge.HasValue && maxAge.HasValue && minAge > maxAge)
+                throw new FormatException("Minimum age cannot exceed maximum age.");
+            return new RoleFitSearchFilters(
+                MinimumAge: minAge,
+                MaximumAge: maxAge,
+                MinimumCurrentAbility: ReadOptionalInt(minimumCa, "Minimum CA", 200),
+                MinimumPotentialAbility: ReadOptionalInt(minimumPa, "Minimum PA", 200),
+                PositionContains: positionFilter.Text.Trim(),
+                MinimumCoverage: 0.5 + Math.Clamp(coverage.SelectedIndex, 0, 5) * 0.1,
+                ResultLimit: 250);
+        }
+
+        RoleFitSavedTemplate? AskTemplateDetails(RoleFitRoleChoice choice, RoleFitSearchFilters filters)
+        {
+            var dialog = new Window
+            {
+                Title = "Save reusable role template",
+                Owner = this,
+                Width = 540,
+                Height = 680,
+                MinWidth = 500,
+                MinHeight = 520,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Background = Brush("#111820"),
+                Foreground = Ink,
+                ShowInTaskbar = false
+            };
+            var panel = new DockPanel { Margin = new Thickness(18) };
+            var heading = new StackPanel();
+            heading.Children.Add(Txt("REUSABLE RECRUITMENT TEMPLATE", 9, true, Teal));
+            heading.Children.Add(Txt("Tune role weights", 20, true, Ink));
+            heading.Children.Add(Txt("Save a named copy of this role with its current filters. Set a weight to zero to exclude that attribute; positive weights change its influence on the Atlas estimate.", 10, false, Muted, wrap: true));
+            var nameBox = Input("Template name");
+            nameBox.Text = choice.TemplateName ?? choice.Profile.Name + " · custom";
+            nameBox.Margin = new Thickness(0, 10, 0, 10);
+            heading.Children.Add(nameBox);
+            DockPanel.SetDock(heading, Dock.Top);
+            panel.Children.Add(heading);
+
+            var weightRows = new Dictionary<string, TextBox>(StringComparer.OrdinalIgnoreCase);
+            var weightsPanel = new StackPanel();
+            foreach (var pair in choice.Profile.Weights.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var row = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
+                var label = Txt(pair.Key, 10, true, Ink);
+                label.VerticalAlignment = VerticalAlignment.Center;
+                DockPanel.SetDock(label, Dock.Left);
+                row.Children.Add(label);
+                var weight = Input("Weight");
+                weight.Width = 92;
+                weight.Text = pair.Value.ToString("0.##", CultureInfo.InvariantCulture);
+                weight.HorizontalContentAlignment = HorizontalAlignment.Right;
+                DockPanel.SetDock(weight, Dock.Right);
+                row.Children.Add(weight);
+                weightRows[pair.Key] = weight;
+                weightsPanel.Children.Add(row);
+            }
+            var scroll = new ScrollViewer { Content = weightsPanel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(0, 5, 0, 10) };
+            DockPanel.SetDock(scroll, Dock.Top);
+            panel.Children.Add(scroll);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var cancelSave = SoftButton("Cancel", (_, _) => dialog.DialogResult = false);
+            var save = PrimaryButton("Save template", (_, _) =>
+            {
+                var name = nameBox.Text.Trim();
+                if (name.Length is < 1 or > 60)
+                {
+                    MessageBox.Show(dialog, "Template name must contain 1–60 characters.", "FM Atlas · Role Templates", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                var weights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                foreach (var pair in weightRows)
+                {
+                    if (!double.TryParse(pair.Value.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var value)
+                        || !double.IsFinite(value) || value is < 0 or > 100)
+                    {
+                        MessageBox.Show(dialog, $"Weight for {pair.Key} must be between 0 and 100.", "FM Atlas · Role Templates", MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
+                    if (value > 0) weights[pair.Key] = value;
+                }
+                if (weights.Count == 0)
+                {
+                    MessageBox.Show(dialog, "Keep at least one attribute with a positive weight.", "FM Atlas · Role Templates", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                var profile = new RoleFitProfile(name, choice.Profile.Phase, choice.Profile.PositionGroup,
+                    choice.Profile.Description + " Customised role template.", weights);
+                dialog.Tag = new RoleFitSavedTemplate(name, profile, filters);
+                dialog.DialogResult = true;
+            });
+            buttons.Children.Add(cancelSave);
+            buttons.Children.Add(save);
+            DockPanel.SetDock(buttons, Dock.Bottom);
+            panel.Children.Add(buttons);
+            dialog.Content = panel;
+            return dialog.ShowDialog() == true ? dialog.Tag as RoleFitSavedTemplate : null;
+        }
+
+        void SaveRoleTemplate()
+        {
+            if (role.SelectedItem is not RoleFitRoleChoice choice)
+            {
+                status.Text = "Choose a role before saving a template.";
+                return;
+            }
             try
             {
-                minAge = ReadOptionalInt(minimumAge, "Minimum age", 120);
-                maxAge = ReadOptionalInt(maximumAge, "Maximum age", 120);
-                if (minAge.HasValue && maxAge.HasValue && minAge > maxAge)
-                    throw new FormatException("Minimum age cannot exceed maximum age.");
-                filters = new RoleFitSearchFilters(
-                    MinimumAge: minAge,
-                    MaximumAge: maxAge,
-                    MinimumCurrentAbility: ReadOptionalInt(minimumCa, "Minimum CA", 200),
-                    MinimumPotentialAbility: ReadOptionalInt(minimumPa, "Minimum PA", 200),
-                    PositionContains: positionFilter.Text.Trim(),
-                    MinimumCoverage: 0.5 + Math.Clamp(coverage.SelectedIndex, 0, 5) * 0.1,
-                    ResultLimit: 250);
+                var filters = CaptureCurrentFilters();
+                var template = AskTemplateDetails(choice, filters);
+                if (template is null) return;
+                var exists = savedTemplates.Any(x => x.Name.Equals(template.Name, StringComparison.OrdinalIgnoreCase));
+                if (exists && MessageBox.Show(this, $"Replace the saved template '{template.Name}'?", "FM Atlas · Role Templates",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+                templateStore.Save(template);
+                savedTemplates = templateStore.LoadAll();
+                RefreshRoleChoices(selectTemplateName: template.Name);
+                status.Text = $"Saved '{template.Name}' locally · {template.Profile.Weights.Count:N0} weighted attributes · age/CA/PA/position/coverage filters retained.";
+                AtlasLog.Info($"Role Fit template saved: name={template.Name}; attributes={template.Profile.Weights.Count}; coverage={template.Filters.MinimumCoverage:P0}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Role Fit template save failed.", ex);
+                status.Text = "Could not save role template: " + ex.Message;
+            }
+        }
+
+        void DeleteRoleTemplate()
+        {
+            if (role.SelectedItem is not RoleFitRoleChoice { TemplateName: not null } choice) return;
+            if (MessageBox.Show(this, $"Delete the saved role template '{choice.TemplateName}' from this PC?", "FM Atlas · Delete Role Template",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            try
+            {
+                templateStore.Delete(choice.TemplateName);
+                savedTemplates = templateStore.LoadAll();
+                RefreshRoleChoices(selectBuiltInName: choice.Profile.Name);
+                status.Text = $"Deleted saved template '{choice.TemplateName}'. Built-in role profiles remain unchanged.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Role Fit template delete failed.", ex);
+                status.Text = "Could not delete role template: " + ex.Message;
+            }
+        }
+
+        async Task SearchAsync()
+        {
+            if (role.SelectedItem is not RoleFitRoleChoice selected || activeSearchCancellation is not null) return;
+            RoleFitSearchFilters filters;
+            try
+            {
+                filters = CaptureCurrentFilters();
             }
             catch (FormatException ex)
             {
@@ -335,14 +486,14 @@ public partial class MainWindow
             status.Text = "Scoring imported player attributes against the selected role…";
             try
             {
-                results = await RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(selected, 50000, filters, cancellation.Token));
+                results = await RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(selected.Profile, 50000, filters, cancellation.Token));
                 cancellation.Token.ThrowIfCancellationRequested();
                 grid.ItemsSource = results;
                 if (results.Count == 0)
                     status.Text = "No players match these filters with enough source-backed attributes. Lower the coverage threshold or import a save copy with broader player attribute coverage.";
                 else
                     status.Text = $"{results.Count:N0} candidates ranked · top Atlas estimate {results[0].Score:0.00}/20 · source coverage shown per player. This is not the game's role rating; position familiarity and tactical instructions are not yet included.";
-                AtlasLog.Info($"Role Lab completed: {selected.Name} ({selected.Phase}), {results.Count} candidates; age={minAge}-{maxAge}; minCA={filters.MinimumCurrentAbility}; minPA={filters.MinimumPotentialAbility}; position={filters.PositionContains}; coverage={filters.MinimumCoverage:P0}.");
+                AtlasLog.Info($"Role Lab completed: {selected.Profile.Name} ({selected.Profile.Phase}), {results.Count} candidates; age={filters.MinimumAge}-{filters.MaximumAge}; minCA={filters.MinimumCurrentAbility}; minPA={filters.MinimumPotentialAbility}; position={filters.PositionContains}; coverage={filters.MinimumCoverage:P0}.");
             }
             catch (OperationCanceledException)
             {
