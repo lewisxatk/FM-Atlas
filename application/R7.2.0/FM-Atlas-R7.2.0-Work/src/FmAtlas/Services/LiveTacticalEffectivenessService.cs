@@ -210,13 +210,15 @@ public static partial class LiveEntityMemoryEditService
                     }
                     BitConverter.GetBytes(newBegin + (ulong)change.TargetBytes.Length).CopyTo(newHeader, 8);
                 }
+                // Record the rollback entry before committing the pointer/header. If a
+                // partial write occurs, the original bytes and header remain recoverable.
+                applied.Add(new AppliedTacticalListChange(change, newHeader, allocated));
                 if (!newHeader.SequenceEqual(change.OriginalHeader))
                 {
                     if (!Write(handle.Value, (nint)change.HeaderAddress, newHeader)
                         || !Read(handle.Value, (nint)change.HeaderAddress, 24).SequenceEqual(newHeader))
                         throw new InvalidOperationException("FM did not accept the new tactical list bounds.");
                 }
-                applied.Add(new AppliedTacticalListChange(change, newHeader, allocated));
             }
         }
         catch (Exception failure)
@@ -246,9 +248,15 @@ public static partial class LiveEntityMemoryEditService
         if (context.SeniorTeam != plan.SeniorTeamAddress || context.TacticAddress != plan.TacticAddress
             || !context.Instructions.SequenceEqual(plan.TacticInstructions))
             throw new InvalidOperationException("The active tactic or senior team changed. Tactical Undo is blocked.");
+        var currentPlayers = context.Players.ToDictionary(x => x.Uid);
         foreach (var applied in receipt.Changes)
         {
             var change = applied.Change;
+            if (!currentPlayers.TryGetValue(change.PlayerUid, out var currentPlayer)
+                || currentPlayer.Address != change.PlayerAddress
+                || currentPlayer.Shift != change.PlayerShift
+                || currentPlayer.RecordAddress != change.RecordAddress)
+                throw new InvalidOperationException("A player identity or familiarity record changed after tactical Apply. Undo is blocked.");
             var header = Read(handle.Value, (nint)change.HeaderAddress, 24);
             if (!header.SequenceEqual(applied.TargetHeader))
                 throw new InvalidOperationException("A tactical list has changed since Apply. Undo is blocked to protect the live career.");
