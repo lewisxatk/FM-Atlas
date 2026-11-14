@@ -921,7 +921,7 @@ public partial class MainWindow : Window
             // records whenever save and live rows overlap.
             var mergedFetchLimit = Math.Clamp(_playerOffset + PlayerPageSize + 1, PlayerPageSize + 1, 100000);
             var localTask = RunDatabaseAsync(() => _database.SearchAsync(term, null, null, pos, null, null, null, limit: mergedFetchLimit, offset: 0));
-            var liveTask = RunDatabaseAsync(() => _database.SearchLivePlayersAsync(term, mergedFetchLimit, ageAsOf: DateTime.Today, offset: 0));
+            var liveTask = RunDatabaseAsync(() => _database.SearchLivePlayersAsync(term, mergedFetchLimit, ageAsOf: DateTime.Today, offset: 0, positionFilter: pos));
             var localCountTask = RunDatabaseAsync(() => _database.CountLocalPlayersAsync(term));
             var liveCountTask = RunDatabaseAsync(() => _database.CountLivePlayersAsync(term));
             await Task.WhenAll(localTask, liveTask, localCountTask, liveCountTask);
