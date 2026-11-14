@@ -2933,11 +2933,28 @@ public partial class MainWindow : Window
             AtlasLog.Info($"Starting bounded read-only FM27 live scan: pid={session.ProcessId}; profile={session.ProfileId}; saveLoadCounter={session.SaveLoadCounter}; maximumDuration=00:02:00.");
             var payload = await Task.Run(() => LiveDataImporter.Extract(session, scanCancellation.Token, scanProgress, TimeSpan.FromMinutes(2)));
             scanCancellation.Token.ThrowIfCancellationRequested();
+            scanCancellation.Token.ThrowIfCancellationRequested();
+            var beforeCommitProbe = await Task.Run(LiveCareerMonitor.Probe);
+            if (!beforeCommitProbe.MatchesSession(session.SessionKey))
+                throw new OperationCanceledException("FM27 changed career before Atlas could publish the live snapshot.", scanCancellation.Token);
             if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Saving live career snapshot and manager context to Atlas…";
-            var result = await RunDatabaseAsync(() => _database.ImportLiveSnapshotAsync(payload));
+            var result = await RunDatabaseAsync(() => _database.ImportLiveSnapshotAsync(payload, scanCancellation.Token));
+            scanCancellation.Token.ThrowIfCancellationRequested();
+            var afterCommitProbe = await Task.Run(LiveCareerMonitor.Probe);
+            _currentLiveProbe = afterCommitProbe;
+            if (!afterCommitProbe.MatchesSession(session.SessionKey))
+            {
+                // A career may change in the narrow gap after SQLite commit. Do not present
+                // the just-committed old session as the active career; the next monitor tick
+                // immediately starts the new generation and replaces the LIVE snapshot.
+                _lastAttemptedLiveSession = null;
+                _nextLiveRetryUtc = DateTime.MinValue;
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Career changed after indexing. Refreshing the new FM27 session…";
+                AtlasLog.Warning("The FM27 career changed during snapshot publication; the monitor will immediately index the new session.");
+                return;
+            }
             _lastImportedLiveSessionKey = session.SessionKey;
             AtlasLog.Info($"Live career import completed: players={result.PlayersImported:N0}/{result.PlayersSeen:N0}; staff={result.StaffImported:N0}/{result.StaffSeen:N0}; clubs={result.ClubsImported:N0}; player facts={result.AttributeRowsImported:N0}; session={session.SessionKey}.");
-            _currentLiveProbe = session;
             _nextLiveRetryUtc = DateTime.MaxValue;
             await RefreshCareerStatusAsync();
             if (_liveLoadStatus is not null)
