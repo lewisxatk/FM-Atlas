@@ -1560,6 +1560,24 @@ public partial class MainWindow : Window
                     Value = current.Value
                 });
             }
+            if (player.LeftFoot.HasValue)
+                editableRows.Add(new EditableAttributeView { AttributeName = "left_foot", Category = "Foot", OriginalValue = player.LeftFoot.Value, Value = player.LeftFoot.Value });
+            if (player.RightFoot.HasValue)
+                editableRows.Add(new EditableAttributeView { AttributeName = "right_foot", Category = "Foot", OriginalValue = player.RightFoot.Value, Value = player.RightFoot.Value });
+            foreach (var fact in positionFacts)
+            {
+                if (!double.TryParse(fact.Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var positionValue) ||
+                    positionValue is < 1 or > 20) continue;
+                var key = fact.Field;
+                if (editableRows.Any(x => x.AttributeName.Equals(key, StringComparison.OrdinalIgnoreCase))) continue;
+                editableRows.Add(new EditableAttributeView
+                {
+                    AttributeName = key,
+                    Category = "Positions",
+                    OriginalValue = positionValue,
+                    Value = positionValue
+                });
+            }
             foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue &&
                 (x.FieldKey.StartsWith("personality.", StringComparison.OrdinalIgnoreCase) ||
                  x.FieldKey.StartsWith("positions.", StringComparison.OrdinalIgnoreCase))))
