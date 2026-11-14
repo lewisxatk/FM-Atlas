@@ -491,9 +491,9 @@ public sealed class ScoutDatabase
         return items;
     }
 
-    public async Task SavePlayerAttributeAsync(string sourceId, string playerName, string attributeName, string category, double value, string changeSource = "FM Atlas local database only")
+    public async Task SavePlayerAttributeAsync(string sourceId, string playerName, string attributeName, string category, double value, string changeSource = "FM Atlas local database only", CancellationToken cancellationToken = default)
     {
-        await WriteGate.WaitAsync().ConfigureAwait(false);
+        await WriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
         if (value < 1 || value > 20) throw new ArgumentOutOfRangeException(nameof(value), "FM attributes must be between 1 and 20.");
