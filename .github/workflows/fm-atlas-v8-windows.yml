@@ -61,6 +61,13 @@ jobs:
           dotnet build $solution --configuration Release --no-restore
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Run career import integration tests
+        shell: pwsh
+        run: |
+          $solution = "application/R7.2.0/FM-Atlas-R7.2.0-Work/FmAtlas.sln"
+          dotnet test $solution --configuration Release --no-build --logger "console;verbosity=normal"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Publish self-contained Windows x64
         shell: pwsh
         run: |
