@@ -255,6 +255,8 @@ public partial class MainWindow : Window
         ToolTipService.SetInitialShowDelay(button, 350);
         ToolTipService.SetShowDuration(button, 30000);
         ToolTipService.SetShowOnDisabled(button, true);
+        System.Windows.Automation.AutomationProperties.SetName(button, description);
+        System.Windows.Automation.AutomationProperties.SetHelpText(button, description);
         button.Click += click;
         return button;
     }
@@ -436,6 +438,8 @@ public partial class MainWindow : Window
         ToolTipService.SetInitialShowDelay(button, 350);
         ToolTipService.SetShowDuration(button, 30000);
         ToolTipService.SetShowOnDisabled(button, true);
+        System.Windows.Automation.AutomationProperties.SetName(button, label);
+        System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
         button.Template = RoundedButtonTemplate(13);
         button.Click += async (_, _) => await NavigateAsync(label);
         _navPanel.Children.Add(button);
