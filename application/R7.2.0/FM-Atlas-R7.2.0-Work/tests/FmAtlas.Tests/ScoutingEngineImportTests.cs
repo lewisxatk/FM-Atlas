@@ -19,13 +19,9 @@ public sealed class ScoutingEngineImportTests
             await File.WriteAllTextAsync(Path.Combine(root, "matches", "1", "2.json"),
                 """[{"match_id":100,"competition":{"competition_id":1},"season":{"season_id":2}}]""");
             await File.WriteAllTextAsync(Path.Combine(root, "lineups", "100.json"),
-                """[{"team_name":"Atlas FC","lineup":[{"player_id":10,"player_name":"Alex Player","positions":[{"position":"Centre Back","from":"00:00:00","to":"90:00:00"}]}]}]""");
+                """[{"team_name":"Atlas FC","lineup":[{"player_id":10,"player_name":"Alex Player","positions":[{"position":"Centre Back","from":"00:00","to":"90:00"}]}]}]""");
             await File.WriteAllTextAsync(Path.Combine(root, "events", "100.json"),
-                """[
-                  {"type":{"name":"Pass"},"player":{"id":10,"name":"Alex Player"},"team":{"name":"Atlas FC"},"pass":{"outcome":null,"shot_assist":true}},
-                  {"type":{"name":"Shot"},"player":{"id":10,"name":"Alex Player"},"team":{"name":"Atlas FC"},"shot":{"statsbomb_xg":0.25,"outcome":{"name":"Goal"}}},
-                  {"type":{"name":"Pressure"},"player":{"id":10,"name":"Alex Player"},"team":{"name":"Atlas FC"}}
-                ]""");
+                """[{"type":{"name":"Pass"},"player":{"id":10,"name":"Alex Player"},"team":{"name":"Atlas FC"},"pass":{"outcome":null,"shot_assist":true}},{"type":{"name":"Shot"},"player":{"id":10,"name":"Alex Player"},"team":{"name":"Atlas FC"},"shot":{"statsbomb_xg":0.25,"outcome":{"name":"Goal"}}},{"type":{"name":"Pressure"},"player":{"id":10,"name":"Alex Player"},"team":{"name":"Atlas FC"}}]""");
 
             var (players, summary) = await StatsBombOpenDataImporter.ImportAsync(root);
             var player = Assert.Single(players);
