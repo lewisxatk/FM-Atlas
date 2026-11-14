@@ -242,3 +242,50 @@ The source and regression tests are committed, but a fresh Windows workflow must
 - All 12 steps passed, including Release build, full xUnit suite, SQLite integration for exact ALL/ANY/At Least position semantics across offline and live data, self-contained win-x64 publish and artifact upload.
 - Artifact FM-Atlas-V8-win-x64: 68,894,168 bytes; SHA-256 e76e763e26b35dd73ad4ee9ab1e1b95ffb34b7c090269e406658a2ad7f627f93; expires 28 November 2026.
 - Manual Windows DPI/visual review and real FM27 in-game field comparison remain outstanding. The test establishes SQL semantics against seeded data; it does not certify every live-memory field meaning.
+
+
+## Monolith Glass finish, FM position-rating comparison and scouting-engine research — 14 November 2026
+
+### Repositories and product references reviewed
+
+- FMSuperScout repository: https://github.com/mavarobli/FMSuperScout
+- FMSuperScout scanner field map: https://github.com/mavarobli/FMSuperScout/blob/main/core/Fields.cs
+- FMSuperScout app and virtualised player table: https://github.com/mavarobli/FMSuperScout/blob/main/app/app.js
+- FMSuperScout UI tokens and controls: https://github.com/mavarobli/FMSuperScout/blob/main/app/style.css
+- FMSuperScout value model and its calibration limitations: https://github.com/mavarobli/FMSuperScout/blob/main/docs/value-model.md
+- FMLibreEditor project overview: https://github.com/tozmoz/FMLibreEditor
+- FMLibreEditor development architecture and safety checks: https://github.com/tozmoz/FMLibreEditor/blob/main/docs/DEVELOPING.md
+- FMRTE Advanced Search reference: https://docs.fmrte.com/scouting/search/
+- Genie Scout feature reference: https://geniescout.com/features/
+
+### Findings and confidence
+
+- **FMSuperScout scanner architecture — high confidence from source:** field layouts are versioned by FM build; 15 position values, CA/PA, attributes and source value fields are distinct mapped fields. This supports keeping FM Atlas's source/build evidence separate from the presentation layer.
+- **FMSuperScout large-dataset UX — high confidence from source:** the app uses a virtualised player table for large player counts, persisted filters/columns/shortlists, multi-player compare and profile views. Atlas already has virtualised grids and shortlist/compare workflows; keep those rather than introducing a second player browser.
+- **FMSuperScout value estimation — high confidence for the documented model, low transferability to Atlas:** its own notes record a CA-driven model being replaced after material mid-range overestimation; the revised estimate uses reputation, age, contract length and a youth correction. It explicitly distinguishes read FM values from estimated values, and estimated asking price from transfer value. Atlas must not copy coefficients or present estimated values as FM's actual transfer value.
+- **FMLibreEditor architecture — high confidence from published development notes:** the editor has player lists/profiles, filtering, position maps, export and save-generation invalidation. Its write path requires session identity, object identity, value validation, current-layout validation and read-back. Atlas reuses the product pattern of clear read-only state and evidence labels, not its writer or memory offsets.
+- **FMRTE/Genie Scout — feature benchmark:** position and role-aware filtering, hidden attributes, configurable result views, compare and scouting profiles are valuable interaction references. Their proprietary role formulas are not imported.
+- **StatsBomb-style analytics boundary:** FM save exports are not StatsBomb event feeds. FM Atlas can provide a similar analytical workflow (per-90 rates, cohorts, percentiles, scatter plots and value screening) only for fields actually present in the imported career. It must not fabricate xG, progressive carries, pressures or event-level measures when the save has not supplied them.
+
+### Implementation in this batch
+
+- Extended Performance vs Value candidate search with an optional numeric FM position-familiarity cohort filter. It reads the selected position's numeric value from the latest FMSAVE `positions` facts and requires the configured minimum (1–20).
+- Added the selected FM position rating to the result grid, chart tooltip and CSV export so the analyst can see the actual rating used for cohort inclusion.
+- Position/league cohort percentiles remain separately reported. The global performance and value percentiles are recalculated within the eligible population after minutes, sample-size, value and selected FM position-rating filters. Position/league visible filters are post-calculation display filters.
+- Added a position-cohort SQLite integration test with players sharing the same textual position family but different numeric familiarity; only the player meeting the selected position threshold should enter the cohort.
+- Applied Monolith Glass graphite/amber surfaces and matching input/button colours to the standalone Performance vs Value window.
+
+### Limitations and validation
+
+- The new position-rating cohort filter currently applies to the offline FMSAVE statistical dataset, because the season/match performance facts are sourced from imported save tables. It does not pretend that provisional live-memory position values have corresponding season-stat rows.
+- A position threshold is a scouting cohort constraint, not a role suitability score. No role formula is inferred.
+- Percentile values are descriptive ranks within the current eligible import, not cross-save or real-world league benchmarks. Small position/league cohorts can have no percentile (minimum cohort size remains three).
+- The FM27 in-game Positions page still needs to be checked against the same imported player before live-memory position fields can be promoted beyond provisional.
+- Windows build, UI visual/DPI review and the new SQLite test are pending the workflow triggered by these commits.
+
+### Next steps
+
+1. Extend the same source-aware Monolith Glass treatment to remaining custom dialogs, chart/empty/error states and high-contrast/focus states.
+2. Add a dedicated position-rating witness report to capture in-game FM27 values beside FMSAVE and live-reader values for the same player, then resolve discrepancies with evidence.
+3. Expand scouting profiles with reusable metric bundles, player comparison views and a clearly labelled value-gap shortlist.
+4. Add only those performance fields actually present in the save/CSV. Keep event-level metrics and third-party proprietary formulas out of the catalogue unless an external source explicitly provides them.
