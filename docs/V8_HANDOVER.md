@@ -24,7 +24,7 @@ Continue the integrated V8 rebuild without replacing existing R7.2.0 functionali
 - Staff profile facts are grouped by their source keys and rendered by the existing profile view; the new fields do not create a parallel staff directory or replace the established search flow.
 - Reference findings and limitations are recorded in `docs/architecture/FM-ATLAS-V8-REFERENCE-TOOL-MAPPING-NOTES.md`; the implementation deliberately keeps group 7 unresolved and recruitment/performance analyst preferences combined.
 - Players search is paged at 250 rows, merges local and live source rows before paging, prefers the most complete source row, and restores open profile tabs after navigation. Existing Advanced Search must remain intact.
-- The existing Players finder now has direct min/max CA and PA controls for both offline and live sources. It accepts signed PA ranges down to -10, supports ability-only searches without a name query, validates min/max ordering and uses matching filtered count queries. Advanced Search and the saved-profile workflow remain separate and preserved.
+- The existing Players finder now has direct min/max CA and PA controls for both offline and live sources. It accepts signed PA ranges down to -10, supports ability-only searches without a name query, validates min/max ordering and uses matching filtered count queries for text, position and ability bounds. Advanced Search and the saved-profile workflow remain separate and preserved.
 
 ## Safety state
 
@@ -75,6 +75,9 @@ The current implementation checklist, architecture status and quick-start guidan
 - `37e039d3`, `7610d216` — add CA/PA-aware live/offline source counts and align local count text matching with player search.
 - `f840de7d` — add CA/PA range controls to the existing Players workspace.
 - `741ff78f` — add live/offline CA and signed-PA filter regression coverage.
+- `9c7d1312`, `afedac0e` — make source counts honour the active position and CA/PA filters.
+- `4b25d4b3` — pass the active position into the filtered source counts.
+- `58f9adac` — extend CA/PA search regression coverage to position filters.
 - The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
 
 ## Second reference/reverse-engineering batch
