@@ -78,6 +78,7 @@
 - [x] Decode 19 FM27 staff coaching attributes from the documented raw-byte offsets and convert them using the reference display scale.
 - [x] Decode the two direct staff ratings (authority and working with youngsters) as 1–20 values.
 - [x] Persist staff coaching/direct ratings as provisional `staff_attributes.*` facts; the existing Staff profile renders them without a replacement UI.
+- [x] Organise staff coaching attributes, personality and contract details into dedicated sections in the existing Staff profile; keep source confidence visible.
 - [x] Decode and persist eight staff personality ratings, applying the +0x340 identity shift for the human manager.
 - [x] Decode and persist available staff contract wage (GBP/week), signed date, expiry date and joined-club date from the documented contract structure.
 - [ ] Compare staff personality and contract fields against in-game screens before promoting them beyond provisional.
