@@ -665,6 +665,7 @@ public partial class MainWindow : Window
         AddNav("◎", "Role Lab");
         AddNavGroup("EDITING");
         AddNav("✎", "Live Editor");
+        AddNav("▤", "World Editor");
         AddNav("▦", "Mass Edit");
         AddNav("◷", "Edit History");
         AddNavGroup("DATA & TOOLS");
@@ -793,6 +794,7 @@ public partial class MainWindow : Window
                 "Role Lab" => await RoleLabPageAsync(),
                 "Shortlists" => await ShortlistsPageAsync(),
                 "Live Editor" => await LiveEditorPageAsync(),
+                "World Editor" => await WorldEditorPageAsync(),
                 "Edit History" => await EditHistoryPageAsync(),
                 "Atlas Assistant" => AssistantPage(),
                 "Settings" => await SettingsPageAsync(),
@@ -911,6 +913,7 @@ public partial class MainWindow : Window
         "Tester & Logs" => "System checks · diagnostic export · application and build logs",
         "Shortlists" => "Manage your local recruitment lists",
         "Live Editor" => "Editing boundary · live game writing is not enabled in this build",
+        "World Editor" => "Explore every indexed FM save directory · edit source-backed scalar fields locally with audit and undo",
         "Edit History" => "Local FM Atlas data changes and audit trail",
         "Atlas Assistant" => "Search your local career snapshot using natural-language-style filters",
         "Settings" => "Data sources · save bridge · local storage · diagnostics",
@@ -3060,6 +3063,157 @@ public partial class MainWindow : Window
         };
         await RefreshPipelineRowsAsync();
         return root;
+    }
+
+
+    private async Task<UIElement> WorldEditorPageAsync()
+    {
+        var root = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(330) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var directory = Card(new DockPanel(), 14, new Thickness(0, 0, 10, 0));
+        var directoryDock = (DockPanel)directory.Child;
+        var controls = new StackPanel();
+        controls.Children.Add(Txt("WORLD EDITOR", 9, true, Teal));
+        controls.Children.Add(Txt("FM save directories", 20, true, Ink));
+        controls.Children.Add(Txt("This workspace indexes every extra directory exported by the read-only FM save bridge. Select a table and record to inspect its actual imported fields. No values are invented.", 9, false, Muted, wrap: true));
+
+        var tables = await RunDatabaseAsync(() => _database.GetFmsaveExtraTableNamesAsync());
+        var tablePicker = new ComboBox
+        {
+            ItemsSource = tables,
+            DisplayMemberPath = nameof(FmsaveExtraTableSummary.TableName),
+            Height = 36,
+            Margin = new Thickness(0, 10, 0, 6),
+            IsEditable = false
+        };
+        controls.Children.Add(FieldLabel("SOURCE TABLE"));
+        controls.Children.Add(tablePicker);
+        var search = Input("Search names, IDs or imported values");
+        search.Margin = new Thickness(0, 6, 0, 6);
+        controls.Children.Add(search);
+        var searchButton = PrimaryButton("Search selected directory", (_, _) => _ = RefreshWorldRowsAsync());
+        controls.Children.Add(searchButton);
+        var tableStatus = Txt($"{tables.Count:N0} imported directories available", 8, true, Muted);
+        controls.Children.Add(tableStatus);
+        DockPanel.SetDock(controls, Dock.Top);
+        directoryDock.Children.Add(controls);
+
+        var rowsGrid = CreateGrid();
+        rowsGrid.IsReadOnly = true;
+        rowsGrid.SelectionMode = DataGridSelectionMode.Single;
+        rowsGrid.Columns.Add(Column("RECORD", nameof(FmsaveExtraRowRecord.Label), 1.1));
+        rowsGrid.Columns.Add(Column("ROW", nameof(FmsaveExtraRowRecord.RowIndex), .45));
+        rowsGrid.ItemsSource = new ObservableCollection<FmsaveExtraRowRecord>();
+        directoryDock.Children.Add(rowsGrid);
+        Grid.SetColumn(directory, 0);
+        root.Children.Add(directory);
+
+        var detail = Card(new DockPanel(), 14);
+        var detailDock = (DockPanel)detail.Child;
+        var detailHeader = new StackPanel();
+        detailHeader.Children.Add(Txt("ENTITY EDITOR", 9, true, Teal));
+        detailHeader.Children.Add(Txt("Choose a record", 22, true, Ink));
+        detailHeader.Children.Add(Txt("The editor exposes all scalar properties in the selected raw save record, including nested objects and indexed array elements. Pointer/list operations are not silently converted into numeric writes.", 9, false, Muted, wrap: true));
+        var toggle = _editorEnabled
+            ? SoftButton("Disable local editor", (_, _) => { _editorEnabled = false; NavigateAsync("World Editor"); })
+            : PrimaryButton("Enable local editor", (_, _) => { _editorEnabled = true; NavigateAsync("World Editor"); });
+        detailHeader.Children.Add(toggle);
+        var editorMessage = Txt("Select a row on the left. Enable the local editor to change its imported values and save an auditable Atlas override.", 10, false, Muted, wrap: true);
+        detailHeader.Children.Add(editorMessage);
+        DockPanel.SetDock(detailHeader, Dock.Top);
+        detailDock.Children.Add(detailHeader);
+        var detailScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        var detailStack = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
+        detailScroll.Content = detailStack;
+        detailDock.Children.Add(detailScroll);
+        Grid.SetColumn(detail, 1);
+        root.Children.Add(detail);
+
+        async Task RefreshWorldRowsAsync()
+        {
+            if (tablePicker.SelectedItem is not FmsaveExtraTableSummary selectedTable) return;
+            try
+            {
+                var results = await RunDatabaseAsync(() => _database.SearchFmsaveExtraRowsAsync(selectedTable.TableName, search.Text, 1_000));
+                rowsGrid.ItemsSource = new ObservableCollection<FmsaveExtraRowRecord>(results);
+                tableStatus.Text = $"{selectedTable.Count:N0} rows in source · showing {results.Count:N0}";
+                detailStack.Children.Clear();
+                editorMessage.Text = "Select a record from the refreshed list.";
+            }
+            catch (Exception ex)
+            {
+                tableStatus.Text = "Directory search failed · " + ex.Message;
+                AtlasLog.Error("World Editor directory search failed.", ex);
+            }
+        }
+
+        rowsGrid.SelectionChanged += async (_, _) =>
+        {
+            if (rowsGrid.SelectedItem is not FmsaveExtraRowRecord selectedRow) return;
+            try
+            {
+                var facts = await RunDatabaseAsync(() => _database.GetFmsaveExtraRowFactsAsync(
+                    selectedRow.SnapshotId, selectedRow.TableName, selectedRow.RowIndex));
+                detailStack.Children.Clear();
+                detailStack.Children.Add(Txt(selectedRow.TableName.ToUpperInvariant(), 9, true, Teal));
+                detailStack.Children.Add(Txt(selectedRow.Label, 19, true, Ink, wrap: true));
+                AddDetailRow(detailStack, "Source row", selectedRow.RowIndex.ToString(CultureInfo.InvariantCulture));
+                AddDetailRow(detailStack, "Source ID", selectedRow.SourceId);
+                AddDetailRow(detailStack, "Imported scalar fields", facts.Count.ToString("N0", CultureInfo.InvariantCulture));
+                if (_editorEnabled)
+                {
+                    detailStack.Children.Add(await BuildLocalEntityFactEditorAsync(
+                        selectedRow.TableName.ToLowerInvariant(), selectedRow.SourceId, selectedRow.Label, facts));
+                    editorMessage.Text = "Local editor enabled · changes are stored separately from the source save snapshot and can be undone in Edit History.";
+                }
+                else
+                {
+                    detailStack.Children.Add(Txt("Enable the local editor above to change every imported scalar value in this record. The original save snapshot remains untouched.", 10, false, Muted, wrap: true));
+                    detailStack.Children.Add(AddFactsReadOnlyPanel(facts));
+                }
+            }
+            catch (Exception ex)
+            {
+                detailStack.Children.Clear();
+                detailStack.Children.Add(Txt("RECORD COULD NOT BE READ", 10, true, Brush("#A54E55")));
+                detailStack.Children.Add(Txt(ex.Message, 10, false, Muted, wrap: true));
+            }
+        };
+
+        tablePicker.SelectionChanged += async (_, _) => await RefreshWorldRowsAsync();
+        if (tables.Count == 0)
+        {
+            tablePicker.IsEnabled = false;
+            searchButton.IsEnabled = false;
+            tableStatus.Text = "No extra save tables have been imported yet.";
+            detailStack.Children.Add(Txt("Import a supported FM27 career save through Settings. The World Editor will then list the fields the save bridge actually returns.", 10, false, Muted, wrap: true));
+        }
+        else
+        {
+            tablePicker.SelectedIndex = 0;
+            await RefreshWorldRowsAsync();
+        }
+
+        return root;
+    }
+
+    private static UIElement AddFactsReadOnlyPanel(IReadOnlyList<AtlasFactRecord> facts)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
+        if (facts.Count == 0)
+        {
+            panel.Children.Add(Txt("No scalar fields were present in this record.", 9, false, Muted));
+            return panel;
+        }
+        foreach (var group in facts.GroupBy(x => x.Group).OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            panel.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal));
+            foreach (var fact in group.Take(100))
+                AddDetailRow(panel, fact.Field, fact.Value ?? "—");
+        }
+        return panel;
     }
 
     private async Task<UIElement> LiveEditorPageAsync()
