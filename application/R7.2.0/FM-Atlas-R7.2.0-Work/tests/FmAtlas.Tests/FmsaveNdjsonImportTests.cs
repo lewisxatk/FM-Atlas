@@ -59,6 +59,47 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public async Task CancellationImmediatelyBeforeCommitRollsBackNewSnapshot()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "cancelled", playerManifestCount: 1, includeContractRow: true);
+        using var cancellation = new CancellationTokenSource();
+        var progress = new InlineProgress<string>(message =>
+        {
+            if (message.StartsWith("Validating and committing", StringComparison.OrdinalIgnoreCase))
+                cancellation.Cancel();
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            database.ImportFmsaveSnapshotAsync(bundle, cancellation.Token, progress));
+
+        Assert.Equal(0, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveImportRuns;"));
+        Assert.Equal(0, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM Players;"));
+        Assert.Equal(0, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables;"));
+    }
+
+    [Fact]
+    public async Task SkippedStaffRowsPersistReconciliationWarnings()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "staff-warning", playerManifestCount: 1, includeContractRow: false, includeInvalidStaffRow: true);
+
+        var result = await database.ImportFmsaveSnapshotAsync(bundle);
+        var savedWarnings = await ScalarStringAsync(databasePath, "SELECT WarningsJson FROM FmsaveImportRuns LIMIT 1;");
+
+        Assert.Contains(result.Warnings, x => x.Contains("Staff rows skipped", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Staff rows skipped", savedWarnings ?? "", StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, result.PlayersImported);
+        Assert.Equal(0, result.StaffImported);
+    }
+
+    [Fact]
     public async Task FailedSecondImportPreservesPreviouslyCommittedSnapshot()
     {
         using var temp = new TemporaryFolder();
@@ -81,7 +122,8 @@ public sealed class FmsaveNdjsonImportTests
         string name,
         int playerManifestCount,
         bool includeContractRow,
-        bool malformedContractRow = false)
+        bool malformedContractRow = false,
+        bool includeInvalidStaffRow = false)
     {
         var folder = Path.Combine(root, name);
         Directory.CreateDirectory(folder);
@@ -89,7 +131,7 @@ public sealed class FmsaveNdjsonImportTests
         var counts = new Dictionary<string, int>
         {
             ["players"] = playerManifestCount,
-            ["staff"] = 0,
+            ["staff"] = includeInvalidStaffRow ? 1 : 0,
             ["clubs"] = 0,
             ["contracts"] = includeContractRow ? 1 : 0
         };
@@ -131,6 +173,9 @@ public sealed class FmsaveNdjsonImportTests
         };
         File.WriteAllText(Path.Combine(folder, "players.ndjson"), JsonSerializer.Serialize(player) + Environment.NewLine);
 
+        if (includeInvalidStaffRow)
+            File.WriteAllText(Path.Combine(folder, "staff.ndjson"), JsonSerializer.Serialize(new { name = "Missing Staff UID" }) + Environment.NewLine);
+
         if (includeContractRow)
         {
             var contractPath = Path.Combine(folder, "contracts.ndjson");
@@ -159,6 +204,11 @@ public sealed class FmsaveNdjsonImportTests
         command.CommandText = sql;
         var value = await command.ExecuteScalarAsync();
         return value is null or DBNull ? null : Convert.ToString(value);
+    }
+
+    private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     private sealed class TemporaryFolder : IDisposable
