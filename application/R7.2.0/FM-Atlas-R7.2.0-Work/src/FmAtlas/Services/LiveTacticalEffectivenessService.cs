@@ -535,6 +535,9 @@ public static partial class LiveEntityMemoryEditService
         return ((int)(packed << 12)) >> 26;
     }
 
+    public static IReadOnlyList<int> DecodeTacticalAreaOptions(ulong first, ulong second)
+        => TacticalAreaOptions(new[] { first, second });
+
     private static int[] TacticalAreaOptions(ulong[] words)
     {
         var first = words[0];
