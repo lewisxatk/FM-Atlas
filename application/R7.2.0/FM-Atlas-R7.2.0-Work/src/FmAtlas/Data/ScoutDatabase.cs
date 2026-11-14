@@ -24,13 +24,24 @@ public sealed class ScoutDatabase
     // All mutating operations across ScoutDatabase instances share one writer gate.
     private static readonly SemaphoreSlim WriteGate = new(1, 1);
 
-    public ScoutDatabase()
+    public ScoutDatabase() : this(null)
     {
-        var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas");
-        Directory.CreateDirectory(folder);
+    }
+
+    /// <summary>
+    /// Creates a database facade for the user's local Atlas database, or an explicit
+    /// database path supplied by an automated integration test.
+    /// </summary>
+    public ScoutDatabase(string? databasePath)
+    {
+        var resolvedPath = string.IsNullOrWhiteSpace(databasePath)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas", "scouting.db")
+            : Path.GetFullPath(databasePath);
+        var folder = Path.GetDirectoryName(resolvedPath);
+        if (!string.IsNullOrWhiteSpace(folder)) Directory.CreateDirectory(folder);
         _connectionString = new SqliteConnectionStringBuilder
         {
-            DataSource = Path.Combine(folder, "scouting.db"),
+            DataSource = resolvedPath,
             DefaultTimeout = 30,
             ForeignKeys = true
         }.ToString();
