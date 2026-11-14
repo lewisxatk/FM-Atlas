@@ -15,6 +15,7 @@ namespace FmAtlas;
 
 public sealed class PlayerComparisonWindow : Window
 {
+    private readonly ScoutDatabase _database;
     private sealed class ComparisonRow
     {
         public string Group { get; init; } = "";
@@ -25,8 +26,9 @@ public sealed class PlayerComparisonWindow : Window
         public string Value3 { get; init; } = "—";
     }
 
-    private PlayerComparisonWindow(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes, IReadOnlyDictionary<string, IReadOnlyList<PositionSuitabilityEntry>> positionRatings, IReadOnlyList<List<AtlasFactRecord>> performanceFacts)
+    private PlayerComparisonWindow(ScoutDatabase database, IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes, IReadOnlyDictionary<string, IReadOnlyList<PositionSuitabilityEntry>> positionRatings, IReadOnlyList<List<AtlasFactRecord>> performanceFacts)
     {
+        _database = database;
         Title = "FM Atlas · Player Comparison";
         Width = 1320;
         Height = 820;
@@ -38,7 +40,7 @@ public sealed class PlayerComparisonWindow : Window
 
         var root = new DockPanel { Margin = new Thickness(18) };
         var header = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
-        header.Children.Add(new TextBlock { Text = "SCOUTING INTELLIGENCE", Foreground = new SolidColorBrush(Color.FromRgb(110, 174, 218)), FontSize = 10, FontWeight = FontWeights.Bold });
+        header.Children.Add(new TextBlock { Text = "SCOUTING INTELLIGENCE", Foreground = new SolidColorBrush(Color.FromRgb(240, 138, 66)), FontSize = 10, FontWeight = FontWeights.Bold });
         header.Children.Add(new TextBlock { Text = "Player comparison", FontSize = 26, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 4, 0, 2) });
         header.Children.Add(new TextBlock
         {
@@ -93,6 +95,13 @@ public sealed class PlayerComparisonWindow : Window
             File.WriteAllLines(dialog.FileName, lines, new UTF8Encoding(true));
         };
         tools.Children.Add(exportButton);
+        var performanceButton = new Button { Content = "Performance vs Value", Height = 34, Padding = new Thickness(12, 5, 12, 5), ToolTip = "Open the source-backed performance percentile and value analysis for this career." };
+        performanceButton.Click += async (_, _) =>
+        {
+            var metrics = await _database.GetSeasonMetricCatalogAsync();
+            await PerformanceValueAnalysisWindow.ShowAsync(this, _database, metrics);
+        };
+        tools.Children.Add(performanceButton);
         DockPanel.SetDock(tools, Dock.Top);
         root.Children.Add(tools);
 
@@ -119,7 +128,7 @@ public sealed class PlayerComparisonWindow : Window
         var attributeSets = await Task.WhenAll(selected.Select(x => database.GetPlayerAttributesAsync(x.SourceId)));
         var positionRatings = await database.GetImportedPositionSuitabilityAsync();
         var performanceFacts = await Task.WhenAll(selected.Select(x => database.GetPlayerPerformanceFactsAsync(x.SourceId)));
-        var window = new PlayerComparisonWindow(selected, attributeSets, positionRatings, performanceFacts) { Owner = owner };
+        var window = new PlayerComparisonWindow(database, selected, attributeSets, positionRatings, performanceFacts) { Owner = owner };
         window.ShowDialog();
     }
 
