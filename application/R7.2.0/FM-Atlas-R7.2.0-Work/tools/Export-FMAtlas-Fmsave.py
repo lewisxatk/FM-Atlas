@@ -181,8 +181,6 @@ def transform_ndjson(source: pathlib.Path, target: pathlib.Path, transform, labe
 def normalize_player(item: dict, save_info: dict | None):
     if not isinstance(item, dict):
         return None
-    if not isinstance(item, dict):
-        continue
     ability = first(item, "ability") or {}
     attributes = first(item, "attributes") or {}
     personality = first(item, "personality") or {}
@@ -209,7 +207,7 @@ def normalize_player(item: dict, save_info: dict | None):
     save_uid = first(item, "uid")
     game_date = save_info.get("game_date") or "unknown-date"
     atlas_source_id = f"FMSAVE:{game_namespace}:{db_namespace}:{unique_id}" if unique_id is not None else f"FMSAVE:UNRESOLVED:{game_namespace}:{db_namespace}:{game_date}:{save_uid}"
-    players.append({
+    return {
         "uid": save_uid,
         "unique_id": unique_id,
         "atlas_source_id": atlas_source_id,
@@ -280,9 +278,7 @@ def normalize_player(item: dict, save_info: dict | None):
 def normalize_staff(item: dict):
     if not isinstance(item, dict):
         return None
-    if not isinstance(item, dict):
-        continue
-    staff.append({
+    return {
         "uid": first(item, "uid"),
         "unique_id": first(item, "unique_id"),
         "name": first(item, "name", "full_name", "common_name"),
@@ -307,9 +303,7 @@ def normalize_staff(item: dict):
 def normalize_club(item: dict):
     if not isinstance(item, dict):
         return None
-    if not isinstance(item, dict):
-        continue
-    clubs.append({
+    return {
         "uid": first(item, "uid"),
         "unique_id": first(item, "unique_id"),
         "name": first(item, "name", "long_name", "club_name"),
