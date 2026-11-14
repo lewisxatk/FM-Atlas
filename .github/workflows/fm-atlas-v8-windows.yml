@@ -7,20 +7,13 @@ on:
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
-  pull_request:
-    branches:
-      - fix/r7.2.0-release-build-integration
-      - main
-    paths:
-      - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
-      - ".github/workflows/fm-atlas-v8-windows.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: fm-atlas-v8-windows-${{ github.ref }}
+  group: fm-atlas-v8-windows-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
