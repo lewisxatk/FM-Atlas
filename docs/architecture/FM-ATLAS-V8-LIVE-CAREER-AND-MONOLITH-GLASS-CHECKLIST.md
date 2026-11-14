@@ -1,10 +1,12 @@
 # FM Atlas V8 — Live Career, People Search and Monolith Glass
 
+> **Current safety override (2026-11-14):** Full live entity-array import is OFF by default. The monitor detects process/build/session generation only. The automatic-import items in earlier notes describe implemented extractor/transaction capabilities, not permission to run a full scan. Offline read-only save import remains the current data-population route until bounded cancellation, FM performance and field-witness checks pass.
+
 **Working branch:** `rebuild/v8-full-product-rebuild`  
 **Status:** source implementation committed; fresh Windows build and real FM27 acceptance still required.  
 **Principle:** load FM27, load a career, leave Atlas open. Atlas should recognise the active career without asking the user to choose a save file.
 
-## 1. Automatic live-career connection
+## 1. Career/session detection — entity-array import currently paused
 
 ### Implemented in source
 
@@ -16,20 +18,20 @@
 - [x] Include process ID, storefront profile and save-load counter in the session key.
 - [x] Re-check the same save-load counter before and after the scan.
 - [x] Discard the snapshot if the career changes while Atlas is reading it.
-- [x] Automatically rescan when a new career generation is loaded.
-- [x] Automatically reconnect when Atlas is opened while a supported career is already loaded.
-- [x] Keep a manual toolbar refresh as a fallback.
+- [x] Detect and report a changed career generation without reading the entity arrays. Full automatic entity-array rescan remains OFF until the safety gates below pass.
+- [x] Detect a supported FM process/build when Atlas opens while a career is already loaded; do not automatically import it.
+- [x] Keep a toolbar action that explains the paused import gate; it does not initiate a memory scan.
 - [x] Keep the original local Atlas database and offline save-import path intact.
 
 ### Still needs real-PC verification
 
 - [ ] Confirm the Steam and Game Pass profiles match the exact FM27 build installed on the user's PC.
 - [ ] Confirm the monitor sees the career only after FM has finished loading it.
-- [ ] Confirm first connection completes without slowing or crashing Football Manager.
-- [ ] Confirm the same session is not repeatedly imported every three seconds.
-- [ ] Load a second save without closing Atlas and confirm one new snapshot replaces the active live view.
-- [ ] Confirm a save switch during an active scan discards that scan and reconnects to the new career.
-- [ ] Measure connection duration and CPU/memory use on a real career.
+- [ ] Confirm detection-only monitoring does not materially affect FM CPU/RAM or responsiveness.
+- [x] Keep full entity-array scans disabled by default and avoid repeated import attempts on each monitor tick.
+- [ ] Load a second save without closing Atlas and confirm the detector reports the new generation without importing a snapshot.
+- [ ] After a bounded scanner is implemented and enabled for controlled testing, confirm a save switch during a scan discards that scan.
+- [ ] Measure detection-only CPU/memory use on a real career; separately benchmark any future bounded import.
 
 ## 2. Human manager, club and nation
 
@@ -48,7 +50,7 @@
 
 ### Still needs real-PC verification
 
-- [ ] Confirm the detected manager name matches the manager shown inside FM27.
+- [ ] After the import gate is safely re-enabled, confirm the detected manager name matches the manager shown inside FM27.
 - [ ] Confirm manager club and nation match the in-game profile.
 - [ ] Compare manager/staff CA and PA with the in-game UI; values remain provisional until witnessed.
 - [ ] Confirm the shortcut opens the correct person/club profile after each save change.
@@ -126,7 +128,7 @@ Reference code and profile files are subject to their own licences. Atlas does n
 - [ ] All xUnit and Python adapter tests pass on that exact commit.
 - [ ] Self-contained Windows x64 artifact is produced.
 - [ ] Atlas launches and initializes without changing/deleting the user's existing database.
-- [ ] Automatic career detection completes on a supported Steam or Game Pass build.
+- [ ] Detection-only monitor correctly identifies supported Steam or Game Pass process/build/session; do not require live entity-array import for this gate.
 - [ ] Manager/club/nation are correct.
 - [ ] Player and staff search, CA/PA and profile facts are correct.
 - [ ] A second career load triggers a new clean snapshot.
