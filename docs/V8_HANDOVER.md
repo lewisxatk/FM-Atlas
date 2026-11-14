@@ -16,15 +16,19 @@ Continue the integrated V8 rebuild without replacing existing R7.2.0 functionali
 - The database already contains transactional live staff persistence and the `LiveCareerIdentity` record.
 - The Staff directory already merges offline-save and live staff rows, exposes CA/PA and other identity columns, and loads additional staff facts into the selected profile.
 - `GetFmsaveStaffFactsAsync` already strips the `LIVE:` prefix before reading `LiveStaffFacts`; this is covered by the existing `StaffSearchProfileAndCareerIdentityUseTheConnectedLiveManager` integration test.
-- The live staff query was missing club-name matching even though the Staff search placeholder promised search by staff, club or ID. The SQL predicate and regression test have now been extended.
+- The live staff query now supports name, club and UID matching; the integration test covers the linked club and UID search paths.
 - Players search is paged at 250 rows, merges local and live source rows before paging, prefers the most complete source row, and restores open profile tabs after navigation. Existing Advanced Search must remain intact.
 
 ## Safety state
 
-The full entity-array live-memory import gate is OFF by default. The monitor may identify the FM process, supported build and save-generation changes, but must not automatically scan the large player/staff/club arrays. This preserves the earlier V8 safety decision while keeping the extractor and database integration available for controlled fixtures. Live editing remains OFF. Offline read-only save import is the supported way to populate career data until bounded cancellation, FM performance and field-witness checks pass.
+**Verified source correction in this continuation:** `LiveMemoryImportEnabled` was found set to `true` even though this handover and the V8 live-career checklist explicitly said the gate was OFF. That contradiction would have allowed the 3-second monitor to start full entity-array scans automatically. It has now been corrected to `false` in `MainWindow.xaml.cs` (commit `8afe77a4`). The monitor remains detection-only: process/build/session generation checks are allowed; large player/staff/club array scans are not started automatically or by the toolbar action. Live editing remains OFF. Offline read-only save import is the supported way to populate career data until controlled FM performance and field-witness checks pass.
+
+The implementation checklist has also been reconciled with this safety state (commit `fa226cee`). The extractor and transactional persistence code remain in the branch for controlled fixtures and future acceptance; their presence is not evidence that automatic career indexing is currently enabled.
 
 ## Commits made in this continuation
 
+- `8afe77a4` — corrected the live-memory gate to OFF and clarified detection-only UI wording.
+- `fa226cee` — reconciled the implementation checklist with the actual live-memory safety gate.
 - `05f316e5` — live staff search now includes linked club name.
 - `2107cc99` — integration test now checks staff club search, job and age.
 - `4980a746` — live career detection/import safety gate and help text updated.
@@ -35,7 +39,7 @@ The full entity-array live-memory import gate is OFF by default. The monitor may
 
 ## Verification still required
 
-1. Fresh Windows Release build.
+1. Fresh Windows Release build of the exact post-correction branch head (the correction triggers the V8 Windows workflow).
 2. Full .NET integration suite, including the live staff fixture tests and Advanced Search regressions.
 3. Confirm monitor detects load/unload/new-generation changes during the bounded scan and cancels the worker when the session changes.
 4. Confirm the Staff directory searches by name, club and UID; select a live staff fixture and verify CA/PA, nation, job, club and all stored live facts.
