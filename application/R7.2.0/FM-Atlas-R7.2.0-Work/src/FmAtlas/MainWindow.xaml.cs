@@ -20,18 +20,23 @@ namespace FmAtlas;
 
 public partial class MainWindow : Window
 {
-    private static readonly Brush Ink = new SolidColorBrush(Color.FromRgb(232, 238, 244));
-    private static readonly Brush Teal = new SolidColorBrush(Color.FromRgb(198, 243, 107));
-    private static readonly Brush TealDark = new SolidColorBrush(Color.FromRgb(213, 229, 195));
-    private static readonly Brush Muted = new SolidColorBrush(Color.FromRgb(158, 170, 182));
-    private static readonly Brush Line = new SolidColorBrush(Color.FromRgb(49, 59, 70));
-    private static readonly Brush Canvas = new SolidColorBrush(Color.FromRgb(13, 17, 23));
+    private static string _themeMode = LoadThemeMode();
+    private const bool LiveMemoryImportEnabled = false;
+    private const bool LiveMemoryEditingEnabled = false;
+    private static Brush Ink => Brush("#E8EEF4");
+    private static Brush Teal => Brush("#C6F36B");
+    private static Brush TealDark => Brush("#D5E5C3");
+    private static Brush Muted => Brush("#9EADB9");
+    private static Brush Line => Brush("#303943");
+    private static Brush Canvas => Brush("#0D1117");
     private readonly ScoutDatabase _database = new();
     private readonly ObservableCollection<PlayerRecord> _players = new();
     private readonly ObservableCollection<AtlasClubRecord> _clubs = new();
     private readonly ObservableCollection<AtlasStaffRecord> _staff = new();
     private readonly ObservableCollection<ShortlistRecord> _shortlist = new();
     private Grid? _shell;
+    private ColumnDefinition? _navColumn;
+    private bool _navCollapsed;
     private StackPanel? _navPanel;
     private ContentControl? _pageHost;
     private TextBlock? _pageTitle;
@@ -97,7 +102,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => AtlasLog.Info("Main window closed.");
         PreviewKeyDown += (_, e) =>
         {
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.F)
+            if (Keyboard.Modifiers == ModifierKeys.Control && (e.Key == Key.K || e.Key == Key.F))
             {
                 e.Handled = true;
                 ShowGlobalSearch();
@@ -137,103 +142,259 @@ public partial class MainWindow : Window
     {
         RootGrid.Children.Clear();
         _shell = new Grid();
-        _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(224) });
+        _navColumn = new ColumnDefinition { Width = new GridLength(_navCollapsed ? 76 : 248) };
+        _shell.ColumnDefinitions.Add(_navColumn);
         _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _shell.Background = new LinearGradientBrush(Color.FromRgb(11, 15, 20), Color.FromRgb(17, 24, 32), 35);
+        _shell.Background = new LinearGradientBrush(
+            Color.FromRgb(_themeMode == "Glass Light" ? (byte)239 : (byte)7, _themeMode == "Glass Light" ? (byte)244 : (byte)14, _themeMode == "Glass Light" ? (byte)250 : (byte)25),
+            Color.FromRgb(_themeMode == "Glass Light" ? (byte)222 : (byte)17, _themeMode == "Glass Light" ? (byte)232 : (byte)32, _themeMode == "Glass Light" ? (byte)244 : (byte)49), 35);
         RootGrid.Children.Add(_shell);
 
         var sidebar = BuildSidebar();
-        Grid.SetColumn(sidebar, 0); _shell.Children.Add(sidebar);
+        Grid.SetColumn(sidebar, 0);
+        _shell.Children.Add(sidebar);
 
-        var main = new Grid { Margin = new Thickness(22, 18, 22, 18) };
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
+        var main = new Grid { Margin = new Thickness(20, 14, 20, 18) };
+        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64) });
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(88) });
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        Grid.SetColumn(main, 1); _shell.Children.Add(main);
+        Grid.SetColumn(main, 1);
+        _shell.Children.Add(main);
 
-        var header = new Grid { Margin = new Thickness(0, 0, 0, 12) };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        _pageTitle = Txt("Dashboard", 27, true, Ink);
-        _pageSubTitle = Txt("Career intelligence, recruitment and squad planning", 11, false, Muted);
-        titleStack.Children.Add(_pageTitle); titleStack.Children.Add(_pageSubTitle);
-        header.Children.Add(titleStack);
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        _globalSearchBox = Input("Search players, staff, clubs…");
-        _globalSearchBox.Width = 250; _globalSearchBox.Height = 36; _globalSearchBox.Margin = new Thickness(0, 0, 7, 0);
-        _globalSearchBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; ShowGlobalSearch(_globalSearchBox.Text); } };
-        actions.Children.Add(_globalSearchBox);
-        actions.Children.Add(SoftButton("Search", (_, _) => ShowGlobalSearch(_globalSearchBox.Text)));
-        _liveLoadButton = PrimaryButton("Reload Game", async (_, _) => await LoadLiveCareerAsync());
+        var headerGrid = new Grid();
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(15, 0, 12, 0) };
+        _pageTitle = Txt("Dashboard", 23, true, Ink);
+        _pageSubTitle = Txt("Career intelligence · scouting · analysis · squad planning", 10, false, Muted);
+        titleStack.Children.Add(_pageTitle);
+        titleStack.Children.Add(_pageSubTitle);
+        headerGrid.Children.Add(titleStack);
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 10, 0) };
+        actions.Children.Add(ToolbarIcon("\\uE721", "Global search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
+        actions.Children.Add(ToolbarIcon("\\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
+        actions.Children.Add(ToolbarIcon("\\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
+        actions.Children.Add(ToolbarIcon("\\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
+        actions.Children.Add(ToolbarIcon("\\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
+        _liveLoadButton = ToolbarIcon("\\uE72C", "Live-memory scanning is paused in V8 until bounded scanning is independently validated. Use offline save import instead.", (_, _) => ShowLiveScanPaused());
+        _liveLoadButton.IsEnabled = false;
         actions.Children.Add(_liveLoadButton);
-        actions.Children.Add(PrimaryButton("Save Atlas", async (_, _) => await SaveAtlasAsync()));
-        var saveGame = SoftButton("Save Game", (_, _) => MessageBox.Show(this,
-            "Supported FM Atlas live edits are applied to the running game memory and should become visible after you press Continue in Football Manager.\n\nFM Atlas does not press Continue or save your career file for you. To keep the change, use Ctrl+S inside Football Manager after checking the result.\n\nOnly CA, PA and the currently supported visible player attributes can be written. Unsupported fields remain blocked. Save a separate career backup before testing.",
-            "FM Atlas 27 · Save your career", MessageBoxButton.OK, MessageBoxImage.Information));
-        saveGame.ToolTip = "Instructions for saving verified live edits in Football Manager.";
-        actions.Children.Add(saveGame);
-        actions.Children.Add(SoftButton("Import Save", async (_, _) => await ImportCareerSaveAsync()));
-        actions.Children.Add(SoftButton("Diagnostics", (_, _) => ExportDiagnostics()));
-        Grid.SetColumn(actions, 1); header.Children.Add(actions);
-        Grid.SetRow(header, 0); main.Children.Add(header);
+        actions.Children.Add(ToolbarIcon("\\uE713", "Change appearance: Glass Dark, Glass Light or Studio.", async (_, _) => await CycleThemeAsync()));
+        actions.Children.Add(ToolbarIcon("\\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
+        Grid.SetColumn(actions, 1);
+        headerGrid.Children.Add(actions);
 
-        var career = Card(new Grid(), 14);
-        var careerGrid = (Grid)career.Child;
-        careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var careerStack = new StackPanel();
-        careerStack.Children.Add(Txt("YOUR CAREER", 9, true, Teal));
-        careerStack.Children.Add(Txt("Career identity awaiting verification", 16, true, Ink));
-        _connectionSummary = Txt("Open Football Manager 27 and load a career, or import a local save copy.", 10, false, Muted);
-        careerStack.Children.Add(_connectionSummary);
-        _liveLoadStatus = Txt("Ready", 9, false, Muted); _liveLoadStatus.Margin = new Thickness(0, 5, 0, 0); careerStack.Children.Add(_liveLoadStatus);
-        _liveLoadProgress = new ProgressBar { Height = 4, Minimum = 0, Maximum = 100, Value = 0, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 5, 0, 0), Foreground = Brush("#3988C8"), Background = Brush("#DCE8F2") }; careerStack.Children.Add(_liveLoadProgress);
-        careerGrid.Children.Add(careerStack);
-        var state = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        _connectionDot = new Ellipse { Width = 9, Height = 9, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 7, 0) };
-        state.Children.Add(_connectionDot); state.Children.Add(Txt("Not connected", 10, true, Muted));
-        Grid.SetColumn(state, 1); careerGrid.Children.Add(state);
-        Grid.SetRow(career, 1); main.Children.Add(career);
+        var header = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(_themeMode == "Glass Light" ? (byte)220 : (byte)190, _themeMode == "Glass Light" ? (byte)255 : (byte)24, _themeMode == "Glass Light" ? (byte)255 : (byte)38, _themeMode == "Glass Light" ? (byte)255 : (byte)58)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(95, 175, 205, 235)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(3),
+            Child = headerGrid
+        };
+        header.Margin = new Thickness(0, 0, 0, 12);
+        Grid.SetRow(header, 0);
+        main.Children.Add(header);
 
-        _pageHost = new ContentControl { Margin = new Thickness(0, 15, 0, 0) };
-        Grid.SetRow(_pageHost, 2); main.Children.Add(_pageHost);
+        var career = Card(new Grid(), 16);
+        careerGridForBuild(career);
+        void careerGridForBuild(Border careerBorder)
+        {
+            var careerGrid = (Grid)careerBorder.Child;
+            careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var careerStack = new StackPanel();
+            careerStack.Children.Add(Txt("CAREER DATA STATUS", 9, true, Teal));
+            careerStack.Children.Add(Txt("Career identity awaiting verification", 15, true, Ink));
+            _connectionSummary = Txt("Open Football Manager 27 and load a career, or import a local save copy.", 10, false, Muted);
+            careerStack.Children.Add(_connectionSummary);
+            _liveLoadStatus = Txt("Live-memory scan paused · offline import available", 9, false, Muted);
+            _liveLoadStatus.Margin = new Thickness(0, 5, 0, 0);
+            careerStack.Children.Add(_liveLoadStatus);
+            _liveLoadProgress = new ProgressBar { Height = 4, Minimum = 0, Maximum = 100, Value = 0, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 5, 0, 0), Foreground = Brush("#3988C8"), Background = Brush("#DCE8F2") };
+            careerStack.Children.Add(_liveLoadProgress);
+            careerGrid.Children.Add(careerStack);
+            var state = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            _connectionDot = new Ellipse { Width = 9, Height = 9, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 7, 0) };
+            state.Children.Add(_connectionDot);
+            state.Children.Add(Txt("Awaiting verified save", 10, true, Muted));
+            Grid.SetColumn(state, 1);
+            careerGrid.Children.Add(state);
+        }
+        Grid.SetRow(career, 1);
+        main.Children.Add(career);
+
+        _pageHost = new ContentControl { Margin = new Thickness(0, 14, 0, 0), ClipToBounds = true };
+        Grid.SetRow(_pageHost, 2);
+        main.Children.Add(_pageHost);
     }
 
+    private Button ToolbarIcon(string glyph, string description, RoutedEventHandler click)
+    {
+        var icon = Txt(glyph, 17, true, Ink);
+        icon.FontFamily = new FontFamily("Segoe MDL2 Assets");
+        var button = new Button
+        {
+            Content = icon,
+            Width = 42,
+            Height = 42,
+            Padding = new Thickness(0),
+            Margin = new Thickness(3, 0, 3, 0),
+            Background = new SolidColorBrush(Color.FromArgb(105, 110, 150, 190)),
+            Foreground = Ink,
+            BorderBrush = new SolidColorBrush(Color.FromArgb(95, 180, 210, 240)),
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            ToolTip = description,
+            Template = RoundedButtonTemplate(13)
+        };
+        ToolTipService.SetInitialShowDelay(button, 350);
+        ToolTipService.SetShowDuration(button, 30000);
+        button.Click += click;
+        return button;
+    }
+
+    private async Task CycleThemeAsync()
+    {
+        _themeMode = _themeMode switch { "Glass Dark" => "Glass Light", "Glass Light" => "Studio", _ => "Glass Dark" };
+        try
+        {
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas");
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "theme.txt"), _themeMode);
+        }
+        catch (Exception ex) { AtlasLog.Warn("Could not persist Atlas appearance preference: " + ex.Message); }
+        var page = _activePage;
+        BuildShell();
+        await NavigateAsync(page);
+    }
+
+    private async Task ToggleNavigationAsync()
+    {
+        _navCollapsed = !_navCollapsed;
+        var page = _activePage;
+        BuildShell();
+        await NavigateAsync(page);
+    }
+
+    private void ShowLiveScanPaused()
+    {
+        MessageBox.Show(this,
+            "Live-memory scanning is paused in FM Atlas V8 while the large process scan is redesigned as a bounded, cancellable operation. This protects Football Manager from unnecessary cross-process reads.\n\nFor career data, import a COPY of your save using the offline read-only import.",
+            "FM Atlas · Live scan paused", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
     private UIElement BuildSidebar()
     {
-        var rail = new Border { Background = Brush("#111820"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(0, 0, 1, 0) };
-        var dock = new DockPanel { Margin = new Thickness(15, 18, 15, 15) }; rail.Child = dock;
-        var brand = new StackPanel { Margin = new Thickness(4, 3, 4, 24) };
+        var rail = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(218, 16, 27, 43)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(90, 160, 195, 230)),
+            BorderThickness = new Thickness(0, 0, 1, 0)
+        };
+        var dock = new DockPanel { Margin = new Thickness(_navCollapsed ? 9 : 14, 15, _navCollapsed ? 9 : 14, 14) };
+        rail.Child = dock;
+
+        var brand = new Grid { Margin = new Thickness(2, 2, 2, 18) };
+        brand.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        brand.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var logoLine = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var logoImage = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Icon.png", UriKind.Absolute)), Stretch = Stretch.UniformToFill };
-        var logo = new Border { Width = 43, Height = 43, CornerRadius = new CornerRadius(10), ClipToBounds = true, BorderBrush = Brush("#C9D9E8"), BorderThickness = new Thickness(1), Child = logoImage };
+        var logo = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(13), ClipToBounds = true, BorderBrush = Brush("#9DC8EF"), BorderThickness = new Thickness(1), Child = logoImage };
         logoLine.Children.Add(logo);
-        var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0) };
-        word.Children.Add(Txt("FM ATLAS 27", 17, true, Ink)); word.Children.Add(Txt("FOOTBALL INTELLIGENCE", 8, true, Muted));
-        logoLine.Children.Add(word); brand.Children.Add(logoLine); DockPanel.SetDock(brand, Dock.Top); dock.Children.Add(brand);
+        var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
+        word.Children.Add(Txt("FM ATLAS", 16, true, Ink));
+        word.Children.Add(Txt("V8 · ATLAS LIQUID", 8, true, Muted));
+        logoLine.Children.Add(word);
+        Grid.SetColumn(logoLine, 0);
+        brand.Children.Add(logoLine);
+
+        var collapse = new Button
+        {
+            Content = _navCollapsed ? "›" : "‹",
+            Width = 30,
+            Height = 34,
+            Padding = new Thickness(0),
+            Background = new SolidColorBrush(Color.FromArgb(80, 150, 185, 225)),
+            Foreground = Ink,
+            BorderBrush = new SolidColorBrush(Color.FromArgb(90, 180, 210, 240)),
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            ToolTip = _navCollapsed ? "Expand side navigation and show workspace names." : "Collapse side navigation to an icon rail.",
+            Template = RoundedButtonTemplate(10)
+        };
+        collapse.Click += async (_, _) => await ToggleNavigationAsync();
+        ToolTipService.SetInitialShowDelay(collapse, 350);
+        Grid.SetColumn(collapse, 1);
+        brand.Children.Add(collapse);
+        DockPanel.SetDock(brand, Dock.Top);
+        dock.Children.Add(brand);
 
         var navScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
-        _navPanel = new StackPanel(); navScroll.Content = _navPanel; dock.Children.Add(navScroll);
-        AddNavGroup("WORKSPACE");
-        AddNav("▦", "Dashboard"); AddNav("♟", "Players"); AddNav("⌕", "Recruitment"); AddNav("◆", "Value Finder"); AddNav("⌗", "Attribute Search"); AddNav("∑", "Stats Search"); AddNav("▥", "Squad Architect");
-        AddNav("◇", "Clubs"); AddNav("♙", "Staff"); AddNav("⇄", "Transfers"); AddNav("▥", "Analytics"); AddNav("⚑", "Tactical Lab"); AddNav("◎", "Role Lab");
-        AddNavGroup("MANAGEMENT"); AddNav("▤", "Shortlists"); AddNav("✎", "Live Editor"); AddNav("▦", "Mass Edit"); AddNav("◷", "Edit History");
-        AddNavGroup("ATLAS TOOLS"); AddNav("✦", "Atlas Assistant"); AddNav("⚙", "Settings"); AddNav("◉", "Tester & Logs"); AddNav("?", "Help & Tutorial");
+        _navPanel = new StackPanel();
+        navScroll.Content = _navPanel;
+        dock.Children.Add(navScroll);
+        AddNavGroup("HOME");
+        AddNav("▦", "Dashboard");
+        AddNavGroup("SCOUTING");
+        AddNav("♟", "Players");
+        AddNav("⌕", "Recruitment");
+        AddNav("◆", "Value Finder");
+        AddNav("⌗", "Attribute Search");
+        AddNav("∑", "Stats Search");
+        AddNav("▤", "Shortlists");
+        AddNavGroup("SQUAD & ANALYSIS");
+        AddNav("▥", "Squad Architect");
+        AddNav("◇", "Clubs");
+        AddNav("♙", "Staff");
+        AddNav("⇄", "Transfers");
+        AddNav("▥", "Analytics");
+        AddNav("⚑", "Tactical Lab");
+        AddNav("◎", "Role Lab");
+        AddNavGroup("EDITING");
+        AddNav("✎", "Live Editor");
+        AddNav("▦", "Mass Edit");
+        AddNav("◷", "Edit History");
+        AddNavGroup("DATA & TOOLS");
+        AddNav("⌘", "Atlas Assistant");
+        AddNav("▧", "Settings");
+        AddNav("◉", "Tester & Logs");
+        AddNav("?", "Help & Tutorial");
 
-        var bottom = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(15), Padding = new Thickness(11), Margin = new Thickness(0, 14, 0, 0) };
-        var bottomStack = new StackPanel(); bottomStack.Children.Add(Txt("GAME CONNECTION", 9, true, Teal));
-        var stateRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 3) };
-        stateRow.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
-        stateRow.Children.Add(Txt("Waiting for FM27", 10, true, Ink)); bottomStack.Children.Add(stateRow);
-        bottomStack.Children.Add(Txt("Steam / Game Pass profile detection · guarded player edits", 8, false, Muted, wrap: true));
-        DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom);
+        var bottom = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(110, 95, 125, 165)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(85, 175, 205, 235)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(15),
+            Padding = new Thickness(11),
+            Margin = new Thickness(0, 12, 0, 0),
+            ToolTip = "FM connection is optional. Offline save import remains the primary safe route."
+        };
+        var bottomStack = new StackPanel();
+        if (!_navCollapsed)
+        {
+            bottomStack.Children.Add(Txt("GAME CONNECTION", 9, true, Teal));
+            var stateRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 3) };
+            stateRow.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
+            stateRow.Children.Add(Txt("Optional · offline-first", 10, true, Ink));
+            bottomStack.Children.Add(stateRow);
+            bottomStack.Children.Add(Txt("Career save import is read-only. Live scanning and writes are paused in V8.", 8, false, Muted, wrap: true));
+        }
+        else
+        {
+            bottomStack.Children.Add(Txt("●", 14, true, Teal));
+        }
+        bottom.Child = bottomStack;
+        DockPanel.SetDock(bottom, Dock.Bottom);
+        dock.Children.Add(bottom);
         return rail;
     }
 
     private void AddNavGroup(string label)
     {
-        if (_navPanel is null) return;
+        if (_navPanel is null || _navCollapsed) return;
         _navPanel.Children.Add(Txt(label, 9, true, Teal) is var t ? Configure(t, new Thickness(7, 16, 0, 5)) : new TextBlock());
     }
 
@@ -242,7 +403,30 @@ public partial class MainWindow : Window
     private void AddNav(string icon, string label)
     {
         if (_navPanel is null) return;
-        var button = new Button { Tag = label, Content = new StackPanel { Orientation = Orientation.Horizontal, Children = { Txt(icon, 14, true, TealDark), Txt("  " + label, 12, true, Ink) } }, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(12, 11, 10, 11), Margin = new Thickness(0, 2, 0, 2), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(0), Cursor = Cursors.Hand };
+        var glyph = Txt(icon, 15, true, TealDark);
+        glyph.Width = 22;
+        glyph.TextAlignment = TextAlignment.Center;
+        var caption = Txt(_navCollapsed ? "" : label, 11, true, Ink);
+        caption.Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(glyph);
+        row.Children.Add(caption);
+        var button = new Button
+        {
+            Tag = label,
+            Content = row,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(_navCollapsed ? 11 : 12, 10, 10, 10),
+            Margin = new Thickness(0, 2, 0, 2),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            ToolTip = PageDescription(label),
+            MinHeight = 42
+        };
+        ToolTipService.SetInitialShowDelay(button, 350);
+        ToolTipService.SetShowDuration(button, 30000);
         button.Template = RoundedButtonTemplate(13);
         button.Click += async (_, _) => await NavigateAsync(label);
         _navPanel.Children.Add(button);
@@ -258,7 +442,7 @@ public partial class MainWindow : Window
         }
 
         _navigationBusy = true;
-        foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>()) button.IsEnabled = false;
+        // Keep navigation responsive; a later click replaces the queued destination.
         try
         {
             _activePage = page;
@@ -267,9 +451,9 @@ public partial class MainWindow : Window
             foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>())
             {
                 var active = string.Equals(button.Tag?.ToString(), page, StringComparison.OrdinalIgnoreCase);
-                button.Background = active ? Brush("#2A3427") : Brushes.Transparent;
+                button.Background = active ? Brush("#294765") : Brushes.Transparent;
                 if (button.Content is StackPanel row)
-                    foreach (var tb in row.Children.OfType<TextBlock>()) tb.Foreground = active ? Brush("#D8F5A2") : (tb.Text.Trim() == page ? Ink : Muted);
+                    foreach (var tb in row.Children.OfType<TextBlock>()) tb.Foreground = active ? Brush("#A9D6FF") : (tb.Text.Trim() == page ? Ink : Muted);
             }
 
             _pageHost.Content = NavigationLoadingPane(page);
@@ -314,7 +498,6 @@ public partial class MainWindow : Window
         finally
         {
             _navigationBusy = false;
-            foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>()) button.IsEnabled = true;
             var queued = _queuedNavigation;
             _queuedNavigation = null;
             if (!string.IsNullOrWhiteSpace(queued) && !string.Equals(queued, page, StringComparison.OrdinalIgnoreCase))
@@ -327,7 +510,7 @@ public partial class MainWindow : Window
         var panel = new StackPanel { Margin = new Thickness(28), VerticalAlignment = VerticalAlignment.Center };
         panel.Children.Add(Txt("OPENING WORKSPACE", 10, true, Brush("#C6F36B")));
         panel.Children.Add(Txt(page, 24, true, Brush("#E8EEF4")));
-        panel.Children.Add(Txt("Preparing data and layout…", 12, false, Brush("#9EADB9")));
+        panel.Children.Add(Txt("Loading this workspace. Navigation stays available; your latest destination will open next.", 12, false, Brush("#9EADB9"), wrap: true));
         return panel;
     }
 
@@ -1426,6 +1609,11 @@ public partial class MainWindow : Window
         {
             abilityRow.Children.Add(SoftButton("Apply CA / PA to live FM", async (_, _) =>
             {
+                if (!LiveMemoryEditingEnabled)
+                {
+                    MessageBox.Show(this, "Live Apply is paused in FM Atlas V8 until the FM27 memory mappings and stability have been independently validated. You can still make local Atlas edits, which do not alter Football Manager.", "FM Atlas · Live editing paused", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
                 if (!uint.TryParse(_selectedPlayer.SourceId[5..], out var uid) || !int.TryParse(caInput.Text, out var ca) || !int.TryParse(paInput.Text, out var pa) || ca is < 1 or > 200 || pa is < 1 or > 200)
                 { MessageBox.Show(this, "Live CA and PA edits need a live FM player UID and whole-number values from 1 to 200.", "Live editor"); return; }
                 if (!_selectedPlayer.CurrentAbility.HasValue || !_selectedPlayer.PotentialAbility.HasValue)
@@ -1493,6 +1681,11 @@ public partial class MainWindow : Window
         {
             var liveSaveAttributes = SoftButton("Apply changed attributes to live FM", async (_, _) =>
             {
+                if (!LiveMemoryEditingEnabled)
+                {
+                    MessageBox.Show(this, "Live Apply is paused in FM Atlas V8 until the FM27 memory mappings and stability have been independently validated. Your staged local edits remain available and do not alter Football Manager.", "FM Atlas · Live editing paused", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
                 grid.CommitEdit(DataGridEditingUnit.Cell, true); grid.CommitEdit(DataGridEditingUnit.Row, true);
                 var changed = viewRows.Where(x => Math.Abs(x.Value - x.OriginalValue) > 0.0001).ToList();
                 if (changed.Count == 0) { MessageBox.Show(this, "No changed attributes to apply.", "Live editor"); return; }
@@ -1730,6 +1923,12 @@ public partial class MainWindow : Window
 
     private async Task LoadLiveCareerAsync()
     {
+        if (!LiveMemoryImportEnabled)
+        {
+            ShowLiveScanPaused();
+            AtlasLog.Warn("Live-memory import request blocked by the V8 safety gate.");
+            return;
+        }
         if (_liveLoadButton is not null) { _liveLoadButton.IsEnabled = false; _liveLoadButton.Content = "Loading…"; }
         if (_liveLoadProgress is not null) { _liveLoadProgress.Visibility = Visibility.Visible; _liveLoadProgress.IsIndeterminate = true; }
         if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connecting to Football Manager · validating supported build…";
@@ -1754,7 +1953,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            if (_liveLoadButton is not null) { _liveLoadButton.IsEnabled = true; _liveLoadButton.Content = "Reload Game"; }
+            if (_liveLoadButton is not null) { _liveLoadButton.IsEnabled = false; }
             if (_liveLoadProgress is not null) { _liveLoadProgress.IsIndeterminate = false; _liveLoadProgress.Visibility = Visibility.Collapsed; }
             if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Ready · profile-matched live identity + provisional player field snapshot";
         }
@@ -1941,27 +2140,81 @@ public partial class MainWindow : Window
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center); presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center); border.AppendChild(presenter); template.VisualTree = border; return template;
     }
 
+    private static string LoadThemeMode()
+    {
+        try
+        {
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas", "theme.txt");
+            var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "Glass Dark";
+            return value is "Glass Light" or "Studio" or "Glass Dark" ? value : "Glass Dark";
+        }
+        catch { return "Glass Dark"; }
+    }
+
     private static Brush Brush(string hex)
     {
-        // Central compatibility map: legacy page tokens are rendered in the Obsidian palette.
-        var mapped = hex.ToUpperInvariant() switch
+        var key = hex.ToUpperInvariant();
+        string mapped;
+        if (_themeMode == "Glass Light")
         {
-            "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" => "#E8EEF4",
-            "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#C6F36B",
-            "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9EADB9",
-            "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#303943",
-            "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#171F28",
-            "#EEF4F8" or "#EEF4F9" or "#EAF1F5" => "#0D1117",
-            "#151B22" => "#111820",
-            "#1C242E" or "#EFF5FA" or "#EAF2F9" => "#202A35",
-            "#D9E7F1" or "#DCE5ED" or "#DCE8F2" or "#B7E5E0" => "#35424E",
-            "#F8E8E9" or "#EBD5A7" or "#EED8AA" or "#FFF4DE" or "#FFF5E4" or "#F8F0DF" => "#30291D",
-            "#A54E55" or "#B44B52" or "#B94A48" or "#D77B7E" => "#F08C96",
-            "#176B46" or "#2F825D" or "#37875A" or "#4F9B70" => "#8BCFA6",
-            "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24" or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A" => "#E6C477",
-            "#B45B2F" => "#E6A06E",
-            _ => hex
-        };
+            mapped = key switch
+            {
+                "#E8EEF4" => "#172B40",
+                "#C6F36B" or "#D5E5C3" => "#397FC1",
+                "#9EADB9" => "#657A8F",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#D1DDE8",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#FFFFFF",
+                "#0D1117" or "#111820" => "#EEF3F8",
+                "#171F28" or "#202A35" or "#1C242E" or "#151B22" => "#E5EDF5",
+                "#35424E" => "#CAD7E4",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" => "#397FC1",
+                "#F08C96" => "#C34D68",
+                "#8BCFA6" => "#34845C",
+                "#E6C477" => "#A87822",
+                _ => key
+            };
+        }
+        else if (_themeMode == "Studio")
+        {
+            mapped = key switch
+            {
+                "#E8EEF4" => "#E8F0FA",
+                "#C6F36B" or "#D5E5C3" => "#79BDEB",
+                "#9EADB9" => "#91A4BA",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#2B3A50",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#111D2C",
+                "#0D1117" => "#070E18",
+                "#111820" or "#171F28" => "#0C1726",
+                "#202A35" or "#1C242E" => "#18263A",
+                "#35424E" => "#26364D",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" => "#79BDEB",
+                "#F08C96" => "#F18EAA",
+                "#8BCFA6" => "#70C99C",
+                "#E6C477" => "#E5BD72",
+                _ => key
+            };
+        }
+        else
+        {
+            mapped = key switch
+            {
+                "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" => "#E8EEF4",
+                "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#C6F36B",
+                "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9EADB9",
+                "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#303943",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#171F28",
+                "#EEF4F8" or "#EEF4F9" or "#EAF1F5" => "#0D1117",
+                "#151B22" => "#111820",
+                "#1C242E" or "#EFF5FA" or "#EAF2F9" => "#202A35",
+                "#D9E7F1" or "#DCE5ED" or "#DCE8F2" or "#B7E5E0" => "#35424E",
+                "#F8E8E9" or "#EBD5A7" or "#EED8AA" or "#FFF4DE" or "#FFF5E4" or "#F8F0DF" => "#30291D",
+                "#A54E55" or "#B44B52" or "#B94A48" or "#D77B7E" => "#F08C96",
+                "#176B46" or "#2F825D" or "#37875A" or "#4F9B70" => "#8BCFA6",
+                "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24" or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A" => "#E6C477",
+                "#B45B2F" => "#E6A06E",
+                _ => key
+            };
+        }
         return new SolidColorBrush((Color)ColorConverter.ConvertFromString(mapped));
     }
     private static string Initials(string name)
