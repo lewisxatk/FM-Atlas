@@ -245,6 +245,10 @@ public static class LiveDataImporter
     {
         var staff = new List<LiveStaffRecord>(bounds.Count);
         var seen = new HashSet<uint>();
+        // The C++ staff class determines the location of its person block. Like the
+        // reference reader, cache the winning shift by vtable/class instead of rescoring
+        // every one of tens of thousands of objects.
+        var shiftByClass = new Dictionary<ulong, int>();
         for (var i = 0; i < bounds.Count; i++)
         {
             try
@@ -255,13 +259,18 @@ public static class LiveDataImporter
                 // the normal staff identity offsets. Other staff use shift 0.
                 var buffer = Read(handle, (nint)address, 0x540);
                 LiveStaffRecord? decoded = null;
-                var selectedShift = new[] { 0, 0x340 }
-                    .Select(shift => (Shift: shift, Score: ScoreStaffName(handle, address, shift)))
-                    .OrderByDescending(x => x.Score)
-                    .ThenBy(x => x.Shift)
-                    .First();
-                if (selectedShift.Score < 2) continue;
-                var shift = selectedShift.Shift;
+                var classId = BitConverter.ToUInt64(buffer, 0);
+                if (!shiftByClass.TryGetValue(classId, out var shift))
+                {
+                    var selectedShift = new[] { 0, 0x340 }
+                        .Select(candidate => (Shift: candidate, Score: ScoreStaffName(handle, address, candidate)))
+                        .OrderByDescending(x => x.Score)
+                        .ThenBy(x => x.Shift)
+                        .First();
+                    if (selectedShift.Score < 2) continue;
+                    shift = selectedShift.Shift;
+                    shiftByClass[classId] = shift;
+                }
                 {
                     var uidOffset = 0x10C + shift;
                     var uid = BitConverter.ToUInt32(buffer, uidOffset);
@@ -385,7 +394,7 @@ public static class LiveDataImporter
             70 => "President",
             86 => "Loan Manager",
             88 => "Technical Director",
-            _ => "Job " + code.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            _ => null
         };
     }
 
