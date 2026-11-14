@@ -81,7 +81,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Preserve the last committed snapshot on cancellation, parse errors or database lock: the reader process is stopped and an uncommitted SQLite transaction is rolled back before commit.
 - [x] Add a process-wide SQLite writer semaphore around mutating/import/undo/checkpoint operations and a 30-second busy timeout (commit `e63668db`).
 - [ ] Stress-test the writer gate under concurrent imports and page reads; verify WAL checkpoint/backup behaviour.
-- [ ] Further optimise imports with prepared commands and bounded batch inserts; retain existing indexes and transaction safety.
+- [~] Reuse prepared player/attribute/stat inserts during bundle indexing; finish preparing all directory/sidecar insert commands and benchmark batched writes.
 - [ ] Add retryable lock handling without hiding database failures.
 - [ ] Keep live identity, career-save records, validated facts and local edits clearly separated in storage and UI.
 - [ ] Show source, snapshot ID, evidence/validation status and coverage on relevant fields and metrics.
@@ -100,6 +100,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add league, nationality, home-grown, contract and staff filters when available in source data.
 - [ ] Ensure missing/undecoded values are never silently treated as zero or as a failed filter match.
 - [ ] Add test fixtures for filter semantics, combined logic, paging, sorting and 40k+ player datasets.
+- [ ] Add C# integration fixtures for malformed NDJSON lines, cancellation at every table, row-count mismatches and transaction rollback.
 
 ## 6. Player profiles and development
 
