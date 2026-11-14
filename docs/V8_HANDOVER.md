@@ -33,6 +33,12 @@ The current implementation checklist, architecture status and quick-start guidan
 
 ## Commits made in this continuation
 
+- `23a19615` — validate real FM installation via adjacent `fm_Data`, distinguish access denial and select newest supported process.
+- `414264fb` — add regression coverage for FM installation-path discovery.
+- `76ea9085` — align staff attribute fact keys with FMLibreEditor layout terminology.
+- `4f349b74` — test canonical staff field keys and reject invented aliases.
+- `39573f9b` — document the second FMSuperScout/FMLibreEditor/fmsave reference pass.
+- `ded18c7b` — update the durable V8 implementation checklist for process discovery and staff field naming.
 - `3952982e` — add validated 15-group staff preferred-job decoder.
 - `98232925` — read preferred-job ratings through the class-scoped FM27 staff identity shift.
 - `ae09f063` — persist provisional preferred-job ratings and top groups in live staff facts.
@@ -60,6 +66,15 @@ The current implementation checklist, architecture status and quick-start guidan
 - `011f54e0` — persist staff personality and contract facts in the staff profile store.
 - `dcfe6f52`, `38b1b02d` — add personality-shift and expanded staff-fact regression coverage.
 - The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
+
+## Second reference/reverse-engineering batch
+
+- Inspected the current FMSuperScout Windows scanner and memory reader. Its process discovery checks the executable path and adjacent `fm_Data` directory; its external handle requests read/query rights only; access-denied is a distinct diagnostic; multiple FM processes are resolved deterministically by newest start time. Atlas now applies the install-marker validation, clearer permission status and deterministic newest-supported-process selection in `LiveCareerMonitor`.
+- Added `LiveCareerMonitor.IsFootballManagerInstallPath` regression coverage for valid FM install folders, missing `fm_Data`, non-`fm.exe` paths and null input.
+- Rechecked FMLibreEditor `profiles/fm27/layout.toml` and `crates/fmlibre-core/src/staff.rs`. The staff layout defines 19 raw coaching fields and two direct ratings, with identity-block shifts applied only at or after `person_block=0x100`; CA/PA, reputation and coaching fields stay unshifted. FM Atlas already follows that offset boundary and caches shift selection by class.
+- Corrected the three staff fact keys that diverged from the reference layout: `judging_player_ability` → `judging_ability`, `judging_player_potential` → `judging_potential`, and `judging_staff_ability` → `judging_staff`. Added a regression test that checks canonical keys and rejects the invented aliases.
+- Rechecked fmsave's documented FM27 trust model and the Atlas adapter: missing nation display names remain null because fmsave exposes save-local nation IDs; field meanings remain provisional where unconfirmed; managed-club and staff tables are already part of the adapter's streaming table list. No guessed nationality labels were added.
+- The live importer remains read-only, background, cancellation-aware, bounded to two minutes and keyed to the FM process/build/save-load generation. FMSuperScout's separate child-process scanner and memory-snapshot retry have not been ported: they require performance measurements and a separate worker protocol rather than an untested architectural change.
 
 ## Current user workflow
 
