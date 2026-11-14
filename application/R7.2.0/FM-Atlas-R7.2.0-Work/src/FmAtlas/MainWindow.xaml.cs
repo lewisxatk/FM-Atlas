@@ -1130,7 +1130,7 @@ public partial class MainWindow : Window
         var profilesToRestore = _openPlayerRecords.Values.ToList();
         if (_profileExpanded) ToggleProfileExpanded(true);
         if (profilesToRestore.Count > 0)
-            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => _ = RestoreOpenPlayerProfilesSafelyAsync(profilesToRestore)));
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => _ = RestoreOpenPlayerProfilesSafelyAsync(profilesToRestore)));
 
         await Task.CompletedTask;
         return root;
