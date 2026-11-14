@@ -2813,7 +2813,7 @@ public partial class MainWindow : Window
         var top = new StackPanel();
         top.Children.Add(Txt("AUDIT TRAIL", 9, true, Teal));
         top.Children.Add(Txt("Edit history & guarded undo", 20, true, Ink));
-        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM entries can request a fresh, guarded inverse write, provided the same career, player and exact game build are still loaded.", 10, false, Muted, wrap: true));
+        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM history entries are retained for audit purposes, but live Undo is disabled in V8.", 10, false, Muted, wrap: true));
         var dg = CreateGrid(); dg.SelectionMode = DataGridSelectionMode.Single;
         dg.Columns.Add(Column("ID", "Id", .35)); dg.Columns.Add(Column("PLAYER", "PlayerName", 1.1)); dg.Columns.Add(Column("FIELD", "FieldName", 1)); dg.Columns.Add(Column("OLD", "OldValue", .6)); dg.Columns.Add(Column("NEW", "NewValue", .6)); dg.Columns.Add(Column("CHANGED", "ChangedUtc", 1)); dg.Columns.Add(Column("SOURCE", "ChangeSource", 1));
         dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
@@ -2830,6 +2830,13 @@ public partial class MainWindow : Window
             }
             else
             {
+                if (!LiveMemoryEditingEnabled)
+                {
+                    MessageBox.Show(this,
+                        "Live Undo is disabled in FM Atlas V8. This entry is kept for audit/history only; Atlas will not write to the running Football Manager process.",
+                        "FM Atlas · Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
                 if (!selected.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) || !uint.TryParse(selected.SourceId[5..], out var uid))
                 { MessageBox.Show(this, "This history row is marked as a live edit but does not contain a valid LIVE:UID identity. Atlas will not guess which game player to modify.", "Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
                 if (!double.TryParse(selected.NewValue, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var expected) || !double.TryParse(selected.OldValue, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var restore))
@@ -3548,39 +3555,34 @@ public partial class MainWindow : Window
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
     {
-        // Shared layered glass surface: a translucent vertical material, a fine inner
-        // edge and a restrained top reflection. Keep the content itself unblurred so
-        // tables, player data and small labels remain crisp and accessible.
+        // Keep the original direct-child contract: many established workspaces populate
+        // Card(...).Child after construction. A nested visual host here breaks those
+        // callers at runtime. The material is therefore rendered by the Border itself.
         var light = _themeMode == "Glass Light";
         var studio = _themeMode == "Studio";
         var top = light
-            ? Color.FromArgb(242, 255, 255, 255)
+            ? Color.FromArgb(246, 255, 255, 255)
             : studio
-                ? Color.FromArgb(232, 22, 25, 31)
+                ? Color.FromArgb(238, 23, 26, 32)
                 : _themeMode == "Monolith Glass"
-                    ? Color.FromArgb(222, 38, 39, 44)
-                    : Color.FromArgb(214, 25, 34, 45);
+                    ? Color.FromArgb(230, 39, 41, 46)
+                    : Color.FromArgb(222, 26, 35, 46);
         var bottom = light
-            ? Color.FromArgb(222, 239, 245, 251)
+            ? Color.FromArgb(232, 237, 244, 250)
             : studio
-                ? Color.FromArgb(224, 13, 16, 21)
+                ? Color.FromArgb(228, 13, 16, 21)
                 : _themeMode == "Monolith Glass"
-                    ? Color.FromArgb(194, 22, 24, 28)
-                    : Color.FromArgb(190, 15, 24, 35);
+                    ? Color.FromArgb(210, 22, 24, 28)
+                    : Color.FromArgb(204, 15, 24, 35);
         var edgeTop = light
-            ? Color.FromArgb(205, 255, 255, 255)
-            : Color.FromArgb(150, 244, 155, 100);
+            ? Color.FromArgb(210, 255, 255, 255)
+            : Color.FromArgb(158, 244, 155, 100);
         var edgeBottom = light
-            ? Color.FromArgb(125, 151, 178, 205)
-            : Color.FromArgb(48, 244, 155, 100);
-        var innerHighlight = light
-            ? Color.FromArgb(150, 255, 255, 255)
-            : Color.FromArgb(76, 255, 255, 255);
+            ? Color.FromArgb(132, 151, 178, 205)
+            : Color.FromArgb(58, 244, 155, 100);
 
-        var layers = new Grid();
-        layers.Children.Add(new Border
+        return new Border
         {
-            CornerRadius = new CornerRadius(radius),
             Background = new LinearGradientBrush(
                 new GradientStopCollection
                 {
@@ -3588,51 +3590,12 @@ public partial class MainWindow : Window
                     new GradientStop(bottom, 1)
                 },
                 new Point(0, 0),
-                new Point(0, 1))
-        });
-        layers.Children.Add(new Border
-        {
-            Margin = new Thickness(1),
-            CornerRadius = new CornerRadius(Math.Max(0, radius - 1)),
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(1),
-            BorderBrush = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(innerHighlight, 0),
-                    new GradientStop(Color.FromArgb(12, 255, 255, 255), 0.55),
-                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 1)
-                },
-                new Point(0, 0),
                 new Point(0, 1)),
-            IsHitTestVisible = false
-        });
-        layers.Children.Add(new Border
-        {
-            Height = 1,
-            Margin = new Thickness(Math.Max(12, radius * 0.7), 1, Math.Max(12, radius * 0.7), 0),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Top,
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 0),
-                    new GradientStop(innerHighlight, 0.5),
-                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 1)
-                },
-                new Point(0, 0),
-                new Point(1, 0)),
-            IsHitTestVisible = false
-        });
-        layers.Children.Add(child);
-
-        return new Border
-        {
-            Background = Brushes.Transparent,
             BorderBrush = new LinearGradientBrush(
                 new GradientStopCollection
                 {
                     new GradientStop(edgeTop, 0),
+                    new GradientStop(Color.FromArgb(light ? (byte)100 : (byte)50, 255, 255, 255), 0.45),
                     new GradientStop(edgeBottom, 1)
                 },
                 new Point(0, 0),
@@ -3644,12 +3607,12 @@ public partial class MainWindow : Window
             Effect = new DropShadowEffect
             {
                 Color = light ? Color.FromRgb(111, 126, 145) : Color.FromRgb(0, 0, 0),
-                BlurRadius = 24,
-                ShadowDepth = 5,
-                Opacity = light ? 0.12 : 0.28
+                BlurRadius = 22,
+                ShadowDepth = 4,
+                Opacity = light ? 0.10 : 0.24
             },
             SnapsToDevicePixels = true,
-            Child = layers
+            Child = child
         };
     }
 
