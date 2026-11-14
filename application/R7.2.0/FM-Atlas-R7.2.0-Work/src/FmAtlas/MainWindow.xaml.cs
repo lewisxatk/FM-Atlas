@@ -8,6 +8,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -180,7 +181,7 @@ public partial class MainWindow : Window
         _liveLoadButton = ToolbarIcon("\uE72C", "Live-memory scanning is paused in V8 until bounded scanning is independently validated. Use offline save import instead.", (_, _) => ShowLiveScanPaused());
         _liveLoadButton.IsEnabled = false;
         actions.Children.Add(_liveLoadButton);
-        actions.Children.Add(ToolbarIcon("\uE713", "Change appearance: Glass Dark, Glass Light or Studio.", async (_, _) => await CycleThemeAsync()));
+        actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle Glass Dark, Glass Light and Studio.", async (_, _) => await CycleThemeAsync()));
         actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
         Grid.SetColumn(actions, 1);
         headerGrid.Children.Add(actions);
@@ -490,6 +491,22 @@ public partial class MainWindow : Window
                 _ => DashboardPageFallback()
             };
             _pageHost.Content = content;
+            if (SystemParameters.ClientAreaAnimation)
+            {
+                _pageHost.Opacity = 0;
+                _pageHost.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation
+                {
+                    From = 0,
+                    To = 1,
+                    Duration = new Duration(TimeSpan.FromMilliseconds(150)),
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                }, HandoffBehavior.SnapshotAndReplace);
+            }
+            else
+            {
+                _pageHost.BeginAnimation(UIElement.OpacityProperty, null);
+                _pageHost.Opacity = 1;
+            }
         }
         catch (Exception ex)
         {
