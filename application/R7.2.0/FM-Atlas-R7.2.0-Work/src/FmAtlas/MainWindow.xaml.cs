@@ -1896,6 +1896,12 @@ public partial class MainWindow : Window
         DockPanel.SetDock(top, Dock.Top);
         dock.Children.Add(top);
 
+        TextBlock selectedPlayerLabel = null!;
+        ComboBox stagePicker = null!;
+        TextBox notesEditor = null!;
+        TextBlock detailsStatus = null!;
+        Button saveDetails = null!;
+
         var dg = CreateGrid();
         dg.SelectionMode = DataGridSelectionMode.Single;
         dg.Columns.Add(Column("PLAYER", "PlayerName", 1.2));
@@ -1937,11 +1943,11 @@ public partial class MainWindow : Window
         var side = (StackPanel)right.Child;
         side.Children.Add(Txt("RECRUITMENT WORKFLOW", 9, true, Teal));
         side.Children.Add(Txt("Candidate details", 19, true, Ink));
-        var selectedPlayerLabel = Txt("Select a candidate", 11, true, Muted, wrap: true);
+        selectedPlayerLabel = Txt("Select a candidate", 11, true, Muted, wrap: true);
         selectedPlayerLabel.Margin = new Thickness(0, 4, 0, 12);
         side.Children.Add(selectedPlayerLabel);
 
-        var stagePicker = new ComboBox
+        stagePicker = new ComboBox
         {
             ItemsSource = ShortlistRecord.PipelineStages,
             SelectedItem = ShortlistRecord.DefaultStage,
@@ -1951,7 +1957,7 @@ public partial class MainWindow : Window
         };
         side.Children.Add(FilterControl("PIPELINE STAGE", stagePicker, 330));
 
-        var notesEditor = new TextBox
+        notesEditor = new TextBox
         {
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
@@ -1968,10 +1974,10 @@ public partial class MainWindow : Window
             ToolTip = "Private scouting notes for this shortlist candidate. Maximum 2,000 characters."
         };
         side.Children.Add(FilterControl("SCOUTING NOTES", notesEditor, 340));
-        var detailsStatus = Txt("Select a player from the shortlist to edit their stage and notes.", 9, false, Muted, wrap: true);
+        detailsStatus = Txt("Select a player from the shortlist to edit their stage and notes.", 9, false, Muted, wrap: true);
         detailsStatus.Margin = new Thickness(0, 5, 0, 6);
         side.Children.Add(detailsStatus);
-        var saveDetails = PrimaryButton("Save candidate details", async (_, _) =>
+        saveDetails = PrimaryButton("Save candidate details", async (_, _) =>
         {
             if (dg.SelectedItem is not ShortlistRecord selected || _shortlistPicker?.SelectedItem is not string name) return;
             try
