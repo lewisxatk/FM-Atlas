@@ -114,16 +114,25 @@ def flatten_numeric(obj: Any, prefix: str = "") -> dict[str, float]:
 
 
 def records_for(save: Any, name: str, warnings: list[str]) -> list[dict]:
+    # Progress is written to stderr so the desktop app can display it while stdout
+    # remains reserved for the final machine-readable summary.
+    print(f"Reading save table: {name}", file=sys.stderr, flush=True)
     try:
         reader = getattr(save, name, None)
         if not callable(reader):
-            warnings.append(f"Reader '{name}' is not exposed by this fmsave version.")
+            message = f"Reader '{name}' is not exposed by this fmsave version."
+            warnings.append(message)
+            print(message, file=sys.stderr, flush=True)
             return []
         table = reader()
         rows = table.to_dicts() if hasattr(table, "to_dicts") else list(table)
-        return [plain(row) for row in rows]
+        materialised = [plain(row) for row in rows]
+        print(f"Read {len(materialised):,} rows from {name}", file=sys.stderr, flush=True)
+        return materialised
     except Exception as exc:
-        warnings.append(f"Reader '{name}' did not complete: {type(exc).__name__}: {exc}")
+        message = f"Reader '{name}' did not complete: {type(exc).__name__}: {exc}"
+        warnings.append(message)
+        print(message, file=sys.stderr, flush=True)
         return []
 
 
