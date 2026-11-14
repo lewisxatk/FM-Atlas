@@ -400,6 +400,163 @@ public static partial class LiveEntityMemoryEditService
     }
 
 
+
+    private static ushort ReadCurrentDayOfYear(nint handle, ulong moduleBase, Fm27BuildProfile profile)
+    {
+        if (profile.CurrentDateRva == 0)
+            throw new InvalidOperationException("The exact FM27 build has no current-date pointer for training-history writes.");
+        var raw = Read(handle, (nint)(moduleBase + profile.CurrentDateRva), 4);
+        var day = (ushort)(BitConverter.ToUInt16(raw, 0) & 0x01FF);
+        var year = BitConverter.ToUInt16(raw, 2);
+        if (year < 1901 || year > 2100 || day == 0 || day > (DateTime.IsLeapYear(year) ? 366 : 365))
+            throw new InvalidOperationException("FM's current in-career date could not be validated for a training-history update.");
+        return checked((ushort)(day - 1));
+    }
+
+    private static ushort?[] LatestTrainingShapes(byte[] history)
+    {
+        var result = new ushort?[2];
+        var latest = new ushort[] { 0, 0 };
+        for (var at = 0; at < history.Length; at += 12)
+        {
+            var area = history[at + 4];
+            if (history[at + 8] != 1 || area is < 6 or > 7) continue;
+            var day = BitConverter.ToUInt16(history, at);
+            var value = BitConverter.ToUInt16(history, at + 2);
+            var index = area - 6;
+            if (!result[index].HasValue || day >= latest[index])
+            {
+                result[index] = value;
+                latest[index] = day;
+            }
+        }
+        return result;
+    }
+
+    private static double FirstAgeWeight(int age, bool alternate)
+    {
+        var rows = alternate
+            ? new (int Day, double Weight)[] { (6,12), (13,9), (20,7), (41,5), (83,4), (193,3), (251,2) }
+            : new (int Day, double Weight)[] { (6,12), (13,9), (20,7), (41,6), (83,4), (251,2) };
+        foreach (var row in rows) if (row.Day >= age) return row.Weight;
+        return 0;
+    }
+
+    private static double SessionFactor(int value)
+    {
+        var rows = new (int Value, double Factor)[] { (8,.75), (10,.8), (12,.85), (14,.9), (16,.95), (18,1), (20,1) };
+        foreach (var row in rows) if (row.Value >= value) return row.Factor;
+        return 1;
+    }
+
+    private static double PlayerFactor(int value)
+    {
+        var rows = new (int Value, double Factor)[] { (8,.7), (10,.75), (12,.8), (13,.85), (14,.87), (15,.9), (16,.95), (17,.97), (18,1), (20,1) };
+        foreach (var row in rows) if (row.Value >= value) return row.Factor;
+        return 1;
+    }
+
+    private static double WeeksFactor(int weeks)
+    {
+        var rows = new (int Value, double Factor)[] { (0,.6), (4,.65), (8,.7), (26,.75), (52,.8), (78,.85), (104,.9), (130,.95), (156,1) };
+        var factor = .75;
+        foreach (var row in rows) if (row.Value <= weeks) factor = row.Factor; else break;
+        return factor;
+    }
+
+    private static double? TrainingEntryWeight(byte[] history, int at, int[] options, ushort?[] shapes, ushort today)
+    {
+        var area = history[at + 4];
+        var kind = history[at + 8];
+        double closeness;
+        if (kind == 0 && area < 6)
+        {
+            var option = unchecked((sbyte)history[at + 6]);
+            closeness = Math.Max(0, 1.0 - .1 * Math.Abs(option - options[area]));
+        }
+        else if (kind == 1 && area is 6 or 7)
+        {
+            var shape = BitConverter.ToUInt16(history, at + 2);
+            if (shapes[area - 6] != shape) return null;
+            closeness = 1.0;
+        }
+        else closeness = 0.0;
+        if (closeness <= 0) return 0.0;
+
+        var recordedDay = BitConverter.ToUInt16(history, at);
+        var age = ((int)today - recordedDay) % 365;
+        if (age < 0) age += 365;
+        var aged = FirstAgeWeight(age, history[at + 7] != 0);
+        var kindFactor = history[at + 5] switch
+        {
+            0 => 1.0,
+            1 or 3 => .8,
+            2 => .2,
+            4 => .1,
+            _ => 0.0
+        };
+        var session = SessionFactor(history[at + 9]);
+        var player = PlayerFactor(unchecked((sbyte)history[at + 10]));
+        var weeks = WeeksFactor(history[at + 11]);
+        return closeness * aged * kindFactor * session * player * weeks;
+    }
+
+    private static int?[] HistoryAreaValues(byte[] history, int[] options, ushort today)
+    {
+        if (history.Length % 12 != 0) throw new InvalidOperationException("FM training-history bytes are not aligned to 12-byte entries.");
+        var shapes = LatestTrainingShapes(history);
+        var sums = new double[8];
+        var invalid = new bool[8];
+        for (var at = 0; at < history.Length; at += 12)
+        {
+            var area = Math.Min(7, history[at + 4]);
+            var weight = TrainingEntryWeight(history, at, options, shapes, today);
+            if (!weight.HasValue) invalid[area] = true;
+            else sums[area] += weight.Value;
+        }
+        var result = new int?[8];
+        for (var area = 0; area < 8; area++)
+        {
+            if (invalid[area]) { result[area] = null; continue; }
+            result[area] = (int)Math.Round(Math.Clamp(sums[area], 0, 100), MidpointRounding.AwayFromZero);
+        }
+        return result;
+    }
+
+    private static byte[] BuildTodayTrainingHistory(byte[] oldHistory, int[] options, ushort today)
+    {
+        if (oldHistory.Length % 12 != 0)
+            throw new InvalidOperationException("FM training history has an invalid entry length.");
+        var shapes = LatestTrainingShapes(oldHistory);
+        var areas = Enumerable.Range(0, 8).Where(x => x < 6 || shapes[x - 6].HasValue).ToArray();
+        if (areas.Length == 0) throw new InvalidOperationException("No valid tactical areas were found for this player's history.");
+        var count = Math.Max(oldHistory.Length / 12, 18 * areas.Length);
+        if (count > 4_000) throw new InvalidOperationException("The FM27 training-history list exceeds the validated 4,000-entry limit.");
+        var output = new byte[count * 12];
+        for (var i = 0; i < count; i++)
+        {
+            var area = areas[i % areas.Length];
+            var at = i * 12;
+            BitConverter.GetBytes(today).CopyTo(output, at);
+            if (area < 6)
+            {
+                BitConverter.GetBytes((ushort)0x0C8C).CopyTo(output, at + 2);
+                output[6 + at] = checked((byte)options[area]);
+            }
+            else
+            {
+                BitConverter.GetBytes(shapes[area - 6]!.Value).CopyTo(output, at + 2);
+                output[6 + at] = 0xFF;
+                output[8 + at] = 1;
+            }
+            output[4 + at] = checked((byte)area);
+            output[9 + at] = 20;
+            output[10 + at] = 20;
+            output[11 + at] = 156;
+        }
+        return output;
+    }
+
     private static ulong FindTrainingKeeper(nint handle, ulong moduleBase, Fm27BuildProfile profile, ulong clubAddress)
     {
         if (profile.TrainingManagerRva == 0) return 0;
