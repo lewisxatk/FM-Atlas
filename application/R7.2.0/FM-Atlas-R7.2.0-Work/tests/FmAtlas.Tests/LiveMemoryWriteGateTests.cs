@@ -8,10 +8,14 @@ public sealed class LiveMemoryWriteGateTests
     [Fact]
     public void SafeModuleDiagnosticReportRedactsWitnessNamesAndAbsolutePaths()
     {
-        var raw = "Manager witness 'Lewis Atkinson' MATCH; Player witness 'Bradley Barcola'; path=C:\\Users\\Lewis\\FM\\game_plugin.dll";
+        var raw = "Manager witness 'Lewis Atkinson' MATCH; Player witness 'Bradley Barcola'; common='Ada Player' decoded='Liverpool FC' expected='Liverpool' (expected club: Chelsea); path=C:\\Users\\Lewis\\FM\\game_plugin.dll";
         var safe = GameModuleDiagnostics.RedactForSupport(raw, includePersonalDetails: false);
         Assert.DoesNotContain("Lewis Atkinson", safe, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Bradley Barcola", safe, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Ada Player", safe, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Liverpool FC", safe, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Liverpool", safe, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Chelsea", safe, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(@"C:\Users\Lewis", safe, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("[redacted manager]", safe);
         Assert.Contains("[redacted player]", safe);
