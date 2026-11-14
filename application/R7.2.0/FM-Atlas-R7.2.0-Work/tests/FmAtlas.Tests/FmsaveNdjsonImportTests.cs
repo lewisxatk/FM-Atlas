@@ -521,8 +521,8 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(425d / 3d, result.AveragePotentialAbility, 5);
         Assert.Equal(2, result.ValueKnownCount);
         Assert.Equal(4000000m, result.TotalValue);
-        Assert.Equal(2, result.WageKnownCount);
-        Assert.Equal(30000d, result.TotalWage);
+        Assert.Equal(3, result.WageKnownCount);
+        Assert.Equal(45000d, result.TotalWage);
         Assert.Equal(15000d, result.AverageWage);
         Assert.Equal(1, result.HomeGrownClubYes);
         Assert.Equal(1, result.HomeGrownClubNo);
