@@ -10,7 +10,7 @@ V8 introduces three coordinated appearances: **Glass Dark**, **Glass Light** and
 - The side navigation is grouped by Home, Scouting, Squad & Analysis, Editing, and Data & Tools. It can collapse to an icon rail; hover descriptions remain available.
 - Toolbar and navigation controls have rounded translucent surfaces, hover illumination and pressed/disabled feedback.
 - Content-heavy tables and profile surfaces remain solid enough to preserve readability.
-- Ctrl+K opens Global Search. Navigation remains clickable during workspace preparation and queues the most recent destination.
+- Ctrl+K opens Global Search. A dedicated Advanced Search hub brings the existing player, attribute/personality and performance-stat builders together. Navigation remains clickable during workspace preparation and queues the most recent destination.
 - Previously opened player profiles are restored after the Players workspace is displayed rather than delaying workspace construction.
 
 The three modes share the same layout and component language. Visual acceptance at Windows display scaling and common resolutions remains outstanding.
