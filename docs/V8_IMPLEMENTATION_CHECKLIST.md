@@ -113,7 +113,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 ## 5. Player discovery and advanced search
 
 - [x] Main Players directory retains fast name/club/nation/UID lookup, position filtering, paged/virtualized results and player-profile opening; live player CA/PA values are now surfaced by database search, including explicit provisional field status.
-- [x] Add direct CA/PA min/max filters to the existing Players finder for both offline and live sources; accept signed PA values (-10 to 200), validate ranges, support filter-only searches, and keep source counts aligned with the active bounds.
+- [x] Add direct CA/PA min/max filters to the existing Players finder for both offline and live sources; accept signed PA values (-10 to 200), validate ranges, support name-free position/CA/PA searches, and keep source counts aligned with text, position and ability bounds.
 - [~] Existing player results are indexed/paged in source; cancellation and full stable sorting still require validation and implementation.
 - [x] Add a unified Advanced Search workspace combining core player fields, dynamically discovered PlayerAttributes and latest-save facts in one field/category builder.
 - [x] Add a Cancel search action with cancellation propagated through SQLite and last successful result-page retention.
