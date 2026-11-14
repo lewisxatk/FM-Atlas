@@ -15,10 +15,21 @@ public sealed record LivePlayerRecord(
     IReadOnlyDictionary<string, double>? Attributes = null,
     IReadOnlyDictionary<string, double>? Personality = null,
     IReadOnlyDictionary<string, double>? PositionRatings = null);
+public sealed record LiveStaffRecord(
+    uint Uid, string Name, int ArrayIndex, ulong Address, bool IsHumanManager,
+    DateTime? DateOfBirth, int? Age, string? NationName, uint? NationUid,
+    string? ClubName, uint? ClubUid, string? JobTitle, int? JobCode,
+    int? CurrentAbility, int? PotentialAbility);
 // ModuleSha256 is retained as the database/API field name for schema compatibility. The profile-matched
-// importer stores the PE build fingerprint (SizeOfImage + TimeDateStamp) here, not a file SHA-256.
-public sealed record LiveImportPayload(string GameVersion, string ModuleSha256, List<LiveClubRecord> Clubs, List<LivePlayerRecord> Players, int PlayerSlots, int UnnamedPlayers, int UnlinkedPlayers, DateTime? GameDate = null);
-public sealed record LiveImportResult(int RunId, int PlayersSeen, int PlayersImported, int ClubsSeen, int ClubsImported, int UnnamedPlayers, int UnlinkedPlayers, int AttributeRowsImported = 0);
+// importer stores the PE build fingerprint (SizeOfImage + TimeDateStamp) here, not a cryptographic file hash.
+public sealed record LiveImportPayload(
+    string GameVersion, string ModuleSha256, List<LiveClubRecord> Clubs, List<LivePlayerRecord> Players,
+    int PlayerSlots, int UnnamedPlayers, int UnlinkedPlayers, DateTime? GameDate = null,
+    ulong SaveLoadCounter = 0, int StaffSlots = 0, List<LiveStaffRecord>? Staff = null);
+public sealed record LiveImportResult(
+    int RunId, int PlayersSeen, int PlayersImported, int ClubsSeen, int ClubsImported,
+    int UnnamedPlayers, int UnlinkedPlayers, int AttributeRowsImported = 0,
+    int StaffSeen = 0, int StaffImported = 0);
 
 /// <summary>Read-only FM27 extractor using exact per-storefront module fingerprints. Field-level evidence is retained as provisional until UI-witnessed.</summary>
 public static class LiveDataImporter
@@ -29,12 +40,13 @@ public static class LiveDataImporter
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadProcessMemory(nint process, nint address, [Out] byte[] buffer, nuint size, out nuint read);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool CloseHandle(nint handle);
 
-    public static LiveImportPayload Extract()
+    public static LiveImportPayload Extract(LiveCareerProbe expectedSession)
     {
-        // Reuse the exact profile detector used by the live editor. Never take the first
-        // process named "fm": a second launch-preview instance or unrelated process can
-        // otherwise make Atlas import the wrong address space.
-        using var process = Process.GetProcessById(LiveMemoryEditService.FindSupportedProcessId());
+        ArgumentNullException.ThrowIfNull(expectedSession);
+        if (!expectedSession.IsCareerLoaded || expectedSession.ProcessId <= 0 || expectedSession.SaveLoadCounter == 0)
+            throw new InvalidOperationException("FM27 has not finished loading a supported career. No live data was imported.");
+        // Attach only to the exact process and career generation previously observed by the read-only monitor.
+        using var process = Process.GetProcessById(expectedSession.ProcessId);
             ProcessModule module;
             try { module = process.Modules.Cast<ProcessModule>().FirstOrDefault(m => string.Equals(m.ModuleName, "game_plugin.dll", StringComparison.OrdinalIgnoreCase)) ?? throw new InvalidOperationException("game_plugin.dll was not found in the FM process."); }
             catch (Exception ex) when (ex is not InvalidOperationException) { throw new InvalidOperationException("Could not enumerate FM modules. Run FM Atlas with the same Windows permission level as Football Manager.", ex); }
@@ -59,10 +71,16 @@ public static class LiveDataImporter
                     var known = string.Join("; ", Fm27BuildProfiles.All.Select(x => x.Id));
                     throw new InvalidOperationException($"This Football Manager 27 build is not in the independently fingerprinted profile registry. SizeOfImage=0x{imageSize:X8}; TimeDateStamp=0x{timestamp:X8}. No memory layout was used and no import was performed. Known profiles: {known}. Update Atlas after a game patch or export diagnostics for profile research.");
                 }
+                if (!string.Equals(profile.Id, expectedSession.ProfileId, StringComparison.Ordinal)
+                    || profile.GameUiRva == 0
+                    || ReadSaveLoadCounter(handle, moduleBase, profile) != expectedSession.SaveLoadCounter)
+                    throw new InvalidOperationException("Football Manager changed build or loaded another career before Atlas connected. No data was imported.");
+                var saveLoadCounter = expectedSession.SaveLoadCounter;
                 var gameDate = profile.CurrentDateRva == 0 ? null : TryReadGameDate(handle, moduleBase, imageSize, profile.CurrentDateRva);
 
                 var playerBounds = ReadBounds(handle, moduleBase, imageSize, profile.PlayersArrayRva, profile.PlayersArrayRva + 8, 20_000, 200_000, "player");
-                var clubBounds = ReadBounds(handle, moduleBase, imageSize, profile.ClubsArrayRva, profile.ClubsArrayRva + 8, 1_000, 100_000, "club");
+                var staffBounds = ReadBounds(handle, moduleBase, imageSize, profile.StaffArrayRva, profile.StaffArrayRva + 8, 1_000, 100_000, "staff");
+                var clubBounds = ReadBounds(handle, moduleBase, imageSize, profile.ClubsArrayRva, profile.ClubsArrayRva + 8, 500, 100_000, "club");
                 var clubs = new List<LiveClubRecord>();
                 var clubByAddress = new Dictionary<ulong, LiveClubRecord>();
                 var seenClubUids = new HashSet<uint>();
@@ -83,6 +101,11 @@ public static class LiveDataImporter
                     catch { /* Keep scanning; one invalid entity must not abort a full import. */ }
                 }
                 if (clubs.Count < 500) throw new InvalidOperationException($"Safety check failed: only {clubs.Count:N0} club names were decoded from {clubBounds.Count:N0} slots. No import was committed.");
+
+                // Staff, including the controlled human manager, is read from FM's staff pointer array.
+                // The 0x340 identity-block shift follows the independently documented FM27 staff layout.
+                var staff = ReadStaff(handle, staffBounds, clubByAddress, gameDate);
+                if (staff.Count < 500) throw new InvalidOperationException($"Safety check failed: only {staff.Count:N0} staff identities were decoded from {staffBounds.Count:N0} slots. No live import was committed.");
 
                 var players = new List<LivePlayerRecord>(playerBounds.Count);
                 var seenPlayerUids = new HashSet<uint>();
@@ -121,7 +144,8 @@ public static class LiveDataImporter
                         var caRaw = BitConverter.ToUInt16(inline, 0x264);
                         var paRaw = BitConverter.ToInt16(inline, 0x266);
                         int? ca = caRaw is >= 1 and <= 200 ? caRaw : null;
-                        int? pa = paRaw is >= 1 and <= 200 ? paRaw : null;
+                        // FM stores negative PA values for random-potential ranges as well as fixed 1–200 values.
+                        int? pa = paRaw is >= -10 and <= 200 ? paRaw : null;
                         var attributes = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
                         foreach (var field in PlayerAttributeSchema.Fields)
                         {
@@ -150,8 +174,14 @@ public static class LiveDataImporter
 
                 string version = profile.DisplayName;
                 try { var executablePath = process.MainModule?.FileName; if (!string.IsNullOrWhiteSpace(executablePath)) version += " · exe " + (FileVersionInfo.GetVersionInfo(executablePath).FileVersion ?? "unknown"); } catch { }
-                AtlasLog.Info($"Matched FM27 live read profile: {profile.Id}; fingerprint={profile.Fingerprint}; gameDate={gameDate?.ToString("yyyy-MM-dd") ?? "unavailable"}; players={players.Count}; attributeCoverage={attributeCoverage}; clubs={clubs.Count}.");
-                return new LiveImportPayload(version, profile.Fingerprint, clubs, players, playerBounds.Count, unnamed, unlinked, gameDate);
+                var humanManagers = staff.Where(x => x.IsHumanManager).ToArray();
+                if (humanManagers.Length > 1)
+                    AtlasLog.Warning($"The live staff array contains {humanManagers.Length} human-manager records; Atlas will not silently choose between them.");
+                if (ReadSaveLoadCounter(handle, moduleBase, profile) != saveLoadCounter)
+                    throw new InvalidOperationException("Football Manager loaded or unloaded a career while Atlas was reading it. The partial scan was discarded; Atlas will reconnect to the current career.");
+                AtlasLog.Info($"Matched FM27 live read profile: {profile.Id}; fingerprint={profile.Fingerprint}; gameDate={gameDate?.ToString("yyyy-MM-dd") ?? "unavailable"}; players={players.Count}; staff={staff.Count}; humanManagers={humanManagers.Length}; attributeCoverage={attributeCoverage}; clubs={clubs.Count}; saveLoadCounter={saveLoadCounter}.");
+                return new LiveImportPayload(version, profile.Fingerprint, clubs, players, playerBounds.Count, unnamed, unlinked, gameDate,
+                    saveLoadCounter, staffBounds.Count, staff);
             }
             finally { CloseHandle(handle); }
     }
@@ -186,6 +216,162 @@ public static class LiveDataImporter
     [Obsolete("Legacy fixed-build survey retired. Use profile-matched diagnostics instead.")]
     public static string CreateFullPlayerIntelligenceSurvey(IReadOnlyList<string> selectedNames)
         => throw new NotSupportedException("The legacy full-player survey was retired because its fixed-build RVA profile is no longer maintained. Use profile-matched diagnostics only.");
+
+    private static List<LiveStaffRecord> ReadStaff(
+        nint handle,
+        (ulong Data, int Count) bounds,
+        IReadOnlyDictionary<ulong, LiveClubRecord> clubs,
+        DateTime? gameDate)
+    {
+        var staff = new List<LiveStaffRecord>(bounds.Count);
+        var seen = new HashSet<uint>();
+        for (var i = 0; i < bounds.Count; i++)
+        {
+            try
+            {
+                var address = U64(handle, (nint)(bounds.Data + (ulong)i * 8));
+                if (!Pointer(address)) continue;
+                // FM27's human-manager object keeps the identity fields 0x340 bytes after
+                // the normal staff identity offsets. Other staff use shift 0.
+                var buffer = Read(handle, (nint)address, 0x540);
+                LiveStaffRecord? decoded = null;
+                foreach (var shift in new[] { 0, 0x340 })
+                {
+                    var uidOffset = 0x10C + shift;
+                    var uid = BitConverter.ToUInt32(buffer, uidOffset);
+                    if (uid == 0 || uid == uint.MaxValue) continue;
+                    var common = ReadNameSub(handle, address + (ulong)(0x160 + shift));
+                    var first = ReadNameSub(handle, address + (ulong)(0x150 + shift));
+                    var last = ReadNameSub(handle, address + (ulong)(0x158 + shift));
+                    var full = ReadLengthString(handle, U64(handle, (nint)(address + (ulong)(0x140 + shift))), 128);
+                    var name = !string.IsNullOrWhiteSpace(common) ? common : Join(first, last);
+                    if (string.IsNullOrWhiteSpace(name)) name = full;
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+
+                    var dob = TryReadDate(buffer, 0x188 + shift);
+                    if (shift != 0 && !dob.HasValue) continue;
+                    var caRaw = BitConverter.ToUInt16(buffer, 0xDA);
+                    var paRaw = BitConverter.ToInt16(buffer, 0xDC);
+                    int? ca = caRaw is >= 1 and <= 200 ? caRaw : null;
+                    int? pa = paRaw is >= -10 and <= 200 ? paRaw : null;
+
+                    string? nationName = null;
+                    uint? nationUid = null;
+                    var nationAddress = U64(handle, (nint)(address + (ulong)(0x168 + shift)));
+                    if (Pointer(nationAddress))
+                    {
+                        try
+                        {
+                            nationUid = BitConverter.ToUInt32(Read(handle, (nint)(nationAddress + 0x0C), 4), 0);
+                            nationName = ReadLengthString(handle, U64(handle, (nint)(nationAddress + 0x18)), 96);
+                        }
+                        catch { /* A missing nation label does not invalidate a staff identity. */ }
+                    }
+
+                    string? clubName = null;
+                    uint? clubUid = null;
+                    string? jobTitle = null;
+                    int? jobCode = null;
+                    var contractAddress = U64(handle, (nint)(address + (ulong)(0x1A8 + shift)));
+                    if (Pointer(contractAddress))
+                    {
+                        try
+                        {
+                            jobCode = Read(handle, (nint)(contractAddress + 0x26), 1)[0];
+                            var teamAddress = U64(handle, (nint)(contractAddress + 0x10));
+                            if (Pointer(teamAddress))
+                            {
+                                var clubAddress = U64(handle, (nint)(teamAddress + 0x30));
+                                if (clubs.TryGetValue(clubAddress, out var club))
+                                {
+                                    clubName = club.Name;
+                                    clubUid = club.Uid;
+                                }
+                                else if (Pointer(clubAddress))
+                                {
+                                    clubUid = BitConverter.ToUInt32(Read(handle, (nint)(clubAddress + 0x0C), 4), 0);
+                                    clubName = ReadLengthString(handle, U64(handle, (nint)(clubAddress + 0xC0)), 96);
+                                }
+                            }
+                        }
+                        catch { /* Keep the staff record when its contract relationship is unreadable. */ }
+                    }
+                    jobTitle = JobName(jobCode);
+                    var isHuman = shift != 0;
+                    var age = gameDate.HasValue && dob.HasValue ? CalculateAge(dob.Value, gameDate.Value) : (int?)null;
+                    decoded = new LiveStaffRecord(uid, name, i, address, isHuman, dob, age, nationName, nationUid,
+                        clubName, clubUid, jobTitle, jobCode, ca, pa);
+                    break;
+                }
+                if (decoded is not null && seen.Add(decoded.Uid))
+                    staff.Add(decoded);
+            }
+            catch { /* One corrupt or unloading pointer must not abort the remainder of the read-only scan. */ }
+        }
+        return staff;
+    }
+
+    private static DateTime? TryReadDate(byte[] bytes, int offset)
+    {
+        if (offset < 0 || offset + 4 > bytes.Length) return null;
+        var day = (ushort)(BitConverter.ToUInt16(bytes, offset) & 0x01FF);
+        var year = BitConverter.ToUInt16(bytes, offset + 2);
+        if (year < 1901 || year > 2100) return null;
+        var maximum = DateTime.IsLeapYear(year) ? 366 : 365;
+        return day >= 1 && day <= maximum ? new DateTime(year, 1, 1).AddDays(day - 1) : null;
+    }
+
+    private static int CalculateAge(DateTime birth, DateTime gameDate)
+    {
+        var age = gameDate.Year - birth.Year;
+        if (birth.Date > gameDate.Date.AddYears(-age)) age--;
+        return Math.Max(0, age);
+    }
+
+    private static string? JobName(int? code)
+    {
+        if (!code.HasValue) return null;
+        var baseCode = code.Value > 1 && code.Value % 2 == 1 ? code.Value - 1 : code.Value;
+        return baseCode switch
+        {
+            1 => "Player",
+            2 => "Coach",
+            4 => "Chairperson",
+            6 => "Director",
+            10 => "Director of Football",
+            12 => "Physio",
+            14 => "Scout",
+            16 => "Manager",
+            20 => "Assistant Coach",
+            22 => "Set Piece Coach",
+            26 => "Fitness Coach",
+            34 => "Goalkeeping Coach",
+            38 => "Chief Doctor",
+            40 => "Head of Sports Science",
+            44 => "Chief Scout",
+            46 => "Doctor",
+            48 => "Sports Scientist",
+            50 => "Head Physio",
+            58 => "Recruitment Analyst",
+            60 => "Performance Analyst",
+            62 => "Head Performance Analyst",
+            64 => "Head of Youth Development",
+            66 => "Owner",
+            70 => "President",
+            86 => "Loan Manager",
+            88 => "Technical Director",
+            _ => "Job " + code.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        };
+    }
+
+    private static ulong ReadSaveLoadCounter(nint handle, ulong moduleBase, Fm27BuildProfile profile)
+    {
+        if (profile.GameUiRva == 0 || profile.GameUiRva >= profile.SizeOfImage)
+            throw new InvalidOperationException("This FM27 profile has no verified save-load counter.");
+        var gameUi = U64(handle, (nint)(moduleBase + profile.GameUiRva));
+        if (!Pointer(gameUi)) throw new InvalidOperationException("The FM27 game-session object is not readable.");
+        return U64(handle, (nint)(gameUi + Fm27BuildProfile.SaveLoadCounterOffset));
+    }
 
     private static string NormalizeName(string value) =>
         string.Concat(value.Normalize(NormalizationForm.FormD).Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark))
