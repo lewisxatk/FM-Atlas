@@ -1032,6 +1032,9 @@ public partial class MainWindow
             activeSearchCancellation?.Cancel();
             rows.Clear();
             conditionPanel.Children.Clear();
+            // Clear the transient field-library query before restoring a saved profile,
+            // so saved criteria cannot bind to the wrong first filtered field.
+            fieldSearch.Clear();
             searchText.Text = profile.SearchText ?? "";
             logic.SelectedIndex = profile.MatchAll ? 0 : 1;
             ApplySorts(profile.Sorts);
