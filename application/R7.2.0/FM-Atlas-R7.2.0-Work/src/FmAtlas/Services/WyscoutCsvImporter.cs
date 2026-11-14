@@ -101,7 +101,12 @@ public static class WyscoutCsvImporter
         else if (cleaned.EndsWith("m", StringComparison.OrdinalIgnoreCase)) { multiplier = 1_000_000d; cleaned = cleaned[..^1]; }
         else if (cleaned.EndsWith("k", StringComparison.OrdinalIgnoreCase)) { multiplier = 1_000d; cleaned = cleaned[..^1]; }
         if (cleaned.Contains('.') && cleaned.Contains(',')) cleaned = cleaned.Replace(",", "");
-        else if (cleaned.Contains(',')) cleaned = cleaned.Replace(",", ".");
+        else if (cleaned.Contains(','))
+        {
+            var commaParts = cleaned.Split(',');
+            cleaned = commaParts.Length > 2 || (commaParts.Length == 2 && commaParts[1].Length == 3 && commaParts[0].Length <= 3)
+                ? cleaned.Replace(",", "") : cleaned.Replace(",", ".");
+        }
         return double.TryParse(cleaned, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) && double.IsFinite(n)
             ? n * multiplier : null;
     }
