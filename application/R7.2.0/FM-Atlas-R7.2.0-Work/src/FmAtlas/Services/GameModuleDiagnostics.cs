@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace FmAtlas.Services;
 
@@ -129,6 +130,26 @@ public static class GameModuleDiagnostics
         return sb.ToString();
     }
 
+
+    /// <summary>
+    /// Produces a shareable diagnostic report. The deep probe is read-only; personal
+    /// witness names and absolute Windows paths are removed unless the user opts in.
+    /// </summary>
+    public static string CreateSupportReport(bool includePersonalDetails = false)
+        => RedactForSupport(CreateReport(), includePersonalDetails);
+
+    public static string RedactForSupport(string report, bool includePersonalDetails)
+    {
+        if (includePersonalDetails) return report;
+        var safe = report;
+        safe = safe.Replace(ManagerWitness, "[redacted manager]", StringComparison.OrdinalIgnoreCase);
+        foreach (var witness in PlayerWitnesses)
+            safe = safe.Replace(witness.Name, "[redacted player]", StringComparison.OrdinalIgnoreCase);
+        // Redact absolute paths, including install paths and user-profile paths.
+        safe = Regex.Replace(safe, @"(?i)\\\\[^\\\\r\\n]+", "[path redacted]");
+        safe = Regex.Replace(safe, @"(?i)\\b[A-Z]:\\\\[^\\r\\n]+", "[path redacted]");
+        return safe;
+    }
 
     private static void ValidateCandidateArrays(StringBuilder sb, nint handle, nint moduleBase, uint imageSize)
     {
