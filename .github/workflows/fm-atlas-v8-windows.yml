@@ -1,0 +1,63 @@
+name: FM Atlas V8 — Windows Release Build
+
+on:
+  push:
+    branches:
+      - rebuild/v8-full-product-rebuild
+  pull_request:
+    branches:
+      - fix/r7.2.0-release-build-integration
+    paths:
+      - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
+      - ".github/workflows/fm-atlas-v8-windows.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fm-atlas-v8-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-release:
+    name: Restore, build and publish (Windows x64)
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore solution
+        shell: pwsh
+        run: |
+          $solution = "application/R7.2.0/FM-Atlas-R7.2.0-Work/FmAtlas.sln"
+          dotnet restore $solution
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          $solution = "application/R7.2.0/FM-Atlas-R7.2.0-Work/FmAtlas.sln"
+          dotnet build $solution --configuration Release --no-restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publish self-contained Windows x64
+        shell: pwsh
+        run: |
+          $project = "application/R7.2.0/FM-Atlas-R7.2.0-Work/src/FmAtlas/FmAtlas.csproj"
+          dotnet publish $project --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o artifacts/FM-Atlas-V8-win-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload V8 build artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FM-Atlas-V8-win-x64
+          path: artifacts/FM-Atlas-V8-win-x64/
+          if-no-files-found: error
+          retention-days: 14
