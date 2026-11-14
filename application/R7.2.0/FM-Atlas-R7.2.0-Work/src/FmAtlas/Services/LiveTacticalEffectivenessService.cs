@@ -287,7 +287,9 @@ public static partial class LiveEntityMemoryEditService
                         throw new InvalidOperationException("Atlas could not populate the replacement FM-compatible tactical list buffer.");
                     BitConverter.GetBytes(newBegin).CopyTo(newHeader, 0);
                     BitConverter.GetBytes(newBegin + (ulong)change.TargetBytes.Length).CopyTo(newHeader, 8);
-                    BitConverter.GetBytes(newBegin + blockSize).CopyTo(newHeader, 16);
+                    // Header capacity is the element-aligned usable capacity (not the
+                    // larger allocator class block); this matches FM's vector validation.
+                    BitConverter.GetBytes(newBegin + requestedCapacity).CopyTo(newHeader, 16);
                 }
                 else
                 {
@@ -606,6 +608,14 @@ public static partial class LiveEntityMemoryEditService
             result[area] = (int)Math.Round(Math.Clamp(sums[area], 0, 100), MidpointRounding.AwayFromZero);
         }
         return result;
+    }
+
+    public static byte[] BuildMaxTrainingContributionHistory(
+        byte[] oldHistory, IReadOnlyList<int> options, ushort today)
+    {
+        if (options.Count != 6 || options.Any(x => x is < 1 or > 20))
+            throw new ArgumentException("Six valid FM27 tactic option codes (1–20) are required.", nameof(options));
+        return BuildTodayTrainingHistory(oldHistory, options.ToArray(), today);
     }
 
     private static byte[] BuildTodayTrainingHistory(byte[] oldHistory, int[] options, ushort today)
