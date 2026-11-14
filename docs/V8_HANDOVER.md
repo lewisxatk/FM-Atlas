@@ -28,6 +28,8 @@ The full entity-array live-memory import gate is OFF by default. The monitor may
 - `05f316e5` — live staff search now includes linked club name.
 - `2107cc99` — integration test now checks staff club search, job and age.
 - `4980a746` — live career detection/import safety gate and help text updated.
+- `470dcaf2` — live staff UID search regression added.
+- `b503ae78`, `03778f45` — made detection-only status explicit and prevented stale cached manager/club data from being treated as the current career while live import is disabled.
 
 ## Verification still required
 
