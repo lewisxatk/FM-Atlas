@@ -101,6 +101,12 @@ public partial class MainWindow
         };
         if (savedProfiles.Count > 0) profilePicker.SelectedIndex = 0;
         var toolbar = new WrapPanel { Margin = new Thickness(0, 7, 0, 6) };
+        // Initialise captured sort state before event callbacks close over the search workflow.
+        (string Label, string Key)[] sortOptions = Array.Empty<(string Label, string Key)>();
+        ComboBox primarySortPicker = null!;
+        ComboBox primarySortDirection = null!;
+        ComboBox secondarySortPicker = null!;
+        ComboBox secondarySortDirection = null!;
         toolbar.Children.Add(FilterControl("OPTIONAL PLAYER / CLUB / ID", searchText, 320));
         toolbar.Children.Add(FilterControl("MATCH LOGIC", logic, 180));
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
@@ -177,10 +183,22 @@ public partial class MainWindow
         builderStack.Children.Add(sortToolbar);
 
         string? ResolveSortKey(string? label)
-            => sortOptions.FirstOrDefault(x => x.Label.Equals(label, StringComparison.OrdinalIgnoreCase)).Key;
+        {
+            if (string.IsNullOrWhiteSpace(label)) return null;
+            foreach (var option in sortOptions)
+                if (option.Label.Equals(label, StringComparison.OrdinalIgnoreCase))
+                    return option.Key;
+            return null;
+        }
 
         string? ResolveSortLabel(string? key)
-            => sortOptions.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase)).Label;
+        {
+            if (string.IsNullOrWhiteSpace(key)) return null;
+            foreach (var option in sortOptions)
+                if (option.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+                    return option.Label;
+            return null;
+        }
 
         List<AdvancedSearchSort> CaptureSorts()
         {
@@ -594,6 +612,7 @@ public partial class MainWindow
             conditionPanel.Children.Clear();
             searchText.Clear();
             logic.SelectedIndex = 0;
+            ApplySorts(null);
             AddCondition();
             ApplyVisibleColumns(defaultVisibleColumns);
             pageOffset = 0;

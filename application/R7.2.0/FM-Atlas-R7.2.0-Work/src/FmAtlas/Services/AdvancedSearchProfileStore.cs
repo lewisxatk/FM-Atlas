@@ -21,13 +21,14 @@ public static class AdvancedSearchProfileStore
         PropertyNameCaseInsensitive = true
     };
 
-    public static IReadOnlyList<AdvancedSearchProfile> LoadAll()
+    public static IReadOnlyList<AdvancedSearchProfile> LoadAll(string? folderPath = null)
     {
         try
         {
-            if (!Directory.Exists(Folder)) return Array.Empty<AdvancedSearchProfile>();
+            var folder = ResolveFolder(folderPath);
+            if (!Directory.Exists(folder)) return Array.Empty<AdvancedSearchProfile>();
             var profiles = new List<AdvancedSearchProfile>();
-            foreach (var file in Directory.EnumerateFiles(Folder, "*.json", SearchOption.TopDirectoryOnly))
+            foreach (var file in Directory.EnumerateFiles(folder, "*.json", SearchOption.TopDirectoryOnly))
             {
                 try
                 {
@@ -54,16 +55,18 @@ public static class AdvancedSearchProfileStore
         }
     }
 
-    public static void Save(AdvancedSearchProfile profile)
+    public static void Save(AdvancedSearchProfile profile, string? folderPath = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
         if (string.IsNullOrWhiteSpace(profile.Id)) throw new ArgumentException("A profile ID is required.", nameof(profile));
         if (string.IsNullOrWhiteSpace(profile.Name)) throw new ArgumentException("A profile name is required.", nameof(profile));
         if (profile.Criteria is null || profile.Criteria.Count is < 1 or > 60)
             throw new ArgumentOutOfRangeException(nameof(profile), "A saved profile must contain between 1 and 60 conditions.");
+        ValidateSorts(profile.Sorts);
 
-        Directory.CreateDirectory(Folder);
-        var file = GetPath(profile.Id);
+        var folder = ResolveFolder(folderPath);
+        Directory.CreateDirectory(folder);
+        var file = GetPath(profile.Id, folder);
         var temporary = file + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
@@ -77,19 +80,42 @@ public static class AdvancedSearchProfileStore
         }
     }
 
-    public static bool Delete(string id)
+    public static bool Delete(string id, string? folderPath = null)
     {
         if (string.IsNullOrWhiteSpace(id)) return false;
-        var file = GetPath(id);
+        var file = GetPath(id, ResolveFolder(folderPath));
         if (!File.Exists(file)) return false;
         File.Delete(file);
         return true;
     }
 
-    private static string GetPath(string id)
+    private static string ResolveFolder(string? folderPath)
+        => Path.GetFullPath(string.IsNullOrWhiteSpace(folderPath) ? Folder : folderPath);
+
+    private static string GetPath(string id, string folder)
     {
         var safeId = new string(id.Where(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_').ToArray());
         if (safeId.Length == 0) throw new ArgumentException("The profile ID is invalid.", nameof(id));
-        return Path.Combine(Folder, safeId + ".json");
+        return Path.Combine(folder, safeId + ".json");
+    }
+
+    private static void ValidateSorts(IReadOnlyList<AdvancedSearchSort>? sorts)
+    {
+        if (sorts is null) return;
+        if (sorts.Count > 2)
+            throw new ArgumentOutOfRangeException(nameof(sorts), "An advanced search profile can store up to two sort keys.");
+        var allowed = new HashSet<string>(new[]
+        {
+            "player:Name", "player:Age", "player:Club", "player:Position", "player:League",
+            "player:Nation", "player:CurrentAbility", "player:PotentialAbility", "player:Value"
+        }, StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sort in sorts)
+        {
+            if (sort is null || string.IsNullOrWhiteSpace(sort.FieldKey) || !allowed.Contains(sort.FieldKey))
+                throw new ArgumentException("A saved search sort key is not supported.", nameof(sorts));
+            if (!seen.Add(sort.FieldKey))
+                throw new ArgumentException("A saved search cannot sort by the same field twice.", nameof(sorts));
+        }
     }
 }

@@ -695,6 +695,8 @@ public partial class MainWindow : Window
         Grid.SetColumn(_playerSearch, 0); searchRow.Children.Add(_playerSearch);
         var positionOptions = new[] { "Any position", "ATTACKERS", "MIDFIELDERS", "DEFENDERS", "GOALKEEPERS" }
             .Concat(PositionSuitabilityService.PositionCodes)
+            .Append("ST") // Preserve the legacy centre-forward filter label; current FM27 uses STC.
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         _positionPicker = new ComboBox { ItemsSource = positionOptions, SelectedIndex = 0, Margin = new Thickness(0, 2, 8, 4), Padding = new Thickness(9), MinHeight = 40, FontSize = 11 };
         Grid.SetColumn(_positionPicker, 1); searchRow.Children.Add(_positionPicker);
@@ -736,10 +738,13 @@ public partial class MainWindow : Window
         _playerResultsGrid.Columns.Add(Column("PLAYER", "Name", 1.35));
         _playerResultsGrid.Columns.Add(Column("CLUB", "Club", 1.15));
         _playerResultsGrid.Columns.Add(Column("AGE", "Age", .45));
-        _playerResultsGrid.Columns.Add(Column("POS", "Position", .55));
-        _playerResultsGrid.Columns.Add(Column("CA", "DisplayAbility", .4));
-        _playerResultsGrid.Columns.Add(Column("PA", "DisplayPotential", .4));
-        _playerResultsGrid.Columns.Add(Column("NATION", "Nation", .8));
+        _playerResultsGrid.Columns.Add(Column("POS", "Position", .5));
+        _playerResultsGrid.Columns.Add(Column("LEAGUE", "League", .82));
+        _playerResultsGrid.Columns.Add(Column("CA", "DisplayAbility", .38));
+        _playerResultsGrid.Columns.Add(Column("PA", "DisplayPotential", .38));
+        _playerResultsGrid.Columns.Add(Column("NATION", "Nation", .7));
+        _playerResultsGrid.Columns.Add(Column("HOME-GROWN · CLUB", "DisplayHomeGrownClub", .72));
+        _playerResultsGrid.Columns.Add(Column("HOME-GROWN · NATION", "DisplayHomeGrownNation", .72));
         _playerResultsGrid.ItemsSource = _players;
         _playerResultsGrid.SelectionChanged += async (_, _) =>
         {
@@ -890,7 +895,8 @@ public partial class MainWindow : Window
                     (item.League is not null ? 1 : 0) + (item.Position is not null ? 1 : 0) +
                     (item.CurrentAbility.HasValue ? 1 : 0) + (item.PotentialAbility.HasValue ? 1 : 0) +
                     (item.Value.HasValue ? 1 : 0) + (item.PreferredFoot is not null ? 1 : 0) +
-                    (item.LeftFoot.HasValue ? 1 : 0) + (item.RightFoot.HasValue ? 1 : 0);
+                    (item.LeftFoot.HasValue ? 1 : 0) + (item.RightFoot.HasValue ? 1 : 0) +
+                    (item.HomeGrownClub.HasValue ? 1 : 0) + (item.HomeGrownNation.HasValue ? 1 : 0);
                 // Prefer the richest source row when the same player appears in both indexes.
                 var merged = local.Concat(live)
                     .GroupBy(IdentityKey, StringComparer.OrdinalIgnoreCase)

@@ -320,13 +320,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
         }
         var dialog = new SaveFileDialog { Title = "Export Performance vs Value", FileName = "FM-Atlas-performance-vs-value.csv", Filter = "CSV files (*.csv)|*.csv" };
         if (dialog.ShowDialog(this) != true) return;
-        static string Q(string? value)
-        {
-            var text = value ?? "";
-            var trimmed = text.TrimStart();
-            if (trimmed.Length > 0 && trimmed[0] is '=' or '+' or '-' or '@') text = "'" + text;
-            return "\"" + text.Replace("\"", "\"\"") + "\"";
-        }
+        static string Q(string? value) => CsvExportSafety.QuoteText(value);
         var lines = new List<string> { "Player,SourceId,Club,Position,League,Metric,Performance,PerformancePercentile,ValuePercentile,PositionPerformancePercentile,LeaguePerformancePercentile,ValueGap,Minutes,SampleSize,LatestPeriod,TransferValueSourceUnits" };
         lines.AddRange(_results.Select(x => string.Join(",", new[]
         {

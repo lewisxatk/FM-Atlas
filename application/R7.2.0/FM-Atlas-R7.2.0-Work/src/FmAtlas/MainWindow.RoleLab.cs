@@ -386,13 +386,7 @@ public partial class MainWindow
             if (dlg.ShowDialog(this) != true) return;
 
             static string Q(string? value, bool protectFormula = true)
-            {
-                var text = value ?? "";
-                var trimmed = text.TrimStart();
-                if (protectFormula && trimmed.Length > 0 && trimmed[0] is '=' or '+' or '-' or '@')
-                    text = "'" + text;
-                return "\"" + text.Replace("\"", "\"\"") + "\"";
-            }
+                => CsvExportSafety.QuoteText(value, protectFormula);
 
             var sb = new StringBuilder("Player,Source ID,Club,Age,Position,Atlas role fit / 20,Coverage,Attribute evidence,Attributes available,Attributes expected,CA,PA\r\n");
             foreach (var item in results)

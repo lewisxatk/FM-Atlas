@@ -867,6 +867,8 @@ public sealed class FmsaveNdjsonImportTests
 
         var sweepers = await database.SearchAsync("", null, null, "SW", null, null, null, limit: 100);
         Assert.Equal(new[] { "LOCAL:SORT:BRAVO" }, sweepers.Select(x => x.SourceId));
+        var centreForwards = await database.SearchAsync("", null, null, "STC", null, null, null, limit: 100);
+        Assert.Equal(new[] { "LOCAL:SORT:CHARLIE" }, centreForwards.Select(x => x.SourceId));
         Assert.Equal(new[] { "GK", "SW", "DL", "DC", "DR", "WBL", "WBR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "STC" },
             PositionSuitabilityService.PositionCodes);
     }
@@ -1063,6 +1065,68 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Contains(records, x => x.SourceId == imported.SourceId);
         Assert.Contains(records, x => x.SourceId == local.SourceId);
         Assert.Contains("Summer Recruitment", await database.GetShortlistNamesAsync());
+    }
+
+    [Fact]
+    public void AdvancedSearchProfileStoreRoundTripsTwoSortKeysAndDeletesProfile()
+    {
+        using var temp = new TemporaryFolder();
+        var profile = new AdvancedSearchProfile(
+            "sort-profile-1",
+            "Strong young defenders",
+            DateTime.UtcNow,
+            "defender",
+            true,
+            new[] { new AdvancedSearchCriterion("player:Age", 17, 23, null, null) },
+            new[] { "Name", "DisplayAbility", "DisplayHomeGrownClub" },
+            new[]
+            {
+                new AdvancedSearchSort("player:CurrentAbility", Descending: true),
+                new AdvancedSearchSort("player:Age", Descending: false)
+            });
+
+        AdvancedSearchProfileStore.Save(profile, temp.Path);
+        var loaded = Assert.Single(AdvancedSearchProfileStore.LoadAll(temp.Path));
+
+        Assert.Equal(profile.Id, loaded.Id);
+        Assert.Equal(profile.Name, loaded.Name);
+        Assert.Equal(2, loaded.Sorts!.Count);
+        Assert.Equal("player:CurrentAbility", loaded.Sorts[0].FieldKey);
+        Assert.True(loaded.Sorts[0].Descending);
+        Assert.Equal("player:Age", loaded.Sorts[1].FieldKey);
+        Assert.False(loaded.Sorts[1].Descending);
+        Assert.Equal(profile.VisibleColumns, loaded.VisibleColumns);
+        Assert.True(AdvancedSearchProfileStore.Delete(profile.Id, temp.Path));
+        Assert.Empty(AdvancedSearchProfileStore.LoadAll(temp.Path));
+    }
+
+    [Fact]
+    public void AdvancedSearchProfileStoreRejectsUnsafeOrDuplicateSortKeys()
+    {
+        using var temp = new TemporaryFolder();
+        var criteria = new[] { new AdvancedSearchCriterion("player:Age", 18, null, null, null) };
+        var unsupported = new AdvancedSearchProfile("bad-sort", "Bad", DateTime.UtcNow, "", true, criteria,
+            Sorts: new[] { new AdvancedSearchSort("player:Name; DROP TABLE Players", false) });
+        var duplicate = new AdvancedSearchProfile("duplicate-sort", "Bad duplicate", DateTime.UtcNow, "", true, criteria,
+            Sorts: new[]
+            {
+                new AdvancedSearchSort("player:Age"),
+                new AdvancedSearchSort("player:Age", true)
+            });
+
+        Assert.Throws<ArgumentException>(() => AdvancedSearchProfileStore.Save(unsupported, temp.Path));
+        Assert.Throws<ArgumentException>(() => AdvancedSearchProfileStore.Save(duplicate, temp.Path));
+        Assert.Empty(AdvancedSearchProfileStore.LoadAll(temp.Path));
+    }
+
+    [Fact]
+    public void CsvExportSafetyQuotesTextAndNeutralisesSpreadsheetFormulas()
+    {
+        Assert.Equal("\"ordinary text\"", CsvExportSafety.QuoteText("ordinary text"));
+        Assert.Equal("\"'=1+1\"", CsvExportSafety.QuoteText("=1+1"));
+        Assert.Equal("\"' @SUM(A1:A2)\"", CsvExportSafety.QuoteText(" @SUM(A1:A2)"));
+        Assert.Equal("\"a\"\"b\"", CsvExportSafety.QuoteText("a\"b"));
+        Assert.Equal("\"-123\"", CsvExportSafety.QuoteText("-123", protectFormula: false));
     }
 
     [Fact]
