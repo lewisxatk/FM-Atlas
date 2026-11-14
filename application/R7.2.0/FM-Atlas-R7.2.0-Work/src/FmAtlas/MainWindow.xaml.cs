@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private bool _liveCareerProbeBusy;
     private bool _liveImportBusy;
     private string? _lastAttemptedLiveSession;
+    private DateTime _nextLiveRetryUtc = DateTime.MinValue;
     private LiveCareerProbe? _currentLiveProbe;
     private CancellationTokenSource? _saveImportCancellation;
     private ProgressBar? _liveLoadProgress;
@@ -192,7 +193,7 @@ public partial class MainWindow : Window
         _liveLoadButton = ToolbarIcon("\uE72C", "Connect to the currently loaded FM27 career or refresh it. Atlas also detects new save loads automatically.", async (_, _) => await LoadLiveCareerAsync());
         _liveLoadButton.IsEnabled = true;
         actions.Children.Add(_liveLoadButton);
-        actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle Glass Dark, Glass Light and Studio.", async (_, _) => await CycleThemeAsync()));
+        actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle Monolith Glass, Glass Dark, Glass Light and Studio.", async (_, _) => await CycleThemeAsync()));
         actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
         Grid.SetColumn(actions, 1);
         headerGrid.Children.Add(actions);
@@ -273,7 +274,13 @@ public partial class MainWindow : Window
 
     private async Task CycleThemeAsync()
     {
-        _themeMode = _themeMode switch { "Glass Dark" => "Glass Light", "Glass Light" => "Studio", _ => "Glass Dark" };
+        _themeMode = _themeMode switch
+        {
+            "Monolith Glass" => "Glass Dark",
+            "Glass Dark" => "Glass Light",
+            "Glass Light" => "Studio",
+            _ => "Monolith Glass"
+        };
         try
         {
             var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas");
@@ -2731,6 +2738,8 @@ public partial class MainWindow : Window
     private void StartLiveCareerMonitor()
     {
         if (_liveCareerTimer is not null) return;
+        // Bounded check: one exact-profile probe every three seconds; the entity-array import
+        // starts only after the game's own save-load generation says a career is ready.
         _liveCareerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _liveCareerTimer.Tick += async (_, _) =>
         {
@@ -2744,7 +2753,9 @@ public partial class MainWindow : Window
                 {
                     if (_connectionSummary is not null) _connectionSummary.Text = probe.Status;
                     if (_connectionDot is not null) _connectionDot.Fill = Brush("#2BA578");
-                    if (!string.Equals(_lastAttemptedLiveSession, probe.SessionKey, StringComparison.Ordinal))
+                    var isNewSession = !string.Equals(_lastAttemptedLiveSession, probe.SessionKey, StringComparison.Ordinal);
+                    var retryDue = DateTime.UtcNow >= _nextLiveRetryUtc;
+                    if (isNewSession || retryDue)
                         await LoadLiveCareerAsync(probe, automatic: true);
                 }
                 else if (probe.IsGameRunning)
@@ -2754,9 +2765,12 @@ public partial class MainWindow : Window
                 }
                 else
                 {
+                    // A closed game must never leave the previous career's manager displayed as current.
                     _lastAttemptedLiveSession = null;
+                    _nextLiveRetryUtc = DateTime.MinValue;
                     if (_connectionSummary is not null &&
                         (_connectionSummary.Text.StartsWith("FM27", StringComparison.OrdinalIgnoreCase)
+                         || _connectionSummary.Text.StartsWith("Live FM27", StringComparison.OrdinalIgnoreCase)
                          || _connectionSummary.Text.StartsWith("Waiting for Football Manager", StringComparison.OrdinalIgnoreCase)))
                         _connectionSummary.Text = "FM27 is not running · your local Atlas database remains available.";
                     if (_connectionDot is not null) _connectionDot.Fill = Brush("#C7797B");
@@ -2765,18 +2779,29 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 AtlasLog.Warning("The automatic FM27 career check failed: " + ex.Message);
+                _nextLiveRetryUtc = DateTime.UtcNow.AddSeconds(30);
             }
             finally { _liveCareerProbeBusy = false; }
         };
         _liveCareerTimer.Start();
     }
 
+    private bool IsCurrentLiveCareer(WorkspaceMetrics metrics)
+        => _currentLiveProbe is { IsCareerLoaded: true } probe
+           && metrics.LiveSaveLoadCounter.HasValue
+           && metrics.LiveSaveLoadCounter.Value == checked((long)probe.SaveLoadCounter);
+
     private async Task OpenMyManagerAsync()
     {
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+        if (!IsCurrentLiveCareer(metrics))
+        {
+            MessageBox.Show(this, "No currently loaded FM27 career is connected. Open your career and let Atlas finish its automatic connection before opening the manager shortcut.", "Manager not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         if (string.IsNullOrWhiteSpace(metrics.CurrentManager))
         {
-            MessageBox.Show(this, "Atlas has not identified one human manager in the currently loaded career yet. Keep FM27 open and let the automatic connection finish, or search the Staff directory.", "Manager not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, "Atlas has not uniquely identified the human manager in the connected career yet. Search the Staff directory or reconnect after the save finishes loading.", "Manager not available", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         _pendingStaffSearchQuery = metrics.CurrentManager;
@@ -2786,9 +2811,14 @@ public partial class MainWindow : Window
     private async Task OpenMyClubAsync()
     {
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+        if (!IsCurrentLiveCareer(metrics))
+        {
+            MessageBox.Show(this, "No currently loaded FM27 career is connected. Open your career and let Atlas finish its automatic connection before opening the club shortcut.", "Club not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         if (string.IsNullOrWhiteSpace(metrics.CurrentManagerClub))
         {
-            MessageBox.Show(this, "Atlas has not identified the human manager's club yet. Check that a career is loaded and the supported live scan has completed.", "Club not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, "Atlas has not identified the human manager's club yet. Check that the live staff scan has completed.", "Club not available", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         _pendingClubSearchQuery = metrics.CurrentManagerClub;
@@ -2809,6 +2839,7 @@ public partial class MainWindow : Window
 
         _liveImportBusy = true;
         _lastAttemptedLiveSession = session.SessionKey;
+        _nextLiveRetryUtc = DateTime.UtcNow.AddSeconds(30);
         if (_liveLoadButton is not null) _liveLoadButton.IsEnabled = false;
         if (_liveLoadProgress is not null) { _liveLoadProgress.Visibility = Visibility.Visible; _liveLoadProgress.IsIndeterminate = true; }
         if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connecting to the loaded FM27 career · checking save generation…";
@@ -2823,6 +2854,7 @@ public partial class MainWindow : Window
             var result = await RunDatabaseAsync(() => _database.ImportLiveSnapshotAsync(payload));
             AtlasLog.Info($"Live career import completed: players={result.PlayersImported:N0}/{result.PlayersSeen:N0}; staff={result.StaffImported:N0}/{result.StaffSeen:N0}; clubs={result.ClubsImported:N0}; player facts={result.AttributeRowsImported:N0}; session={session.SessionKey}.");
             _currentLiveProbe = session;
+            _nextLiveRetryUtc = DateTime.MaxValue;
             await RefreshCareerStatusAsync();
             if (_liveLoadStatus is not null)
                 _liveLoadStatus.Text = $"Connected · {result.PlayersImported:N0} players · {result.StaffImported:N0} staff · {result.ClubsImported:N0} clubs";
@@ -2841,8 +2873,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            AtlasLog.Error("Live career import failed; no partial snapshot was committed.", ex);
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connection stopped safely · " + ex.Message;
+            AtlasLog.Error("Live career import failed; no partial snapshot was committed. Atlas will retry this same career in 30 seconds.", ex);
+            _nextLiveRetryUtc = DateTime.UtcNow.AddSeconds(30);
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connection stopped safely · retry scheduled · " + ex.Message;
             if (_connectionSummary is not null) _connectionSummary.Text = "FM27 connection stopped safely · " + ex.Message;
             if (!automatic)
                 MessageBox.Show(this, "No live snapshot was committed. Atlas will keep your existing local data.\n\n" + ex.Message,
@@ -2973,9 +3006,9 @@ public partial class MainWindow : Window
     {
         if (_connectionSummary is null) return;
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
-        if (!string.IsNullOrWhiteSpace(metrics.CurrentManager))
+        if (IsCurrentLiveCareer(metrics) && !string.IsNullOrWhiteSpace(metrics.CurrentManager))
         {
-            _connectionSummary.Text = $"Live FM27 career · {metrics.CurrentManager} · {metrics.CurrentManagerClub ?? "club unavailable"} · {metrics.CurrentManagerNation ?? "nation unavailable"} · live field values remain source-derived candidates.";
+            _connectionSummary.Text = $"Live FM27 career · {metrics.CurrentManager} · {metrics.CurrentManagerClub ?? "club unavailable"} · {metrics.CurrentManagerNation ?? "nation unavailable"} · player/staff field mappings remain provisional.";
             if (_connectionDot is not null) _connectionDot.Fill = Brush("#2BA578");
             return;
         }
@@ -2986,7 +3019,7 @@ public partial class MainWindow : Window
             return;
         }
         if (metrics.LivePlayers > 0)
-            _connectionSummary.Text = $"Live FM27 player index · {metrics.LivePlayers:N0} players · awaiting a unique human-manager record.";
+            _connectionSummary.Text = $"Cached FM27 live index · {metrics.LivePlayers:N0} player identities · waiting for a currently loaded career.";
     }
 
     private async Task AddSelectedToShortlistAsync()
@@ -3191,10 +3224,10 @@ public partial class MainWindow : Window
         try
         {
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas", "theme.txt");
-            var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "Glass Dark";
-            return value is "Glass Light" or "Studio" or "Glass Dark" ? value : "Glass Dark";
+            var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "Monolith Glass";
+            return value is "Monolith Glass" or "Glass Light" or "Studio" or "Glass Dark" ? value : "Monolith Glass";
         }
-        catch { return "Glass Dark"; }
+        catch { return "Monolith Glass"; }
     }
 
     private static Brush Brush(string hex)
@@ -3218,6 +3251,28 @@ public partial class MainWindow : Window
                 "#F08C96" => "#C34D68",
                 "#8BCFA6" => "#34845C",
                 "#E6C477" => "#A87822",
+                _ => key
+            };
+        }
+        else if (_themeMode == "Monolith Glass")
+        {
+            mapped = key switch
+            {
+                "#E8EEF4" or "#E8F0FA" or "#C4CED8" => "#F1F0ED",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" or "#79BDEB" => "#F28C45",
+                "#294765" => "#33251E",
+                "#9EADB9" => "#9A9CA2",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#34363B",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#1B1D21",
+                "#0D1117" or "#111820" => "#0C0D10",
+                "#171F28" or "#202A35" or "#1C242E" or "#151B22" => "#17191D",
+                "#35424E" => "#303238",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" or "#F29A5C" or "#D97736" => "#F28C45",
+                "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" => "#F1F0ED",
+                "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#A3A5AA",
+                "#F08C96" => "#F08C96",
+                "#8BCFA6" => "#72C698",
+                "#E6C477" => "#E6BE70",
                 _ => key
             };
         }
