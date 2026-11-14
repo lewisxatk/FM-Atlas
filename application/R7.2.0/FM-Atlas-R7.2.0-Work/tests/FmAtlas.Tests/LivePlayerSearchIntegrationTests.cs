@@ -62,6 +62,7 @@ public sealed class LivePlayerSearchIntegrationTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (Directory.Exists(folder))
                 Directory.Delete(folder, recursive: true);
         }
