@@ -24,6 +24,7 @@ public sealed record LivePlayerRecord(
     int? InternationalCaps = null, int? InternationalGoals = null,
     int? U21Caps = null, int? U21Goals = null,
     int? LeftFoot = null, int? RightFoot = null,
+    int? TransferValue = null,
     IReadOnlyDictionary<string, double>? ContractFacts = null,
     IReadOnlyDictionary<string, double>? TraitFlags = null);
 public sealed record LiveStaffRecord(
@@ -258,14 +259,16 @@ public static class LiveDataImporter
                         int? currentRep = currentRepRaw <= 10_000 ? currentRepRaw : null;
                         var worldRepRaw = BitConverter.ToUInt16(inline, 0x262);
                         int? worldRep = worldRepRaw <= 10_000 ? worldRepRaw : null;
+                        var transferValueRaw = BitConverter.ToInt32(inline, 0x234);
+                        int? transferValue = transferValueRaw is >= 0 and <= 2_000_000_000 ? transferValueRaw : null;
                         var askingPriceRaw = BitConverter.ToInt32(inline, 0x238);
                         int? askingPrice = askingPriceRaw is >= -1 and <= 2_000_000_000 ? askingPriceRaw : null;
-                        var capsRaw = BitConverter.ToUInt16(inline, 0x3BC);
+                        var capsRaw = BitConverter.ToUInt16(inline, 0x3BC + playerShift);
                         int? internationalCaps = capsRaw <= 1_000 ? capsRaw : null;
-                        var goalsRaw = BitConverter.ToUInt16(inline, 0x3BE);
+                        var goalsRaw = BitConverter.ToUInt16(inline, 0x3BE + playerShift);
                         int? internationalGoals = goalsRaw <= 1_000 ? goalsRaw : null;
-                        var u21Caps = inline[0x3C0];
-                        var u21Goals = inline[0x3C1];
+                        var u21Caps = inline[0x3C0 + playerShift];
+                        var u21Goals = inline[0x3C1 + playerShift];
                         int? leftFoot = inline[0x177] is >= 1 and <= 20 ? inline[0x177] : null;
                         int? rightFoot = inline[0x178] is >= 1 and <= 20 ? inline[0x178] : null;
 
@@ -313,7 +316,7 @@ public static class LiveDataImporter
                             ca, pa, attributes, personality, positions, nationName, nationUid,
                             heightCm, condition, sharpness, jadedness, morale, homeRep, currentRep, worldRep,
                             askingPrice, internationalCaps, internationalGoals, u21Caps, u21Goals, leftFoot, rightFoot,
-                            contractFacts, traitFlags));
+                            transferValue, contractFacts, traitFlags));
                     }
                     catch (OperationCanceledException) { throw; }
                     catch { unnamed++; }
