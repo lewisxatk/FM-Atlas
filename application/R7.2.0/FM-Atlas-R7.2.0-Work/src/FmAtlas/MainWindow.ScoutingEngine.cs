@@ -39,12 +39,12 @@ public partial class MainWindow
         intro.Children.Add(Txt("Scouting analytics", 25, true, Ink));
         intro.Children.Add(Txt("A Wyscout / StatsBomb-inspired recruitment workspace. Import genuine event data or a user-owned Wyscout CSV, compare players within like-for-like cohorts, and inspect the source behind every metric. FM save statistics remain a separate source family.", 10, false, Muted, wrap: true));
         var importBar = new WrapPanel { Margin = new Thickness(0, 10, 0, 4) };
+        TextBlock status = null!;
         var importStatsBomb = PrimaryButton("Import StatsBomb Open Data", async (_, _) => await ImportStatsBombAsync());
         var importWyscout = SoftButton("Import Wyscout CSV", async (_, _) => await ImportWyscoutAsync());
         var reload = SoftButton("Reload saved datasets", async (_, _) => { allRows = (await LoadScoutingDatasetAsync()).ToList(); RefreshChoices(); status.Text = $"Loaded {allRows.Count:N0} player-season records from local datasets."; });
         importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload);
         intro.Children.Add(importBar);
-        TextBlock status = null!;
         status = Txt($"{allRows.Count:N0} player-season records loaded · imports are stored locally on this PC.", 9, false, Muted, wrap: true);
         status.Margin = new Thickness(0, 4, 0, 2);
         intro.Children.Add(status);
