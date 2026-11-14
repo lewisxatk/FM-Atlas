@@ -9,8 +9,8 @@ using FmAtlas.Services;
 namespace FmAtlas.Data;
 
 public sealed record LiveClubSummary(long ClubUid, string Name, string ValidationStatus, int LinkedPlayers);
-public sealed record WorkspaceMetrics(int LivePlayers, int LiveClubs, int LiveStaff, int SavePlayers, int SaveClubs, int SaveStaff, int LocalAttributeFacts, int LiveFacts, string? LastSaveImportUtc, string? LastLiveImportUtc, string? LastSaveFileName, string? SaveGame, string? SaveBuild, bool? SaveBuildKnown, string? SaveGameDate, string? SaveValidationJson, string? CurrentManager, string? CurrentManagerClub);
-public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club, string? Job, int? Age, string? Nation, string ValidationStatus);
+public sealed record WorkspaceMetrics(int LivePlayers, int LiveClubs, int LiveStaff, int SavePlayers, int SaveClubs, int SaveStaff, int LocalAttributeFacts, int LiveFacts, string? LastSaveImportUtc, string? LastLiveImportUtc, string? LastSaveFileName, string? SaveGame, string? SaveBuild, bool? SaveBuildKnown, string? SaveGameDate, string? SaveValidationJson, string? CurrentManager, string? CurrentManagerClub, string? CurrentManagerNation = null);
+public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club, string? Job, int? Age, string? Nation, string ValidationStatus, int? CurrentAbility = null, int? PotentialAbility = null, bool IsHumanManager = false);
 public sealed record AtlasClubRecord(string SourceId, string Name, string? Nation, int PlayerCount, string DataSource);
 public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerName, string FieldName, string? OldValue, string? NewValue, string ChangedUtc, string ChangeSource);
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
@@ -117,6 +117,12 @@ public sealed class ScoutDatabase
               StaffUid INTEGER PRIMARY KEY, StaffName TEXT NOT NULL, ArrayIndex INTEGER NULL,
               ObjectAddress TEXT NULL, SourceRunId INTEGER NOT NULL, ValidationStatus TEXT NOT NULL DEFAULT 'Candidate',
               UpdatedUtc TEXT NOT NULL, FOREIGN KEY(SourceRunId) REFERENCES LiveImportRuns(RunId)
+            );
+            CREATE TABLE IF NOT EXISTS LiveCareerIdentity (
+              RunId INTEGER PRIMARY KEY, SaveLoadCounter INTEGER NOT NULL,
+              ManagerUid INTEGER NULL, ManagerName TEXT NULL, ManagerNation TEXT NULL,
+              ManagerClubUid INTEGER NULL, ManagerClubName TEXT NULL, DetectedUtc TEXT NOT NULL,
+              FOREIGN KEY(RunId) REFERENCES LiveImportRuns(RunId)
             );
             CREATE TABLE IF NOT EXISTS LiveFieldRegistry (
               EntityType TEXT NOT NULL, FieldKey TEXT NOT NULL, DisplayName TEXT NOT NULL,
@@ -1079,6 +1085,68 @@ public sealed class ScoutDatabase
             cmd.Parameters.AddWithValue("$status", club.WitnessVerified ? "WitnessVerified" : "Candidate"); cmd.Parameters.AddWithValue("$utc", now);
             await cmd.ExecuteNonQueryAsync();
         }
+        var staffRows = payload.Staff ?? new List<FmAtlas.Services.LiveStaffRecord>();
+        var staffUpsert = db.CreateCommand(); staffUpsert.Transaction = (SqliteTransaction)tx;
+        staffUpsert.CommandText = "INSERT INTO LiveStaff(StaffUid,StaffName,ArrayIndex,ObjectAddress,SourceRunId,ValidationStatus,UpdatedUtc) VALUES($id,$name,$idx,$addr,$run,$status,$utc) ON CONFLICT(StaffUid) DO UPDATE SET StaffName=excluded.StaffName,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,ValidationStatus=excluded.ValidationStatus,UpdatedUtc=excluded.UpdatedUtc;";
+        staffUpsert.Parameters.Add("$id", SqliteType.Integer); staffUpsert.Parameters.Add("$name", SqliteType.Text);
+        staffUpsert.Parameters.Add("$idx", SqliteType.Integer); staffUpsert.Parameters.Add("$addr", SqliteType.Text);
+        staffUpsert.Parameters.Add("$run", SqliteType.Integer); staffUpsert.Parameters.Add("$status", SqliteType.Text); staffUpsert.Parameters.Add("$utc", SqliteType.Text);
+        var staffFactUpsert = db.CreateCommand(); staffFactUpsert.Transaction = (SqliteTransaction)tx;
+        staffFactUpsert.CommandText = "INSERT INTO LiveStaffFacts(StaffUid,FieldKey,NumericValue,TextValue,ValidationStatus,SourceRunId,UpdatedUtc) VALUES($uid,$key,$number,$text,$status,$run,$utc) ON CONFLICT(StaffUid,FieldKey) DO UPDATE SET NumericValue=excluded.NumericValue,TextValue=excluded.TextValue,ValidationStatus=excluded.ValidationStatus,SourceRunId=excluded.SourceRunId,UpdatedUtc=excluded.UpdatedUtc;";
+        staffFactUpsert.Parameters.Add("$uid", SqliteType.Integer); staffFactUpsert.Parameters.Add("$key", SqliteType.Text);
+        staffFactUpsert.Parameters.Add("$number", SqliteType.Real); staffFactUpsert.Parameters.Add("$text", SqliteType.Text);
+        staffFactUpsert.Parameters.Add("$status", SqliteType.Text); staffFactUpsert.Parameters.Add("$run", SqliteType.Integer); staffFactUpsert.Parameters.Add("$utc", SqliteType.Text);
+        var liveStaffFactCount = 0;
+        foreach (var member in staffRows)
+        {
+            staffUpsert.Parameters["$id"].Value = (long)member.Uid;
+            staffUpsert.Parameters["$name"].Value = member.Name;
+            staffUpsert.Parameters["$idx"].Value = member.ArrayIndex;
+            staffUpsert.Parameters["$addr"].Value = $"0x{member.Address:X}";
+            staffUpsert.Parameters["$run"].Value = runId;
+            staffUpsert.Parameters["$status"].Value = member.IsHumanManager ? "HumanManager-LayoutMatched-Provisional" : "ProfileMatched-Provisional";
+            staffUpsert.Parameters["$utc"].Value = now;
+            await staffUpsert.ExecuteNonQueryAsync();
+
+            void SetStaffFact(string key, double? numeric, string? textValue = null)
+            {
+                staffFactUpsert.Parameters["$uid"].Value = (long)member.Uid;
+                staffFactUpsert.Parameters["$key"].Value = key;
+                staffFactUpsert.Parameters["$number"].Value = (object?)numeric ?? DBNull.Value;
+                staffFactUpsert.Parameters["$text"].Value = (object?)textValue ?? DBNull.Value;
+                staffFactUpsert.Parameters["$status"].Value = "Provisional-ProfileMatched-Needs-UI-Witness";
+                staffFactUpsert.Parameters["$run"].Value = runId;
+                staffFactUpsert.Parameters["$utc"].Value = now;
+                staffFactUpsert.ExecuteNonQuery();
+                liveStaffFactCount++;
+            }
+            if (member.CurrentAbility.HasValue) SetStaffFact("ability.current_ability", member.CurrentAbility.Value);
+            if (member.PotentialAbility.HasValue) SetStaffFact("ability.potential_ability", member.PotentialAbility.Value);
+            if (member.Age.HasValue) SetStaffFact("identity.age", member.Age.Value);
+            if (member.NationUid.HasValue) SetStaffFact("identity.nation_uid", member.NationUid.Value);
+            if (!string.IsNullOrWhiteSpace(member.NationName)) SetStaffFact("identity.nation_name", null, member.NationName);
+            if (member.ClubUid.HasValue) SetStaffFact("identity.club_uid", member.ClubUid.Value);
+            if (!string.IsNullOrWhiteSpace(member.ClubName)) SetStaffFact("identity.club_name", null, member.ClubName);
+            if (member.JobCode.HasValue) SetStaffFact("identity.job_code", member.JobCode.Value);
+            if (!string.IsNullOrWhiteSpace(member.JobTitle)) SetStaffFact("identity.job_title", null, member.JobTitle);
+            if (member.DateOfBirth.HasValue) SetStaffFact("identity.date_of_birth", null, member.DateOfBirth.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+            SetStaffFact("identity.is_human_manager", member.IsHumanManager ? 1 : 0);
+        }
+
+        var managers = staffRows.Where(x => x.IsHumanManager).ToArray();
+        var manager = managers.Length == 1 ? managers[0] : null;
+        var careerIdentity = db.CreateCommand(); careerIdentity.Transaction = (SqliteTransaction)tx;
+        careerIdentity.CommandText = "INSERT INTO LiveCareerIdentity(RunId,SaveLoadCounter,ManagerUid,ManagerName,ManagerNation,ManagerClubUid,ManagerClubName,DetectedUtc) VALUES($run,$counter,$uid,$name,$nation,$clubUid,$club,$utc) ON CONFLICT(RunId) DO UPDATE SET SaveLoadCounter=excluded.SaveLoadCounter,ManagerUid=excluded.ManagerUid,ManagerName=excluded.ManagerName,ManagerNation=excluded.ManagerNation,ManagerClubUid=excluded.ManagerClubUid,ManagerClubName=excluded.ManagerClubName,DetectedUtc=excluded.DetectedUtc;";
+        careerIdentity.Parameters.AddWithValue("$run", runId);
+        careerIdentity.Parameters.AddWithValue("$counter", (long)payload.SaveLoadCounter);
+        careerIdentity.Parameters.AddWithValue("$uid", manager is null ? DBNull.Value : (object)(long)manager.Uid);
+        careerIdentity.Parameters.AddWithValue("$name", (object?)manager?.Name ?? DBNull.Value);
+        careerIdentity.Parameters.AddWithValue("$nation", (object?)manager?.NationName ?? DBNull.Value);
+        careerIdentity.Parameters.AddWithValue("$clubUid", manager?.ClubUid.HasValue == true ? (object)(long)manager.ClubUid.Value : DBNull.Value);
+        careerIdentity.Parameters.AddWithValue("$club", (object?)manager?.ClubName ?? DBNull.Value);
+        careerIdentity.Parameters.AddWithValue("$utc", now);
+        await careerIdentity.ExecuteNonQueryAsync();
+
         foreach (var player in payload.Players.Where(p => p.TeamObjectAddress is not null).GroupBy(p => p.TeamObjectAddress).Select(g => g.First()))
         {
             var link = db.CreateCommand(); link.Transaction = (SqliteTransaction)tx;
@@ -1186,11 +1254,15 @@ public sealed class ScoutDatabase
             await reg.ExecuteNonQueryAsync();
         }
         var finish = db.CreateCommand(); finish.Transaction = (SqliteTransaction)tx;
-        finish.CommandText = "UPDATE LiveImportRuns SET CompletedUtc=$utc,Status='Completed',PlayersImported=$p,ClubsImported=$c,ErrorSummary=$summary WHERE RunId=$id;";
+        finish.CommandText = "UPDATE LiveImportRuns SET CompletedUtc=$utc,Status='Completed',PlayersImported=$p,ClubsImported=$c,StaffSeen=$staffSeen,StaffImported=$staffImported,ErrorSummary=$summary WHERE RunId=$id;";
         finish.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); finish.Parameters.AddWithValue("$p", payload.Players.Count);
-        finish.Parameters.AddWithValue("$c", payload.Clubs.Count); finish.Parameters.AddWithValue("$summary", $"Unnamed/unreadable player slots: {payload.UnnamedPlayers}; unresolved player-to-club links: {payload.UnlinkedPlayers}; imported player attribute/personality values: {liveAttributeCount}; CA/PA and attribute offsets remain provisional pending in-game UI witnesses"); finish.Parameters.AddWithValue("$id", runId);
+        finish.Parameters.AddWithValue("$c", payload.Clubs.Count); finish.Parameters.AddWithValue("$staffSeen", payload.StaffSlots);
+        finish.Parameters.AddWithValue("$staffImported", staffRows.Count);
+        finish.Parameters.AddWithValue("$summary", $"Unnamed/unreadable player slots: {payload.UnnamedPlayers}; unresolved player-to-club links: {payload.UnlinkedPlayers}; staff identities imported: {staffRows.Count}; staff fact rows: {liveStaffFactCount}; player attribute/personality facts: {liveAttributeCount}; all live field values remain provisional pending in-game UI witnesses");
+        finish.Parameters.AddWithValue("$id", runId);
         await finish.ExecuteNonQueryAsync(); await tx.CommitAsync().ConfigureAwait(false);
-        return new LiveImportResult(runId, payload.PlayerSlots, payload.Players.Count, payload.Clubs.Count, payload.Clubs.Count, payload.UnnamedPlayers, payload.UnlinkedPlayers, liveAttributeCount);
+        return new LiveImportResult(runId, payload.PlayerSlots, payload.Players.Count, payload.Clubs.Count, payload.Clubs.Count,
+            payload.UnnamedPlayers, payload.UnlinkedPlayers, liveAttributeCount, payload.StaffSlots, staffRows.Count);
     
         }
         finally
@@ -2139,25 +2211,40 @@ public sealed class ScoutDatabase
         async Task<string?> ScalarText(string sql) { var c=db.CreateCommand(); c.CommandText=sql; var v=await c.ExecuteScalarAsync(); return v is null || v==DBNull.Value ? null : Convert.ToString(v); }
         var knownBuildText = await ScalarText("SELECT CASE WHEN KnownBuild=1 THEN 'true' WHEN KnownBuild=0 THEN 'false' ELSE NULL END FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1");
         bool? knownBuild = bool.TryParse(knownBuildText, out var parsedKnownBuild) ? parsedKnownBuild : null;
-        string? currentManager = null; string? currentManagerClub = null;
+        string? currentManager = null; string? currentManagerClub = null; string? currentManagerNation = null;
+        var liveIdentity = db.CreateCommand();
+        liveIdentity.CommandText = "SELECT ManagerName,ManagerClubName,ManagerNation FROM LiveCareerIdentity ORDER BY RunId DESC LIMIT 1;";
+        await using (var liveReader = await liveIdentity.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            if (await liveReader.ReadAsync().ConfigureAwait(false))
+            {
+                currentManager = liveReader.IsDBNull(0) ? null : liveReader.GetString(0);
+                currentManagerClub = liveReader.IsDBNull(1) ? null : liveReader.GetString(1);
+                currentManagerNation = liveReader.IsDBNull(2) ? null : liveReader.GetString(2);
+            }
+        }
         var managerQuery = db.CreateCommand();
         managerQuery.CommandText = "SELECT RawJson FROM FmsaveStaffDirectory WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) ORDER BY Name LIMIT 10000;";
-        await using (var managerReader = await managerQuery.ExecuteReaderAsync())
+        if (string.IsNullOrWhiteSpace(currentManager))
         {
-            while (await managerReader.ReadAsync())
+            await using (var managerReader = await managerQuery.ExecuteReaderAsync())
             {
-                try
+                while (await managerReader.ReadAsync())
                 {
-                    using var managerDoc = JsonDocument.Parse(managerReader.GetString(0));
-                    var manager = managerDoc.RootElement;
-                    if (manager.TryGetProperty("is_human_manager", out var flag) && (flag.ValueKind == JsonValueKind.True || (flag.ValueKind == JsonValueKind.Number && flag.TryGetInt32(out var flagNumber) && flagNumber == 1)))
+                    try
                     {
-                        currentManager = GetString(manager, "name");
-                        currentManagerClub = GetString(manager, "club_name");
-                        break;
+                        using var managerDoc = JsonDocument.Parse(managerReader.GetString(0));
+                        var manager = managerDoc.RootElement;
+                        if (manager.TryGetProperty("is_human_manager", out var flag) && (flag.ValueKind == JsonValueKind.True || (flag.ValueKind == JsonValueKind.Number && flag.TryGetInt32(out var flagNumber) && flagNumber == 1)))
+                        {
+                            currentManager = GetString(manager, "name");
+                            currentManagerClub = GetString(manager, "club_name");
+                            currentManagerNation = GetString(manager, "nation_name");
+                            break;
+                        }
                     }
+                    catch (JsonException) { /* Keep malformed manager rows out of the dashboard identity. */ }
                 }
-                catch (JsonException) { /* Keep malformed manager rows out of the dashboard identity. */ }
             }
         }
         return new WorkspaceMetrics(
@@ -2174,7 +2261,7 @@ public sealed class ScoutDatabase
             knownBuild,
             await ScalarText("SELECT GameDate FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1"),
             await ScalarText("SELECT ValidationJson FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1"),
-            currentManager, currentManagerClub);
+            currentManager, currentManagerClub, currentManagerNation);
     }
 
     public async Task<List<AtlasStaffRecord>> SearchFmsaveStaffAsync(string? search)
@@ -2198,12 +2285,36 @@ public sealed class ScoutDatabase
                 rows.Add(new AtlasStaffRecord(reader.GetString(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetString(6)));
         }
         var live = db.CreateCommand();
-        live.CommandText = "SELECT CAST(StaffUid AS TEXT),StaffName,'FM27 live identity import' FROM LiveStaff WHERE ($q='' OR StaffName LIKE $p OR CAST(StaffUid AS TEXT) LIKE $p) ORDER BY StaffName COLLATE NOCASE LIMIT 5000;";
+        live.CommandText = """
+            SELECT CAST(s.StaffUid AS TEXT),s.StaffName,
+                   (SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.club_name'),
+                   (SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.job_title'),
+                   CAST((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.age') AS INTEGER),
+                   (SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.nation_name'),
+                   s.ValidationStatus,
+                   CAST((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='ability.current_ability') AS INTEGER),
+                   CAST((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='ability.potential_ability') AS INTEGER),
+                   COALESCE((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.is_human_manager'),0)
+            FROM LiveStaff s
+            WHERE s.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND ($q='' OR s.StaffName LIKE $p OR CAST(s.StaffUid AS TEXT) LIKE $p)
+            ORDER BY CASE WHEN COALESCE((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.is_human_manager'),0)=1 THEN 0 ELSE 1 END,
+                     s.StaffName COLLATE NOCASE LIMIT 5000;
+            """;
         live.Parameters.AddWithValue("$q", q); live.Parameters.AddWithValue("$p", $"%{q}%");
         await using (var reader = await live.ExecuteReaderAsync().ConfigureAwait(false))
         {
             while (await reader.ReadAsync().ConfigureAwait(false))
-                rows.Add(new AtlasStaffRecord(reader.GetString(0), reader.GetString(1), null, null, null, null, reader.GetString(2)));
+                rows.Add(new AtlasStaffRecord(
+                    reader.GetString(0), reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                    reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                    !reader.IsDBNull(9) && reader.GetDouble(9) >= 1));
         }
         return rows.GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase).Select(x => x.First()).OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Take(5000).ToList();
     }
