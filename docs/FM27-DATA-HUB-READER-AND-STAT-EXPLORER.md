@@ -43,3 +43,8 @@ The export allow-list now includes `team_match_stats`, `officials` and FM27 `squ
 4. Make Stats Explorer filters include source, player, club/team, competition, season, match date, position, minutes and arbitrary numeric metric ranges.
 5. Add join-quality indicators for player IDs and fixture keys; unresolved joins remain visible and excluded from derived rates.
 6. Preserve existing Advanced Search, saved profiles, shortlists, comparisons and read-only save import.
+
+
+## Current integration checkpoint
+
+The offline C# importer explicitly archives and manifest-validates `team_match_stats`, `officials` and `squad_planner`. The team-level event tables remain separate from player-season metric indexing until a typed team/fixture join is implemented. Regression tests cover the newly added context tables.
