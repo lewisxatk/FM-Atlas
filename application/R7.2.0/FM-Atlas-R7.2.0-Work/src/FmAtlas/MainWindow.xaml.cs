@@ -23,8 +23,9 @@ namespace FmAtlas;
 public partial class MainWindow : Window
 {
     private static string _themeMode = LoadThemeMode();
-    private const bool LiveMemoryImportEnabled = false;
-    private const bool LiveMemoryEditingEnabled = false;
+    // Keep the legacy live-memory features fail-closed without compile-time constant folding.
+    private static bool LiveMemoryImportEnabled => false;
+    private static bool LiveMemoryEditingEnabled => false;
     private static Brush Ink => Brush("#E8EEF4");
     private static Brush Teal => Brush("#C6F36B");
     private static Brush TealDark => Brush("#D5E5C3");
@@ -50,7 +51,6 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _saveImportCancellation;
     private ProgressBar? _liveLoadProgress;
     private TextBlock? _liveLoadStatus;
-    private TextBox? _globalSearchBox;
     private string _activePage = "Dashboard";
     private PlayerRecord? _selectedPlayer;
     private DataGrid? _playerResultsGrid;
@@ -77,17 +77,6 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, PlayerRecord> _openPlayerRecords = new(StringComparer.OrdinalIgnoreCase);
     private TextBlock? _playerCountText;
     private TextBox? _playerSearch;
-    private TextBox? _playerMinAge;
-    private TextBox? _playerMaxAge;
-    private TextBox? _playerMinCa;
-    private TextBox? _playerMaxCa;
-    private TextBox? _playerMinPa;
-    private TextBox? _playerMaxPa;
-    private TextBox? _attributeMinimum;
-    private TextBox? _attributeMaximum;
-    private TextBox? _leftFootMinimum;
-    private TextBox? _rightFootMinimum;
-    private ComboBox? _attributePicker;
     private ComboBox? _positionPicker;
     private ComboBox? _shortlistPicker;
 
@@ -785,10 +774,22 @@ public partial class MainWindow : Window
         var profilesToRestore = _openPlayerRecords.Values.ToList();
         if (_profileExpanded) ToggleProfileExpanded(true);
         if (profilesToRestore.Count > 0)
-            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(async () => await RestoreOpenPlayerProfilesAsync(profilesToRestore)));
+            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => _ = RestoreOpenPlayerProfilesSafelyAsync(profilesToRestore)));
 
         await Task.CompletedTask;
         return root;
+    }
+
+    private async Task RestoreOpenPlayerProfilesSafelyAsync(IReadOnlyList<PlayerRecord> profiles)
+    {
+        try
+        {
+            await RestoreOpenPlayerProfilesAsync(profiles);
+        }
+        catch (Exception ex)
+        {
+            AtlasLog.Error("Deferred player-profile restoration failed.", ex);
+        }
     }
 
     private async Task RestoreOpenPlayerProfilesAsync(IReadOnlyList<PlayerRecord> profiles)
