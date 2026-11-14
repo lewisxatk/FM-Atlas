@@ -23,6 +23,8 @@ public sealed class PerformanceValueAnalysisWindow : Window
     private readonly TextBox _minimumSampleSize;
     private readonly ComboBox _positionFilter;
     private readonly ComboBox _leagueFilter;
+    private readonly ComboBox _positionRatingCode;
+    private readonly TextBox _minimumPositionRating;
     private readonly Canvas _chart;
     private readonly DataGrid _grid;
     private readonly TextBlock _status;
@@ -70,11 +72,18 @@ public sealed class PerformanceValueAnalysisWindow : Window
         _leagueFilter = new ComboBox { Width = 190, Height = 34, Margin = new Thickness(0, 0, 8, 6) };
         _leagueFilter.Items.Add("All leagues");
         _leagueFilter.SelectedIndex = 0;
+        _positionRatingCode = new ComboBox { Width = 105, Height = 34, Margin = new Thickness(0, 0, 6, 6), ToolTip = "Limit the comparison pool to players with this source FM position familiarity rating." };
+        _positionRatingCode.Items.Add("Any FM pos");
+        foreach (var code in PositionSuitabilityService.PositionCodes) _positionRatingCode.Items.Add(code);
+        _positionRatingCode.SelectedIndex = 0;
+        _minimumPositionRating = new TextBox { Text = "15", Width = 54, Height = 34, Margin = new Thickness(0, 0, 8, 6), Padding = new Thickness(8, 5, 8, 5), ToolTip = "Minimum source familiarity from 1 to 20." };
         var clearCohorts = new Button { Content = "Clear cohort filters", Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 0, 8, 6) };
         clearCohorts.Click += (_, _) =>
         {
             _positionFilter.SelectedIndex = 0;
             _leagueFilter.SelectedIndex = 0;
+            _positionRatingCode.SelectedIndex = 0;
+            _minimumPositionRating.Text = "15";
             ApplyCohortFilters();
         };
         var analyse = new Button { Content = "Analyse", Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(0, 0, 8, 6) };
@@ -89,6 +98,9 @@ public sealed class PerformanceValueAnalysisWindow : Window
         controls.Children.Add(_minimumSampleSize);
         controls.Children.Add(_positionFilter);
         controls.Children.Add(_leagueFilter);
+        controls.Children.Add(new TextBlock { Text = "FM position rating ≥", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), Margin = new Thickness(0, 0, 6, 6) });
+        controls.Children.Add(_positionRatingCode);
+        controls.Children.Add(_minimumPositionRating);
         controls.Children.Add(clearCohorts);
         controls.Children.Add(analyse);
         controls.Children.Add(export);
@@ -141,6 +153,8 @@ public sealed class PerformanceValueAnalysisWindow : Window
         _metricPicker.SelectionChanged += (_, _) => UpdatePer90Availability();
         _positionFilter.SelectionChanged += (_, _) => { if (!_updatingCohortFilters) ApplyCohortFilters(); };
         _leagueFilter.SelectionChanged += (_, _) => { if (!_updatingCohortFilters) ApplyCohortFilters(); };
+        _positionRatingCode.SelectionChanged += async (_, _) => { if (!_updatingCohortFilters && IsLoaded) await AnalyseAsync(); };
+        _minimumPositionRating.LostFocus += async (_, _) => { if (IsLoaded && _positionRatingCode.SelectedIndex > 0) await AnalyseAsync(); };
         UpdatePer90Availability();
     }
 
@@ -190,7 +204,9 @@ public sealed class PerformanceValueAnalysisWindow : Window
             _activePer90 = _per90.IsChecked == true;
             _activeMinimumSampleSize = minimumSampleSize;
             _allResults = await _database.GetPerformanceValueCandidatesAsync(
-                metric.Key, _activePer90, minutes, 5000, minimumSampleSize: minimumSampleSize);
+                metric.Key, _activePer90, minutes, 5000, minimumSampleSize: minimumSampleSize,
+                positionRatingCode: _positionRatingCode.SelectedItem as string is { } selectedPosition && !selectedPosition.Equals("Any FM pos", StringComparison.OrdinalIgnoreCase) ? selectedPosition : null,
+                minimumPositionRating: int.TryParse(_minimumPositionRating.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var positionFloor) ? Math.Clamp(positionFloor, 1, 20) : 15);
             RefreshCohortFilterOptions();
             ApplyCohortFilters();
         }
@@ -263,7 +279,10 @@ public sealed class PerformanceValueAnalysisWindow : Window
             filterPosition ? $"Position: {selectedPosition}" : "All positions",
             filterLeague ? $"League: {selectedLeague}" : "All leagues"
         });
-        _status.Text = $"{_results.Count:N0} of {_allResults.Count:N0} eligible players shown · minimum {_activeMinimumSampleSize} source sample(s) · {_results[0].DisplayCoverage} coverage of the eligible valued-player pool · {cohortSummary}. Percentiles are calculated after the minutes and sample-size floors, before the visible position/league filters; minutes, sample count and latest period are shown per player.";
+        var positionRatingSummary = _positionRatingCode.SelectedItem is string code && !code.Equals("Any FM pos", StringComparison.OrdinalIgnoreCase)
+            ? $"FM {code} familiarity ≥ {Math.Clamp(int.TryParse(_minimumPositionRating.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var floor) ? floor : 15, 1, 20)}/20"
+            : "No FM familiarity floor";
+        _status.Text = $"{_results.Count:N0} of {_allResults.Count:N0} eligible players shown · minimum {_activeMinimumSampleSize} source sample(s) · {_results[0].DisplayCoverage} coverage of the eligible valued-player pool · {positionRatingSummary} · {cohortSummary}. Percentiles are calculated within the qualifying familiarity pool, after minutes/sample floors; visible position/league filters are display filters only.";
     }
 
     private void DrawEmptyChart()
