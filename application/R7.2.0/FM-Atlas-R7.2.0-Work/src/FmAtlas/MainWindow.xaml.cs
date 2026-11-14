@@ -183,7 +183,7 @@ public partial class MainWindow : Window
             _saveImportCancellation?.Cancel();
             if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Cancellation requested — safely stopping at the next import checkpoint…";
         });
-        _cancelImportButton.IsEnabled = false;
+        _cancelImportButton.IsEnabled = _saveImportCancellation is not null;
         actions.Children.Add(_cancelImportButton);
         actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
         actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
@@ -2030,6 +2030,7 @@ public partial class MainWindow : Window
         if (confirmation != MessageBoxResult.Yes) return;
 
         using var cancellation = new CancellationTokenSource();
+        var importTimer = Stopwatch.StartNew();
         _saveImportCancellation = cancellation;
         if (_cancelImportButton is not null) _cancelImportButton.IsEnabled = true;
         if (_liveLoadProgress is not null)
@@ -2059,7 +2060,8 @@ public partial class MainWindow : Window
             cancellation.Token.ThrowIfCancellationRequested();
             AtlasLog.Info($"Career snapshot import completed: players={imported.PlayersImported}, staff={imported.StaffImported}, clubs={imported.ClubsImported}, extraRows={imported.ExtraRowsImported}, warnings={imported.Warnings.Count}.");
             var warnings = imported.Warnings.Count == 0 ? "No adapter warnings were reported." : string.Join("\n", imported.Warnings.Take(8));
-            SetImportStatus("Career snapshot imported successfully.");
+            importTimer.Stop();
+            SetImportStatus($"Career snapshot imported in {importTimer.Elapsed:hh\\:mm\\:ss}.");
             MessageBox.Show(this, $"Career save snapshot imported.\n\nPlayers: {imported.PlayersImported:N0}\nStaff: {imported.StaffImported:N0}\nClubs: {imported.ClubsImported:N0}\nAdditional table rows retained: {imported.ExtraRowsImported:N0}\n\n{warnings}\n\nThe source save was read-only; no game process or save was modified.", "FM Atlas · Save snapshot complete", MessageBoxButton.OK, MessageBoxImage.Information);
             RefreshConnectionStatus();
             await RefreshCareerStatusAsync();
@@ -2068,17 +2070,20 @@ public partial class MainWindow : Window
         catch (OperationCanceledException)
         {
             AtlasLog.Info("FM career save import cancelled; an uncommitted snapshot transaction was discarded.");
-            SetImportStatus("Import cancelled. Existing published snapshots remain available.");
+            importTimer.Stop();
+            SetImportStatus($"Import cancelled after {importTimer.Elapsed:hh\\:mm\\:ss}. Existing published snapshots remain available.");
             MessageBox.Show(this, "The import was cancelled safely. Any uncommitted snapshot transaction was rolled back; your previous imported career snapshot is retained.", "FM Atlas · Import cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             AtlasLog.Error("FM career save import failed.", ex);
-            SetImportStatus("Import failed. The previous published snapshot remains available.");
+            importTimer.Stop();
+            SetImportStatus($"Import failed after {importTimer.Elapsed:hh\\:mm\\:ss}. The previous published snapshot remains available.");
             MessageBox.Show(this, "The save snapshot was not imported.\n\n" + ex.Message, "FM Atlas · Save import error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
+            importTimer.Stop();
             if (_liveLoadProgress is not null)
             {
                 _liveLoadProgress.IsIndeterminate = false;
