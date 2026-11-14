@@ -289,3 +289,11 @@ The source and regression tests are committed, but a fresh Windows workflow must
 2. Add a dedicated position-rating witness report to capture in-game FM27 values beside FMSAVE and live-reader values for the same player, then resolve discrepancies with evidence.
 3. Expand scouting profiles with reusable metric bundles, player comparison views and a clearly labelled value-gap shortlist.
 4. Add only those performance fields actually present in the save/CSV. Keep event-level metrics and third-party proprietary formulas out of the catalogue unless an external source explicitly provides them.
+
+
+### Scouting percentile comparison refinement — 14 November 2026
+
+- Added a chart comparison selector for the overall eligible pool, the player's position cohort, or the player's league cohort. Position/league modes use the already calculated group percentile fields; rows without a sufficiently large cohort are omitted from that chart view rather than assigned a fabricated percentile.
+- Added the selected FM position familiarity to the candidate model, grid, chart tooltip and CSV. When no FM position filter is active, the value remains explicitly unavailable.
+- Added an integration assertion that an unrestricted scouting query returns the full three-player test pool and does not invent a selected position rating.
+- This makes the chart closer to a cohort-first scouting workflow: choose a real numeric FM position-familiarity floor, then view overall, same-position or same-league performance relative to source-data peers.
