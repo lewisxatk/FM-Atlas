@@ -20,7 +20,7 @@ League Hub / competition context comes from `stages()`, `competitions()`, `fixtu
 
 ## Adapter changes
 
-The export allow-list now includes `team_match_stats`, `officials` and FM27 `squad_planner`, alongside the existing player season, match and history tables. The adapter preserves each table's original named fields in NDJSON. It does not convert a field to a friendly metric label or silently reinterpret a raw value.
+The export allow-list now includes `team_match_stats`, `officials` and FM27 `squad_planner`, alongside the existing player season, match and history tables. The adapter preserves each table's original named fields in NDJSON. The C# career importer now explicitly recognises and transactionally archives `team_match_stats`, `officials` and `squad_planner` alongside the player, fixture and competition tables. It verifies each table's row count against the manifest before committing the snapshot. It does not convert a field to a friendly metric label or silently reinterpret a raw value. The team-match report remains a separate team-level source and is deliberately not inserted into player-season metric facts.
 
 ## Trust and UI rules
 
@@ -37,8 +37,8 @@ The export allow-list now includes `team_match_stats`, `officials` and FM27 `squ
 
 ## Next implementation gates
 
-1. Verify that the C# bundle importer recognises the added NDJSON table names and indexes team-match / league context rather than merely archiving it as an unknown extra table.
-2. Add real FM27 save fixtures (redacted/synthetic test fixtures only where they preserve the real schema) for Data Hub season stats, team match reports, fixtures and league tables.
+1. Extend the C# importer with dedicated, typed team-match and fixture join indexes; the current update guarantees lossless archival and manifest reconciliation, not a completed relational join.
+2. Add real FM27 save fixtures (redacted/synthetic test fixtures only where they preserve the real schema) for Data Hub season stats, team match reports, fixtures, league tables, officials and squad-planner data. A synthetic regression test now covers preservation of team-match stats, fixtures, league tables and officials.
 3. Validate a known FM27 build and representative fields against the in-game Data Hub and League Hub. Keep all un-witnessed fields flagged.
 4. Make Stats Explorer filters include source, player, club/team, competition, season, match date, position, minutes and arbitrary numeric metric ranges.
 5. Add join-quality indicators for player IDs and fixture keys; unresolved joins remain visible and excluded from derived rates.
