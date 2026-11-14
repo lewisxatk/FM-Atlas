@@ -25,7 +25,8 @@ public static partial class LiveEntityMemoryEditService
     public sealed record TacticalBatchReceipt(TacticalBatchPlan Plan, DateTime AppliedUtc, IReadOnlyList<AppliedTacticalListChange> Changes);
 
     private sealed record TacticalListState(ulong HeaderAddress, byte[] Header, ulong Begin, ulong End, ulong Capacity, byte[] Bytes);
-    private sealed record TacticalPlayer(uint Uid, ulong Address, int Shift, ulong RecordAddress, uint PersonId, List<TacticalListState> Areas, TacticalListState? Shapes);
+    private sealed record TacticalPlayer(uint Uid, ulong Address, int Shift, ulong RecordAddress, uint PersonId,
+        List<TacticalListState> Areas, TacticalListState? Shapes, TacticalListState? History);
     private sealed record TacticalContext(
         ResolvedEntity Club, ulong SeniorTeam, uint TeamUid, ulong TacticAddress,
         byte[] Instructions, int[] Options, List<TacticalPlayer> Players);
@@ -345,6 +346,7 @@ public static partial class LiveEntityMemoryEditService
             throw new InvalidOperationException("The selected club's senior-team pointer failed its back-reference check.");
         var teamUid = BitConverter.ToUInt32(Read(handle, (nint)(senior + 0x08), 4), 0);
         var (tacticAddress, instructions, options) = ReadActiveTactic(handle, moduleBase, profile, senior, teamUid);
+        var trainingKeeper = FindTrainingKeeper(handle, moduleBase, profile, club.Address);
         var playerBounds = ReadBounds(handle, moduleBase, profile.PlayersArrayRva, "Player");
         var players = new List<TacticalPlayer>();
         for (var i = 0; i < playerBounds.Count; i++)
@@ -375,13 +377,79 @@ public static partial class LiveEntityMemoryEditService
                 var shapeWords = Read(handle, (nint)shapeHeader, 24);
                 var shapeList = shapeWords.All(x => x == 0) ? null : ReadTacticalList(handle, shapeHeader, 16, 64);
                 if (shapeList is not null && !ValidShapeEntries(shapeList.Bytes)) continue;
-                players.Add(new TacticalPlayer(uid, address, shift, record, person, areaLists, shapeList));
+                var history = trainingKeeper == 0 ? null : ReadPlayerTrainingHistory(handle, trainingKeeper, person);
+                players.Add(new TacticalPlayer(uid, address, shift, record, person, areaLists, shapeList, history));
             }
             catch { }
         }
         if (players.Count == 0)
             throw new InvalidOperationException("No players in the selected senior team had a valid FM27 Tactical Effectiveness record.");
         return new TacticalContext(club, senior, teamUid, tacticAddress, instructions, options, players);
+    }
+
+
+    private static ulong FindTrainingKeeper(nint handle, ulong moduleBase, Fm27BuildProfile profile, ulong clubAddress)
+    {
+        if (profile.TrainingManagerRva == 0) return 0;
+        var manager = U64(handle, moduleBase + profile.TrainingManagerRva);
+        if (!Pointer(manager)) return 0;
+        var list = Read(handle, (nint)(manager + 0x40), 16);
+        var begin = BitConverter.ToUInt64(list, 0);
+        var end = BitConverter.ToUInt64(list, 8);
+        if (begin == end) return 0;
+        if (!Pointer(begin) || end < begin || (end - begin) % 8 != 0 || (end - begin) > 8 * 64)
+            throw new InvalidOperationException("The Training Manager keeper list failed validation.");
+        for (var at = begin; at < end; at += 8)
+        {
+            var keeper = U64(handle, at);
+            if (!Pointer(keeper)) continue;
+            if (U64(handle, keeper + 0x78) == clubAddress) return keeper;
+        }
+        return 0;
+    }
+
+    private static TacticalListState? ReadPlayerTrainingHistory(nint handle, ulong keeper, uint personId)
+    {
+        var head = U64(handle, keeper + 0x60);
+        if (!Pointer(head)) return null;
+        var root = U64(handle, head + 8);
+        var stack = new Stack<ulong>();
+        stack.Push(root);
+        var visited = 0;
+        while (stack.Count > 0 && visited++ < 10_000)
+        {
+            var node = stack.Pop();
+            if (!Pointer(node) || node == head) continue;
+            if (Read(handle, (nint)(node + 0x19), 1)[0] != 0) continue;
+            var candidate = BitConverter.ToUInt32(Read(handle, (nint)(node + 0x20), 4), 0);
+            if (candidate == personId)
+            {
+                var state = ReadTacticalList(handle, node + 0x28, 12, 4_000);
+                if (!ValidTrainingHistory(state.Bytes))
+                    throw new InvalidOperationException("A player's training history contains entries that do not match the FM27 layout.");
+                return state;
+            }
+            stack.Push(U64(handle, node));
+            stack.Push(U64(handle, node + 0x10));
+        }
+        return null;
+    }
+
+    private static bool ValidTrainingHistory(byte[] bytes)
+    {
+        if (bytes.Length % 12 != 0 || bytes.Length / 12 > 4_000) return false;
+        for (var i = 0; i < bytes.Length; i += 12)
+        {
+            var day = BitConverter.ToUInt16(bytes, i);
+            var tag = BitConverter.ToUInt16(bytes, i + 2);
+            var area = bytes[i + 4];
+            var shape = bytes[i + 8];
+            if (day >= 366) return false;
+            if (area <= 5 && (shape != 0 || tag != 0x0C8C)) return false;
+            if ((area == 6 || area == 7) && shape != 1) return false;
+            if (area > 7) return false;
+        }
+        return true;
     }
 
     private static (ulong Address, byte[] Instructions, int[] Options) ReadActiveTactic(
