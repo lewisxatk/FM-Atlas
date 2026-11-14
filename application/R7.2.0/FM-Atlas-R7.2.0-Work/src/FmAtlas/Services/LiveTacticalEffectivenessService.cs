@@ -5,9 +5,6 @@ namespace FmAtlas.Services;
 
 public static partial class LiveEntityMemoryEditService
 {
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern nint VirtualAllocEx(nint process, nint address, nuint size, uint allocationType, uint protect);
-
     public sealed record TacticalAreaValue(string Key, string Label, int MatchExposure, string TrainingContribution);
     public sealed record TacticalSnapshot(
         uint ClubUid, string ClubName, string ProfileId, string TeamName,
@@ -130,6 +127,12 @@ public static partial class LiveEntityMemoryEditService
         }
         if (planned.Count == 0)
             throw new InvalidOperationException("No players had a writable tactical familiarity record for the selected team. Nothing was staged.");
+        var requiresGrowth = planned.FirstOrDefault(x => x.RequiresGrowth);
+        if (requiresGrowth is not null)
+            throw new InvalidOperationException(
+                "The familiarity list for player UID " + requiresGrowth.PlayerUid
+                + " needs a new or expanded buffer. Atlas currently supports in-place updates and appends only where the existing FM allocation has capacity. "
+                + "This batch was blocked rather than attaching an incompatible buffer to FM memory.");
         if (ReadSaveCounter(handle.Value, moduleBase, profile) != counter)
             throw new InvalidOperationException("FM switched career while tactical changes were being staged. No edits were prepared.");
         return new TacticalBatchPlan(processId, clubUid, clubName, context.Club.Address, context.SeniorTeam,
@@ -160,6 +163,8 @@ public static partial class LiveEntityMemoryEditService
         var players = context.Players.ToDictionary(x => x.Uid);
         foreach (var change in plan.Changes)
         {
+            if (change.RequiresGrowth)
+                throw new InvalidOperationException("Tactical list expansion is not supported by this live writer. No values were changed.");
             if (!players.TryGetValue(change.PlayerUid, out var player)
                 || player.Address != change.PlayerAddress || player.Shift != change.PlayerShift
                 || player.RecordAddress != change.RecordAddress)
@@ -186,30 +191,15 @@ public static partial class LiveEntityMemoryEditService
                 ulong newBegin;
                 ulong allocated = 0;
                 if (change.RequiresGrowth)
+                    throw new InvalidOperationException("Tactical list expansion is not supported by this live writer.");
+                newBegin = BitConverter.ToUInt64(change.OriginalHeader, 0);
+                if (change.TargetBytes.Length > 0)
                 {
-                    var allocationSize = (nuint)0x10000;
-                    var block = VirtualAllocEx(handle.Value, 0, allocationSize, 0x3000, 0x04);
-                    if (block == 0) throw Win32("allocate space for a growing FM tactical list");
-                    allocated = (ulong)block.ToInt64();
-                    newBegin = allocated;
-                    BitConverter.GetBytes(newBegin).CopyTo(newHeader, 0);
-                    BitConverter.GetBytes(newBegin + (ulong)change.TargetBytes.Length).CopyTo(newHeader, 8);
-                    BitConverter.GetBytes(newBegin + (ulong)allocationSize).CopyTo(newHeader, 16);
-                    if (!Write(handle.Value, (nint)newBegin, change.TargetBytes)
+                    if (!Pointer(newBegin) || !Write(handle.Value, (nint)newBegin, change.TargetBytes)
                         || !Read(handle.Value, (nint)newBegin, change.TargetBytes.Length).SequenceEqual(change.TargetBytes))
-                        throw new InvalidOperationException("Atlas could not populate the replacement tactical list buffer.");
+                        throw new InvalidOperationException("Atlas could not update an in-place tactical list.");
                 }
-                else
-                {
-                    newBegin = BitConverter.ToUInt64(change.OriginalHeader, 0);
-                    if (change.TargetBytes.Length > 0)
-                    {
-                        if (!Pointer(newBegin) || !Write(handle.Value, (nint)newBegin, change.TargetBytes)
-                            || !Read(handle.Value, (nint)newBegin, change.TargetBytes.Length).SequenceEqual(change.TargetBytes))
-                            throw new InvalidOperationException("Atlas could not update an in-place tactical list.");
-                    }
-                    BitConverter.GetBytes(newBegin + (ulong)change.TargetBytes.Length).CopyTo(newHeader, 8);
-                }
+                BitConverter.GetBytes(newBegin + (ulong)change.TargetBytes.Length).CopyTo(newHeader, 8);
                 // Record the rollback entry before committing the pointer/header. If a
                 // partial write occurs, the original bytes and header remain recoverable.
                 applied.Add(new AppliedTacticalListChange(change, newHeader, allocated));
