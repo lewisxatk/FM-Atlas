@@ -30,6 +30,10 @@ public partial class MainWindow
             .ToList();
         var rows = new List<AdvancedSearchUiRow>();
         var results = new List<PlayerRecord>();
+        var savedProfiles = AdvancedSearchProfileStore.LoadAll().ToList();
+        var resultColumns = new Dictionary<string, DataGridColumn>(StringComparer.OrdinalIgnoreCase);
+        var columnChecks = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
+        string[] defaultVisibleColumns = { "Name", "Age", "Club", "Position", "League", "Nation", "DisplayAbility", "DisplayPotential", "DisplayValue", "DataOrigin" };
         StackPanel conditionPanel = null!;
         TextBlock status = null!;
         Button searchButton = null!;
@@ -67,15 +71,35 @@ public partial class MainWindow
         logic.Items.Add("Any condition (OR)");
         logic.SelectedIndex = 0;
 
+        var profilePicker = new ComboBox
+        {
+            Width = 205,
+            Height = 34,
+            Margin = new Thickness(0, 3, 8, 8),
+            FontSize = 10,
+            DisplayMemberPath = nameof(AdvancedSearchProfile.Name),
+            ItemsSource = savedProfiles,
+            ToolTip = "Load a saved search profile from this PC."
+        };
+        if (savedProfiles.Count > 0) profilePicker.SelectedIndex = 0;
         var toolbar = new WrapPanel { Margin = new Thickness(0, 7, 0, 6) };
         toolbar.Children.Add(FilterControl("OPTIONAL PLAYER / CLUB / ID", searchText, 320));
         toolbar.Children.Add(FilterControl("MATCH LOGIC", logic, 180));
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
         searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
         var resetButton = SoftButton("Reset filters", (_, _) => ResetFilters());
+        var saveProfileButton = SoftButton("Save profile", (_, _) => SaveCurrentProfile());
+        var loadProfileButton = SoftButton("Load profile", (_, _) => LoadSelectedProfile());
+        var deleteProfileButton = SoftButton("Delete profile", (_, _) => DeleteSelectedProfile());
+        loadProfileButton.IsEnabled = savedProfiles.Count > 0;
+        deleteProfileButton.IsEnabled = savedProfiles.Count > 0;
         toolbar.Children.Add(addButton);
         toolbar.Children.Add(searchButton);
         toolbar.Children.Add(resetButton);
+        toolbar.Children.Add(saveProfileButton);
+        toolbar.Children.Add(FilterControl("SAVED SEARCHES", profilePicker, 215));
+        toolbar.Children.Add(loadProfileButton);
+        toolbar.Children.Add(deleteProfileButton);
         toolbar.Children.Add(SoftButton("Performance Search", async (_, _) => await NavigateAsync("Stats Search")));
         toolbar.Children.Add(SoftButton("Multi-entity Search", (_, _) => ShowGlobalSearch()));
         builderStack.Children.Add(toolbar);
@@ -99,16 +123,65 @@ public partial class MainWindow
         grid = CreateGrid();
         grid.MinHeight = 310;
         grid.MaxHeight = 560;
-        grid.Columns.Add(Column("PLAYER", "Name", 1.2));
-        grid.Columns.Add(Column("AGE", "Age", .45));
-        grid.Columns.Add(Column("CLUB", "Club", 1.0));
-        grid.Columns.Add(Column("POSITION", "Position", .7));
-        grid.Columns.Add(Column("LEAGUE", "League", 1.0));
-        grid.Columns.Add(Column("NATION", "Nation", .8));
-        grid.Columns.Add(Column("CA", "DisplayAbility", .45));
-        grid.Columns.Add(Column("PA", "DisplayPotential", .45));
-        grid.Columns.Add(Column("VALUE", "DisplayValue", .7));
-        grid.Columns.Add(Column("SOURCE", "DataOrigin", .9));
+        void AddResultColumn(string header, string property, double weight)
+        {
+            var column = Column(header, property, weight);
+            resultColumns[property] = column;
+            grid.Columns.Add(column);
+        }
+        AddResultColumn("PLAYER", "Name", 1.2);
+        AddResultColumn("AGE", "Age", .45);
+        AddResultColumn("CLUB", "Club", 1.0);
+        AddResultColumn("POSITION", "Position", .7);
+        AddResultColumn("LEAGUE", "League", 1.0);
+        AddResultColumn("NATION", "Nation", .8);
+        AddResultColumn("CA", "DisplayAbility", .45);
+        AddResultColumn("PA", "DisplayPotential", .45);
+        AddResultColumn("VALUE", "DisplayValue", .7);
+        AddResultColumn("SOURCE", "DataOrigin", .9);
+
+        var columnPanel = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+        var columnNames = new (string Key, string Label)[]
+        {
+            ("Name", "Player"), ("Age", "Age"), ("Club", "Club"), ("Position", "Position"),
+            ("League", "League"), ("Nation", "Nation"), ("DisplayAbility", "CA"),
+            ("DisplayPotential", "PA"), ("DisplayValue", "Value"), ("DataOrigin", "Source")
+        };
+        foreach (var item in columnNames)
+        {
+            var check = new CheckBox
+            {
+                Content = item.Label,
+                IsChecked = defaultVisibleColumns.Contains(item.Key, StringComparer.OrdinalIgnoreCase),
+                Foreground = Ink,
+                FontSize = 10,
+                Margin = new Thickness(0, 2, 13, 5),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = $"Show or hide the {item.Label} result column."
+            };
+            check.Checked += (_, _) => SetColumnVisibility(item.Key, true);
+            check.Unchecked += (_, _) => SetColumnVisibility(item.Key, false);
+            columnChecks[item.Key] = check;
+            columnPanel.Children.Add(check);
+        }
+        var columnCard = Card(new StackPanel(), 12, new Thickness(0, 0, 0, 8));
+        ((StackPanel)columnCard.Child).Children.Add(Txt("RESULT COLUMNS", 8, true, Muted));
+        ((StackPanel)columnCard.Child).Children.Add(columnPanel);
+        dock.Children.Add(columnCard);
+        void SetColumnVisibility(string key, bool visible)
+        {
+            if (resultColumns.TryGetValue(key, out var column))
+                column.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+        void ApplyVisibleColumns(IEnumerable<string>? visible)
+        {
+            var selected = (visible ?? defaultVisibleColumns).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (!selected.Contains("Name")) selected.Add("Name");
+            foreach (var pair in resultColumns)
+                pair.Value.Visibility = selected.Contains(pair.Key) ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var pair in columnChecks)
+                pair.Value.IsChecked = selected.Contains(pair.Key);
+        }
         grid.MouseDoubleClick += async (_, _) =>
         {
             if (grid.SelectedItem is not PlayerRecord player) return;
@@ -152,14 +225,14 @@ public partial class MainWindow
             UpdateValueControls(row);
         }
 
-        void AddCondition(string? category = null, string? fieldKey = null)
+        AdvancedSearchUiRow? AddCondition(string? category = null, string? fieldKey = null)
         {
             if (rows.Count >= 60)
             {
                 status.Text = "A universal player search supports up to 60 conditions.";
-                return;
+                return null;
             }
-            if (fields.Count == 0) return;
+            if (fields.Count == 0) return null;
 
             var categoryPicker = new ComboBox
             {
@@ -252,6 +325,7 @@ public partial class MainWindow
             categoryPicker.SelectionChanged += (_, _) => RefreshFieldChoices(row);
             fieldPicker.SelectionChanged += (_, _) => UpdateValueControls(row);
             RefreshFieldChoices(row, fieldKey);
+            return row;
         }
 
         void ResetFilters()
@@ -266,13 +340,9 @@ public partial class MainWindow
             results.Clear();
         }
 
-        async Task RunSearchAsync()
+        List<AdvancedSearchCriterion> CaptureCriteria(out string error)
         {
-            if (rows.Count == 0)
-            {
-                status.Text = "Add at least one condition before searching.";
-                return;
-            }
+            error = "";
             var criteria = new List<AdvancedSearchCriterion>();
             foreach (var row in rows)
             {
@@ -286,14 +356,14 @@ public partial class MainWindow
                         if (!hasMin && !hasMax) continue;
                         if (hasMin && hasMax && lower > upper)
                         {
-                            status.Text = $"Minimum cannot exceed maximum for {field.DisplayName}.";
-                            return;
+                            error = $"Minimum cannot exceed maximum for {field.DisplayName}.";
+                            return new();
                         }
                         if (field.Key.StartsWith("attribute:", StringComparison.OrdinalIgnoreCase)
                             && ((hasMin && lower is < 1 or > 20) || (hasMax && upper is < 1 or > 20)))
                         {
-                            status.Text = $"{field.DisplayName} must be between 1 and 20.";
-                            return;
+                            error = $"{field.DisplayName} must be between 1 and 20.";
+                            return new();
                         }
                         criteria.Add(new AdvancedSearchCriterion(field.Key, hasMin ? lower : null, hasMax ? upper : null, null, null));
                         break;
@@ -313,6 +383,150 @@ public partial class MainWindow
                     }
                 }
             }
+            return criteria;
+        }
+
+        string? AskProfileName(string initialValue = "")
+        {
+            var dialog = new Window
+            {
+                Title = "Save advanced search profile",
+                Owner = this,
+                Width = 420,
+                Height = 188,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Background = Brush("#111820"),
+                Foreground = Ink,
+                ShowInTaskbar = false
+            };
+            var panel = new StackPanel { Margin = new Thickness(18) };
+            panel.Children.Add(Txt("PROFILE NAME", 9, true, Teal));
+            var nameBox = Input("e.g. U21 high-potential midfielders");
+            nameBox.Text = initialValue;
+            nameBox.Margin = new Thickness(0, 8, 0, 12);
+            panel.Children.Add(nameBox);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var save = PrimaryButton("Save", (_, _) =>
+            {
+                if (!string.IsNullOrWhiteSpace(nameBox.Text)) dialog.DialogResult = true;
+            });
+            save.Width = 90;
+            var cancel = SoftButton("Cancel", (_, _) => dialog.DialogResult = false);
+            cancel.Width = 90;
+            buttons.Children.Add(cancel);
+            buttons.Children.Add(save);
+            panel.Children.Add(buttons);
+            dialog.Content = panel;
+            dialog.Loaded += (_, _) => { nameBox.Focus(); nameBox.SelectAll(); };
+            return dialog.ShowDialog() == true ? nameBox.Text.Trim() : null;
+        }
+
+        void RefreshProfilePicker(string? selectId = null)
+        {
+            savedProfiles = AdvancedSearchProfileStore.LoadAll().ToList();
+            profilePicker.ItemsSource = savedProfiles;
+            profilePicker.SelectedItem = selectId is null
+                ? savedProfiles.FirstOrDefault()
+                : savedProfiles.FirstOrDefault(x => x.Id.Equals(selectId, StringComparison.OrdinalIgnoreCase));
+            loadProfileButton.IsEnabled = savedProfiles.Count > 0;
+            deleteProfileButton.IsEnabled = savedProfiles.Count > 0;
+        }
+
+        void SaveCurrentProfile()
+        {
+            var criteria = CaptureCriteria(out var error);
+            if (error.Length > 0) { status.Text = error; return; }
+            if (criteria.Count == 0) { status.Text = "Add at least one complete condition before saving a profile."; return; }
+            var existing = profilePicker.SelectedItem as AdvancedSearchProfile;
+            var name = AskProfileName(existing?.Name ?? "");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var sameName = savedProfiles.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (sameName is not null && !MessageBox.Show(this, $"A search profile named '{name}' already exists. Replace it?", "FM Atlas · Replace profile", MessageBoxButton.YesNo, MessageBoxImage.Question).Equals(MessageBoxResult.Yes))
+                return;
+            var profile = new AdvancedSearchProfile(
+                sameName?.Id ?? Guid.NewGuid().ToString("N"),
+                name,
+                DateTime.UtcNow,
+                searchText.Text.Trim(),
+                logic.SelectedIndex == 0,
+                criteria,
+                resultColumns.Where(x => x.Value.Visibility == Visibility.Visible).Select(x => x.Key).ToList());
+            try
+            {
+                AdvancedSearchProfileStore.Save(profile);
+                RefreshProfilePicker(profile.Id);
+                status.Text = $"Saved '{profile.Name}' locally on this PC · {criteria.Count:N0} condition(s) · {profile.VisibleColumns?.Count ?? 0:N0} visible columns.";
+                AtlasLog.Info($"Advanced search profile saved: name={profile.Name}; conditions={criteria.Count}; columns={profile.VisibleColumns?.Count ?? 0}.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Advanced search profile save failed.", ex);
+                status.Text = "Could not save the profile: " + ex.Message;
+            }
+        }
+
+        void LoadSelectedProfile()
+        {
+            if (profilePicker.SelectedItem is not AdvancedSearchProfile profile) return;
+            rows.Clear();
+            conditionPanel.Children.Clear();
+            searchText.Text = profile.SearchText ?? "";
+            logic.SelectedIndex = profile.MatchAll ? 0 : 1;
+            var missingFields = new List<string>();
+            foreach (var criterion in profile.Criteria.Take(60))
+            {
+                var field = fields.FirstOrDefault(x => x.Key.Equals(criterion.FieldKey, StringComparison.OrdinalIgnoreCase));
+                if (field is null) { missingFields.Add(criterion.FieldKey); continue; }
+                var row = AddCondition(field.Category, field.Key);
+                if (row is null) continue;
+                switch (field.FieldType)
+                {
+                    case AdvancedSearchFieldType.Number:
+                        row.Minimum.Text = criterion.Minimum?.ToString(CultureInfo.InvariantCulture) ?? "";
+                        row.Maximum.Text = criterion.Maximum?.ToString(CultureInfo.InvariantCulture) ?? "";
+                        break;
+                    case AdvancedSearchFieldType.Text:
+                        row.TextValue.Text = criterion.TextValue ?? "";
+                        break;
+                    case AdvancedSearchFieldType.Boolean:
+                        row.BooleanValue.SelectedIndex = criterion.BooleanValue.HasValue ? (criterion.BooleanValue.Value ? 1 : 2) : 0;
+                        break;
+                }
+            }
+            ApplyVisibleColumns(profile.VisibleColumns);
+            status.Text = missingFields.Count == 0
+                ? $"Loaded '{profile.Name}' · {rows.Count:N0} condition(s). Run Search players to execute it."
+                : $"Loaded '{profile.Name}' with {missingFields.Count:N0} unavailable field(s) skipped because this save does not provide them.";
+        }
+
+        void DeleteSelectedProfile()
+        {
+            if (profilePicker.SelectedItem is not AdvancedSearchProfile profile) return;
+            var answer = MessageBox.Show(this, $"Delete the locally saved search profile '{profile.Name}'?", "FM Atlas · Delete profile", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (answer != MessageBoxResult.Yes) return;
+            try
+            {
+                AdvancedSearchProfileStore.Delete(profile.Id);
+                RefreshProfilePicker();
+                status.Text = $"Deleted '{profile.Name}'. Career data and search results were not changed.";
+            }
+            catch (Exception ex)
+            {
+                status.Text = "Could not delete the profile: " + ex.Message;
+                AtlasLog.Error("Advanced search profile delete failed.", ex);
+            }
+        }
+
+        async Task RunSearchAsync()
+        {
+            if (rows.Count == 0)
+            {
+                status.Text = "Add at least one condition before searching.";
+                return;
+            }
+            var criteria = CaptureCriteria(out var error);
+            if (error.Length > 0) { status.Text = error; return; }
             if (criteria.Count == 0)
             {
                 status.Text = "Enter a value for at least one condition. Blank conditions are ignored.";
