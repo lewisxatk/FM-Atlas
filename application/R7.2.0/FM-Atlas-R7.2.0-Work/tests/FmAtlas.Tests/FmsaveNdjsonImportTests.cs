@@ -312,6 +312,143 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(2, matching[0].Contributions!.Count);
     }
 
+
+    [Fact]
+    public async Task SimilarPlayerDiscoveryRanksSharedAttributesAndReportsCoverage()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "similar-player-anchor", playerManifestCount: 1, includeContractRow: false);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        await using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            foreach (var candidate in new[]
+            {
+                (Id: "LOCAL:similar:close", Name: "Closer Player", Finishing: 15d, Pace: 14d),
+                (Id: "LOCAL:similar:far", Name: "Distant Player", Finishing: 1d, Pace: 2d)
+            })
+            {
+                var player = db.CreateCommand();
+                player.CommandText = "INSERT INTO Players(SourceId,Name,Age,Club,Position,CurrentAbility,PotentialAbility,DataOrigin,UpdatedUtc) VALUES($id,$name,21,'Test FC','ST',110,130,'Test fixture','2026-11-14');";
+                player.Parameters.AddWithValue("$id", candidate.Id);
+                player.Parameters.AddWithValue("$name", candidate.Name);
+                await player.ExecuteNonQueryAsync();
+                foreach (var (attribute, value) in new[] { ("finishing", candidate.Finishing), ("pace", candidate.Pace) })
+                {
+                    var fact = db.CreateCommand();
+                    fact.CommandText = "INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc) VALUES($id,$attribute,'attributes',$value,'2026-11-14');";
+                    fact.Parameters.AddWithValue("$id", candidate.Id);
+                    fact.Parameters.AddWithValue("$attribute", attribute);
+                    fact.Parameters.AddWithValue("$value", value);
+                    await fact.ExecuteNonQueryAsync();
+                }
+            }
+        }
+
+        var matches = await database.FindSimilarPlayersAsync(
+            "FMSAVE:FM27:test-db:1001", limit: 10, minimumCommonAttributes: 2, minimumAnchorCoverage: 1);
+
+        Assert.Equal(2, matches.Count);
+        Assert.Equal("LOCAL:similar:close", matches[0].Player.SourceId);
+        Assert.True(matches[0].SimilarityScore > matches[1].SimilarityScore);
+        Assert.Equal(2, matches[0].AttributesCompared);
+        Assert.Equal(2, matches[0].ReferenceAttributes);
+        Assert.Equal(1d, matches[0].AttributeCoverage);
+    }
+
+    [Fact]
+    public async Task IndexedStatSearchReturnsCorrectAllAnyMatchesAcrossFiveThousandPlayerPeriods()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "large-stat-fixture", playerManifestCount: 1, includeContractRow: false);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+        var snapshotId = await ScalarIntAsync(databasePath, "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;");
+
+        await using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            await using var transaction = await db.BeginTransactionAsync();
+            var insertPlayer = db.CreateCommand();
+            insertPlayer.Transaction = (SqliteTransaction)transaction;
+            insertPlayer.CommandText = "INSERT INTO Players(SourceId,Name,Age,Club,Position,CurrentAbility,PotentialAbility,DataOrigin,UpdatedUtc) VALUES($source,$name,20,'Scale FC','ST',100,140,'Synthetic scale fixture','2026-11-14');";
+            insertPlayer.Parameters.Add("$source", SqliteType.Text);
+            insertPlayer.Parameters.Add("$name", SqliteType.Text);
+            insertPlayer.Prepare();
+
+            var insertSnapshot = db.CreateCommand();
+            insertSnapshot.Transaction = (SqliteTransaction)transaction;
+            insertSnapshot.CommandText = "INSERT INTO FmsavePlayerSnapshots(SnapshotId,PlayerUid,PlayerSourceId,RawJson) VALUES($snapshot,$uid,$source,'{}');";
+            insertSnapshot.Parameters.Add("$snapshot", SqliteType.Integer);
+            insertSnapshot.Parameters.Add("$uid", SqliteType.Text);
+            insertSnapshot.Parameters.Add("$source", SqliteType.Text);
+            insertSnapshot.Prepare();
+
+            var insertFact = db.CreateCommand();
+            insertFact.Transaction = (SqliteTransaction)transaction;
+            insertFact.CommandText = "INSERT INTO FmsaveStatFacts(SnapshotId,TableName,RowIndex,PlayerUid,PeriodKey,Minutes,FieldKey,NumericValue) VALUES($snapshot,'player_season_stats',$row,$uid,'2026/27',$minutes,$field,$value);";
+            insertFact.Parameters.Add("$snapshot", SqliteType.Integer);
+            insertFact.Parameters.Add("$row", SqliteType.Integer);
+            insertFact.Parameters.Add("$uid", SqliteType.Text);
+            insertFact.Parameters.Add("$minutes", SqliteType.Real);
+            insertFact.Parameters.Add("$field", SqliteType.Text);
+            insertFact.Parameters.Add("$value", SqliteType.Real);
+            insertFact.Prepare();
+
+            const int playerCount = 5000;
+            for (var i = 0; i < playerCount; i++)
+            {
+                var uid = "scale-uid-" + i.ToString("D5", System.Globalization.CultureInfo.InvariantCulture);
+                var source = "FMSAVE:FM27:scale:" + i.ToString("D5", System.Globalization.CultureInfo.InvariantCulture);
+                var goals = i % 40;
+                var assists = i % 10;
+                var minutes = 600 + (i % 600);
+
+                insertPlayer.Parameters["$source"].Value = source;
+                insertPlayer.Parameters["$name"].Value = "Scale Player " + i.ToString("D5", System.Globalization.CultureInfo.InvariantCulture);
+                await insertPlayer.ExecuteNonQueryAsync();
+
+                insertSnapshot.Parameters["$snapshot"].Value = snapshotId;
+                insertSnapshot.Parameters["$uid"].Value = uid;
+                insertSnapshot.Parameters["$source"].Value = source;
+                await insertSnapshot.ExecuteNonQueryAsync();
+
+                foreach (var metric in new[] { ("goals", (double)goals), ("assists", (double)assists) })
+                {
+                    insertFact.Parameters["$snapshot"].Value = snapshotId;
+                    insertFact.Parameters["$row"].Value = i;
+                    insertFact.Parameters["$uid"].Value = uid;
+                    insertFact.Parameters["$minutes"].Value = minutes;
+                    insertFact.Parameters["$field"].Value = metric.Item1;
+                    insertFact.Parameters["$value"].Value = metric.Item2;
+                    await insertFact.ExecuteNonQueryAsync();
+                }
+            }
+            await transaction.CommitAsync();
+        }
+
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        var allMatches = await database.SearchSeasonStatCriteriaAsync(
+            new[] { new StatFilterCriterion("goals", "Goals", 20, null), new StatFilterCriterion("assists", "Assists", 5, null) },
+            per90: false, minimumMinutes: 450, limit: 5000, matchAll: true);
+        timer.Stop();
+        var anyMatches = await database.SearchSeasonStatCriteriaAsync(
+            new[] { new StatFilterCriterion("goals", "Goals", 38, null), new StatFilterCriterion("assists", "Assists", 9, null) },
+            per90: false, minimumMinutes: 450, limit: 5000, matchAll: false);
+
+        Assert.Equal(1250, allMatches.Count);
+        Assert.Equal(625, anyMatches.Count);
+        Assert.Contains(allMatches, x => x.SourceId == "FMSAVE:FM27:scale:00025");
+        Assert.DoesNotContain(allMatches, x => x.SourceId == "FMSAVE:FM27:scale:00020");
+        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(30), $"Indexed 5,000-player search took {timer.Elapsed.TotalSeconds:0.00}s.");
+    }
+
     private static string CreateBundle(
         string root,
         string name,

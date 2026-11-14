@@ -3198,6 +3198,176 @@ public sealed class ScoutDatabase
             .ToList();
     }
 
+
+    /// <summary>
+    /// Finds players with the closest source-backed 1–20 footballing attribute vectors.
+    /// Personality and provisional hidden attributes are deliberately excluded.
+    /// Similarity is based only on attributes present for both players; coverage is reported separately.
+    /// </summary>
+    public async Task<List<SimilarPlayerCandidate>> FindSimilarPlayersAsync(
+        string sourceId,
+        int limit = 50,
+        int minimumCommonAttributes = 6,
+        double minimumAnchorCoverage = 0.35,
+        int candidateLimit = 50000,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("A player source ID is required.", nameof(sourceId));
+        if (minimumCommonAttributes is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(minimumCommonAttributes));
+        if (!double.IsFinite(minimumAnchorCoverage) || minimumAnchorCoverage is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(minimumAnchorCoverage));
+        var safeLimit = Math.Clamp(limit, 1, 250);
+        var safeCandidateLimit = Math.Clamp(candidateLimit, 100, 50000);
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        PlayerRecord? reference = null;
+        var referenceCommand = db.CreateCommand();
+        referenceCommand.CommandText = """
+            SELECT SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,DataOrigin
+            FROM Players WHERE SourceId=$source LIMIT 1;
+            """;
+        referenceCommand.Parameters.AddWithValue("$source", sourceId);
+        await using (var reader = await referenceCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                reference = new PlayerRecord
+                {
+                    SourceId = reader.GetString(0), Name = reader.GetString(1),
+                    Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                    Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    League = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                    PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                    Value = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetValue(9), System.Globalization.CultureInfo.InvariantCulture),
+                    DataOrigin = reader.IsDBNull(10) ? "Unknown" : reader.GetString(10)
+                };
+        }
+        if (reference is null) return new();
+
+        var referenceAttributes = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var anchorCommand = db.CreateCommand();
+        anchorCommand.CommandText = """
+            SELECT AttributeName,AttributeValue
+            FROM PlayerAttributes
+            WHERE SourceId=$source
+              AND (Category='attributes' OR Category LIKE 'attributes:%')
+              AND Category NOT LIKE 'attributes:Hidden%'
+              AND AttributeValue BETWEEN 1 AND 20
+            ORDER BY AttributeName;
+            """;
+        anchorCommand.Parameters.AddWithValue("$source", sourceId);
+        await using (var reader = await anchorCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var key = NormalizeAttributeKey(reader.GetString(0));
+                var value = reader.GetDouble(1);
+                if (key.Length > 0 && double.IsFinite(value) && value is >= 1 and <= 20)
+                    referenceAttributes.TryAdd(key, value);
+            }
+        }
+        if (referenceAttributes.Count < minimumCommonAttributes) return new();
+
+        var keys = referenceAttributes.Keys.ToList();
+        var placeholders = new List<string>();
+        var candidatesCommand = db.CreateCommand();
+        candidatesCommand.Parameters.AddWithValue("$anchor", sourceId);
+        candidatesCommand.Parameters.AddWithValue("$candidateLimit", safeCandidateLimit);
+        for (var i = 0; i < keys.Count; i++)
+        {
+            var parameter = "$attribute" + i;
+            placeholders.Add(parameter);
+            candidatesCommand.Parameters.AddWithValue(parameter, keys[i]);
+        }
+        candidatesCommand.CommandText = $"""
+            WITH candidate_players AS (
+                SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,
+                       p.CurrentAbility,p.PotentialAbility,p.Value,p.DataOrigin
+                FROM Players p
+                WHERE p.SourceId<>$anchor
+                  AND (p.SourceId NOT LIKE 'FMSAVE:%' OR p.SourceId IN (
+                      SELECT PlayerSourceId FROM FmsavePlayerSnapshots
+                      WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)))
+                ORDER BY p.Name COLLATE NOCASE
+                LIMIT $candidateLimit
+            )
+            SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,
+                   p.CurrentAbility,p.PotentialAbility,p.Value,p.DataOrigin,
+                   a.AttributeName,a.AttributeValue
+            FROM candidate_players p
+            INNER JOIN PlayerAttributes a ON a.SourceId=p.SourceId
+            WHERE (a.Category='attributes' OR a.Category LIKE 'attributes:%')
+              AND a.Category NOT LIKE 'attributes:Hidden%'
+              AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(a.AttributeName,'_',''),' ',''),'-',''),'.',''))
+                  IN ({string.Join(",", placeholders)})
+              AND a.AttributeValue BETWEEN 1 AND 20
+            ORDER BY p.Name COLLATE NOCASE,a.AttributeName;
+            """;
+
+        var grouped = new Dictionary<string, (PlayerRecord Player, Dictionary<string, double> Attributes)>(StringComparer.OrdinalIgnoreCase);
+        await using (var reader = await candidatesCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var id = reader.GetString(0);
+                if (!grouped.TryGetValue(id, out var candidate))
+                {
+                    var player = new PlayerRecord
+                    {
+                        SourceId = id, Name = reader.GetString(1),
+                        Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                        Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        League = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                        PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                        Value = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetValue(9), System.Globalization.CultureInfo.InvariantCulture),
+                        DataOrigin = reader.IsDBNull(10) ? "Unknown" : reader.GetString(10)
+                    };
+                    candidate = (player, new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase));
+                }
+                var key = NormalizeAttributeKey(reader.GetString(11));
+                if (key.Length > 0 && !candidate.Attributes.ContainsKey(key))
+                    candidate.Attributes[key] = reader.GetDouble(12);
+                grouped[id] = candidate;
+            }
+        }
+
+        var results = new List<SimilarPlayerCandidate>();
+        foreach (var candidate in grouped.Values)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            double squaredDifference = 0;
+            var shared = 0;
+            foreach (var attribute in referenceAttributes)
+            {
+                if (!candidate.Attributes.TryGetValue(attribute.Key, out var value)) continue;
+                var difference = attribute.Value - value;
+                squaredDifference += difference * difference;
+                shared++;
+            }
+            if (shared < minimumCommonAttributes) continue;
+            var coverage = shared / (double)referenceAttributes.Count;
+            if (coverage < minimumAnchorCoverage) continue;
+            var rootMeanSquareDifference = Math.Sqrt(squaredDifference / shared);
+            var similarity = Math.Clamp(100d * (1d - rootMeanSquareDifference / 19d), 0, 100);
+            results.Add(new SimilarPlayerCandidate(candidate.Player, similarity, shared, referenceAttributes.Count, coverage));
+        }
+
+        return results
+            .OrderByDescending(x => x.SimilarityScore)
+            .ThenByDescending(x => x.AttributeCoverage)
+            .ThenBy(x => x.Player.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(safeLimit)
+            .ToList();
+    }
+
     private static string NormalizeAttributeKey(string value)
         => new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 

@@ -99,6 +99,8 @@ public partial class MainWindow
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
         searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
         var shortlistSelectedButton = SoftButton("Add selected to shortlist", async (_, _) => await AddSelectedToShortlistAsync());
+        var compareSelectedButton = SoftButton("Compare selected (2–4)", async (_, _) => await CompareSelectedPlayersAsync());
+        var similarSelectedButton = SoftButton("Find similar players", async (_, _) => await FindSimilarForSelectedAsync());
         cancelSearchButton = SoftButton("Cancel search", (_, _) => activeSearchCancellation?.Cancel());
         cancelSearchButton.IsEnabled = false;
         var resetButton = SoftButton("Reset filters", (_, _) => ResetFilters());
@@ -110,6 +112,8 @@ public partial class MainWindow
         toolbar.Children.Add(addButton);
         toolbar.Children.Add(searchButton);
         toolbar.Children.Add(shortlistSelectedButton);
+        toolbar.Children.Add(compareSelectedButton);
+        toolbar.Children.Add(similarSelectedButton);
         toolbar.Children.Add(cancelSearchButton);
         toolbar.Children.Add(resetButton);
         toolbar.Children.Add(saveProfileButton);
@@ -235,6 +239,65 @@ public partial class MainWindow
         };
         dock.Children.Add(grid);
         content.Children.Add(resultCard);
+
+
+        List<PlayerRecord> CaptureSelectedPlayers(int minimum, int maximum)
+            => grid.SelectedItems.OfType<PlayerRecord>()
+                .Where(x => !string.IsNullOrWhiteSpace(x.SourceId))
+                .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.First())
+                .Take(maximum + 1)
+                .ToList();
+
+        async Task CompareSelectedPlayersAsync()
+        {
+            var selected = CaptureSelectedPlayers(2, 4);
+            if (selected.Count < 2)
+            {
+                status.Text = "Select two to four players in the results grid to compare them side by side.";
+                return;
+            }
+            if (selected.Count > 4)
+            {
+                status.Text = "Player comparison supports up to four players. Refine your selection and try again.";
+                return;
+            }
+            await PlayerComparisonWindow.ShowAsync(this, _database, selected);
+        }
+
+        async Task FindSimilarForSelectedAsync()
+        {
+            var selected = CaptureSelectedPlayers(1, 1);
+            if (selected.Count == 0)
+            {
+                status.Text = "Select one player in the results grid to find similar players.";
+                return;
+            }
+            if (selected.Count > 1)
+            {
+                status.Text = "Select just one reference player for Similar Player Discovery.";
+                return;
+            }
+            try
+            {
+                status.Text = $"Finding players with similar source-backed attributes to {selected[0].Name}…";
+                similarSelectedButton.IsEnabled = false;
+                var candidates = await RunDatabaseAsync(() => _database.FindSimilarPlayersAsync(
+                    selected[0].SourceId, limit: 100, minimumCommonAttributes: 4, minimumAnchorCoverage: 0.35));
+                var window = new SimilarPlayersWindow(_database, selected[0], candidates) { Owner = this };
+                window.ShowDialog();
+                status.Text = $"Similar Player Discovery completed · {candidates.Count:N0} candidates · shared attribute coverage is shown for each result.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Similar Player Discovery failed.", ex);
+                status.Text = "Similar Player Discovery failed: " + ex.Message;
+            }
+            finally
+            {
+                similarSelectedButton.IsEnabled = true;
+            }
+        }
 
         async Task AddSelectedToShortlistAsync()
         {
