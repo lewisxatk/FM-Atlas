@@ -1,3 +1,5 @@
+using FmAtlas.Services;
+
 namespace FmAtlas.Models;
 
 public sealed record StatMetricField(string Key, string DisplayName, string Category, string SourceTables, int RecordsWithValue, bool SupportsPer90)
