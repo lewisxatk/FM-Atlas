@@ -94,14 +94,19 @@ public static partial class LiveEntityMemoryEditService
     public static TacticalBatchPlan StageTacticalExposureBatch(
         int processId, uint clubUid, string clubName, IReadOnlyList<TacticalTargetValue> targets)
     {
-        if (targets.Count == 0 || targets.Count > 7)
-            throw new ArgumentOutOfRangeException(nameof(targets), "Choose one to seven tactical areas.");
+        if (targets.Count == 0 || targets.Count > 8)
+            throw new ArgumentOutOfRangeException(nameof(targets), "Choose one to eight tactical areas.");
+        var maxTraining = targets.Any(x => x.AreaKey.Equals("training_contribution", StringComparison.OrdinalIgnoreCase));
+        if (targets.Any(x => x.AreaKey.Equals("training_contribution", StringComparison.OrdinalIgnoreCase) && x.Value != 100))
+            throw new ArgumentOutOfRangeException(nameof(targets), "Max Training Contribution is a specific training-history operation and must be 100.");
         var duplicate = targets.GroupBy(x => x.AreaKey, StringComparer.OrdinalIgnoreCase).FirstOrDefault(x => x.Count() > 1);
         if (duplicate is not null) throw new ArgumentException("Tactical area " + duplicate.Key + " was selected more than once.");
         foreach (var target in targets)
         {
             if (target.Value is < 0 or > 100) throw new ArgumentOutOfRangeException(nameof(targets), target.AreaKey + " must be 0–100.");
-            if (!TacticalKeys.Contains(target.AreaKey, StringComparer.OrdinalIgnoreCase) && !target.AreaKey.Equals("shapes", StringComparison.OrdinalIgnoreCase))
+            if (!TacticalKeys.Contains(target.AreaKey, StringComparer.OrdinalIgnoreCase)
+                && !target.AreaKey.Equals("shapes", StringComparison.OrdinalIgnoreCase)
+                && !target.AreaKey.Equals("training_contribution", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Unknown Tactical Effectiveness area " + target.AreaKey + ".");
         }
 
@@ -114,6 +119,7 @@ public static partial class LiveEntityMemoryEditService
         if (profile.TacticsManagerRva == 0) throw new InvalidOperationException("This exact FM27 build has no independently mapped Tactics Manager. Tactical edits are blocked.");
         var counter = ReadSaveCounter(handle.Value, moduleBase, profile);
         var context = ReadTacticalContext(handle.Value, moduleBase, profile, clubUid, clubName);
+        var today = ReadCurrentDayOfYear(handle.Value, moduleBase, profile);
         var planned = new List<TacticalListChange>();
 
         foreach (var player in context.Players)
@@ -137,9 +143,17 @@ public static partial class LiveEntityMemoryEditService
                         planned.Add(CreateTacticalListChange(player, player.Areas[area], changed, 4));
                 }
             }
+            if (maxTraining && player.History is not null)
+            {
+                var generated = BuildTodayTrainingHistory(player.History.Bytes, context.Options, today);
+                if (!generated.SequenceEqual(player.History.Bytes))
+                    planned.Add(CreateTacticalListChange(player, player.History, generated, 12));
+            }
         }
         if (planned.Count == 0)
-            throw new InvalidOperationException("No players had a writable tactical familiarity record for the selected team. Nothing was staged.");
+            throw new InvalidOperationException(maxTraining
+                ? "No writable player training-history records were found for this senior team. FM creates histories only for players it is training."
+                : "No players had a writable tactical familiarity record for the selected team. Nothing was staged.");
         var requiresGrowth = planned.FirstOrDefault(x => x.RequiresGrowth);
         if (requiresGrowth is not null)
             throw new InvalidOperationException(
