@@ -297,3 +297,12 @@ The source and regression tests are committed, but a fresh Windows workflow must
 - Added the selected FM position familiarity to the candidate model, grid, chart tooltip and CSV. When no FM position filter is active, the value remains explicitly unavailable.
 - Added an integration assertion that an unrestricted scouting query returns the full three-player test pool and does not invent a selected position rating.
 - This makes the chart closer to a cohort-first scouting workflow: choose a real numeric FM position-familiarity floor, then view overall, same-position or same-league performance relative to source-data peers.
+
+
+### First Windows CI attempt and SQLite cleanup correction — 14 November 2026
+
+- Windows restore and Release compilation passed.
+- 83 of 84 xUnit tests passed. The new position-cohort query assertions completed; the test then failed while deleting its temporary SQLite file because Microsoft.Data.Sqlite retained a pooled connection on Windows.
+- Root cause was test cleanup, not the scouting SQL: the exception occurred in the `finally` block at `File.Delete(databasePath)`.
+- Corrected the test cleanup to call `SqliteConnection.ClearAllPools()` before deleting the temporary database and WAL/SHM files.
+- A fresh Windows workflow is required to verify this correction; the failed run is not a green build and no artifact was produced.
