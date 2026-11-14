@@ -1183,11 +1183,14 @@ public partial class MainWindow : Window
             var liveGrid = CreateGrid();
             liveGrid.MinHeight = 180;
             liveGrid.MaxHeight = 340;
-            liveGrid.Columns.Add(Column("FIELD", "FieldKey", 1.2));
+            liveGrid.Columns.Add(Column("FIELD", "Field", 1.2));
             liveGrid.Columns.Add(Column("NUMERIC", "NumericValue", .7));
             liveGrid.Columns.Add(Column("TEXT", "TextValue", 1.0));
-            liveGrid.Columns.Add(Column("VALIDATION", "ValidationStatus", 1.2));
-            liveGrid.ItemsSource = liveFacts.OrderBy(x => x.FieldKey, StringComparer.OrdinalIgnoreCase).ToList();
+            liveGrid.Columns.Add(Column("VALIDATION", "Validation", 1.2));
+            liveGrid.ItemsSource = liveFacts
+                .OrderBy(x => x.FieldKey, StringComparer.OrdinalIgnoreCase)
+                .Select(x => new { Field = x.FieldKey, x.NumericValue, x.TextValue, Validation = x.ValidationStatus })
+                .ToList();
             evidenceTab.Children.Add(liveGrid);
         }
 
