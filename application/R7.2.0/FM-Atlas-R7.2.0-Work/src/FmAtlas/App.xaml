@@ -5,20 +5,20 @@
     <Application.Resources>
         <!-- Monolith Glass V8 shared palette. The main window resolves the selected mode at runtime. -->
         <SolidColorBrush x:Key="Atlas.Background" Color="#080F19"/>
-        <SolidColorBrush x:Key="Atlas.Surface" Color="#111C2B"/>
-        <SolidColorBrush x:Key="Atlas.SurfaceRaised" Color="#1B2A3C"/>
-        <SolidColorBrush x:Key="Atlas.Glass" Color="#B817263A"/>
-        <SolidColorBrush x:Key="Atlas.GlassBorder" Color="#5AA9C9EA"/>
-        <SolidColorBrush x:Key="Atlas.Accent" Color="#79BDEB"/>
-        <SolidColorBrush x:Key="Atlas.Text" Color="#E8F0FA"/>
-        <SolidColorBrush x:Key="Atlas.Muted" Color="#91A4BA"/>
-        <SolidColorBrush x:Key="Atlas.Warning" Color="#E5BD72"/>
+        <SolidColorBrush x:Key="Atlas.Surface" Color="#151719"/>
+        <SolidColorBrush x:Key="Atlas.SurfaceRaised" Color="#202328"/>
+        <SolidColorBrush x:Key="Atlas.Glass" Color="#B61B1D22"/>
+        <SolidColorBrush x:Key="Atlas.GlassBorder" Color="#64F29A5C"/>
+        <SolidColorBrush x:Key="Atlas.Accent" Color="#F08A42"/>
+        <SolidColorBrush x:Key="Atlas.Text" Color="#ECEDEF"/>
+        <SolidColorBrush x:Key="Atlas.Muted" Color="#9AA3AD"/>
+        <SolidColorBrush x:Key="Atlas.Warning" Color="#F0B36A"/>
         <SolidColorBrush x:Key="Atlas.Danger" Color="#F18EAA"/>
 
         <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#F0132032"/>
+            <Setter Property="Background" Value="#F0181A1F"/>
             <Setter Property="Foreground" Value="#F1F6FC"/>
-            <Setter Property="BorderBrush" Value="#75A9C9EA"/>
+            <Setter Property="BorderBrush" Value="#75F3A16B"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="10,7"/>
             <Setter Property="FontSize" Value="11"/>
