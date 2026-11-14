@@ -173,7 +173,7 @@ public static class StatsBombOpenDataImporter
 
                 foreach (var p in matchPlayers.Values)
                 {
-                    var aggregateKey = p.Id + "|" + competition + "|" + season;
+                    var aggregateKey = p.Id + "|" + competition + "|" + season + "|" + (p.Team ?? "Unknown team");
                     if (!totals.TryGetValue(aggregateKey, out var total))
                     {
                         total = new Aggregate { Id = p.Id, Name = p.Name, Team = p.Team, Position = p.Position, Competition = competition, Season = season };
@@ -195,7 +195,7 @@ public static class StatsBombOpenDataImporter
         {
             var metrics = p.M.ToDictionary(x => x.Key, x => (double?)x.Value, StringComparer.OrdinalIgnoreCase);
             metrics["minutes_played"] = p.Minutes;
-            return new ScoutingPlayerSeason("SB:" + p.Id + ":" + p.Competition + ":" + p.Season, p.Name, p.Team, p.Competition, p.Season ?? "Unknown season", PositionGroup(p.Position), p.Minutes,
+            return new ScoutingPlayerSeason("SB:" + p.Id + ":" + p.Competition + ":" + p.Season + ":" + p.Team, p.Name, p.Team, p.Competition, p.Season ?? "Unknown season", PositionGroup(p.Position), p.Minutes,
                 metrics, "StatsBomb Open Data", "open-data JSON", true);
         }).ToList();
 
