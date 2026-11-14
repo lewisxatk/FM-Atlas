@@ -973,8 +973,8 @@ public partial class MainWindow : Window
                 minCa: minCa, maxCa: maxCa, minPa: minPa, maxPa: maxPa, limit: mergedFetchLimit, offset: 0));
             var liveTask = RunDatabaseAsync(() => _database.SearchLivePlayersAsync(term, mergedFetchLimit,
                 ageAsOf: DateTime.Today, offset: 0, minCa: minCa, maxCa: maxCa, minPa: minPa, maxPa: maxPa, positionFilter: pos));
-            var localCountTask = RunDatabaseAsync(() => _database.CountLocalPlayersAsync(term, minCa, maxCa, minPa, maxPa));
-            var liveCountTask = RunDatabaseAsync(() => _database.CountLivePlayersAsync(term, minCa, maxCa, minPa, maxPa));
+            var localCountTask = RunDatabaseAsync(() => _database.CountLocalPlayersAsync(term, minCa, maxCa, minPa, maxPa, pos));
+            var liveCountTask = RunDatabaseAsync(() => _database.CountLivePlayersAsync(term, minCa, maxCa, minPa, maxPa, pos));
             await Task.WhenAll(localTask, liveTask, localCountTask, liveCountTask);
 
             var local = await localTask;
