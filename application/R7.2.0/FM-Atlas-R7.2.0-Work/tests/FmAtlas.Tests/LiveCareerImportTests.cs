@@ -224,6 +224,27 @@ public sealed class LiveCareerImportTests
     }
 
     [Fact]
+    public async Task CancelledDatabasePublicationLeavesPreviousLiveSnapshotIntact()
+    {
+        using var temp = new TemporaryDirectory();
+        var database = new ScoutDatabase(Path.Combine(temp.Path, "scouting.db"));
+        await database.InitialiseAsync();
+        await database.ImportLiveSnapshotAsync(CreatePayload());
+
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var next = CreatePayload() with { SaveLoadCounter = 43 };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => database.ImportLiveSnapshotAsync(next, cancellation.Token));
+
+        var current = Assert.Single(await database.SearchLivePlayersAsync("Fixture Player"));
+        Assert.Equal(147, current.CurrentAbility);
+        Assert.Equal(-8, current.PotentialAbility);
+        Assert.Equal(42L, (await database.GetWorkspaceMetricsAsync()).LiveSaveLoadCounter);
+    }
+
+    [Fact]
     public void LiveSessionIdentityIncludesProcessBuildAndSaveGeneration()
     {
         var first = new LiveCareerProbe(
