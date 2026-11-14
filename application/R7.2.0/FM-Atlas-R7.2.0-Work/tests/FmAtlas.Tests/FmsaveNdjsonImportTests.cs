@@ -41,11 +41,12 @@ public sealed class FmsaveNdjsonImportTests
 
         var result = await database.ImportFmsaveSnapshotAsync(bundle);
 
-        Assert.Equal(4, result.ExtraRowsImported);
+        Assert.Equal(5, result.ExtraRowsImported);
         Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='team_match_stats';"));
         Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='fixtures';"));
         Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='league_tables';"));
         Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='officials';"));
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='squad_planner';"));
     }
 
     [Fact]
@@ -1541,7 +1542,8 @@ public sealed class FmsaveNdjsonImportTests
             ["team_match_stats"] = includeTeamMatchStatsRow ? 1 : 0,
             ["fixtures"] = includeLeagueContextRows ? 1 : 0,
             ["league_tables"] = includeLeagueContextRows ? 1 : 0,
-            ["officials"] = includeLeagueContextRows ? 1 : 0
+            ["officials"] = includeLeagueContextRows ? 1 : 0,
+            ["squad_planner"] = includeLeagueContextRows ? 1 : 0
         };
         var manifest = new
         {
@@ -1617,6 +1619,8 @@ public sealed class FmsaveNdjsonImportTests
                 JsonSerializer.Serialize(new { competition_id = 77, team_uid = "club-10", position = 1, points = 30 }) + Environment.NewLine);
             File.WriteAllText(Path.Combine(folder, "officials.ndjson"),
                 JsonSerializer.Serialize(new { uid = "ref-1", name = "Fixture Official" }) + Environment.NewLine);
+            File.WriteAllText(Path.Combine(folder, "squad_planner.ndjson"),
+                JsonSerializer.Serialize(new { team_uid = "club-10", player_uid = "player-uid-1001", squad_status = "First Team" }) + Environment.NewLine);
         }
 
         return folder;
