@@ -1438,6 +1438,13 @@ public partial class MainWindow : Window
         _profileExpandButton = SoftButton(_profileExpanded ? "Show search results" : "Expand full profile", (_, _) => ToggleProfileExpanded(!_profileExpanded));
         actions.Children.Add(_profileExpandButton);
         actions.Children.Add(SoftButton("Open in Editor Studio", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
+        actions.Children.Add(SoftButton(_editorEnabled ? "Profile Editor · ON" : "Enable Profile Editor", async (_, _) =>
+        {
+            _editorEnabled = !_editorEnabled;
+            _selectedPlayer = player;
+            profilePanel.Children.Clear();
+            await ShowPlayerProfileAsync(player);
+        }));
         Grid.SetColumn(actions, 2); heroGrid.Children.Add(actions); hero.Child = heroGrid; profilePanel.Children.Add(hero);
 
         var ability = new UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 12) };
@@ -1490,6 +1497,7 @@ public partial class MainWindow : Window
         var developmentTab = AddProfileTab("Development");
         var historyTab = AddProfileTab("History");
         var evidenceTab = AddProfileTab("Source & Evidence");
+        var profileEditorTab = AddProfileTab("Editor");
         profilePanel.Children.Add(profileTabs);
 
         AddProfileFactsSection(overviewTab, "PERSONAL & GENERAL INFORMATION", generalFacts, 30);
@@ -1501,6 +1509,121 @@ public partial class MainWindow : Window
 
         AddAttributeRadar(attributesTab, attributes);
         AddOrderedAttributeSections(attributesTab, attributes);
+
+        // Profile-wide local editor: every source-backed FM27 player attribute is editable
+        // from the profile itself. Writes remain local until the live writer has passed
+        // independent field-witness and disposable-save acceptance.
+        profileEditorTab.Children.Add(Txt("PROFILE EDITOR", 9, true, Teal));
+        profileEditorTab.Children.Add(Txt(
+            "Edit the values shown on this player profile. Save writes to the FM Atlas database and edit history; it does not change the running Football Manager career.",
+            9, false, Muted, wrap: true));
+        if (!_editorEnabled)
+        {
+            profileEditorTab.Children.Add(Txt("Enable Profile Editor from the player header to unlock the editable fields.", 10, false, Muted, wrap: true));
+        }
+        else
+        {
+            var abilityEditor = new WrapPanel { Margin = new Thickness(0, 8, 0, 10) };
+            var profileCaInput = Input("Current Ability"); profileCaInput.Width = 115; profileCaInput.Text = player.CurrentAbility?.ToString(CultureInfo.InvariantCulture) ?? "";
+            var profilePaInput = Input("Potential Ability"); profilePaInput.Width = 115; profilePaInput.Text = player.PotentialAbility?.ToString(CultureInfo.InvariantCulture) ?? "";
+            abilityEditor.Children.Add(FieldLabel("CA")); abilityEditor.Children.Add(profileCaInput);
+            abilityEditor.Children.Add(FieldLabel("PA")); abilityEditor.Children.Add(profilePaInput);
+            abilityEditor.Children.Add(PrimaryButton("Save CA / PA locally", async (_, _) =>
+            {
+                if (!int.TryParse(profileCaInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ca) ||
+                    !int.TryParse(profilePaInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pa) ||
+                    ca is < 0 or > 200 || pa is < 0 or > 200)
+                {
+                    MessageBox.Show(this, "Enter CA and PA as whole numbers from 0 to 200.", "Profile editor");
+                    return;
+                }
+                try
+                {
+                    await RunDatabaseAsync(() => _database.SaveLocalAbilitiesAsync(player.SourceId, player.Name, ca, pa));
+                    MessageBox.Show(this, "CA and PA saved to the FM Atlas database only. Football Manager itself has not been changed.", "Local edit saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await RefreshPlayerResultsAsync();
+                }
+                catch (Exception ex) { MessageBox.Show(this, ex.Message, "Profile editor", MessageBoxButton.OK, MessageBoxImage.Warning); }
+            }));
+            profileEditorTab.Children.Add(abilityEditor);
+
+            var editableRows = new ObservableCollection<EditableAttributeView>();
+            foreach (var field in PlayerAttributeSchema.Fields)
+            {
+                var current = attributes.FirstOrDefault(x => x.Key.Equals(field.Key, StringComparison.OrdinalIgnoreCase));
+                if (current.Key is null) continue;
+                editableRows.Add(new EditableAttributeView
+                {
+                    AttributeName = field.Key,
+                    Category = field.Category,
+                    OriginalValue = current.Value,
+                    Value = current.Value
+                });
+            }
+            foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue &&
+                (x.FieldKey.StartsWith("personality.", StringComparison.OrdinalIgnoreCase) ||
+                 x.FieldKey.StartsWith("positions.", StringComparison.OrdinalIgnoreCase))))
+            {
+                var key = fact.FieldKey[(fact.FieldKey.IndexOf('.') + 1)..];
+                if (editableRows.Any(x => x.AttributeName.Equals(key, StringComparison.OrdinalIgnoreCase))) continue;
+                var category = fact.FieldKey.StartsWith("personality.", StringComparison.OrdinalIgnoreCase) ? "Personality" : "Positions";
+                editableRows.Add(new EditableAttributeView
+                {
+                    AttributeName = key,
+                    Category = category,
+                    OriginalValue = fact.NumericValue!.Value,
+                    Value = fact.NumericValue.Value
+                });
+            }
+
+            var profileEditorGrid = CreateGrid();
+            profileEditorGrid.IsReadOnly = false;
+            profileEditorGrid.CanUserAddRows = false;
+            var profileNameColumn = Column("FIELD", "AttributeName", 1.25); profileNameColumn.IsReadOnly = true; profileEditorGrid.Columns.Add(profileNameColumn);
+            var profileGroupColumn = Column("GROUP", "Category", .8); profileGroupColumn.IsReadOnly = true; profileEditorGrid.Columns.Add(profileGroupColumn);
+            profileEditorGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "VALUE / 20",
+                Binding = new Binding(nameof(EditableAttributeView.Value)) { StringFormat = "0.#", UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(.65, DataGridLengthUnitType.Star)
+            });
+            profileEditorGrid.ItemsSource = editableRows;
+            profileEditorGrid.MinHeight = 260;
+            profileEditorTab.Children.Add(profileEditorGrid);
+            profileEditorTab.Children.Add(PrimaryButton("Save all changed profile attributes locally", async (_, _) =>
+            {
+                profileEditorGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+                profileEditorGrid.CommitEdit(DataGridEditingUnit.Row, true);
+                var changed = editableRows.Where(x => Math.Abs(x.Value - x.OriginalValue) > 0.0001).ToList();
+                if (changed.Count == 0)
+                {
+                    MessageBox.Show(this, "No changes to save.", "Profile editor");
+                    return;
+                }
+                if (changed.Any(x => x.Value < 1 || x.Value > 20 || !double.IsFinite(x.Value)))
+                {
+                    MessageBox.Show(this, "Attributes, personality and position ratings must be between 1 and 20.", "Profile editor");
+                    return;
+                }
+                try
+                {
+                    foreach (var item in changed)
+                        await RunDatabaseAsync(() => _database.SavePlayerAttributeAsync(
+                            player.SourceId, player.Name, item.AttributeName, item.Category, item.Value,
+                            "FM Atlas profile editor · local database only"));
+                    foreach (var item in changed) item.OriginalValue = item.Value;
+                    AtlasLog.Info($"Profile editor saved {changed.Count:N0} local fields for {player.Name}.");
+                    MessageBox.Show(this, $"Saved {changed.Count:N0} fields to the FM Atlas database and edit history. No live Football Manager values were written.", "Local edits saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    AtlasLog.Error("Profile-wide local edit failed.", ex);
+                    MessageBox.Show(this, ex.Message, "Profile editor", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }));
+            if (editableRows.Count == 0)
+                profileEditorTab.Children.Add(Txt("No source-backed editable attribute values were imported for this player. Import a supported FM27 save or connect to a supported live career first.", 9, false, Muted, wrap: true));
+        }
         if (attributes.Count == 0)
             attributesTab.Children.Add(Txt("No player attribute rows were supplied by the selected source.", 10, false, Muted, wrap: true));
 
