@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using Microsoft.Win32;
 using FmAtlas.Services;
 
@@ -43,7 +45,8 @@ public partial class MainWindow
         var importStatsBomb = PrimaryButton("Import StatsBomb Open Data", async (_, _) => await ImportStatsBombAsync());
         var importWyscout = SoftButton("Import Wyscout CSV", async (_, _) => await ImportWyscoutAsync());
         var reload = SoftButton("Reload saved datasets", async (_, _) => { allRows = (await LoadScoutingDatasetAsync()).ToList(); RefreshChoices(); status.Text = $"Loaded {allRows.Count:N0} player-season records from local datasets."; });
-        importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload);
+        var fmMatrix = SoftButton("Open FM Scouting Matrix", async (_, _) => await NavigateAsync("Scouting Matrix"));
+        importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload); importBar.Children.Add(fmMatrix);
         intro.Children.Add(importBar);
         status = Txt($"{allRows.Count:N0} player-season records loaded · imports are stored locally on this PC.", 9, false, Muted, wrap: true);
         status.Margin = new Thickness(0, 4, 0, 2);
@@ -102,6 +105,8 @@ public partial class MainWindow
         var comparison = Txt("No players selected.", 10, false, Ink, wrap: true);
         comparison.Margin = new Thickness(0, 10, 0, 10);
         detailStack.Children.Add(comparison);
+        var radar = new Canvas { Width = 260, Height = 230, Margin = new Thickness(0, 6, 0, 6) };
+        detailStack.Children.Add(radar);
         var evidence = Txt("Metric definitions, sample rules and data provenance appear here.", 9, false, Muted, wrap: true);
         detailStack.Children.Add(evidence);
         var right = Card(new ScrollViewer { Content = detailStack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }, 14, new Thickness(7, 0, 0, 0));
@@ -127,6 +132,7 @@ public partial class MainWindow
             foreach (var key in allRows.SelectMany(p => p.Metrics.Keys).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x))
             {
                 if (choices.Any(x => x.Definition.Key.Equals(key, StringComparison.OrdinalIgnoreCase))) continue;
+                if (new[] { "age", "market_value", "minutes_played" }.Contains(key, StringComparer.OrdinalIgnoreCase)) continue;
                 var label = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
                 var isAlreadyPer90 = key.EndsWith("_90", StringComparison.OrdinalIgnoreCase) || key.Contains("per_90", StringComparison.OrdinalIgnoreCase);
                 choices.Add(new MetricChoice("Imported source metrics", new ScoutingMetricDefinition(key, label, isAlreadyPer90 ? "per 90" : "source units",
@@ -209,6 +215,64 @@ public partial class MainWindow
             await Task.CompletedTask;
         }
 
+        void UpdateRadar(ScoutingPlayerSeason a, ScoutingPlayerSeason b)
+        {
+            radar.Children.Clear();
+            if (a.SourceName != b.SourceName || a.Competition != b.Competition || a.Season != b.Season || a.PositionGroup != b.PositionGroup)
+            {
+                radar.Children.Add(Txt("Radar requires the same provider, competition, season and position cohort.", 9, false, Muted, wrap: true));
+                return;
+            }
+            var definitions = metric.Items.Cast<MetricChoice>().Select(x => x.Definition)
+                .Where(m => !new[] { "age", "market_value", "minutes_played" }.Contains(m.Key, StringComparer.OrdinalIgnoreCase))
+                .Where(m => a.Metrics.ContainsKey(m.Key) && b.Metrics.ContainsKey(m.Key))
+                .Take(6).ToList();
+            if (definitions.Count < 3)
+            {
+                radar.Children.Add(Txt("Not enough shared metrics for a radar profile.", 9, false, Muted, wrap: true));
+                return;
+            }
+            const double cx = 118, cy = 112, radius = 76;
+            for (var ring = 1; ring <= 4; ring++)
+            {
+                var r = radius * ring / 4d;
+                var points = new PointCollection();
+                for (var i = 0; i < definitions.Count; i++)
+                {
+                    var angle = -Math.PI / 2 + 2 * Math.PI * i / definitions.Count;
+                    points.Add(new Point(cx + Math.Cos(angle) * r, cy + Math.Sin(angle) * r));
+                }
+                radar.Children.Add(new Polygon { Points = points, Stroke = Brush("#3B4652"), StrokeThickness = 1, Fill = Brushes.Transparent });
+            }
+            var cohort = allRows.Where(p => p.SourceName == a.SourceName && p.Competition == a.Competition &&
+                p.Season == a.Season && p.PositionGroup == a.PositionGroup).ToList();
+            PointCollection BuildPoints(ScoutingPlayerSeason player)
+            {
+                var points = new PointCollection();
+                foreach (var def in definitions)
+                {
+                    var ranked = ScoutingAnalyticsService.RankMetric(cohort, def, a.Competition, a.Season, a.PositionGroup, 3);
+                    var percentile = ranked.FirstOrDefault(x => x.SourceId == player.SourceId)?.Percentile ?? 50;
+                    var angle = -Math.PI / 2 + 2 * Math.PI * points.Count / definitions.Count;
+                    points.Add(new Point(cx + Math.Cos(angle) * radius * percentile / 100d,
+                        cy + Math.Sin(angle) * radius * percentile / 100d));
+                }
+                return points;
+            }
+            radar.Children.Add(new Polygon { Points = BuildPoints(a), Stroke = Brush("#F08A42"), StrokeThickness = 2,
+                Fill = new SolidColorBrush(Color.FromArgb(45, 240, 138, 66)) });
+            radar.Children.Add(new Polygon { Points = BuildPoints(b), Stroke = Brush("#63A9E8"), StrokeThickness = 2,
+                Fill = new SolidColorBrush(Color.FromArgb(35, 99, 169, 232)) });
+            for (var i = 0; i < definitions.Count; i++)
+            {
+                var angle = -Math.PI / 2 + 2 * Math.PI * i / definitions.Count;
+                var label = Txt(definitions[i].Label.Replace(" / 90", ""), 8, false, Muted);
+                Canvas.SetLeft(label, cx + Math.Cos(angle) * (radius + 8) - 24);
+                Canvas.SetTop(label, cy + Math.Sin(angle) * (radius + 8) - 7);
+                radar.Children.Add(label);
+            }
+        }
+
         void UpdateComparison()
         {
             var selected = grid.SelectedItems.Cast<ScoutingGridRow>().Take(2).ToList();
@@ -221,6 +285,7 @@ public partial class MainWindow
                 return;
             }
             var a = selected[0].Record; var b = selected[1].Record;
+            UpdateRadar(a, b);
             var keys = a.Metrics.Keys.Intersect(b.Metrics.Keys, StringComparer.OrdinalIgnoreCase).Take(14).ToList();
             var lines = keys.Select(k => $"{k.Replace('_',' ')}: {a.Metrics[k]?.ToString("0.##", CultureInfo.InvariantCulture) ?? "—"}  |  {b.Metrics[k]?.ToString("0.##", CultureInfo.InvariantCulture) ?? "—"}");
             comparison.Text = $"{a.PlayerName}  vs  {b.PlayerName}\n" + string.Join("\n", lines);
@@ -309,7 +374,6 @@ public partial class MainWindow
         var temporary = path + ".tmp";
         await using (var stream = File.Create(temporary))
             await JsonSerializer.SerializeAsync(stream, rows.ToList(), new JsonSerializerOptions { WriteIndented = false });
-        if (File.Exists(path)) File.Replace(temporary, path, path + ".bak", true);
-        else File.Move(temporary, path);
+        File.Move(temporary, path, true);
     }
 }
