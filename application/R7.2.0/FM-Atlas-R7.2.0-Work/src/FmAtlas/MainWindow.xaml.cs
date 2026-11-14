@@ -3394,15 +3394,18 @@ public partial class MainWindow : Window
             });
             stagePanel.Children.Add(stageButton);
             stagePanel.Children.Add(stageStatus);
-            var applyButton = PrimaryButton("Apply to running Football Manager", async (_, _) =>
+            Button applyButton = null!;
+            Button undoButton = null!;
+            applyButton = PrimaryButton("Apply to running Football Manager", async (_, _) =>
             {
-                if (stagedPlan is null)
+                var planToApply = stagedPlan;
+                if (planToApply is null)
                 {
                     MessageBox.Show(this, "Stage and review a live edit first.", "FM Atlas", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
                 var answer = MessageBox.Show(this,
-                    $"This will write {stagedPlan.Changes.Count:N0} field(s) into the running Football Manager process for {_selectedPlayer.Name}.\n\nMake a backup of your career first. These changes persist in the career only after you save inside Football Manager.\n\nContinue?",
+                    $"This will write {planToApply.Changes.Count:N0} field(s) into the running Football Manager process for {_selectedPlayer.Name}.\n\nMake a backup of your career first. These changes persist in the career only after you save inside Football Manager.\n\nContinue?",
                     "Confirm live FM27 edit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return;
                 try
@@ -3410,7 +3413,7 @@ public partial class MainWindow : Window
                     applyButton.IsEnabled = false;
                     stageStatus.Text = "APPLYING · checking save identity, original values and write permissions…";
                     Mouse.OverrideCursor = Cursors.Wait;
-                    var receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(stagedPlan));
+                    var receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(planToApply));
                     appliedReceipt = receipt;
                     undoButton.IsEnabled = true;
                     stageStatus.Text = $"APPLIED · {receipt.Plan.Changes.Count:N0} field(s) · read-back verified · save the career in FM";
@@ -3429,11 +3432,12 @@ public partial class MainWindow : Window
             });
             applyButton.IsEnabled = false;
             stagePanel.Children.Add(applyButton);
-            var undoButton = SoftButton("Undo last live edit", async (_, _) =>
+            undoButton = SoftButton("Undo last live edit", async (_, _) =>
             {
-                if (appliedReceipt is null) return;
+                var receiptToUndo = appliedReceipt;
+                if (receiptToUndo is null) return;
                 var answer = MessageBox.Show(this,
-                    $"Undo {appliedReceipt.Plan.Changes.Count:N0} live field(s) for {_selectedPlayer.Name}? This restores the original values only if none has changed since Apply.",
+                    $"Undo {receiptToUndo.Plan.Changes.Count:N0} live field(s) for {_selectedPlayer.Name}? This restores the original values only if none has changed since Apply.",
                     "Confirm live Undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (answer != MessageBoxResult.Yes) return;
                 try
@@ -3441,7 +3445,7 @@ public partial class MainWindow : Window
                     undoButton.IsEnabled = false;
                     stageStatus.Text = "UNDOING · verifying current values and career identity…";
                     Mouse.OverrideCursor = Cursors.Wait;
-                    await Task.Run(() => LiveMemoryEditService.UndoBatch(appliedReceipt));
+                    await Task.Run(() => LiveMemoryEditService.UndoBatch(receiptToUndo));
                     appliedReceipt = null;
                     stagedPlan = null;
                     applyButton.IsEnabled = false;
