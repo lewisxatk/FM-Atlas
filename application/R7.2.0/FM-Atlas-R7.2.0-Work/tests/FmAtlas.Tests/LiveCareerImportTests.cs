@@ -92,6 +92,44 @@ public sealed class LiveCareerImportTests
     }
 
     [Fact]
+    public async Task StaffDirectoryDeduplicatesSamePersonAcrossOfflineAndLiveSources()
+    {
+        using var temp = new TemporaryDirectory();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        await database.ImportLiveSnapshotAsync(CreatePayload());
+
+        await using (var connection = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = databasePath, ForeignKeys = true }.ToString()))
+        {
+            await connection.OpenAsync();
+            var import = connection.CreateCommand();
+            import.CommandText = """
+                INSERT INTO FmsaveImportRuns(SourceFileName,SourceFileSize,CreatedUtc,Game,GameBuild)
+                VALUES('offline-fixture.fm',0,'2026-11-14T00:00:00Z','FM27','fixture');
+                SELECT last_insert_rowid();
+                """;
+            var snapshotId = Convert.ToInt32(await import.ExecuteScalarAsync());
+            var staff = connection.CreateCommand();
+            staff.CommandText = """
+                INSERT INTO FmsaveStaffDirectory(SnapshotId,StaffUid,Name,ClubName,JobTitle,Age,Nation,RawJson)
+                VALUES($snapshot,'OFFLINE-MANAGER-1','Fixture Manager','Fixture FC','Manager',41,'England','{}');
+                """;
+            staff.Parameters.AddWithValue("$snapshot", snapshotId);
+            await staff.ExecuteNonQueryAsync();
+        }
+
+        var results = await database.SearchFmsaveStaffAsync("Fixture Manager");
+        var staffer = Assert.Single(results);
+        Assert.Equal("9001", staffer.SourceId);
+        Assert.True(staffer.IsHumanManager);
+        Assert.Equal(132, staffer.CurrentAbility);
+        Assert.Equal(164, staffer.PotentialAbility);
+        Assert.Equal("Fixture FC", staffer.Club);
+    }
+
+    [Fact]
     public async Task NewLiveIdentityRunReplacesOlderManagerAndCounter()
     {
         using var temp = new TemporaryDirectory();
