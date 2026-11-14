@@ -72,13 +72,13 @@ public partial class MainWindow
         return scroll;
     }
 
-    private static Border SearchEntryCard(string eyebrow, string title, string description, string action, Func<Task> click)
+    private static Border SearchEntryCard(string eyebrow, string title, string description, string action, Action click)
     {
         var body = new StackPanel();
         body.Children.Add(Txt(eyebrow, 8, true, Teal));
         body.Children.Add(Txt(title, 18, true, Ink));
         body.Children.Add(Txt(description, 10, false, Muted, wrap: true));
-        var button = SoftButton(action, async (_, _) => await click());
+        var button = SoftButton(action, (_, _) => click());
         button.HorizontalAlignment = HorizontalAlignment.Left;
         button.Margin = new Thickness(0, 13, 0, 0);
         body.Children.Add(button);
