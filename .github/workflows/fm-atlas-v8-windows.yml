@@ -4,13 +4,15 @@ on:
   push:
     branches:
       - rebuild/v8-full-product-rebuild
+    paths:
+      - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
+      - ".github/workflows/fm-atlas-v8-windows.yml"
   pull_request:
     branches:
       - fix/r7.2.0-release-build-integration
       - main
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
-      - "docs/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
   workflow_dispatch:
 
