@@ -23,6 +23,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
     private readonly TextBox _minimumSampleSize;
     private readonly ComboBox _positionFilter;
     private readonly ComboBox _leagueFilter;
+    private readonly ComboBox _percentileBasis;
     private readonly ComboBox _positionRatingCode;
     private readonly TextBox _minimumPositionRating;
     private readonly Canvas _chart;
@@ -73,6 +74,11 @@ public sealed class PerformanceValueAnalysisWindow : Window
         _leagueFilter = new ComboBox { Width = 190, Height = 34, Margin = new Thickness(0, 0, 8, 6) };
         _leagueFilter.Items.Add("All leagues");
         _leagueFilter.SelectedIndex = 0;
+        _percentileBasis = new ComboBox { Width = 155, Height = 34, Margin = new Thickness(0, 0, 8, 6), ToolTip = "Choose the comparison population used for the chart's performance percentile." };
+        _percentileBasis.Items.Add("Overall pool");
+        _percentileBasis.Items.Add("Position cohort");
+        _percentileBasis.Items.Add("League cohort");
+        _percentileBasis.SelectedIndex = 0;
         _positionRatingCode = new ComboBox { Width = 105, Height = 34, Margin = new Thickness(0, 0, 6, 6), ToolTip = "Limit the comparison pool to players with this source FM position familiarity rating." };
         _positionRatingCode.Items.Add("Any FM pos");
         foreach (var code in PositionSuitabilityService.PositionCodes) _positionRatingCode.Items.Add(code);
@@ -83,6 +89,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
         {
             _positionFilter.SelectedIndex = 0;
             _leagueFilter.SelectedIndex = 0;
+            _percentileBasis.SelectedIndex = 0;
             _positionRatingCode.SelectedIndex = 0;
             _minimumPositionRating.Text = "15";
             ApplyCohortFilters();
@@ -99,6 +106,8 @@ public sealed class PerformanceValueAnalysisWindow : Window
         controls.Children.Add(_minimumSampleSize);
         controls.Children.Add(_positionFilter);
         controls.Children.Add(_leagueFilter);
+        controls.Children.Add(new TextBlock { Text = "Rank against", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), Margin = new Thickness(0, 0, 6, 6) });
+        controls.Children.Add(_percentileBasis);
         controls.Children.Add(new TextBlock { Text = "FM position rating ≥", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), Margin = new Thickness(0, 0, 6, 6) });
         controls.Children.Add(_positionRatingCode);
         controls.Children.Add(_minimumPositionRating);
@@ -156,6 +165,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
         _metricPicker.SelectionChanged += (_, _) => UpdatePer90Availability();
         _positionFilter.SelectionChanged += (_, _) => { if (!_updatingCohortFilters) ApplyCohortFilters(); };
         _leagueFilter.SelectionChanged += (_, _) => { if (!_updatingCohortFilters) ApplyCohortFilters(); };
+        _percentileBasis.SelectionChanged += (_, _) => { if (!_updatingCohortFilters) ApplyCohortFilters(); };
         _positionRatingCode.SelectionChanged += async (_, _) => { if (!_updatingCohortFilters && IsLoaded) await AnalyseAsync(); };
         _minimumPositionRating.LostFocus += async (_, _) => { if (IsLoaded && _positionRatingCode.SelectedIndex > 0) await AnalyseAsync(); };
         UpdatePer90Availability();
@@ -330,7 +340,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
             return;
         }
 
-        DrawChart(_results, _activeMetricName, _activePer90);
+        DrawChart(_results, _activeMetricName, _activePer90, _percentileBasis.SelectedItem as string ?? "Overall pool");
         var cohortSummary = string.Join(" · ", new[]
         {
             filterPosition ? $"Position: {selectedPosition}" : "All positions",
@@ -348,9 +358,26 @@ public sealed class PerformanceValueAnalysisWindow : Window
         AddText("Run an analysis to plot performance percentile against market-value percentile.", 18, 150, 14);
     }
 
-    private void DrawChart(IReadOnlyList<PerformanceValueCandidate> rows, string metricName, bool per90)
+    private void DrawChart(IReadOnlyList<PerformanceValueCandidate> rows, string metricName, bool per90, string percentileBasis)
     {
         _chart.Children.Clear();
+        var plottedRows = rows.Select(item => (Item: item, Percentile: percentileBasis switch
+        {
+            "Position cohort" => item.PositionPerformancePercentile,
+            "League cohort" => item.LeaguePerformancePercentile,
+            _ => (double?)item.PerformancePercentile
+        })).Where(x => x.Percentile.HasValue).ToList();
+        if (plottedRows.Count == 0)
+        {
+            AddText($"No {percentileBasis.ToLowerInvariant()} percentiles available. A cohort needs at least three players with a known group.", 18, 150, 14);
+            return;
+        }
+        var percentileLabel = percentileBasis switch
+        {
+            "Position cohort" => "Position-cohort performance percentile",
+            "League cohort" => "League-cohort performance percentile",
+            _ => "Overall performance percentile"
+        };
         const double left = 62, top = 24, width = 820, height = 270;
         var axis = new SolidColorBrush(Color.FromRgb(126, 143, 158));
         var grid = new SolidColorBrush(Color.FromRgb(47, 61, 75));
@@ -367,24 +394,26 @@ public sealed class PerformanceValueAnalysisWindow : Window
         _chart.Children.Add(new Line { X1 = left, Y1 = top, X2 = left, Y2 = top + height, Stroke = axis, StrokeThickness = 1.4 });
         _chart.Children.Add(new Line { X1 = left, Y1 = top + height, X2 = left + width, Y2 = top, Stroke = new SolidColorBrush(Color.FromArgb(120, 228, 148, 83)), StrokeDashArray = new DoubleCollection { 4, 4 }, StrokeThickness = 1.2 });
         AddText("Market-value percentile →", left + width / 2 - 85, top + height + 31, 11);
-        AddText("Performance percentile ↑", 8, 3, 11);
+        AddText($"{percentileLabel} ↑", 8, 3, 11);
         AddText($"{metricName} {(per90 ? "per 90" : "source average")} · each dot is a player", left + 4, top + 4, 10);
 
-        foreach (var item in rows)
+        foreach (var plotted in plottedRows)
         {
+            var item = plotted.Item;
+            var performancePercentile = plotted.Percentile!.Value;
             var x = left + width * Math.Clamp(item.ValuePercentile, 0, 100) / 100d;
-            var y = top + height - height * Math.Clamp(item.PerformancePercentile, 0, 100) / 100d;
+            var y = top + height - height * Math.Clamp(performancePercentile, 0, 100) / 100d;
             var dot = new Ellipse
             {
                 Width = 8, Height = 8,
                 Fill = new SolidColorBrush(Color.FromRgb(86, 176, 218)),
                 Stroke = new SolidColorBrush(Color.FromRgb(220, 235, 245)),
                 StrokeThickness = .6,
-                ToolTip = $"{item.Player.Name}\n{metricName}: {item.PerformanceValue:0.00}\nPerformance percentile: {item.PerformancePercentile:0.0}\nValue percentile: {item.ValuePercentile:0.0}\nValue gap: {item.ValueGap:+0.0;-0.0;0.0}\n{item.DisplayPositionRating} · position cohort P{item.DisplayPositionPercentile}\nMinutes: {item.TotalMinutes:N0} · sample: {item.SampleSize}\nLatest period: {item.LatestPeriod}\nTransfer value: {item.Player.Value:N0} source units"
+                ToolTip = $"{item.Player.Name}\n{metricName}: {item.PerformanceValue:0.00}\n{percentileLabel}: {performancePercentile:0.0}\nOverall performance percentile: {item.PerformancePercentile:0.0}\nValue percentile: {item.ValuePercentile:0.0}\nValue gap: {item.ValueGap:+0.0;-0.0;0.0}\n{item.DisplayPositionRating} · position cohort P{item.DisplayPositionPercentile}\nLeague cohort P{item.DisplayLeaguePercentile}\nMinutes: {item.TotalMinutes:N0} · sample: {item.SampleSize}\nLatest period: {item.LatestPeriod}\nTransfer value: {item.Player.Value:N0} source units"
             };
             dot.MouseLeftButtonDown += (_, _) =>
             {
-                _status.Text = $"{item.Player.Name} · performance P{item.PerformancePercentile:0.0} vs value P{item.ValuePercentile:0.0} · gap {item.ValueGap:+0.0;-0.0;0.0} · {item.TotalMinutes:N0} minutes across {item.SampleSize} record(s).";
+                _status.Text = $"{item.Player.Name} · {percentileLabel} {performancePercentile:0.0} vs value P{item.ValuePercentile:0.0} · gap {item.ValueGap:+0.0;-0.0;0.0} · {item.TotalMinutes:N0} minutes across {item.SampleSize} record(s).";
             };
             Canvas.SetLeft(dot, x - 4);
             Canvas.SetTop(dot, y - 4);
