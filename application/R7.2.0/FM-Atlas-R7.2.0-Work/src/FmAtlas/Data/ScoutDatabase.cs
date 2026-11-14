@@ -66,6 +66,7 @@ public sealed class ScoutDatabase
               PRIMARY KEY(SourceId, AttributeName), FOREIGN KEY(SourceId) REFERENCES Players(SourceId) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_NameValue ON PlayerAttributes(AttributeName, AttributeValue);
+            CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_SourceNameNoCaseValue ON PlayerAttributes(SourceId, AttributeName COLLATE NOCASE, AttributeValue);
             CREATE TABLE IF NOT EXISTS EditHistory (
               Id INTEGER PRIMARY KEY AUTOINCREMENT, SourceId TEXT NOT NULL, PlayerName TEXT NOT NULL,
               FieldName TEXT NOT NULL, OldValue TEXT NULL, NewValue TEXT NULL, ChangedUtc TEXT NOT NULL,
@@ -2757,7 +2758,7 @@ public sealed class ScoutDatabase
         for (var i = 0; i < criteria.Count; i++)
         {
             var c = criteria[i];
-            predicates.Add($"EXISTS (SELECT 1 FROM PlayerAttributes a{i} WHERE a{i}.SourceId=p.SourceId AND lower(a{i}.AttributeName)=lower($key{i}) AND ($min{i} IS NULL OR a{i}.AttributeValue >= $min{i}) AND ($max{i} IS NULL OR a{i}.AttributeValue <= $max{i}))");
+            predicates.Add($"EXISTS (SELECT 1 FROM PlayerAttributes a{i} WHERE a{i}.SourceId=p.SourceId AND a{i}.AttributeName = $key{i} COLLATE NOCASE AND ($min{i} IS NULL OR a{i}.AttributeValue >= $min{i}) AND ($max{i} IS NULL OR a{i}.AttributeValue <= $max{i}))");
             cmd.Parameters.AddWithValue($"$key{i}", c.Key);
             cmd.Parameters.AddWithValue($"$min{i}", (object?)c.Minimum ?? DBNull.Value);
             cmd.Parameters.AddWithValue($"$max{i}", (object?)c.Maximum ?? DBNull.Value);
