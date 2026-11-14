@@ -1350,8 +1350,11 @@ public sealed class ScoutDatabase
                       LIMIT 1),
                    (SELECT lp.Nation FROM Players lp WHERE lp.SourceId='LIVE:' || p.PlayerUid LIMIT 1),
                    (SELECT lp.Position FROM Players lp WHERE lp.SourceId='LIVE:' || p.PlayerUid LIMIT 1)
-            FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
-            WHERE ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
+            FROM LivePlayers p
+            LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
+              AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
               AND ($position='' OR EXISTS (
                     SELECT 1 FROM LivePlayerFacts pf
                     WHERE pf.PlayerUid=p.PlayerUid AND pf.NumericValue >= 15
@@ -1489,7 +1492,7 @@ public sealed class ScoutDatabase
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid WHERE ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern);";
+        cmd.CommandText = "SELECT COUNT(*) FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed') WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed') AND ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern);";
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$pattern", $"%{q}%");
@@ -1503,8 +1506,11 @@ public sealed class ScoutDatabase
         var cmd = db.CreateCommand();
         cmd.CommandText = """
             SELECT c.ClubUid, c.ClubName, c.ValidationStatus, COUNT(p.PlayerUid)
-            FROM LiveClubs c LEFT JOIN LivePlayers p ON p.ClubUid=c.ClubUid
-            WHERE ($q='' OR c.ClubName LIKE $pattern OR CAST(c.ClubUid AS TEXT) LIKE $pattern)
+            FROM LiveClubs c
+            LEFT JOIN LivePlayers p ON p.ClubUid=c.ClubUid
+              AND p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            WHERE c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND ($q='' OR c.ClubName LIKE $pattern OR CAST(c.ClubUid AS TEXT) LIKE $pattern)
             GROUP BY c.ClubUid,c.ClubName,c.ValidationStatus
             ORDER BY c.ClubName COLLATE NOCASE LIMIT $limit;
             """;
@@ -1523,7 +1529,7 @@ public sealed class ScoutDatabase
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM LiveClubs WHERE ($q='' OR ClubName LIKE $pattern OR CAST(ClubUid AS TEXT) LIKE $pattern);";
+        cmd.CommandText = "SELECT COUNT(*) FROM LiveClubs WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed') AND ($q='' OR ClubName LIKE $pattern OR CAST(ClubUid AS TEXT) LIKE $pattern);";
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$pattern", $"%{q}%");
@@ -1540,7 +1546,9 @@ public sealed class ScoutDatabase
               (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1),
               (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1)
             FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
-            WHERE p.ClubUid=$club ORDER BY p.PlayerName COLLATE NOCASE LIMIT $limit;
+              AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND p.ClubUid=$club ORDER BY p.PlayerName COLLATE NOCASE LIMIT $limit;
             """;
         cmd.Parameters.AddWithValue("$club", clubUid);
         cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 100000));
@@ -1571,7 +1579,14 @@ public sealed class ScoutDatabase
             var cmd = db.CreateCommand(); cmd.CommandText = $"SELECT COUNT(*) FROM {table};";
             return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
         }
-        return (await Count("LivePlayers"), await Count("LiveClubs"), await Count("LiveStaff"));
+        var activeRun = "(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')";
+        async Task<int> CountActive(string table)
+        {
+            var cmd = db.CreateCommand();
+            cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE SourceRunId={activeRun};";
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
+        }
+        return (await CountActive("LivePlayers"), await CountActive("LiveClubs"), await CountActive("LiveStaff"));
     }
 
 
@@ -2349,7 +2364,9 @@ public sealed class ScoutDatabase
             }
         }
         return new WorkspaceMetrics(
-            await Count("SELECT COUNT(*) FROM LivePlayers"), await Count("SELECT COUNT(*) FROM LiveClubs"), await Count("SELECT COUNT(*) FROM LiveStaff"),
+            await Count("SELECT COUNT(*) FROM LivePlayers WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')"),
+            await Count("SELECT COUNT(*) FROM LiveClubs WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')"),
+            await Count("SELECT COUNT(*) FROM LiveStaff WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')"),
             await Count("SELECT COUNT(DISTINCT PlayerSourceId) FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)"),
             await Count("SELECT COUNT(*) FROM FmsaveClubDirectory WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)"),
             await Count("SELECT COUNT(*) FROM FmsaveStaffDirectory WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)"),
