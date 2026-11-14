@@ -185,7 +185,7 @@ def normalize_player(item: dict, save_info: dict | None):
     attributes = first(item, "attributes") or {}
     personality = first(item, "personality") or {}
     contract = first(item, "contract") or {}
-    # fmsave 0.9.x Player model: birth_date, club_name, nation_id,
+    # fmsave 0.12.x Player model: birth_date, club_name, nation_id,
     # natural_positions, accomplished_positions, and a Positions value object.
     natural_positions = first(item, "natural_positions") or []
     accomplished_positions = first(item, "accomplished_positions") or []
