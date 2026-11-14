@@ -226,3 +226,10 @@ Monolith Glass remains the primary interface: graphite/obsidian surfaces, warm o
 ### Verification still required
 
 The source and regression tests are committed, but a fresh Windows workflow must pass before calling this batch build-verified. Then inspect the Advanced Search workspace and shared Monolith Glass surfaces at 100%, 125% and 150% DPI. Confirm the exact/At Least, ALL/ANY and zero no-op behaviours against a real imported FM27 career; keep live-memory values labelled provisional until witnessed in-game.
+
+
+### Position-filter integration hardening — 14 November 2026
+
+- Added a database-level regression using the actual FMSAVE snapshot and live-fact tables. It exercises exact ALL, exact ANY and At Least ALL against both offline and live position-rating rows.
+- The profile loader now clears the temporary field-library search string before reconstructing saved conditions, preventing a filtered dropdown from remapping a saved field to an unrelated first result.
+- The prior successful run 43590420150 passed before these final test/safeguard changes. Its artifact must not be represented as containing this follow-up. A fresh Windows run is required.
