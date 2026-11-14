@@ -231,28 +231,120 @@ public partial class MainWindow
         if (livePositions.Any(x => x.ValidationStatus.Contains("Provisional-ProfileMatched", StringComparison.OrdinalIgnoreCase)))
             stack.Children.Add(Txt("Includes read-only FM27 live-memory values · provisional layout match · confirm against the in-game Positions screen. These are not verified editor values.", 9, true, Brush("#A06B24"), wrap: true));
 
-        var compact = new UniformGrid { Columns = 5, Rows = 3, Margin = new Thickness(0, 5, 0, 5) };
+        // A pitch-shaped map is easier to scan than a flat 5x3 tile matrix. Position
+        // coordinates are presentation-only; the rating and band always come from the
+        // source-backed PositionSuitabilityService and never from the tile location.
+        var pitch = new Canvas { Width = 640, Height = 340, ClipToBounds = true };
+        var pitchBackground = new Border
+        {
+            CornerRadius = new CornerRadius(14),
+            BorderBrush = Brush("#54776B"),
+            BorderThickness = new Thickness(1),
+            Background = new LinearGradientBrush(Color.FromRgb(25, 65, 52), Color.FromRgb(16, 48, 41), 90),
+            Padding = new Thickness(0),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child = pitch
+        };
+        pitch.Children.Add(new System.Windows.Shapes.Rectangle
+        {
+            Width = 620, Height = 320, RadiusX = 8, RadiusY = 8,
+            Stroke = Brush("#8BA99A"), StrokeThickness = 1.2,
+            Fill = Brushes.Transparent
+        });
+        pitch.Children.Add(new System.Windows.Shapes.Line
+        {
+            X1 = 320, X2 = 320, Y1 = 0, Y2 = 340,
+            Stroke = Brush("#78998B"), StrokeThickness = 1, Opacity = .8
+        });
+        pitch.Children.Add(new System.Windows.Shapes.Ellipse
+        {
+            Width = 104, Height = 104, Stroke = Brush("#78998B"),
+            StrokeThickness = 1, Fill = Brushes.Transparent
+        });
+        Canvas.SetLeft(pitch.Children[^1], 268);
+        Canvas.SetTop(pitch.Children[^1], 118);
+        foreach (var (x, y, width, height) in new[]
+        {
+            (0d, 96d, 74d, 148d), (566d, 96d, 74d, 148d),
+            (0d, 132d, 28d, 76d), (612d, 132d, 28d, 76d)
+        })
+        {
+            pitch.Children.Add(new System.Windows.Shapes.Rectangle
+            {
+                Width = width, Height = height, Stroke = Brush("#78998B"),
+                StrokeThickness = 1, Fill = Brushes.Transparent
+            });
+            Canvas.SetLeft(pitch.Children[^1], x);
+            Canvas.SetTop(pitch.Children[^1], y);
+        }
+
+        var positionPoints = new Dictionary<string, Point>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["GK"] = new Point(38, 170), ["SW"] = new Point(105, 170),
+            ["DL"] = new Point(165, 88), ["DC"] = new Point(165, 170), ["DR"] = new Point(165, 252),
+            ["WBL"] = new Point(245, 88), ["DM"] = new Point(265, 170), ["WBR"] = new Point(245, 252),
+            ["ML"] = new Point(350, 88), ["MC"] = new Point(350, 170), ["MR"] = new Point(350, 252),
+            ["AML"] = new Point(455, 88), ["AMC"] = new Point(455, 170), ["AMR"] = new Point(455, 252),
+            ["STC"] = new Point(565, 170)
+        };
+        var pitchTiles = new Dictionary<string, Border>(StringComparer.OrdinalIgnoreCase);
         foreach (var position in positions)
         {
+            if (!positionPoints.TryGetValue(position.Code, out var point)) continue;
             var has = position.Rating.HasValue;
             var rating = position.Rating.GetValueOrDefault();
-            var label = has ? $"{position.Code}\n{rating:0}" : $"{position.Code}\n—";
             var tile = new Border
             {
-                Margin = new Thickness(3),
-                Padding = new Thickness(5),
-                CornerRadius = new CornerRadius(7),
-                Background = has ? PositionRatingBrush(rating) : Brush("#E8EEF2"),
-                BorderBrush = Brush("#D5E0E7"),
+                Width = 62, Height = 48,
+                Padding = new Thickness(3),
+                CornerRadius = new CornerRadius(8),
+                Background = has ? PositionRatingBrush(rating) : Brush("#263D35"),
+                BorderBrush = Brush("#91AA9D"),
                 BorderThickness = new Thickness(1),
+                Cursor = System.Windows.Input.Cursors.Hand,
                 ToolTip = has
                     ? $"{position.Label} · {rating:0.##}/20 · {position.BandLabel} (source rating)"
                     : $"{position.Label} · Unrated (no valid numeric source value)",
-                Child = Txt(label, 11, true, has && rating >= 15 ? Brushes.White : Ink)
+                Child = new StackPanel
+                {
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Children =
+                    {
+                        Txt(position.Code, 11, true, has && rating >= 15 ? Brushes.White : Brush("#F0F5F1")),
+                        Txt(has ? $"{rating:0.##}" : "—", 10, true, has && rating >= 15 ? Brushes.White : Brush("#D6E2DA"))
+                    }
+                }
             };
-            compact.Children.Add(tile);
+            System.Windows.Automation.AutomationProperties.SetName(tile,
+                has ? $"{position.Label}, rating {rating:0.##} out of 20, {position.BandLabel}" : $"{position.Label}, unrated");
+            pitchTiles[position.Code] = tile;
+            Canvas.SetLeft(tile, point.X - tile.Width / 2);
+            Canvas.SetTop(tile, point.Y - tile.Height / 2);
+            pitch.Children.Add(tile);
         }
-        stack.Children.Add(compact);
+
+        var selectedPositionDetail = Txt("Select any position to inspect its source rating and suitability band.", 9, false, Muted, wrap: true);
+        foreach (var position in positions)
+        {
+            if (!pitchTiles.TryGetValue(position.Code, out var tile)) continue;
+            tile.MouseLeftButtonUp += (_, _) =>
+            {
+                foreach (var candidate in pitchTiles.Values)
+                {
+                    candidate.BorderBrush = Brush("#91AA9D");
+                    candidate.BorderThickness = new Thickness(1);
+                }
+                tile.BorderBrush = Brush("#F0A04B");
+                tile.BorderThickness = new Thickness(2);
+                selectedPositionDetail.Text = position.Rating.HasValue
+                    ? $"{position.Label} · {position.Rating:0.##}/20 · {position.BandLabel} · source rating; no Atlas-generated score."
+                    : $"{position.Label} · Unrated · no valid numeric source value was supplied.";
+            };
+        }
+        var pitchView = new Viewbox { Stretch = Stretch.Uniform, MaxHeight = 340, Child = pitchBackground };
+        stack.Children.Add(pitchView);
+        stack.Children.Add(selectedPositionDetail);
         var legend = new WrapPanel();
         legend.Children.Add(Txt("1–4 Low · Red",9,true,Brush("#B94A48")));
         legend.Children.Add(Txt("   5–9 Limited · Orange",9,true,Brush("#C47B32")));
