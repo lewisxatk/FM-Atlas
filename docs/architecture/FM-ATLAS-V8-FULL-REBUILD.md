@@ -90,9 +90,56 @@ Research references:
 
 Quick Search is a command/search overlay, not a permanently occupying global search text box. Navigation should be compact, collapsible and context-aware; users must be able to switch workspace while background jobs continue.
 
-## New visual identity
+## Atlas Liquid visual system — approved direction
 
-Create an original visual system from first principles. Do not use Aurora Frost or recolour the existing UI. Avoid generic admin-dashboard cards and the current lime-on-charcoal style. Use a confident editorial/scouting-workstation aesthetic: clear hierarchy, strong typography, high information density without clutter, restrained surfaces, high-quality player imagery/logos where installed, consistent iconography, deliberate spacing, fast keyboard interactions and carefully designed empty/loading/error states. Produce separate design system and screen prototypes before porting the full feature set.
+The visual reference approved by the user is the attached three-layer Liquid Glass direction. This is a full redesign, not a recolour of the legacy dark/lime interface.
+
+### Three coordinated appearance modes
+
+1. **Glass Light** — bright, airy translucent navigation and controls over a soft neutral workspace; crisp dark text and restrained cool accents.
+2. **Glass Dark** — premium deep-navy/charcoal workspace with translucent glass controls, subtle edge lighting and high-contrast data. This is the recommended first-run default.
+3. **Studio** — the same component language and navigation, tuned for dense scouting, comparison tables, analytics and multi-panel workflows. It must not become a disconnected legacy-looking theme.
+
+All three modes share layout, component behaviour, iconography, spacing, typography and interaction states. Theme changes must not move or hide core controls.
+
+### Application shell and navigation
+
+- **Top command/action toolbar:** a fresh, prominent row of compact glass buttons for frequent actions. Use clear icons and concise labels where space allows. Include actions such as Global Search, Open Save, Import/Refresh Data, Save/Apply (context-sensitive and safety-gated), Undo/History, Compare, Shortlist, Filters/Columns, Notifications/Jobs and Settings as appropriate to the active workspace.
+- Every icon-only or compact toolbar button must expose a concise, useful tooltip on pointer hover/focus that says what it does. Tooltips must appear after a small intentional delay, remain readable, support keyboard focus, and never be the only accessible name. Where useful, include shortcut hints (for example, Ctrl+K).
+- Tooltips must describe the actual current action and state; do not show misleading generic text. Disable unavailable actions visibly and explain why on hover/focus.
+- **Side navigation:** persistent, collapsible glass navigation rail/panel with icon + label, clear active-workspace highlight, grouped sections, subtle separators and optional compact icon-only mode. Labels/tooltips remain available when collapsed. Keep navigation responsive while background jobs run.
+- Side navigation groups should cover Home, Scouting (Players, Advanced Search, Shortlists, Staff), Analysis (Moneyball, Squad Planner, Tactics & Roles), Editing (Editor, History), and Data & Tools (Save Inspector, Data Lab, Graphics, Diagnostics), with visibility governed by actual feature availability.
+- Use a workspace title/breadcrumb and contextual toolbar actions so users always know where they are.
+
+### Glass and content rules
+
+- Use Liquid Glass-inspired translucent materials for the functional layer: top toolbar, side navigation, floating action groups, command palette, tabs/segmented controls, popovers and modal overlays.
+- Keep data-heavy content surfaces readable and stable: player grids, long tables, forms, charts and detailed profile content should use solid or near-solid surfaces with clear contrast. Do not put blur behind every card or every data cell.
+- Use layered translucency, soft highlights, subtle borders and restrained shadows. Avoid excessive glow, neon, over-rounded controls, visual noise and generic dashboard-card clutter.
+- Maintain excellent text contrast, clear focus indicators, scalable layouts and sensible density. Respect Windows accessibility settings and high-contrast mode.
+- Build one reusable design-token and component system for buttons, icon buttons, tooltips, navigation items, tabs, filters, tables, charts, dialogs, status chips, skeletons and empty/error states.
+
+### Motion and interaction
+
+- Add polished, subtle motion: hover illumination, pressed feedback, short workspace transitions, tab changes, chart updates, filter/result transitions and drag/drop formation interactions.
+- Keep animation purposeful and lightweight; use GPU-friendly opacity/transform effects where practical. No animation may block input, navigation, import, search or Football Manager.
+- Provide a Reduce Motion preference and honour system accessibility preferences. Avoid continuous decorative animation.
+- Tooltips should be consistent across the app, including keyboard focus, and should not flicker when moving the pointer from a button to its tooltip.
+
+### Screen-level visual acceptance
+
+- Home: calm command centre with career/data status, recent work, import jobs and useful insights.
+- Players: full-width search/results area, resizable profile inspector, polished configurable grid and clear source/coverage indicators.
+- Advanced Search: category rail, filter builder, logical groups and a results workspace; top actions for save search, reset, columns and export where supported.
+- Player Profile: strong identity header, tabbed detail areas, readable attribute visualisations, position/role suitability and evidence labels.
+- Moneyball: interactive scatter plots, percentiles, per-90 comparisons and sample/coverage indicators; charts must be legible and explainable.
+- Squad/Tactics: modern formation pitch, drag/drop player assignment, role-fit visualisations and squad-depth views.
+- Editor: clear local-vs-live mode distinction, changed-field states, preview, audit trail, undo and visible safety locks.
+- Data Lab/Diagnostics: transparent job progress, stages, logs, source coverage and actionable errors.
+
+The top toolbar, hover tooltips and side navigation are mandatory shell features and must be included in the first clickable shell prototype, not postponed to polish.
+
+## Performance and architecture requirements
 
 ## Performance and architecture requirements
 
