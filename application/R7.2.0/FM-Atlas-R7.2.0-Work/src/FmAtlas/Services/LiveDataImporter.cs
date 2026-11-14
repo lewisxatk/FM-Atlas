@@ -279,7 +279,7 @@ public static class LiveDataImporter
                             var contractPointer = BitConverter.ToUInt64(inline, 0x330 + playerShift);
                             if (Pointer(contractPointer))
                             {
-                                var contractOwner = U64(handle, contractPointer + 0x08);
+                                var contractOwner = U64(handle, (nint)(contractPointer + 0x08));
                                 if (contractOwner == address + (ulong)(0x288 + playerShift))
                                 {
                                     var contractBytes = Read(handle, (nint)contractPointer, 0xC8);
