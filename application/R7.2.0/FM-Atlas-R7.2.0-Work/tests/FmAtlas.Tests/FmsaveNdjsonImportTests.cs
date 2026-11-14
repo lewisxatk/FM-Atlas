@@ -1131,6 +1131,72 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(18d, striker.Rating!.Value);
     }
 
+    [Fact]
+    public void PlayerComparisonRadarUsesSharedRealAttributeCategoriesAndAverages()
+    {
+        var names = new[] { "Player One", "Player Two" };
+        var attributes = new[]
+        {
+            new Dictionary<string, double>
+            {
+                ["Technical · Finishing"] = 18,
+                ["Technical · Passing"] = 20,
+                ["Mental · Decisions"] = 12,
+                ["Physical · Pace"] = 10,
+                ["Hidden · Consistency"] = 20,
+                ["Personality · Professionalism"] = 20
+            },
+            new Dictionary<string, double>
+            {
+                ["Technical · Finishing"] = 14,
+                ["Mental · Decisions"] = 16,
+                ["Physical · Pace"] = 18,
+                ["Set Pieces · Corners"] = 19,
+                ["Goalkeeping · Reflexes"] = 20
+            }
+        };
+
+        var radar = PlayerComparisonRadarService.Build(names, attributes);
+
+        Assert.True(radar.CanRender);
+        Assert.Equal(new[] { "Technical", "Mental", "Physical" }, radar.Categories);
+        Assert.Equal(19d, radar.Series[0].Values[0], 2);
+        Assert.Equal(14d, radar.Series[1].Values[0], 2);
+        Assert.Equal(2, radar.Series[0].AttributeCounts[0]);
+        Assert.Equal(1, radar.Series[1].AttributeCounts[0]);
+        Assert.Equal(12d, radar.Series[0].Values[1], 2);
+        Assert.Equal(16d, radar.Series[1].Values[1], 2);
+    }
+
+    [Fact]
+    public void PlayerComparisonRadarDoesNotPlotMissingCategoriesAsZero()
+    {
+        var names = new[] { "Player One", "Player Two" };
+        var attributes = new[]
+        {
+            new Dictionary<string, double>
+            {
+                ["Technical · Finishing"] = 18,
+                ["Mental · Decisions"] = 12,
+                ["Physical · Pace"] = 10,
+                ["Set Pieces · Corners"] = 15
+            },
+            new Dictionary<string, double>
+            {
+                ["Technical · Finishing"] = 14,
+                ["Physical · Pace"] = 18,
+                ["Goalkeeping · Reflexes"] = 20
+            }
+        };
+
+        var radar = PlayerComparisonRadarService.Build(names, attributes);
+
+        Assert.False(radar.CanRender);
+        Assert.Equal(new[] { "Technical", "Physical" }, radar.Categories);
+        Assert.All(radar.Series, series => Assert.All(series.Values, value => Assert.InRange(value, 1, 20)));
+        Assert.Contains("not scored as zero", radar.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string CreateBundle(
         string root,
         string name,
