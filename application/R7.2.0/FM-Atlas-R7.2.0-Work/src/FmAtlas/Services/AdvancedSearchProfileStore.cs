@@ -60,8 +60,11 @@ public static class AdvancedSearchProfileStore
         ArgumentNullException.ThrowIfNull(profile);
         if (string.IsNullOrWhiteSpace(profile.Id)) throw new ArgumentException("A profile ID is required.", nameof(profile));
         if (string.IsNullOrWhiteSpace(profile.Name)) throw new ArgumentException("A profile name is required.", nameof(profile));
-        if (profile.Criteria is null || profile.Criteria.Count is < 1 or > 60)
-            throw new ArgumentOutOfRangeException(nameof(profile), "A saved profile must contain between 1 and 60 conditions.");
+        if (profile.Criteria is null || profile.Criteria.Count > 60)
+            throw new ArgumentOutOfRangeException(nameof(profile), "A saved profile can contain up to 60 general conditions.");
+        if (profile.Criteria.Count == 0 && AdvancedPositionFilterRules.Normalize(profile.PositionFilter) is null)
+            throw new ArgumentOutOfRangeException(nameof(profile), "A saved profile needs at least one general or position condition.");
+        _ = AdvancedPositionFilterRules.Normalize(profile.PositionFilter);
         ValidateSorts(profile.Sorts);
 
         var folder = ResolveFolder(folderPath);
