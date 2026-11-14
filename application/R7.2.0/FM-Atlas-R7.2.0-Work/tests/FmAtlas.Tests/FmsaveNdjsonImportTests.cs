@@ -1009,6 +1009,72 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Contains("Summer Recruitment", await database.GetShortlistNamesAsync());
     }
 
+    [Fact]
+    public void PositionSuitabilityMapsAllFifteenSourceSlotsAndFiveBands()
+    {
+        var source = new Dictionary<string, double?>
+        {
+            ["positions.gk"] = 20,
+            ["position_sw"] = 18,
+            ["pos_dl"] = 15,
+            ["dc"] = 10,
+            ["dr"] = 5,
+            ["wbl"] = 4,
+            ["wbr"] = 9,
+            ["dm"] = 14,
+            ["ml"] = 16,
+            ["mc"] = 17,
+            ["mr"] = 1,
+            ["aml"] = 2,
+            ["amc"] = 3,
+            ["amr"] = 11,
+            ["st"] = 12
+        };
+
+        var mapped = PositionSuitabilityService.MapSourceRatings(source);
+
+        Assert.Equal(15, mapped.Count);
+        Assert.Equal(15, mapped.Select(x => x.Code).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(PositionSuitabilityBand.Natural, Assert.Single(mapped.Where(x => x.Code == "GK")).Band);
+        Assert.Equal(PositionSuitabilityBand.Natural, Assert.Single(mapped.Where(x => x.Code == "SW")).Band);
+        Assert.Equal(PositionSuitabilityBand.Strong, Assert.Single(mapped.Where(x => x.Code == "DL")).Band);
+        Assert.Equal(PositionSuitabilityBand.Competent, Assert.Single(mapped.Where(x => x.Code == "DC")).Band);
+        Assert.Equal(PositionSuitabilityBand.Limited, Assert.Single(mapped.Where(x => x.Code == "DR")).Band);
+        Assert.Equal(PositionSuitabilityBand.Low, Assert.Single(mapped.Where(x => x.Code == "WBL")).Band);
+        var striker = Assert.Single(mapped.Where(x => x.Code == "STC"));
+        Assert.Equal(12d, striker.Rating!.Value);
+        Assert.Equal(PositionSuitabilityBand.Competent, striker.Band);
+    }
+
+    [Fact]
+    public void PositionSuitabilityLeavesZeroMissingInvalidAndUnknownSlotsUnrated()
+    {
+        var source = new Dictionary<string, double?>
+        {
+            ["gk"] = 0,
+            ["sw"] = 21,
+            ["dl"] = double.NaN,
+            ["dc"] = null,
+            ["unknown_rating"] = 18,
+            ["position_aml"] = 15,
+            ["positions.stc"] = 18
+        };
+
+        var mapped = PositionSuitabilityService.MapSourceRatings(source);
+
+        Assert.Equal(15, mapped.Count);
+        foreach (var code in new[] { "GK", "SW", "DL", "DC", "DR", "WBL", "WBR", "DM", "ML", "MC", "MR", "AMR" })
+        {
+            var item = Assert.Single(mapped.Where(x => x.Code == code));
+            Assert.Null(item.Rating);
+            Assert.Equal(PositionSuitabilityBand.Unrated, item.Band);
+        }
+        var aml = Assert.Single(mapped.Where(x => x.Code == "AML"));
+        var striker = Assert.Single(mapped.Where(x => x.Code == "STC"));
+        Assert.Equal(15d, aml.Rating!.Value);
+        Assert.Equal(18d, striker.Rating!.Value);
+    }
+
     private static string CreateBundle(
         string root,
         string name,

@@ -207,41 +207,59 @@ public partial class MainWindow
 
     private void AddPositionSuitabilityMap(Panel panel, List<AtlasFactRecord> saveFacts, List<(string FieldKey, double? NumericValue, string? TextValue, string ValidationStatus)> liveFacts)
     {
-        var values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var sourceValues = new List<KeyValuePair<string, double?>>();
         foreach (var fact in saveFacts)
         {
-            var key = fact.Field.Trim().Replace(" ", "_").Replace("-", "_");
-            if (double.TryParse(fact.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 20) values[key] = v;
+            if (double.TryParse(fact.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+                sourceValues.Add(new KeyValuePair<string, double?>(fact.Field, value));
         }
-        foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue && x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase)))
+        // Provisional live reads are excluded. A live value is admitted only when its own
+        // field validation status explicitly contains "Verified".
+        foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue
+            && x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase)))
         {
-            var key = fact.FieldKey.Split('.').Last().Trim();
-            if (double.TryParse(fact.NumericValue!.Value.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 20) values[key] = v;
+            sourceValues.Add(new KeyValuePair<string, double?>(fact.FieldKey, fact.NumericValue));
         }
-        var positions = new (string Key,string Label)[] { ("pos_gk","GK"),("pos_sw","SW"),("pos_dl","DL"),("pos_dc","DC"),("pos_dr","DR"),("pos_dm","DM"),("pos_ml","ML"),("pos_mc","MC"),("pos_mr","MR"),("pos_aml","AML"),("pos_amc","AMC"),("pos_amr","AMR"),("pos_st","ST"),("pos_wbl","WBL"),("pos_wbr","WBR") };
-        foreach (var pos in positions)
-        {
-            if (!values.ContainsKey(pos.Key) && values.TryGetValue(pos.Label, out var v)) values[pos.Key] = v;
-            if (!values.ContainsKey(pos.Key) && values.TryGetValue("position_" + pos.Label.ToLowerInvariant(), out v)) values[pos.Key] = v;
-        }
+
+        var positions = PositionSuitabilityService.MapSourceRatings(sourceValues);
         var card = Card(new StackPanel(), 13, new Thickness(0, 0, 0, 12));
         var stack = (StackPanel)card.Child;
         stack.Children.Add(Txt("POSITION SUITABILITY MAP", 9, true, Teal));
-        stack.Children.Add(Txt("FM position ratings · 0–20", 17, true, Ink));
-        // Avoid overlapping roles in the compact map by rendering a unique grid of all positions below.
+        stack.Children.Add(Txt("FM position ratings · source 1–20 scale", 17, true, Ink));
+        stack.Children.Add(Txt("All 15 position slots are shown. Colours are Atlas display bands over source ratings; zero and missing values remain unrated.", 9, false, Muted, wrap: true));
+
         var compact = new UniformGrid { Columns = 5, Rows = 3, Margin = new Thickness(0, 5, 0, 5) };
-        foreach (var pos in positions)
+        foreach (var position in positions)
         {
-            var has = values.TryGetValue(pos.Key, out var rating);
-            var label = has ? $"{pos.Label}\n{rating:0}" : $"{pos.Label}\n—";
-            var tile = new Border { Margin = new Thickness(3), Padding = new Thickness(5), CornerRadius = new CornerRadius(7), Background = has ? PositionRatingBrush(rating) : Brush("#E8EEF2"), BorderBrush = Brush("#D5E0E7"), BorderThickness = new Thickness(1), Child = Txt(label, 11, true, has && rating >= 15 ? Brushes.White : Ink) };
+            var has = position.Rating.HasValue;
+            var rating = position.Rating.GetValueOrDefault();
+            var label = has ? $"{position.Code}\n{rating:0}" : $"{position.Code}\n—";
+            var tile = new Border
+            {
+                Margin = new Thickness(3),
+                Padding = new Thickness(5),
+                CornerRadius = new CornerRadius(7),
+                Background = has ? PositionRatingBrush(rating) : Brush("#E8EEF2"),
+                BorderBrush = Brush("#D5E0E7"),
+                BorderThickness = new Thickness(1),
+                ToolTip = has
+                    ? $"{position.Label} · {rating:0.##}/20 · {position.BandLabel} (source rating)"
+                    : $"{position.Label} · Unrated (no valid numeric source value)",
+                Child = Txt(label, 11, true, has && rating >= 15 ? Brushes.White : Ink)
+            };
             compact.Children.Add(tile);
         }
         stack.Children.Add(compact);
         var legend = new WrapPanel();
-        legend.Children.Add(Txt("1–4 Red",9,true,Brush("#B94A48"))); legend.Children.Add(Txt("   5–9 Orange",9,true,Brush("#C47B32"))); legend.Children.Add(Txt("   10–14 Yellow",9,true,Brush("#9C8B28"))); legend.Children.Add(Txt("   15–17 Green",9,true,Brush("#37875A"))); legend.Children.Add(Txt("   18–20 Natural",9,true,Brush("#176B46")));
+        legend.Children.Add(Txt("1–4 Low · Red",9,true,Brush("#B94A48")));
+        legend.Children.Add(Txt("   5–9 Limited · Orange",9,true,Brush("#C47B32")));
+        legend.Children.Add(Txt("   10–14 Competent · Yellow",9,true,Brush("#9C8B28")));
+        legend.Children.Add(Txt("   15–17 Strong · Green",9,true,Brush("#37875A")));
+        legend.Children.Add(Txt("   18–20 Natural · Deep green",9,true,Brush("#176B46")));
+        legend.Children.Add(Txt("   0 / missing · Unrated",9,true,Muted));
         stack.Children.Add(legend);
-        if (values.Count == 0) stack.Children.Add(Txt("No verified position ratings were found in this record. The FM27 Steam mapping is documented, but this R6 live importer has not yet been upgraded to extract those bytes. The map will populate when a supported source provides them.", 10, false, Muted, wrap: true));
+        if (positions.All(x => !x.Rating.HasValue))
+            stack.Children.Add(Txt("No valid numeric position ratings were supplied by this player's imported positions object or explicitly verified live fields. Missing values are not interpreted as zero.", 10, false, Muted, wrap: true));
         panel.Children.Add(card);
     }
 
