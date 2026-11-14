@@ -92,6 +92,7 @@ public partial class MainWindow : Window
     private TextBlock? _playerCountText;
     private TextBox? _playerSearch;
     private ComboBox? _positionPicker;
+    private TextBox? _playerMinCaInput, _playerMaxCaInput, _playerMinPaInput, _playerMaxPaInput;
     private ComboBox? _shortlistPicker;
 
     // Microsoft.Data.Sqlite's async ADO.NET methods may complete synchronously.
@@ -762,6 +763,27 @@ public partial class MainWindow : Window
             positionRibbon.Children.Add(chip);
         }
         searchStack.Children.Add(positionRibbon);
+
+        // Quick FMRTE-style ability bounds. They feed the same SQL filters for both
+        // offline save rows and the live FM27 identity index; negative PA ranges are valid.
+        var abilityFilters = new WrapPanel { Margin = new Thickness(0, 8, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        _playerMinCaInput = Input("Min CA"); _playerMinCaInput.Width = 78; _playerMinCaInput.MaxLength = 3;
+        _playerMaxCaInput = Input("Max CA"); _playerMaxCaInput.Width = 78; _playerMaxCaInput.MaxLength = 3;
+        _playerMinPaInput = Input("Min PA"); _playerMinPaInput.Width = 78; _playerMinPaInput.MaxLength = 3;
+        _playerMaxPaInput = Input("Max PA"); _playerMaxPaInput.Width = 78; _playerMaxPaInput.MaxLength = 3;
+        abilityFilters.Children.Add(FilterControl("CA MIN · 1–200", _playerMinCaInput, 88));
+        abilityFilters.Children.Add(FilterControl("CA MAX · 1–200", _playerMaxCaInput, 88));
+        abilityFilters.Children.Add(FilterControl("PA MIN · -10–200", _playerMinPaInput, 88));
+        abilityFilters.Children.Add(FilterControl("PA MAX · -10–200", _playerMaxPaInput, 88));
+        abilityFilters.Children.Add(SoftButton("Clear CA/PA", (_, _) =>
+        {
+            _playerMinCaInput.Text = ""; _playerMaxCaInput.Text = "";
+            _playerMinPaInput.Text = ""; _playerMaxPaInput.Text = "";
+            _playerOffset = 0;
+            _ = RefreshPlayerResultsAsync();
+        }));
+        searchStack.Children.Add(abilityFilters);
+
         Grid.SetRow(searchCard, 0); Grid.SetColumnSpan(searchCard, 2); root.Children.Add(searchCard);
 
         var listCard = Card(new DockPanel(), 16, new Thickness(0, 0, 9, 0));
@@ -877,6 +899,16 @@ public partial class MainWindow : Window
         panel.Children.Add(Txt(label, 8, true, Muted)); panel.Children.Add(control); return panel;
     }
 
+    private static bool TryParseOptionalInt(string? raw, int minimum, int maximum, out int? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(raw)) return true;
+        if (!int.TryParse(raw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            || parsed < minimum || parsed > maximum) return false;
+        value = parsed;
+        return true;
+    }
+
     private async Task ImportIntelligenceReportAsync()
     {
         var open = new OpenFileDialog { Title = "Import a verified FM Atlas player intelligence report", Filter = "CSV reports (*.csv)|*.csv|All files (*.*)|*.*", CheckFileExists = true };
@@ -898,13 +930,28 @@ public partial class MainWindow : Window
     {
         if (_playerResultsGrid is null || _playerCountText is null) return;
         var term = _playerSearch?.Text.Trim() ?? string.Empty;
-        if (term.Length < 2)
+        if (!TryParseOptionalInt(_playerMinCaInput?.Text, 1, 200, out var minCa)
+            || !TryParseOptionalInt(_playerMaxCaInput?.Text, 1, 200, out var maxCa)
+            || !TryParseOptionalInt(_playerMinPaInput?.Text, -10, 200, out var minPa)
+            || !TryParseOptionalInt(_playerMaxPaInput?.Text, -10, 200, out var maxPa))
+        {
+            _playerPageStatus!.Text = "CA must be 1–200; PA must be -10–200. Clear invalid values and search again.";
+            return;
+        }
+        if ((minCa.HasValue && maxCa.HasValue && minCa > maxCa)
+            || (minPa.HasValue && maxPa.HasValue && minPa > maxPa))
+        {
+            _playerPageStatus!.Text = "Each minimum must be less than or equal to its maximum.";
+            return;
+        }
+        var hasAbilityFilters = minCa.HasValue || maxCa.HasValue || minPa.HasValue || maxPa.HasValue;
+        if (term.Length < 2 && !hasAbilityFilters)
         {
             ++_playerSearchRequestId; // invalidate any search still completing in the background
             Mouse.OverrideCursor = null;
             _players.Clear();
             _playerCountText.Text = "Search the career database";
-            _playerPageStatus!.Text = "Enter at least two characters · the full player database is not loaded into the screen";
+            _playerPageStatus!.Text = "Enter at least two characters or set a CA/PA range · the full player database is not loaded into the screen";
             _previousPlayerPageButton!.IsEnabled = false;
             _nextPlayerPageButton!.IsEnabled = false;
             ClearProfile("Choose a player from search results. Your open profile tabs will remain available.");
@@ -922,10 +969,12 @@ public partial class MainWindow : Window
             // Applying the same OFFSET independently to both sources creates skipped/duplicated
             // records whenever save and live rows overlap.
             var mergedFetchLimit = Math.Clamp(_playerOffset + PlayerPageSize + 1, PlayerPageSize + 1, 100000);
-            var localTask = RunDatabaseAsync(() => _database.SearchAsync(term, null, null, pos, null, null, null, limit: mergedFetchLimit, offset: 0));
-            var liveTask = RunDatabaseAsync(() => _database.SearchLivePlayersAsync(term, mergedFetchLimit, ageAsOf: DateTime.Today, offset: 0, positionFilter: pos));
-            var localCountTask = RunDatabaseAsync(() => _database.CountLocalPlayersAsync(term));
-            var liveCountTask = RunDatabaseAsync(() => _database.CountLivePlayersAsync(term));
+            var localTask = RunDatabaseAsync(() => _database.SearchAsync(term, null, null, pos, null, null, null,
+                minCa: minCa, maxCa: maxCa, minPa: minPa, maxPa: maxPa, limit: mergedFetchLimit, offset: 0));
+            var liveTask = RunDatabaseAsync(() => _database.SearchLivePlayersAsync(term, mergedFetchLimit,
+                ageAsOf: DateTime.Today, offset: 0, minCa: minCa, maxCa: maxCa, minPa: minPa, maxPa: maxPa, positionFilter: pos));
+            var localCountTask = RunDatabaseAsync(() => _database.CountLocalPlayersAsync(term, minCa, maxCa, minPa, maxPa));
+            var liveCountTask = RunDatabaseAsync(() => _database.CountLivePlayersAsync(term, minCa, maxCa, minPa, maxPa));
             await Task.WhenAll(localTask, liveTask, localCountTask, liveCountTask);
 
             var local = await localTask;
@@ -962,10 +1011,15 @@ public partial class MainWindow : Window
 
             _players.Clear();
             foreach (var item in results) _players.Add(item);
-            _playerCountText.Text = $"{total:N0} source records · {countLive:N0} live identities · {countLocal:N0} save/local records";
+            var abilitySummary = string.Join(" · ", new[]
+            {
+                minCa.HasValue || maxCa.HasValue ? $"CA {minCa?.ToString() ?? "any"}–{maxCa?.ToString() ?? "any"}" : null,
+                minPa.HasValue || maxPa.HasValue ? $"PA {minPa?.ToString() ?? "any"}–{maxPa?.ToString() ?? "any"}" : null
+            }.Where(x => x is not null));
+            _playerCountText.Text = $"{total:N0} matching source records · {countLive:N0} live identities · {countLocal:N0} save/local records";
             _playerPageStatus!.Text = results.Count == 0
                 ? "No matches · adjust the search or filters"
-                : $"Showing {_playerOffset + 1:N0}–{_playerOffset + results.Count:N0} · {countLive:N0} live identities · {countLocal:N0} save/local records";
+                : $"Showing {_playerOffset + 1:N0}–{_playerOffset + results.Count:N0} · {countLive:N0} live · {countLocal:N0} save/local{(abilitySummary.Length == 0 ? "" : " · " + abilitySummary)}";
             _previousPlayerPageButton!.IsEnabled = _playerOffset > 0;
             _nextPlayerPageButton!.IsEnabled = results.Count == PlayerPageSize && mergedHasMore;
 
