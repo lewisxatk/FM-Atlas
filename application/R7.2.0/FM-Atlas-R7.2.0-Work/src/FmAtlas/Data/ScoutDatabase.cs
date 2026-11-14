@@ -1178,8 +1178,8 @@ public sealed class ScoutDatabase
         liveFactUpsert.Parameters.Add("$number", SqliteType.Real); liveFactUpsert.Parameters.Add("$text", SqliteType.Text);
         liveFactUpsert.Parameters.Add("$status", SqliteType.Text); liveFactUpsert.Parameters.Add("$run", SqliteType.Integer); liveFactUpsert.Parameters.Add("$utc", SqliteType.Text);
         var atlasLivePlayerUpsert = db.CreateCommand(); atlasLivePlayerUpsert.Transaction = (SqliteTransaction)tx;
-        atlasLivePlayerUpsert.CommandText = "INSERT INTO Players(SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,HomeGrownClub,HomeGrownNation,PreferredFoot,DataOrigin,UpdatedUtc) VALUES($id,$name,$age,$club,NULL,NULL,NULL,$ca,$pa,NULL,NULL,NULL,NULL,$origin,$utc) ON CONFLICT(SourceId) DO UPDATE SET Name=excluded.Name,Age=COALESCE(excluded.Age,Players.Age),Club=excluded.Club,CurrentAbility=excluded.CurrentAbility,PotentialAbility=excluded.PotentialAbility,DataOrigin=excluded.DataOrigin,UpdatedUtc=excluded.UpdatedUtc;";
-        foreach (var parameter in new[] { "$id", "$name", "$club", "$origin", "$utc" }) atlasLivePlayerUpsert.Parameters.Add(parameter, SqliteType.Text);
+        atlasLivePlayerUpsert.CommandText = "INSERT INTO Players(SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,HomeGrownClub,HomeGrownNation,PreferredFoot,DataOrigin,UpdatedUtc) VALUES($id,$name,$age,$club,$nation,NULL,NULL,$ca,$pa,NULL,NULL,NULL,NULL,$origin,$utc) ON CONFLICT(SourceId) DO UPDATE SET Name=excluded.Name,Age=COALESCE(excluded.Age,Players.Age),Club=COALESCE(excluded.Club,Players.Club),Nation=COALESCE(excluded.Nation,Players.Nation),CurrentAbility=excluded.CurrentAbility,PotentialAbility=excluded.PotentialAbility,DataOrigin=excluded.DataOrigin,UpdatedUtc=excluded.UpdatedUtc;";
+        foreach (var parameter in new[] { "$id", "$name", "$club", "$nation", "$origin", "$utc" }) atlasLivePlayerUpsert.Parameters.Add(parameter, SqliteType.Text);
         atlasLivePlayerUpsert.Parameters.Add("$age", SqliteType.Integer); atlasLivePlayerUpsert.Parameters.Add("$ca", SqliteType.Integer); atlasLivePlayerUpsert.Parameters.Add("$pa", SqliteType.Integer);
         var liveAttributeCount = 0;
         foreach (var player in payload.Players)
@@ -1199,6 +1199,7 @@ public sealed class ScoutDatabase
             atlasLivePlayerUpsert.Parameters["$name"].Value = player.Name;
             atlasLivePlayerUpsert.Parameters["$age"].Value = payload.GameDate.HasValue && player.DateOfBirth.HasValue ? CalculateAge(player.DateOfBirth.Value, payload.GameDate.Value) : DBNull.Value;
             atlasLivePlayerUpsert.Parameters["$club"].Value = player.ClubUid.HasValue && clubNames.TryGetValue(player.ClubUid.Value, out var clubName) ? clubName : DBNull.Value;
+            atlasLivePlayerUpsert.Parameters["$nation"].Value = (object?)player.NationName ?? DBNull.Value;
             atlasLivePlayerUpsert.Parameters["$ca"].Value = (object?)player.CurrentAbility ?? DBNull.Value;
             atlasLivePlayerUpsert.Parameters["$pa"].Value = (object?)player.PotentialAbility ?? DBNull.Value;
             atlasLivePlayerUpsert.Parameters["$origin"].Value = "FM27 Live · exact module profile matched · field-level values provisional";
@@ -1220,6 +1221,8 @@ public sealed class ScoutDatabase
             }
             if (player.CurrentAbility.HasValue) SetLiveFact("ability.current_ability", player.CurrentAbility.Value);
             if (player.PotentialAbility.HasValue) SetLiveFact("ability.potential_ability", player.PotentialAbility.Value);
+            if (player.NationUid.HasValue) SetLiveFact("identity.nation_uid", player.NationUid.Value);
+            if (!string.IsNullOrWhiteSpace(player.NationName)) SetLiveFact("identity.nation_name", null, player.NationName);
             foreach (var field in player.Attributes ?? new Dictionary<string, double>())
             {
                 SetLiveFact("attributes." + field.Key, field.Value);
@@ -1302,7 +1305,8 @@ public sealed class ScoutDatabase
                       AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
                       AND f.NumericValue IS NOT NULL
                       AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%')
-                      LIMIT 1)
+                      LIMIT 1),
+                   (SELECT lp.Nation FROM Players lp WHERE lp.SourceId='LIVE:' || p.PlayerUid LIMIT 1)
             FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
             WHERE ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
               AND ($attribute='' OR EXISTS (
@@ -1361,7 +1365,8 @@ public sealed class ScoutDatabase
                 Club = reader.IsDBNull(2) ? null : reader.GetString(2),
                 CurrentAbility = reader.IsDBNull(8) ? null : Convert.ToInt32(reader.GetDouble(8)),
                 PotentialAbility = reader.IsDBNull(9) ? null : Convert.ToInt32(reader.GetDouble(9)),
-                DataOrigin = $"FM27 Live · identity {reader.GetString(3)} · club link {reader.GetString(4)} · CA/PA, attributes and positions provisional (UI witness pending)"
+                Nation = reader.IsDBNull(10) ? null : reader.GetString(10),
+                DataOrigin = $"FM27 Live · identity {reader.GetString(3)} · club link {reader.GetString(4)} · CA/PA, attributes, personality and positions provisional (UI witness pending)"
             });
         }
         return rows;
