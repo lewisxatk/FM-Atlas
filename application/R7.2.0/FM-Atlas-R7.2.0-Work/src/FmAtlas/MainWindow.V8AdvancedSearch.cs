@@ -33,25 +33,25 @@ public partial class MainWindow
             "Player Search",
             "Search the imported player pool by name or ID, age, position, league, nation, home-grown status, preferred foot, CA / PA and available core fields. Results are paged and open into the full player profile.",
             "Open player directory",
-            async () => await NavigateAsync("Players")));
+            async (_, _) => await NavigateAsync("Players")));
         cards.Children.Add(SearchEntryCard(
             "02 · ATTRIBUTES & PERSONALITY",
             "Attribute Search",
             "Combine up to 60 minimum / maximum conditions across available technical, mental, physical and personality fields. Missing values stay missing; only fields actually supplied by the source can match.",
             "Open attribute builder",
-            async () => await NavigateAsync("Attribute Search")));
+            async (_, _) => await NavigateAsync("Attribute Search")));
         cards.Children.Add(SearchEntryCard(
             "03 · PERFORMANCE & MONEYBALL",
             "Statistical Search",
             "Build up to 60 conditions from the metrics discovered in imported season, career-history and match-stat rows. Optional per-90 normalisation uses a minimum-minutes floor.",
             "Open statistics builder",
-            async () => await NavigateAsync("Stats Search")));
+            async (_, _) => await NavigateAsync("Stats Search")));
         cards.Children.Add(SearchEntryCard(
             "04 · MULTI-ENTITY LOOKUP",
             "Global Search",
             "Find players, staff and clubs by name or identifier, then open the corresponding workspace. Use Ctrl+K from anywhere in Atlas.",
             "Open global search",
-            () => ShowGlobalSearch()));
+            (_, _) => ShowGlobalSearch()));
 
         content.Children.Add(cards);
 
