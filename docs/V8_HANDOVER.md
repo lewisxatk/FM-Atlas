@@ -7,7 +7,7 @@
 
 ## Current objective
 
-Continue the integrated V8 rebuild without replacing existing R7.2.0 functionality. Preserve the Atlas Liquid/Monolith shell, universal Advanced Search, saved search profiles, Players and Staff workspaces, profile tabs, shortlist pipeline, analytics, squad analysis, local editor history, save-import pipeline and all existing source-backed features.
+Continue the integrated V8 rebuild without replacing existing R7.2.0 functionality. Preserve the Monolith Glass shell, universal Advanced Search, saved search profiles, Players and Staff workspaces, profile tabs, shortlist pipeline, analytics, squad analysis, local editor history, save-import pipeline and all existing source-backed features.
 
 ## Work inspected and carried forward
 
@@ -27,7 +27,10 @@ The current implementation checklist, architecture status and quick-start guidan
 
 ## Commits made in this continuation
 
-- `8afe77a4` — corrected the live-memory gate to OFF and clarified detection-only UI wording.
+- `8afe77a4` — intermediate safety correction; superseded by the bounded, cancellable read-only scanner described in the current source state.
+- `62a89c5b` — made SQLite live-snapshot publication cancellable and rollback-safe when the FM session changes.
+- `242bab86` — rechecked the exact FM process/build/save-generation immediately before and after the database publication.
+- `4cf34c5a` — updated implementation status to match the enabled automatic scan.
 - `fa226cee` — reconciled the implementation checklist with the actual live-memory safety gate.
 - `05f316e5` — live staff search now includes linked club name.
 - `2107cc99` — integration test now checks staff club search, job and age.
@@ -36,6 +39,15 @@ The current implementation checklist, architecture status and quick-start guidan
 - `b503ae78`, `03778f45` — clarified detection status and career monitor behaviour.
 - `edd568cc` — manager/club shortcuts now require the exact imported process/profile/save-generation session, not just a matching counter.
 - The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
+
+## Current user workflow
+
+1. Start a supported FM27 Steam/Game Pass build and load a career.
+2. Leave Atlas open; the three-second monitor detects the exact process/build/save-load generation and starts read-only indexing automatically.
+3. Watch the player/staff/club progress text. The scan is limited to two minutes and can be cancelled from the toolbar.
+4. Use My Manager / My Club and the Players / Staff directories after the scan commits.
+5. Use the optional offline save reader only for extra history, match/season statistics, contracts and data not exposed by the live identity scan.
+6. Keep live Apply/Undo disabled; all live field values remain provisional pending in-game UI witnesses.
 
 ## Verification still required
 
