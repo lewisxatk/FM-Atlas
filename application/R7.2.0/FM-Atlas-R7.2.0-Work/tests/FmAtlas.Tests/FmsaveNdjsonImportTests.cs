@@ -449,6 +449,30 @@ public sealed class FmsaveNdjsonImportTests
         Assert.True(timer.Elapsed < TimeSpan.FromSeconds(30), $"Indexed 5,000-player search took {timer.Elapsed.TotalSeconds:0.00}s.");
     }
 
+
+    [Fact]
+    public async Task PerformanceValueAnalysisUsesSourceMetricMinutesAndValuePercentiles()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "performance-value", playerManifestCount: 1, includeContractRow: false, includeSeasonStatsRow: true);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        var results = await database.GetPerformanceValueCandidatesAsync("goals", per90: true, minimumMinutes: 450);
+
+        Assert.Single(results);
+        Assert.Equal("FMSAVE:FM27:test-db:1001", results[0].Player.SourceId);
+        Assert.Equal(1d, results[0].PerformanceValue, 5);
+        Assert.Equal(900d, results[0].TotalMinutes);
+        Assert.Equal(1, results[0].SampleSize);
+        Assert.Equal(50d, results[0].PerformancePercentile);
+        Assert.Equal(50d, results[0].ValuePercentile);
+        Assert.Equal(0d, results[0].ValueGap);
+        Assert.Equal(100d, results[0].DataCoverage);
+    }
+
     private static string CreateBundle(
         string root,
         string name,

@@ -2561,6 +2561,173 @@ public sealed class ScoutDatabase
         return results.OrderByDescending(x => x.ValueIndex).ThenByDescending(x => x.PotentialUpside).ThenBy(x => x.Player.Value).Take(Math.Clamp(limit, 1, 5000)).ToList();
     }
 
+
+    public async Task<List<PerformanceValueCandidate>> GetPerformanceValueCandidatesAsync(
+        string metricKey,
+        bool per90,
+        int minimumMinutes = 450,
+        int limit = 2500,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(metricKey))
+            throw new ArgumentException("Choose a discovered statistical metric.", nameof(metricKey));
+        var catalog = await GetSeasonMetricCatalogAsync().ConfigureAwait(false);
+        var metric = catalog.FirstOrDefault(x => x.Key.Equals(metricKey, StringComparison.OrdinalIgnoreCase));
+        if (metric is null) throw new ArgumentException("The selected metric is not present in the imported metric catalogue.", nameof(metricKey));
+        if (per90 && !metric.SupportsPer90)
+            throw new ArgumentException($"{metric.DisplayName} is already a rate, percentage, rating or playing-time field and cannot be normalised per 90 again.", nameof(per90));
+
+        var safeMinutes = Math.Clamp(minimumMinutes, 1, 10000);
+        var safeLimit = Math.Clamp(limit, 1, 5000);
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        var snapshotCommand = db.CreateCommand();
+        snapshotCommand.CommandText = "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;";
+        var snapshotValue = await snapshotCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        if (snapshotValue is null || snapshotValue == DBNull.Value) return new();
+        var snapshotId = Convert.ToInt32(snapshotValue, System.Globalization.CultureInfo.InvariantCulture);
+
+        var command = db.CreateCommand();
+        command.Parameters.AddWithValue("$snapshot", snapshotId);
+        command.Parameters.AddWithValue("$metric", metricKey);
+        command.Parameters.AddWithValue("$minimumMinutes", safeMinutes);
+        command.CommandText = """
+            WITH source_priority AS (
+                SELECT ps.PlayerSourceId,
+                       MIN(CASE f.TableName
+                           WHEN 'player_season_stats' THEN 0
+                           WHEN 'player_season_history' THEN 1
+                           WHEN 'player_match_stats' THEN 2
+                           ELSE 9 END) AS Priority
+                FROM FmsaveStatFacts f
+                INNER JOIN FmsavePlayerSnapshots ps
+                    ON ps.SnapshotId=f.SnapshotId AND ps.PlayerUid=f.PlayerUid
+                WHERE f.SnapshotId=$snapshot
+                  AND f.FieldKey COLLATE NOCASE=$metric
+                  AND f.TableName IN ('player_season_stats','player_season_history','player_match_stats')
+                GROUP BY ps.PlayerSourceId
+            ),
+            metric_rows AS (
+                SELECT ps.PlayerSourceId,f.TableName,f.RowIndex,f.PeriodKey,
+                       MAX(f.Minutes) AS Minutes,MAX(f.NumericValue) AS MetricValue
+                FROM FmsaveStatFacts f
+                INNER JOIN FmsavePlayerSnapshots ps
+                    ON ps.SnapshotId=f.SnapshotId AND ps.PlayerUid=f.PlayerUid
+                WHERE f.SnapshotId=$snapshot
+                  AND f.FieldKey COLLATE NOCASE=$metric
+                  AND f.TableName IN ('player_season_stats','player_season_history','player_match_stats')
+                  AND f.Minutes IS NOT NULL AND f.Minutes>0
+                GROUP BY ps.PlayerSourceId,f.TableName,f.RowIndex,f.PeriodKey
+            ),
+            preferred_rows AS (
+                SELECT r.*
+                FROM metric_rows r
+                INNER JOIN source_priority p ON p.PlayerSourceId=r.PlayerSourceId
+                WHERE CASE r.TableName
+                    WHEN 'player_season_stats' THEN 0
+                    WHEN 'player_season_history' THEN 1
+                    WHEN 'player_match_stats' THEN 2
+                    ELSE 9 END = p.Priority
+            ),
+            aggregated AS (
+                SELECT PlayerSourceId,SUM(MetricValue) AS MetricTotal,
+                       SUM(Minutes) AS TotalMinutes,AVG(MetricValue) AS AverageMetric,
+                       COUNT(*) AS SampleSize,MAX(PeriodKey) AS LatestPeriod
+                FROM preferred_rows
+                GROUP BY PlayerSourceId
+                HAVING SUM(Minutes)>=$minimumMinutes
+            )
+            SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,
+                   p.CurrentAbility,p.PotentialAbility,p.Value,p.DataOrigin,
+                   a.MetricTotal,a.TotalMinutes,a.AverageMetric,a.SampleSize,a.LatestPeriod
+            FROM aggregated a
+            INNER JOIN Players p ON p.SourceId=a.PlayerSourceId
+            WHERE p.Value IS NOT NULL AND p.Value>0
+            ORDER BY p.Name COLLATE NOCASE
+            LIMIT $limit;
+            """;
+        command.Parameters.AddWithValue("$limit", safeLimit);
+
+        var raw = new List<(PlayerRecord Player, double Performance, double Minutes, int SampleSize, string Period)>();
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var minutes = reader.GetDouble(12);
+                var totalMetric = reader.GetDouble(11);
+                var averageMetric = reader.GetDouble(13);
+                var performance = per90 ? totalMetric * 90d / minutes : averageMetric;
+                if (!double.IsFinite(performance)) continue;
+                raw.Add((
+                    new PlayerRecord
+                    {
+                        SourceId = reader.GetString(0), Name = reader.GetString(1),
+                        Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                        Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        League = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                        PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                        Value = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetValue(9), System.Globalization.CultureInfo.InvariantCulture),
+                        DataOrigin = reader.IsDBNull(10) ? "Unknown" : reader.GetString(10)
+                    },
+                    performance, minutes, reader.GetInt32(14),
+                    reader.IsDBNull(15) ? "Period unavailable" : reader.GetString(15)));
+            }
+        }
+        if (raw.Count == 0) return new();
+
+        static Dictionary<string, double> Percentiles<T>(
+            IReadOnlyList<T> items, Func<T, double> value, Func<T, string> id)
+        {
+            var sorted = items.OrderBy(value).ToList();
+            var output = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            if (sorted.Count == 1) { output[id(sorted[0])] = 50; return output; }
+            var start = 0;
+            while (start < sorted.Count)
+            {
+                var score = value(sorted[start]);
+                var end = start + 1;
+                while (end < sorted.Count && Math.Abs(value(sorted[end]) - score) < 0.0000001) end++;
+                var rank = (start + end - 1) / 2d;
+                var percentile = rank * 100d / (sorted.Count - 1);
+                for (var i = start; i < end; i++) output[id(sorted[i])] = percentile;
+                start = end;
+            }
+            return output;
+        }
+
+        var performancePercentiles = Percentiles(raw, x => x.Performance, x => x.Player.SourceId);
+        var valuePercentiles = Percentiles(raw, x => (double)x.Player.Value!.Value, x => x.Player.SourceId);
+        var poolCommand = db.CreateCommand();
+        poolCommand.Parameters.AddWithValue("$snapshot", snapshotId);
+        poolCommand.CommandText = """
+            SELECT COUNT(DISTINCT p.SourceId)
+            FROM Players p
+            INNER JOIN FmsavePlayerSnapshots s ON s.SnapshotId=$snapshot AND s.PlayerSourceId=p.SourceId
+            WHERE p.Value IS NOT NULL AND p.Value>0;
+            """;
+        var valuePool = Convert.ToInt32(await poolCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+        var dataCoverage = valuePool <= 0 ? 0 : raw.Count * 100d / valuePool;
+
+        return raw.Select(x =>
+        {
+            var performancePercentile = performancePercentiles[x.Player.SourceId];
+            var valuePercentile = valuePercentiles[x.Player.SourceId];
+            return new PerformanceValueCandidate(
+                x.Player, metric.Key, metric.DisplayName, x.Performance, per90, x.Minutes,
+                x.SampleSize, x.Period, performancePercentile, valuePercentile,
+                performancePercentile - valuePercentile, dataCoverage);
+        })
+        .OrderByDescending(x => x.ValueGap)
+        .ThenByDescending(x => x.PerformancePercentile)
+        .ThenBy(x => x.Player.Name, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    }
+
     public async Task<List<AdvancedSearchField>> GetAdvancedPlayerSearchFieldsAsync()
     {
         await using var db = new SqliteConnection(_connectionString);

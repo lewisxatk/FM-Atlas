@@ -59,7 +59,9 @@ public partial class MainWindow
         var resetButton = SoftButton("Reset", (_, _) => { filterRows.Clear(); filterPanel.Children.Clear(); AddFilterRow(); status.Text = "Conditions cleared."; });
         var exportButton = SoftButton("Export CSV", (_, _) => ExportResults());
         importViewButton = SoftButton("Import FM View CSV", async (_, _) => await ImportViewCsvAsync());
-        options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton);
+        var performanceValueButton = SoftButton("Performance vs Value", async (_, _) =>
+            await PerformanceValueAnalysisWindow.ShowAsync(this, _database, metricFields));
+        options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton); options.Children.Add(performanceValueButton);
         controlStack.Children.Add(options);
         controlStack.Children.Add(Txt("CONDITIONS · CHOOSE WHETHER ALL OR ANY CONDITION MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
         controlStack.Children.Add(Txt("The catalogue combines every numeric metric found in the latest imported save plus any FM View Exporter CSV you import. To capture more columns, add them to an in-game player view before exporting; FM's own view export has a practical column ceiling.", 9, false, Muted, wrap: true));
