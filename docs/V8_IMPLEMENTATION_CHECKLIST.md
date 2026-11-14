@@ -115,7 +115,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 7. Recruitment, Moneyball and analytics
 
-- [x] Indexed statistic search evaluates ALL/ANY thresholds and per-90/minutes filters in SQLite, groups qualifying player-period rows server-side, uses a dedicated composite search index and resolves only candidate player identities.
+- [x] Indexed statistic search evaluates ALL/ANY thresholds with per-condition aggregation inside SQLite, applies per-90/minutes filters before materialisation, groups qualifying player-period rows server-side, uses a dedicated composite search index and resolves only candidate player identities.
 - [ ] Verify indexed metric-search correctness against a real imported FM27 career and benchmark query latency on large stat tables.
 - [ ] Benchmark metric search, import throughput and peak memory using 40k+ player / large-stat fixtures.
 
@@ -179,7 +179,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
-| 2026-11-14 | Indexed metric-search pushdown | Pending CI | Added SQLite-side ALL/ANY and per-90 filtering, candidate-row grouping, a composite fact-search index, lazy player identity resolution and an import/search regression fixture. Verification remains pending. |
+| 2026-11-14 | Indexed metric-search pushdown | Pending CI | Added SQLite-side ALL/ANY evaluation using aggregated per-condition predicates, per-90/minutes filtering, candidate-row grouping, a composite fact-search index, lazy player identity resolution and an import/search regression fixture. Verification remains pending. |
 | 2026-11-14 | Atlas Liquid top toolbar, collapsible navigation, theme cycling, tooltips and responsive navigation | `2ccbbcc5`, `1447e6f7`, `5c1090b0` | Initial shell and deferred profile restoration committed; keyboard/tooltips/DPI acceptance not yet verified. |
 | 2026-11-14 | Blue accent mapping and system-aware workspace transition | `846b98af`, `2fc2e2e0` | Removed legacy lime accent mapping in favour of the Atlas Liquid blue palette; transition respects Windows client-area animation preference. |
 | 2026-11-14 | Dedicated Advanced Search hub | `6ba78cc0`, `1a3c10a4`, `96698d09`, `af414246` | New workspace links to existing player, attribute/personality, statistical and global search tools. It is not yet the universal AND/OR filter builder. |

@@ -2324,8 +2324,11 @@ public sealed class ScoutDatabase
                 criterionPredicates.Add("(FieldKey COLLATE NOCASE = " + keyName + " AND " + string.Join(" AND ", bounds) + ")");
             }
 
+            // Each metric predicate must be aggregated within its player-period group.
+            // MAX preserves a single 0/1 result per criterion, avoiding SQLite's bare-column
+            // HAVING behaviour on rows containing multiple different FieldKey values.
             var matchedCountExpression = string.Join(" + ",
-                criterionPredicates.Select(predicate => "CASE WHEN " + predicate + " THEN 1 ELSE 0 END"));
+                criterionPredicates.Select(predicate => "MAX(CASE WHEN " + predicate + " THEN 1 ELSE 0 END)"));
             indexedRows.Parameters.AddWithValue("$s", snapshotId!.Value);
             indexedRows.Parameters.AddWithValue("$requiredMatches", matchAll ? criteria.Count : 1);
             if (per90) indexedRows.Parameters.AddWithValue("$minimumMinutes", minMinutes);
