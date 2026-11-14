@@ -146,6 +146,92 @@ public sealed class ScoutDatabaseAttributeSearchIntegrationTests
     }
 
     [TestMethod]
+    public async Task SearchPlayerAttributeCriteriaAsync_HandlesFortyThousandPlayerDataset()
+    {
+        const int playerCount = 40_286;
+        const int targetIndex = 27_419;
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.AttributeScale-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+
+        try
+        {
+            var database = new ScoutDatabase(databasePath, pooling: false);
+            await database.InitialiseAsync();
+
+            await using (var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder { DataSource = databasePath, Pooling = false }.ToString()))
+            {
+                await connection.OpenAsync();
+                using var transaction = connection.BeginTransaction();
+
+                var player = connection.CreateCommand();
+                player.Transaction = transaction;
+                player.CommandText = """
+                    INSERT INTO Players(SourceId,Name,Age,Club,Position,DataOrigin,UpdatedUtc)
+                    VALUES($source,$name,22,'Scale Test FC','ST','Synthetic scale fixture','2026-11-14T00:00:00Z');
+                    """;
+                player.Parameters.Add("$source", SqliteType.Text);
+                player.Parameters.Add("$name", SqliteType.Text);
+                player.Prepare();
+
+                var attribute = connection.CreateCommand();
+                attribute.Transaction = transaction;
+                attribute.CommandText = """
+                    INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc)
+                    VALUES($source,$name,'Technical',$value,'2026-11-14T00:00:00Z');
+                    """;
+                attribute.Parameters.Add("$source", SqliteType.Text);
+                attribute.Parameters.Add("$name", SqliteType.Text);
+                attribute.Parameters.Add("$value", SqliteType.Real);
+                attribute.Prepare();
+
+                for (var i = 0; i < playerCount; i++)
+                {
+                    var sourceId = "LOCAL:SCALE:" + i.ToString("D5", System.Globalization.CultureInfo.InvariantCulture);
+                    player.Parameters["$source"].Value = sourceId;
+                    player.Parameters["$name"].Value = "Scale Player " + i.ToString("D5", System.Globalization.CultureInfo.InvariantCulture);
+                    await player.ExecuteNonQueryAsync();
+
+                    foreach (var metric in new[] { ("Finishing", 10d), ("Heading", 10d), ("Passing", 10d) })
+                    {
+                        attribute.Parameters["$source"].Value = sourceId;
+                        attribute.Parameters["$name"].Value = metric.Item1;
+                        attribute.Parameters["$value"].Value = i == targetIndex
+                            ? metric.Item1 switch
+                            {
+                                "Finishing" => 18d,
+                                "Heading" => 18d,
+                                _ => 17d
+                            }
+                            : metric.Item2;
+                        await attribute.ExecuteNonQueryAsync();
+                    }
+                }
+
+                transaction.Commit();
+            }
+
+            var criteria = new[]
+            {
+                new AttributeSearchCriterion("Finishing", "Finishing", 17, null),
+                new AttributeSearchCriterion("Heading", "Heading", 17, null),
+                new AttributeSearchCriterion("Passing", "Passing", 16, null)
+            };
+            var matches = await database.SearchPlayerAttributeCriteriaAsync(null, criteria, limit: 100);
+
+            CollectionAssert.AreEqual(
+                new[] { "LOCAL:SCALE:" + targetIndex.ToString("D5", System.Globalization.CultureInfo.InvariantCulture) },
+                matches.Select(x => x.SourceId).ToArray());
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public async Task GetPlayerAttributeMapsAsync_BatchesRequestedPlayersAndKeepsCategoryLabels()
     {
         var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.AttributeMaps-" + Guid.NewGuid().ToString("N"));
