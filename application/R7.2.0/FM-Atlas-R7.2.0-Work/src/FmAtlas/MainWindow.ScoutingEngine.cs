@@ -60,11 +60,16 @@ public partial class MainWindow
         var competition = new ComboBox { Width = 180, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Competition cohort" };
         var season = new ComboBox { Width = 140, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Season cohort" };
         var position = new ComboBox { Width = 130, Height = 34, Margin = new Thickness(3), ItemsSource = new[] { "All positions", "Goalkeeper", "Defender", "Midfielder", "Attacker" }, SelectedIndex = 0 };
+        var roleProfile = new ComboBox { Width = 190, Height = 34, Margin = new Thickness(3), IsTextSearchEnabled = true };
+        roleProfile.Items.Add("All roles");
+        foreach (var profile in ScoutingRecruitmentService.RoleProfiles) roleProfile.Items.Add(profile);
+        roleProfile.SelectedIndex = 0;
         var metric = new ComboBox { Width = 270, Height = 34, Margin = new Thickness(3), IsTextSearchEnabled = true };
         var minimumMinutes = Input("Min minutes"); minimumMinutes.Text = "450"; minimumMinutes.Width = 95;
         var maxValue = Input("Max market value"); maxValue.Width = 125;
         var minAge = Input("Min age"); minAge.Text = "16"; minAge.Width = 75;
         var maxAge = Input("Max age"); maxAge.Text = "34"; maxAge.Width = 75;
+        filters.Children.Add(FilterControl("ROLE PROFILE", roleProfile, 200));
         filters.Children.Add(FilterControl("COMPETITION", competition, 190));
         filters.Children.Add(FilterControl("SEASON", season, 150));
         filters.Children.Add(FilterControl("POSITION GROUP", position, 140));
@@ -146,7 +151,8 @@ public partial class MainWindow
         {
             var comp = competition.Text.Trim();
             var sea = season.Text.Trim();
-            var pos = position.SelectedItem?.ToString();
+            var selectedRole = roleProfile.SelectedItem as ScoutingRoleProfile;
+            var pos = selectedRole?.PositionGroup ?? position.SelectedItem?.ToString();
             return (comp.Equals("All competitions", StringComparison.OrdinalIgnoreCase) || comp.Length == 0 ? null : comp,
                 sea.Equals("All seasons", StringComparison.OrdinalIgnoreCase) || sea.Length == 0 ? null : sea,
                 pos == "All positions" ? null : pos);
@@ -350,6 +356,15 @@ public partial class MainWindow
             status.Text = $"Exported {results.Count:N0} scouting results.";
         }
 
+        roleProfile.SelectionChanged += (_, _) =>
+        {
+            if (roleProfile.SelectedItem is not ScoutingRoleProfile selectedRole) return;
+            position.SelectedItem = selectedRole.PositionGroup;
+            var preferred = selectedRole.PreferredMetricKeys
+                .Select(key => metric.Items.Cast<MetricChoice>().FirstOrDefault(x => x.Definition.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
+                .FirstOrDefault(x => x is not null);
+            if (preferred is not null) metric.SelectedItem = preferred;
+        };
         RefreshChoices();
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
