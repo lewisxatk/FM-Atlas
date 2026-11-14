@@ -90,9 +90,9 @@ Implementation and verification are tracked separately. A feature can be impleme
 ## 5. Player discovery and advanced search
 
 - [~] Existing player results are indexed/paged in source; cancellation and full stable sorting still require validation and implementation.
-- [~] Added a dedicated Advanced Search hub routing to the current player, attribute/personality, performance-stat and Global Search tools; the full filter-builder workspace is still outstanding.
-- [ ] Add filter library: General, Contract, Technical, Mental, Physical, Hidden, Position, Performance and Source/Coverage.
-- [~] AND/OR match logic is implemented in the existing attribute/personality and performance-stat builders; a single mixed-category universal query, arbitrary core/contract filters and nested AND/OR groups remain outstanding.
+- [x] Add a unified Advanced Search workspace combining core player fields, dynamically discovered PlayerAttributes and latest-save facts in one field/category builder.
+- [~] Add a dynamic category and field library for core fields, contract facts, attributes/personality, positions, traits, state, reputation and raw attributes. Performance metrics remain in the dedicated per-period search workspace; source coverage display and additional categories are still open.
+- [x] Universal player search supports up to 60 mixed core/attribute/save-fact conditions with ALL/AND or ANY/OR matching. Specialist performance search remains separate because its criteria are scoped to player-period rows.
 - [ ] Add saved searches/profiles, saved column sets, presets and reset-to-default.
 - [ ] Add configurable columns, multi-sort, paging, multi-select, comparison and shortlist actions.
 - [ ] Support all 15 FM positions and validated five-level suitability display.
@@ -185,6 +185,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Cancellable career snapshot indexing | `1ed64ed2` | Cancellation is checked during player, staff, club and additional-table indexing; progress is reported and cancellation before commit rolls back the active transaction. |
 | 2026-11-14 | Cancellable save-import UI and elapsed time | `005af6a0`, `f0701bb1` | Added a toolbar Cancel action, visible import status, elapsed time and a clear message that the previous committed snapshot is retained. |
 | 2026-11-14 | Reduce duplicate JSON array allocations | `26104ba3` | Player, staff and club arrays are now lazily enumerated from JsonDocument rather than being copied into duplicate arrays and Lists. Full envelope memory is still materialised; true bounded streaming remains open. |
-| 2026-11-14 | AND/OR logic for specialist search engines | `e9fae94d`, `590d205a` | Attribute/personality and performance-stat search can now match ALL (AND) or ANY (OR) conditions. A single cross-category query builder remains open. |
+| 2026-11-14 | AND/OR logic for specialist search engines | `e9fae94d`, `590d205a` | Attribute/personality and performance-stat search can now match ALL (AND) or ANY (OR) conditions. A single cross-category query builder remained open at that point. |
+| 2026-11-14 | Universal Advanced Search models and database query | `7b79c568`, `f6ea031f` | Added field/criterion models, live field catalog discovery and a parameterized query joining core player fields, PlayerAttributes and latest-save FmsavePlayerFacts with AND/OR semantics. |
+| 2026-11-14 | Universal Advanced Search interface | `49f29f89`, `aa9e9843`, `a33de936` | Replaced the navigation-only search hub with a category/field condition builder, value inputs by field type, 60-condition limit, ALL/ANY logic, paged cap, results grid and profile open on double-click. Build verification pending. |
 | 2026-11-14 | First Windows Release compile and fixes | `80b4160d`, `b35432d8` | First attempt exposed 7 errors (four event-handler signatures, three WPF/System.IO Path ambiguities). Fixed callback signatures and added an explicit System.IO.Path alias. |
 | 2026-11-14 | Successful Windows x64 Release build and package | GitHub Actions run [#79](https://github.com/lewisxatk/FM-Atlas/actions/runs/43534383967), commit `18d32e2d` | .NET 8 setup, solution restore, Release compilation, self-contained win-x64 publish and artifact upload all passed. Product ZIP SHA-256: `4a16f815150e41855b2b1d5dba884c6878ac5a69f44b8ae44ebea8570b2798e2`. This is a compile/package checkpoint only; Windows runtime and FM acceptance remain open. |
