@@ -29,6 +29,7 @@
 
 - First hosted Windows Release attempt found seven compile errors: four Advanced Search `RoutedEventHandler` callback signatures and three ambiguous `Path` references caused by the WPF Shapes import. The event handlers and explicit `System.IO.Path` alias were fixed in `80b4160d` and `b35432d8`.
 - **Successful run #79:** https://github.com/lewisxatk/FM-Atlas/actions/runs/43534383967 — .NET 8 install, solution restore, Release compilation, self-contained Windows x64 publish and artifact upload all passed for commit `18d32e2d5fbe0f1549da6d9d55391414e0b05bdf`.
+- **Advanced Search compile run #101:** https://github.com/lewisxatk/FM-Atlas/actions/runs/43535280229 — the newer source revision `37380294103c2609fa376e24c0fa3be9d50932ac` passed .NET 8 restore and Release compilation with the unified search UI and DB query. Its publish step was cancelled by a later workflow run; no artifact is claimed for that revision.
 - Artifact: `FM-Atlas-V8-win-x64` (GitHub Actions artifact ID `14088498868`, 68,725,071 bytes including the artifact wrapper). The extracted product ZIP contains `FmAtlas.exe` (x64 PE), `tools/Export-FMAtlas-Fmsave.py`, `Setup-FMAtlas-Save-Bridge.ps1`, and a PDB. Product ZIP SHA-256: `4a16f815150e41855b2b1d5dba884c6878ac5a69f44b8ae44ebea8570b2798e2`.
 - This verifies compile and package only. Startup, visual layout, import, runtime database behaviour and FM performance have not been tested on a real Windows PC; V8 is not release-ready yet.
 
