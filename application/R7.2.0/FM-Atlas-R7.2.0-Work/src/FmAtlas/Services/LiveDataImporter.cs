@@ -23,7 +23,9 @@ public sealed record LivePlayerRecord(
     int? AskingPrice = null,
     int? InternationalCaps = null, int? InternationalGoals = null,
     int? U21Caps = null, int? U21Goals = null,
-    int? LeftFoot = null, int? RightFoot = null);
+    int? LeftFoot = null, int? RightFoot = null,
+    IReadOnlyDictionary<string, double>? ContractFacts = null,
+    IReadOnlyDictionary<string, double>? TraitFlags = null);
 public sealed record LiveStaffRecord(
     uint Uid, string Name, int ArrayIndex, ulong Address, bool IsHumanManager,
     DateTime? DateOfBirth, int? Age, string? NationName, uint? NationUid,
@@ -267,11 +269,51 @@ public static class LiveDataImporter
                         int? leftFoot = inline[0x177] is >= 1 and <= 20 ? inline[0x177] : null;
                         int? rightFoot = inline[0x178] is >= 1 and <= 20 ? inline[0x178] : null;
 
+                        var traitFlags = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                        for (var trait = 0; trait < 64; trait++)
+                            traitFlags["trait." + trait] = (inline[0x348 + playerShift + trait / 8] & (1 << (trait % 8))) != 0 ? 1 : 0;
+
+                        var contractFacts = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                        try
+                        {
+                            var contractPointer = BitConverter.ToUInt64(inline, 0x330 + playerShift);
+                            if (Pointer(contractPointer))
+                            {
+                                var contractOwner = U64(handle, contractPointer + 0x08);
+                                if (contractOwner == address + (ulong)(0x288 + playerShift))
+                                {
+                                    var contractBytes = Read(handle, (nint)contractPointer, 0xC8);
+                                    var wage = BitConverter.ToInt32(contractBytes, 0x20);
+                                    var loyalty = BitConverter.ToInt32(contractBytes, 0x38);
+                                    if (wage is >= 0 and <= 10_000_000) contractFacts["contract.wage"] = wage;
+                                    if (loyalty is >= 0 and <= 10_000_000) contractFacts["contract.loyalty_bonus"] = loyalty;
+                                    var happiness = unchecked((sbyte)contractBytes[0x5A]);
+                                    var playingTime = unchecked((sbyte)contractBytes[0x5C]);
+                                    if (happiness is >= -100 and <= 100) contractFacts["contract.happiness"] = happiness;
+                                    if (playingTime is >= -100 and <= 100) contractFacts["contract.playing_time_happiness"] = playingTime;
+                                    var squadNumber = contractBytes[0x5D];
+                                    if (squadNumber is >= 1 and <= 99 or 255) contractFacts["contract.squad_number"] = squadNumber;
+                                    var squadStatus = contractBytes[0x54];
+                                    if (squadStatus is >= 1 and <= 40) contractFacts["contract.squad_status"] = squadStatus;
+                                    contractFacts["contract.transfer_listed"] = (contractBytes[0x57] & 0x01) != 0 ? 1 : 0;
+                                    contractFacts["contract.loan_listed"] = (contractBytes[0x57] & 0x02) != 0 ? 1 : 0;
+                                    foreach (var (key, offset) in new[] { ("contract.signed", 0x44), ("contract.expires", 0x48), ("contract.joined", 0x4C) })
+                                    {
+                                        var date = TryReadDate(contractBytes, offset);
+                                        if (date.HasValue) contractFacts[key] = date.Value.Year * 10000 + date.Value.Month * 100 + date.Value.Day;
+                                        else if (contractBytes.Skip(offset).Take(4).All(x => x == 0)) contractFacts[key] = 0;
+                                    }
+                                }
+                            }
+                        }
+                        catch { /* Contract details are optional; a malformed contract never invalidates the player identity. */ }
+
                         players.Add(new LivePlayerRecord(uid, name, teamAddress, clubUid, i, address, true, relationshipVerified,
                             dob, "Unknown", "No independently verified FM27 generated-player flag is currently mapped.",
                             ca, pa, attributes, personality, positions, nationName, nationUid,
                             heightCm, condition, sharpness, jadedness, morale, homeRep, currentRep, worldRep,
-                            askingPrice, internationalCaps, internationalGoals, u21Caps, u21Goals, leftFoot, rightFoot));
+                            askingPrice, internationalCaps, internationalGoals, u21Caps, u21Goals, leftFoot, rightFoot,
+                            contractFacts, traitFlags));
                     }
                     catch (OperationCanceledException) { throw; }
                     catch { unnamed++; }
