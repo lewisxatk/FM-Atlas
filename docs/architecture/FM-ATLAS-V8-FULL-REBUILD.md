@@ -1,6 +1,6 @@
 # FM Atlas v8 — Full Product Rebuild
 
-Status: approved development direction; implementation work required.
+Status: integrated V8 source milestone in progress; Windows build and runtime validation are still required.
 Base: r7.2.0 release-integration branch. Target: Windows desktop, FM27 first; preserve FM26 where evidence supports it.
 
 ## Non-negotiable direction
@@ -138,6 +138,20 @@ All three modes share layout, component behaviour, iconography, spacing, typogra
 - Data Lab/Diagnostics: transparent job progress, stages, logs, source coverage and actionable errors.
 
 The top toolbar, hover tooltips and side navigation are mandatory shell features and must be included in the first clickable shell prototype, not postponed to polish.
+
+## Initial V8 implementation completed in source
+
+The first integrated V8 source pass has now:
+- Replaced the old shell header with a glass-style toolbar of icon actions and explanatory hover tooltips.
+- Rebuilt the side rail into grouped, collapsible workspace navigation with active-state styling and destination descriptions on hover.
+- Added persisted Glass Dark, Glass Light and Studio appearance selection.
+- Added hover, pressed and disabled feedback to shared rounded button templates.
+- Kept navigation controls enabled during workspace construction and retained the latest requested destination for the next navigation.
+- Moved restoration of previously opened player profiles off the initial Players workspace construction path.
+- Blocked the old full live-memory scan and live Apply write actions through application-level V8 safety gates.
+- Versioned the desktop project metadata as 8.0.0 and added a Windows Release build/publish workflow.
+
+These are source changes, not a claim that a Windows build, UI render or Football Manager test has passed. The V8 code still uses the legacy large MainWindow code-behind and the existing save bridge; the deeper service/MVVM migration and streaming import redesign remain outstanding. See `FM-ATLAS-V8-IMPLEMENTATION-STATUS.md`.
 
 ## Performance and architecture requirements
 
