@@ -348,8 +348,8 @@ def main() -> int:
         "players", "contracts", "suspensions", "staff", "staff_lists",
         "clubs", "managed_clubs", "finances", "sponsorships", "facilities",
         "stadiums", "affiliates", "job_vacancies", "stages", "competitions",
-        "fixtures", "league_tables", "competition_rules", "transfer_windows",
-        "player_match_stats", "player_season_stats", "player_season_history",
+        "fixtures", "league_tables", "competition_rules", "transfer_windows", "officials",
+        "player_match_stats", "team_match_stats", "player_season_stats", "player_season_history", "squad_planner",
         "nations", "injury_types", "injuries", "training", "mentoring",
         "tactics", "set_pieces", "selections"
     ]
