@@ -224,8 +224,9 @@ public partial class MainWindow
             var cohort = SelectedCohort();
             var def = choice.Definition with { MinimumSampleMinutes = Math.Max(450, choice.Definition.MinimumSampleMinutes) };
             var sourceRows = allRows.Where(p => cohort.Source is null || p.SourceName == cohort.Source).ToList();
-            var found = ScoutingRecruitmentService.FindUndervalued(sourceRows, def, cohort.Competition, cohort.Season,
-                cohort.Position, limit, Math.Max(450, int.TryParse(minimumMinutes.Text, out var floor) ? floor : 450), 5, lowAge, highAge);
+            var found = sourceRows.GroupBy(p => p.SourceName).SelectMany(group =>
+                ScoutingRecruitmentService.FindUndervalued(group, def, cohort.Competition, cohort.Season,
+                    cohort.Position, limit, Math.Max(450, int.TryParse(minimumMinutes.Text, out var floor) ? floor : 450), 5, lowAge, highAge)).ToList();
             results = found.Select(x => new ScoutingGridRow(x.Player.PlayerName, x.Player.Club ?? "—",
                 x.Player.PositionGroup ?? "—", x.Player.Competition ?? "—", x.Player.Season, x.Player.MinutesPlayed ?? 0,
                 x.CompositeScore, x.CompositeScore.ToString("0.0") + " / 100", x.PerformancePercentile,
