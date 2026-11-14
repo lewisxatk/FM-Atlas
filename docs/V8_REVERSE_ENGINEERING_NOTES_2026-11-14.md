@@ -306,3 +306,15 @@ The source and regression tests are committed, but a fresh Windows workflow must
 - Root cause was test cleanup, not the scouting SQL: the exception occurred in the `finally` block at `File.Delete(databasePath)`.
 - Corrected the test cleanup to call `SqliteConnection.ClearAllPools()` before deleting the temporary database and WAL/SHM files.
 - A fresh Windows workflow is required to verify this correction; the failed run is not a green build and no artifact was produced.
+
+
+### Final Windows verification — integrated Monolith Glass and scouting cohort milestone — 14 November 2026
+
+- Workflow: https://github.com/lewisxatk/FM-Atlas/actions/runs/43593364372
+- Verified source commit: `b45ca350ce4c05a07ab07434e0d3cc39c408f2fd`
+- Result: success. All 12 workflow steps passed: adapter validation, supported fmsave verification, streaming bundle tests, .NET restore, Release build, full xUnit suite, self-contained Windows x64 publish and artifact upload.
+- Full xUnit suite: 84 passed, 0 failed.
+- The new position-cohort integration test passed with isolated unpooled SQLite connections. It verifies the selected numeric FM position threshold excludes players below the threshold, returns the source rating, and leaves the rating absent when no position code is selected.
+- Artifact: `FM-Atlas-V8-win-x64`, ID `14112889881`, size 68,896,831 bytes; SHA-256 `39846fd69868c36fa557d1c859bba63f90ef32b863354e44ff293da55e2e019c`; expires 28 November 2026.
+- The previous 83/84 failure was resolved by using isolated unpooled SQLite connections in the new test; no global pool clearing remains.
+- Manual Windows DPI/visual acceptance, real FM27 in-game position witness comparison and actual user-PC acceptance remain open. The build passing does not prove the FM27 source values match the in-game player profile.
