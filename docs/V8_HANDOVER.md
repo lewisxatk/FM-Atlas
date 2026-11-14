@@ -239,3 +239,10 @@ FMRTE's current search documentation specifies the exact position semantics: ALL
 ### Verification boundary
 
 This batch is source-implemented and regression tests are added, but it is not yet Windows build-verified. Wait for the fresh workflow after the latest commits. Real FM27 SQL-result validation and Windows DPI/visual acceptance remain open. Live-memory ratings remain provisional until checked against the in-game Positions page.
+
+
+## Advanced Search position verification follow-up — 14 November 2026
+
+- Saved-profile loading now clears the transient field-library text filter before restoring criteria. This avoids an edge case where a saved field hidden by the active field search could otherwise resolve to the first visible field.
+- Added an SQLite integration test using real table contracts: FMSAVE snapshot position facts and live LivePlayerFacts are both seeded. The test asserts exact ALL, exact ANY and At Least ALL result sets across offline and live players.
+- This follow-up is later than workflow #43590420150 and its artifact. That green run verifies the feature implementation and model/profile tests, but the newly added SQL integration test and field-search restore safeguard need their own fresh Windows workflow before they are considered verified.
