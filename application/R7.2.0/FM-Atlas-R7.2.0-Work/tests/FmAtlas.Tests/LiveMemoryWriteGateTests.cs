@@ -6,7 +6,27 @@ namespace FmAtlas.Tests;
 public sealed class LiveMemoryWriteGateTests
 {
     [Fact]
-    public void LiveMemoryWritesAreDisabledInV10PreTestingBuild()
+    public void SafeModuleDiagnosticReportRedactsWitnessNamesAndAbsolutePaths()
+    {
+        var raw = "Manager witness 'Lewis Atkinson' MATCH; Player witness 'Bradley Barcola'; path=C:\\Users\\Lewis\\FM\\game_plugin.dll";
+        var safe = GameModuleDiagnostics.RedactForSupport(raw, includePersonalDetails: false);
+        Assert.DoesNotContain("Lewis Atkinson", safe, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Bradley Barcola", safe, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(@"C:\Users\Lewis", safe, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("[redacted manager]", safe);
+        Assert.Contains("[redacted player]", safe);
+        Assert.Contains("[path redacted]", safe);
+    }
+
+    [Fact]
+    public void ModuleDiagnosticPersonalDetailsAreIncludedOnlyAfterExplicitOptIn()
+    {
+        const string raw = "Lewis Atkinson · C:\\Users\\Lewis\\FM";
+        Assert.Equal(raw, GameModuleDiagnostics.RedactForSupport(raw, includePersonalDetails: true));
+    }
+
+    [Fact]
+    public void LegacyPlayerOnlyLiveMemoryWritesRemainDisabled()
         => Assert.False(LiveMemoryEditService.LiveWritesEnabled);
 
     [Theory]

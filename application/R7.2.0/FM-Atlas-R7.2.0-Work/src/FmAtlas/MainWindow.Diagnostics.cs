@@ -16,6 +16,8 @@ public partial class MainWindow
         var root = new Grid();
         StackPanel checkList = null!;
         TextBox logView = null!;
+        CheckBox sensitive = null!;
+        string moduleReport = "";
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 10));
@@ -36,6 +38,25 @@ public partial class MainWindow
         var checkStatus = Txt("Checks have not been run in this session.", 10, false, Muted, wrap: true); checkStatus.Margin = new Thickness(0, 6, 0, 8);
         checksTop.Children.Add(checkStatus);
         checksTop.Children.Add(PrimaryButton("Run quick checks", async (_, _) => await RunChecksAsync()));
+        checksTop.Children.Add(SoftButton("Run read-only FM module probe", async (_, _) =>
+        {
+            try
+            {
+                checkStatus.Text = "Inspecting FM process and game_plugin.dll read-only…";
+                System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+                moduleReport = await Task.Run(() => GameModuleDiagnostics.CreateReport());
+                logView.Text = GameModuleDiagnostics.RedactForSupport(moduleReport, sensitive.IsChecked == true);
+                checkStatus.Text = "Read-only module probe completed. No game memory was changed. Use Copy diagnostics or Export support ZIP to share it.";
+                AtlasLog.Info("Read-only FM module diagnostics completed.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Read-only FM module diagnostics failed.", ex);
+                checkStatus.Text = "Module probe failed: " + ex.GetType().Name + ". Export the support report and send it for investigation.";
+                MessageBox.Show(this, ex.Message, "FM Atlas · Module diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            finally { System.Windows.Input.Mouse.OverrideCursor = null; }
+        }));
         checksTop.Children.Add(SoftButton("Open application log folder", (_, _) => OpenLogFolder()));
         DockPanel.SetDock(checksTop, Dock.Top); checksDock.Children.Add(checksTop);
         checkList = new StackPanel();
@@ -48,14 +69,14 @@ public partial class MainWindow
         var reportTop = new StackPanel();
         reportTop.Children.Add(Txt("COPY & EXPORT", 9, true, Teal));
         reportTop.Children.Add(Txt("Support snapshot", 17, true, Ink));
-        var sensitive = new CheckBox { Content = "Include personal details (player names, save filename and local database path)", IsChecked = false, Margin = new Thickness(0, 10, 0, 10), Foreground = Ink, FontSize = 10 };
+        sensitive = new CheckBox { Content = "Include personal details (player names, save filename and local database path)", IsChecked = false, Margin = new Thickness(0, 10, 0, 10), Foreground = Ink, FontSize = 10 };
         reportTop.Children.Add(sensitive);
         reportTop.Children.Add(PrimaryButton("Copy safe diagnostics to clipboard", async (_, _) =>
         {
-            try { Clipboard.SetText(await CreateDiagnosticsReportAsync(sensitive.IsChecked == true)); checkStatus.Text = "Diagnostics copied. Paste them into your FM Atlas support chat."; }
+            try { Clipboard.SetText(await CreateDiagnosticsReportAsync(sensitive.IsChecked == true, GameModuleDiagnostics.RedactForSupport(moduleReport, sensitive.IsChecked == true))); checkStatus.Text = "Diagnostics copied. Paste them into your FM Atlas support chat."; }
             catch (Exception ex) { AtlasLog.Error("Copy diagnostics failed.", ex); MessageBox.Show(this, ex.Message, "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }));
-        reportTop.Children.Add(SoftButton("Export support ZIP", async (_, _) => await ExportSupportPackAsync(sensitive.IsChecked == true)));
+        reportTop.Children.Add(SoftButton("Export support ZIP", async (_, _) => await ExportSupportPackAsync(sensitive.IsChecked == true, GameModuleDiagnostics.RedactForSupport(moduleReport, sensitive.IsChecked == true))));
         reportTop.Children.Add(SoftButton("Copy recent application log", (_, _) =>
         {
             Clipboard.SetText(AtlasLog.ReadRecent()); checkStatus.Text = "Recent application log copied to clipboard.";
@@ -99,7 +120,11 @@ public partial class MainWindow
                 var available = await FmsaveBridgeService.IsAvailableAsync();
                 return (available, available ? "Python Launcher and fmsave are detected" : "Not detected · run Setup-FMAtlas-Save-Bridge.ps1 to enable save imports");
             });
-            await Add("Football Manager process", () => Task.FromResult((true, GameProcessDetector.Detect().Detail)));
+            await Add("Football Manager process", () =>
+            {
+                var status = GameProcessDetector.Detect();
+                return Task.FromResult((status.IsRunning && status.ModuleFound && status.MemoryReadVerified, status.Detail));
+            });
             await Add("Imported career snapshot", async () =>
             {
                 var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
@@ -111,12 +136,28 @@ public partial class MainWindow
                 try { var pid = LiveMemoryEditService.FindSupportedProcessId(); return Task.FromResult((true, $"Exact FM27 Windows module profile matched for process {pid}. This is a profile match, not a field-by-field write certification.")); }
                 catch (Exception ex) { return Task.FromResult((false, ex.Message)); }
             });
-            await Add("Live-memory write gate", () =>
+            await Add("Legacy player preview path", () =>
             {
-                var disabled = !LiveMemoryEditService.LiveWritesEnabled;
-                return Task.FromResult((disabled, disabled
-                    ? "DISABLED · V10 pre-testing is read-only; Apply/Undo are hard-blocked even when a supported FM27 process is detected."
-                    : "UNEXPECTED · live writes are enabled. Stop testing and report this build."));
+                var readOnly = !LiveMemoryEditService.LiveWritesEnabled;
+                return Task.FromResult((readOnly,
+                    readOnly
+                        ? "READ-ONLY · this legacy player-only preview cannot Apply or Undo. Use the separately guarded Live Editor profile panel."
+                        : "Unexpected legacy player writer state. Stop and report this build."));
+            });
+            await Add("Live editor session gate", () =>
+            {
+                var armed = LiveEntityMemoryEditService.LiveEditingEnabled;
+                return Task.FromResult((true, armed
+                    ? "ARMED · enabled for this Atlas session. Apply still requires fresh build, identity, career-session and read-back checks."
+                    : "OFF · live writes are disarmed. Enable explicitly in Editor Studio only when testing an offline backup career."));
+            });
+            await Add("Live scalar field catalogue", () =>
+            {
+                var players = LiveEntityMemoryEditService.GetEditableFields(LiveEntityMemoryEditService.EntityKind.Player).Count;
+                var staff = LiveEntityMemoryEditService.GetEditableFields(LiveEntityMemoryEditService.EntityKind.Staff).Count;
+                var clubs = LiveEntityMemoryEditService.GetEditableFields(LiveEntityMemoryEditService.EntityKind.Club).Count;
+                return Task.FromResult((players + staff + clubs > 0,
+                    $"Whitelisted fields loaded · players={players:N0} · staff={staff:N0} · clubs={clubs:N0}. Catalogue presence does not mean every FM field is writable."));
             });
             checkStatus.Text = $"Completed {checkList.Children.Count:N0} checks · review INFO/FAIL rows before sending the support ZIP.";
             logView.Text = AtlasLog.ReadRecent(12000);
@@ -142,7 +183,7 @@ public partial class MainWindow
         catch (Exception ex) { AtlasLog.Error("Could not open application log folder.", ex); MessageBox.Show(this, ex.Message, "Open logs", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
-    private async Task<string> CreateDiagnosticsReportAsync(bool includePersonal)
+    private async Task<string> CreateDiagnosticsReportAsync(bool includePersonal, string? moduleReport = null)
     {
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
         var tables = await RunDatabaseAsync(() => _database.GetFmsaveExtraTableCountsAsync());
@@ -154,7 +195,7 @@ public partial class MainWindow
         sb.AppendLine("FM ATLAS 27 — SUPPORT DIAGNOSTICS");
         sb.AppendLine("Report schema: 1 · Redacted by default");
         sb.AppendLine("Generated UTC: " + DateTime.UtcNow.ToString("O"));
-        sb.AppendLine("App version: 10.0.0 · FM Atlas V10");
+        sb.AppendLine("App version: " + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version + " · FM Atlas V11");
         sb.AppendLine("OS: " + Environment.OSVersion.VersionString + " · 64-bit OS: " + Environment.Is64BitOperatingSystem);
         sb.AppendLine("Runtime: " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
         sb.AppendLine("Process architecture: " + System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture);
@@ -183,7 +224,15 @@ public partial class MainWindow
         foreach (var table in tables) sb.AppendLine($"{table.TableName}: {table.RowCount:N0}");
         sb.AppendLine();
         sb.AppendLine("EDITOR SAFETY");
-        sb.AppendLine("V10 PRE-TESTING SAFETY GATE: live-memory Apply and Undo are hard-disabled at the service boundary. The live FM connection is read-only. A supported process/profile match is not a field-mapping or write-safety certification. Local Atlas database edits are separate from FM and must not be confused with live-game writes.");
+        sb.AppendLine("FM Atlas V11: the player/staff/club scalar editor has a separate session-only opt-in. It starts OFF and resets OFF when Atlas closes. Apply/Undo re-check the armed state, exact build profile, career generation, entity identity and staged bytes; every completed write is read back. The legacy player-preview path remains read-only.");
+        sb.AppendLine("Live editor session state: " + (LiveEntityMemoryEditService.LiveEditingEnabled ? "ARMED for this Atlas session" : "OFF"));
+        sb.AppendLine("Mapped fields are a conservative whitelist. Unsupported pointer/list edits, relationship graphs, ownership/debt structures and unverified fields remain unavailable rather than guessed.");
+        if (!string.IsNullOrWhiteSpace(moduleReport))
+        {
+            sb.AppendLine();
+            sb.AppendLine("LIVE MODULE DIAGNOSTICS (READ-ONLY)");
+            sb.AppendLine(moduleReport);
+        }
         if (includePersonal)
         {
             var history = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync(30));
@@ -194,11 +243,11 @@ public partial class MainWindow
         sb.AppendLine(AtlasLog.ReadRecent(30000));
         sb.AppendLine();
         sb.AppendLine("KNOWN LIMITS");
-        sb.AppendLine("The live importer is read-only and exposes provisional candidate fields that must be checked against the FM UI. Live-memory Apply/Undo are hard-disabled in this V10 pre-testing build. Hidden attributes, personality, position, staff, club, contracts, transfers and loans are not writable. Save-file statistics remain limited by fmsave/CSV source coverage and import validation.");
+        sb.AppendLine("The live editor exposes only its explicit field catalogue for a matched FM27 build. Not every game attribute or database field is writable. New mappings require independent witnesses, bounded reads, validation and disposable-save acceptance. Some in-game displays update only after the game advances; save inside FM to persist confirmed changes.");
         return sb.ToString();
     }
 
-    private async Task ExportSupportPackAsync(bool includePersonal)
+    private async Task ExportSupportPackAsync(bool includePersonal, string? moduleReport = null)
     {
         var dlg = new SaveFileDialog { Title = "Export FM Atlas support pack", FileName = "FM-Atlas-27-support-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".zip", Filter = "ZIP support pack (*.zip)|*.zip" };
         if (dlg.ShowDialog(this) != true) return;
@@ -209,11 +258,17 @@ public partial class MainWindow
             using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
             var reportEntry = archive.CreateEntry("support-report.txt", CompressionLevel.Optimal);
             await using (var writer = new StreamWriter(reportEntry.Open(), new UTF8Encoding(false))) await writer.WriteAsync(report);
+            if (!string.IsNullOrWhiteSpace(moduleReport))
+            {
+                var moduleEntry = archive.CreateEntry("live-module-diagnostics.txt", CompressionLevel.Optimal);
+                await using var moduleWriter = new StreamWriter(moduleEntry.Open(), new UTF8Encoding(false));
+                await moduleWriter.WriteAsync(moduleReport);
+            }
             var logEntry = archive.CreateEntry("recent-application-log.txt", CompressionLevel.Optimal);
             await using (var writer = new StreamWriter(logEntry.Open(), new UTF8Encoding(false))) await writer.WriteAsync(AtlasLog.ReadRecent(60000));
             var readme = archive.CreateEntry("README.txt", CompressionLevel.Optimal);
             await using (var writer = new StreamWriter(readme.Open(), new UTF8Encoding(false)))
-                await writer.WriteAsync("FM Atlas support bundle. Does not include the career save or the SQLite database. The report is redacted unless you opted into personal details in the export screen. Review files before sharing.\r\n");
+                await writer.WriteAsync("FM Atlas support bundle. Does not include the career save or the SQLite database. A live-module diagnostic is included only if you ran the read-only probe. Reports are redacted unless you opted into personal details in the export screen. Review files before sharing.\r\n");
             AtlasLog.Info("Support ZIP exported.");
             MessageBox.Show(this, "Support ZIP exported. It contains diagnostics and the recent application log, not your career save or Atlas database. Review it before sharing.", "FM Atlas support pack", MessageBoxButton.OK, MessageBoxImage.Information);
         }

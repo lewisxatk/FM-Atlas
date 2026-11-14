@@ -1,6 +1,6 @@
 # FM Atlas — FM27 Live Editor Test Plan
 
-Build acceptance for branch `feature/fm27-live-editor-activation`.
+Build acceptance for branch `feature/fm27-editor-diagnostics-v11` (V11 diagnostics update).
 
 ## Session opt-in and editor controls
 
@@ -14,12 +14,23 @@ Build acceptance for branch `feature/fm27-live-editor-activation`.
 
 - Workflow: https://github.com/lewisxatk/FM-Atlas/actions/runs/43637701548
 - Code commit: `8a1e87cf6928943aaaa7d5231c92b86992030a09`
-- Artifact: `FM-Atlas-V10-win-x64`
-- Test result: Windows Release build succeeded; xUnit regression suite passed (164 tests); self-contained Windows x64 publish and artifact upload succeeded.
+- Artifact: `FM-Atlas-V11-win-x64`
+- Previous activation build result: Windows Release build succeeded; xUnit regression suite passed (168 tests); self-contained Windows x64 publish and artifact upload succeeded. The diagnostics update must pass its own workflow before distribution.
 
 ## Automated safety regressions in the activation branch
 
 The xUnit suite now verifies that the player/staff/club scalar writer and the tactical Apply/Undo entry points refuse to open the FM process while Live FM Editing is OFF. These tests prove the opt-in gate only; they do not prove that any particular offset, in-game display refresh or save persistence is correct. The separate Windows build/test/publish workflow must pass before using the artifact, and the in-game protocol below remains mandatory.
+
+## Diagnostics and recovery tools
+
+Open **Tester & Logs** before or after a test:
+- **Run quick checks** checks the Atlas database, rolling log storage, save bridge, FM process, registered build profile, editor session gate and player/staff/club scalar field catalogue.
+- **Run read-only FM module probe** inspects the running FM process, game_plugin.dll PE layout and candidate array witnesses. It does not write to game memory. Candidate-array output is diagnostic evidence only, not permission to enable an unsupported field.
+- **Copy safe diagnostics to clipboard** creates a support report. Names and absolute paths from the module probe are redacted by default.
+- **Export support ZIP** packages the report and recent app log; if the module probe was run, its output is included too. The ZIP does not contain the career save or Atlas SQLite database.
+- **Open application log folder** opens %LOCALAPPDATA%\\FmAtlas\\logs. The rolling log records stage/apply/undo outcomes and field keys; it deliberately avoids copying the career save.
+
+If an edit fails, do not repeatedly press Apply. Capture the exact error, run quick checks, run the read-only module probe, then export a redacted support ZIP and share it with the screenshot.
 
 ## Before the first live test
 
@@ -99,7 +110,7 @@ The editor must block, not guess, when:
 
 ## Not claimed as complete live parity
 
-The live writer in this build covers the scalar player, staff and club field catalogue above plus Tactical Effectiveness history operations. It is not a complete clone of every FMRTE screen. The following still need their own field discovery, record ownership rules, editor UI and regression coverage before being enabled live:
+The live writer in this build covers the scalar player, staff and club field catalogue above plus Tactical Effectiveness history operations. The legacy player-only preview remains read-only; use the profile-level Live Editor for guarded player/staff/club Apply and Undo. It is not a complete clone of every FMRTE screen. The following still need their own field discovery, record ownership rules, editor UI and regression coverage before being enabled live:
 
 - changing nationalities/languages, relationships, preferred relationships, promises and work permits;
 - transfer and future-transfer records, release clauses, competition bonuses and other dynamic contract lists;
