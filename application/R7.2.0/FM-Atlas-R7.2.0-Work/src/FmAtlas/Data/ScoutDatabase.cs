@@ -17,6 +17,7 @@ public sealed record AtlasFactRecord(string Group, string Field, string? Value);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
 public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value);
 public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int StaffImported, int ClubsImported, int ExtraRowsImported, IReadOnlyDictionary<string,int> TableCounts, IReadOnlyList<string> Warnings);
+public sealed record FmTeamMatchMetric(string MatchDate, string CompetitionId, string HomeTeamId, string AwayTeamId, string MetricKey, double Value, bool FixtureMatched, string RawMatchJson, string? FixtureJson);
 
 public sealed class ScoutDatabase
 {
@@ -260,6 +261,17 @@ public sealed class ScoutDatabase
             CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_Catalog ON FmsaveStatFacts(SnapshotId,FieldKey,TableName);
             CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_PlayerPeriod ON FmsaveStatFacts(SnapshotId,PlayerUid,TableName,PeriodKey);
             CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_Search ON FmsaveStatFacts(SnapshotId,FieldKey COLLATE NOCASE,NumericValue,TableName,RowIndex);
+            CREATE TABLE IF NOT EXISTS FmsaveTeamMatchFacts (
+              SnapshotId INTEGER NOT NULL, RowIndex INTEGER NOT NULL, CompetitionId TEXT NOT NULL,
+              HomeTeamId TEXT NOT NULL, AwayTeamId TEXT NOT NULL, MatchDate TEXT NOT NULL,
+              FieldKey TEXT NOT NULL, NumericValue REAL NOT NULL, RawJson TEXT NOT NULL,
+              PRIMARY KEY(SnapshotId,RowIndex,FieldKey),
+              FOREIGN KEY(SnapshotId) REFERENCES FmsaveImportRuns(SnapshotId)
+            );
+            CREATE INDEX IF NOT EXISTS IX_FmsaveTeamMatch_Search
+              ON FmsaveTeamMatchFacts(SnapshotId,CompetitionId,MatchDate,FieldKey,NumericValue);
+            CREATE INDEX IF NOT EXISTS IX_FmsaveTeamMatch_Fixture
+              ON FmsaveTeamMatchFacts(SnapshotId,CompetitionId,HomeTeamId,AwayTeamId,MatchDate);
             CREATE TABLE IF NOT EXISTS ExternalStatImportRuns (
               ImportId INTEGER PRIMARY KEY AUTOINCREMENT, FileName TEXT NOT NULL, ImportedUtc TEXT NOT NULL,
               RowsSeen INTEGER NOT NULL DEFAULT 0, RowsImported INTEGER NOT NULL DEFAULT 0, Notes TEXT NULL
@@ -1867,6 +1879,18 @@ public sealed class ScoutDatabase
         statFactInsert.Parameters.AddWithValue("$snapshot", snapshotId); statFactInsert.Parameters.Add("$table", SqliteType.Text); statFactInsert.Parameters.Add("$index", SqliteType.Integer);
         statFactInsert.Parameters.Add("$uid", SqliteType.Text); statFactInsert.Parameters.Add("$period", SqliteType.Text); statFactInsert.Parameters.Add("$minutes", SqliteType.Real);
         statFactInsert.Parameters.Add("$field", SqliteType.Text); statFactInsert.Parameters.Add("$value", SqliteType.Real); statFactInsert.Prepare();
+        var teamMatchInsert = db.CreateCommand(); teamMatchInsert.Transaction = (SqliteTransaction)tx;
+        teamMatchInsert.CommandText = "INSERT OR REPLACE INTO FmsaveTeamMatchFacts(SnapshotId,RowIndex,CompetitionId,HomeTeamId,AwayTeamId,MatchDate,FieldKey,NumericValue,RawJson) VALUES($snapshot,$index,$competition,$home,$away,$date,$field,$value,$raw);";
+        teamMatchInsert.Parameters.AddWithValue("$snapshot", snapshotId);
+        teamMatchInsert.Parameters.Add("$index", SqliteType.Integer);
+        teamMatchInsert.Parameters.Add("$competition", SqliteType.Text);
+        teamMatchInsert.Parameters.Add("$home", SqliteType.Text);
+        teamMatchInsert.Parameters.Add("$away", SqliteType.Text);
+        teamMatchInsert.Parameters.Add("$date", SqliteType.Text);
+        teamMatchInsert.Parameters.Add("$field", SqliteType.Text);
+        teamMatchInsert.Parameters.Add("$value", SqliteType.Real);
+        teamMatchInsert.Parameters.Add("$raw", SqliteType.Text);
+        teamMatchInsert.Prepare();
         var extraCount = 0; var statFactCount = 0;
         foreach (var tableName in extraNames)
         {
@@ -1880,6 +1904,35 @@ public sealed class ScoutDatabase
                 var rawJson = row.GetRawText();
                 extraInsert.Parameters["$table"].Value = tableName; extraInsert.Parameters["$index"].Value = currentIndex; extraInsert.Parameters["$raw"].Value = rawJson;
                 await extraInsert.ExecuteNonQueryAsync(); extraCount++;
+                if (tableName == "team_match_stats" && row.ValueKind == JsonValueKind.Object)
+                {
+                    var competitionId = GetFirstJsonString(row, "competition_id", "competition_uid");
+                    var homeTeamId = GetFirstJsonString(row, "home_team_id", "home_team_uid");
+                    var awayTeamId = GetFirstJsonString(row, "away_team_id", "away_team_uid");
+                    var matchDate = GetFirstJsonString(row, "date", "match_date", "fixture_date");
+                    if (!string.IsNullOrWhiteSpace(competitionId) && !string.IsNullOrWhiteSpace(homeTeamId)
+                        && !string.IsNullOrWhiteSpace(awayTeamId) && !string.IsNullOrWhiteSpace(matchDate))
+                    {
+                        foreach (var metric in EnumerateNumericPaths(row))
+                        {
+                            var leaf = metric.Key.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? metric.Key;
+                            if (IsAnalyticsIdentityKey(leaf) || IsNonMetricNumericField(leaf) || !double.IsFinite(metric.Value)) continue;
+                            teamMatchInsert.Parameters["$index"].Value = currentIndex;
+                            teamMatchInsert.Parameters["$competition"].Value = competitionId;
+                            teamMatchInsert.Parameters["$home"].Value = homeTeamId;
+                            teamMatchInsert.Parameters["$away"].Value = awayTeamId;
+                            teamMatchInsert.Parameters["$date"].Value = matchDate;
+                            teamMatchInsert.Parameters["$field"].Value = metric.Key;
+                            teamMatchInsert.Parameters["$value"].Value = metric.Value;
+                            teamMatchInsert.Parameters["$raw"].Value = rawJson;
+                            await teamMatchInsert.ExecuteNonQueryAsync().ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        warnings.Add($"Team match row {currentIndex + 1} was archived but not indexed: required competition, home team, away team or date key was missing.");
+                    }
+                }
                 if ((tableName is "player_season_stats" or "player_season_history" or "player_match_stats") && row.ValueKind == JsonValueKind.Object)
                 {
                     var uid = GetFirstJsonString(row, "player_uid", "player_id", "uid", "unique_id", "person_uid");
@@ -2723,6 +2776,48 @@ public sealed class ScoutDatabase
         var rows=new List<AtlasHistoryRecord>(); await using var r=await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while(await r.ReadAsync().ConfigureAwait(false)) rows.Add(new AtlasHistoryRecord(r.GetInt64(0),r.GetString(1),r.GetString(2),r.GetString(3),r.IsDBNull(4)?null:r.GetString(4),r.IsDBNull(5)?null:r.GetString(5),r.GetString(6),r.GetString(7)));
         return rows;
+    }
+
+    public async Task<List<FmTeamMatchMetric>> SearchFmTeamMatchMetricsAsync(
+        string? metricKey = null, string? competitionId = null, string? teamId = null,
+        string? dateFrom = null, string? dateTo = null, int limit = 500)
+    {
+        var safeLimit = Math.Clamp(limit, 1, 5000);
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.Parameters.AddWithValue("$metric", string.IsNullOrWhiteSpace(metricKey) ? "%" : metricKey.Trim());
+        command.Parameters.AddWithValue("$competition", string.IsNullOrWhiteSpace(competitionId) ? "%" : competitionId.Trim());
+        command.Parameters.AddWithValue("$team", string.IsNullOrWhiteSpace(teamId) ? "%" : teamId.Trim());
+        command.Parameters.AddWithValue("$dateFrom", string.IsNullOrWhiteSpace(dateFrom) ? "0000" : dateFrom.Trim());
+        command.Parameters.AddWithValue("$dateTo", string.IsNullOrWhiteSpace(dateTo) ? "9999" : dateTo.Trim());
+        command.Parameters.AddWithValue("$limit", safeLimit);
+        command.CommandText = """
+            WITH latest AS (SELECT MAX(SnapshotId) AS SnapshotId FROM FmsaveImportRuns)
+            SELECT f.MatchDate,f.CompetitionId,f.HomeTeamId,f.AwayTeamId,f.FieldKey,f.NumericValue,
+                   f.RawJson,fx.RawJson
+            FROM FmsaveTeamMatchFacts f
+            JOIN latest l ON l.SnapshotId=f.SnapshotId
+            LEFT JOIN FmsaveExtraTables fx
+              ON fx.SnapshotId=f.SnapshotId AND fx.TableName='fixtures'
+             AND json_extract(fx.RawJson,'$.competition_id')=f.CompetitionId
+             AND json_extract(fx.RawJson,'$.home_team_id')=f.HomeTeamId
+             AND json_extract(fx.RawJson,'$.away_team_id')=f.AwayTeamId
+             AND json_extract(fx.RawJson,'$.date')=f.MatchDate
+            WHERE f.FieldKey LIKE $metric COLLATE NOCASE
+              AND f.CompetitionId LIKE $competition COLLATE NOCASE
+              AND (f.HomeTeamId LIKE $team COLLATE NOCASE OR f.AwayTeamId LIKE $team COLLATE NOCASE)
+              AND f.MatchDate >= $dateFrom AND f.MatchDate <= $dateTo
+            ORDER BY f.MatchDate DESC,f.CompetitionId,f.HomeTeamId,f.AwayTeamId,f.FieldKey
+            LIMIT $limit;
+            """;
+        var results = new List<FmTeamMatchMetric>();
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+            results.Add(new FmTeamMatchMetric(reader.GetString(0), reader.GetString(1), reader.GetString(2),
+                reader.GetString(3), reader.GetString(4), reader.GetDouble(5), !reader.IsDBNull(7),
+                reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7)));
+        return results;
     }
 
     public async Task<List<(string TableName,int RowCount)>> GetFmsaveExtraTableCountsAsync()
