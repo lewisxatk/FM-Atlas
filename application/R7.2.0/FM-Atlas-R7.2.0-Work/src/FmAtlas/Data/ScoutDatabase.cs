@@ -2383,13 +2383,22 @@ public sealed class ScoutDatabase
                     reader.IsDBNull(8) ? null : reader.GetInt32(8),
                     !reader.IsDBNull(9) && reader.GetDouble(9) >= 1));
         }
+        // Live and offline imports assign different source IDs to the same staff member.
+        // Merge the same visible person/club/role and prefer the current live row, while
+        // retaining live provenance and profile facts for the selected record.
         return rows
-            .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(x => string.Join("|",
+                x.Name.Trim(),
+                (x.Club ?? string.Empty).Trim(),
+                (x.Job ?? string.Empty).Trim()),
+                StringComparer.OrdinalIgnoreCase)
             .Select(group => group
                 .OrderByDescending(x => x.ValidationStatus.Contains("ProfileMatched", StringComparison.OrdinalIgnoreCase)
                     || x.ValidationStatus.Contains("HumanManager", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(x => x.CurrentAbility.HasValue || x.PotentialAbility.HasValue)
                 .First())
-            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(x => x.IsHumanManager)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .Take(5000)
             .ToList();
     }
