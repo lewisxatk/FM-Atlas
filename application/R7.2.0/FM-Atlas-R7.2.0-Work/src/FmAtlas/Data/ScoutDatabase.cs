@@ -1450,7 +1450,7 @@ public sealed class ScoutDatabase
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM Players WHERE ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p) AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=Players.SourceId));";
+        cmd.CommandText = "SELECT COUNT(*) FROM Players WHERE SourceId NOT LIKE 'LIVE:%' AND ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p) AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=Players.SourceId));";
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$p", $"%{q}%");
