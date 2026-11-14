@@ -467,3 +467,13 @@ Only mark a feature complete when the source change exists on this branch and it
 - [ ] User-PC acceptance remains: launch the WPF app, open Moneyball Scout, select multiple metrics, compare cohort/per-90/direction settings, verify results and export CSV. Use a disposable FM27 Game Pass save copy.
 - [ ] Broader user-PC gates remain: full route smoke test, MONOLITH theme/DPI review, import comparison against in-game data, diagnostics/support ZIP inspection and Graphics/Skin path validation.
 - Live Apply/Undo remains disabled. The `main` content tree still matches baseline `2051bbee042fb8e7203b7855e833e391ccee9ecb`; all active application work remains on `overhaul/monolith-full-platform`.
+
+## Large-dataset Advanced Search index optimisation — 2026-11-14
+
+- [x] Preserved the existing Advanced Search criteria, default ALL/AND semantics, optional ANY/OR mode and text-filter behaviour.
+- [x] Added a migration-safe SQLite composite index on `PlayerAttributes(SourceId, AttributeName COLLATE NOCASE, AttributeValue)`. Existing databases receive it during normal database initialisation; no table rebuild or data deletion is required.
+- [x] Changed the multi-attribute predicate to use a case-insensitive equality expression that matches the new index, replacing the previous `lower(AttributeName)=lower(parameter)` expression that prevented the ordinary composite lookup from being used efficiently.
+- [x] Added an integration regression test that verifies the query plan selects the new index and that lowercase criteria still match stored mixed-case attribute names.
+- [ ] Windows .NET 8 Release build and full MSTest workflow must pass before this optimisation is marked verified.
+- [ ] Benchmark against a representative large imported database (including 40k+ players and a larger attribute fact table); record before/after timings for 1, 5, 20 and 60 criteria.
+- No changes to `main`; work remains on `overhaul/monolith-full-platform`. No user database or save was accessed or modified.
