@@ -348,8 +348,8 @@ def main() -> int:
         "players", "contracts", "suspensions", "staff", "staff_lists",
         "clubs", "managed_clubs", "finances", "sponsorships", "facilities",
         "stadiums", "affiliates", "job_vacancies", "stages", "competitions",
-        "fixtures", "league_tables", "competition_rules", "transfer_windows",
-        "player_match_stats", "player_season_stats", "player_season_history",
+        "fixtures", "league_tables", "competition_rules", "transfer_windows", "officials",
+        "player_match_stats", "team_match_stats", "player_season_stats", "player_season_history", "squad_planner",
         "nations", "injury_types", "injuries", "training", "mentoring",
         "tactics", "set_pieces", "selections"
     ]
@@ -430,6 +430,13 @@ def main() -> int:
 
     manifest = {
         "schema": "fmatlas.fmsave.snapshot.ndjson.v1",
+        "reader_scope": {
+            "game": save_info.get("game"),
+            "intended_views": ["FM Data Hub", "FM League Hub", "FM player and club records"],
+            "native_tables": table_names,
+            "external_metrics_included": False,
+            "field_meanings_confirmed": save_info.get("field_meanings_confirmed"),
+        },
         "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "source_file_name": save_path.name,
         "source_file_size": save_path.stat().st_size,

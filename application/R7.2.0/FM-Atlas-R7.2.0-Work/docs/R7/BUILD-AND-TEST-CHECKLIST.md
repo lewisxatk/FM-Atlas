@@ -1,62 +1,59 @@
-# FM Atlas 27 — Windows Build and Acceptance Checklist (7.1.0)
+# FM Atlas V10 — First Controlled Test Checklist
 
-## Build and first launch
-- [ ] Windows 10/11 x64 with .NET 8 SDK installed (`dotnet --list-sdks` shows 8.x)
-- [ ] Extracted complete ZIP to a writable folder
-- [ ] `Build-FM-Atlas-27.bat` completes successfully with zero errors
-- [ ] `build-logs\latest-build.log` exists and contains the complete build output
-- [ ] `FmAtlas.exe` starts and shows the Aurora Workbench shell
-- [ ] App starts after closing/reopening; no unhandled exception is added to `%LOCALAPPDATA%\FmAtlas\logs\fm-atlas.log`
+Use this checklist with `docs/R7.2.0-USER-TESTING.md`. The V10 pre-testing build is read-only against the FM process.
 
-## Existing workspaces
-- [ ] Dashboard opens
-- [ ] Global Search, Players, Staff and Clubs return results
-- [ ] Player detail and position suitability displays available source data without inventing missing fields
-- [ ] Recruitment, Squad Architect, Transfers, Tactical Lab and Shortlists open and respond
-- [ ] Import a COPY of an FM27 career save; inspect import summary and warning counts
+## Package and first launch
+- [ ] Latest V10 Windows x64 workflow on `feature/v9-all-roadmap` is green.
+- [ ] Downloaded the `FM-Atlas-V10-win-x64` artifact from that successful run.
+- [ ] Extracted to a new folder; earlier versions and ZIPs are untouched.
+- [ ] Backed up `%LOCALAPPDATA%\FmAtlas` before first launch.
+- [ ] `FmAtlas.exe` opens on Windows 10/11 x64 without an unhandled exception.
+- [ ] App relaunches cleanly.
+- [ ] Monolith Glass Dashboard and navigation render at the tested resolution.
+- [ ] Tester & Logs reports the live-memory write gate as DISABLED.
 
-## Analytics and role fit
-- [ ] Analytics discovers numeric fields from the latest import
-- [ ] Raw metric search returns player records with matching UIDs
-- [ ] Per-90 options are shown only for applicable numeric metrics
-- [ ] Per-90 search excludes records below the selected minutes threshold
-- [ ] Compare at least five per-90 values with FM27 Data Hub for the same season/player and record differences
-- [ ] Missing/unrecognised minutes fields do not produce a per-90 result
-- [ ] Role Lab returns scores only when at least 50% of requested attributes are available
-- [ ] Role Lab shows coverage and exports a valid CSV
-- [ ] Compare a sample of role-fit results with in-game positional familiarity and your own tactical expectations
+## Preserved search and scouting workspaces
+- [ ] Global Search (Ctrl+K) finds a known player.
+- [ ] Advanced Search executes five or more simultaneous criteria.
+- [ ] Missing attribute/stat values remain unavailable, not zero.
+- [ ] Player profile opens and exposes source-backed facts.
+- [ ] Player comparison and attribute radar work; missing categories are not plotted as zero.
+- [ ] Position ratings/comparison show available slots and preserve unknown/unrated slots.
+- [ ] Similar Players returns source-backed matches and coverage.
+- [ ] Value Finder shows selected inputs and its relative-score explanation.
+- [ ] Scouting Matrix filters and shortlist handoff work.
+- [ ] Tactical Lab/Role Fit and Player Development open and return only evidence-supported results.
+- [ ] Shortlist records and notes remain visible.
 
-## Local editor safety
-- [ ] Editor Studio starts OFF after fresh launch
-- [ ] Mass Edit is locked while editor is OFF
-- [ ] Enable editor and change one local attribute; verify Edit History row appears
-- [ ] Set operation accepts 0–20 and rejects out-of-range values
-- [ ] Add modifies existing local values, skips missing values and clamps to 0–20
-- [ ] Scale multiplies existing values by (1 + percentage/100), skips missing values and clamps to 0–20
-- [ ] Set/Add/Scale mass-edit changes each create individual audit entries
-- [ ] Undo reverses latest edit successfully
-- [ ] Undo refuses stale edit if the value has changed since the history row
-- [ ] Close/reopen app; editor returns to OFF
-- [ ] Confirm no FM career save or live-game value has been changed
+## FM27 copied-save import and data integrity
+- [ ] Python 3.12 and fmsave 0.12.4 are detected by Tester & Logs.
+- [ ] Save bridge export uses a COPY of an offline single-player FM27 career.
+- [ ] Snapshot import completes; player/staff/club and retained-table counts are recorded.
+- [ ] Warnings and unknown-build/field-meaning notices are preserved.
+- [ ] Representative player identities and values are compared with FM27.
+- [ ] Player Stats Explorer discovers metrics actually present in the saved data.
+- [ ] Per-90 only appears when real recorded minutes are present.
+- [ ] League Explorer matches populated in-game standings rows; empty data is not replaced with synthetic zero rows.
+- [ ] Team Match Explorer shows source reports and exact/unmatched fixture status.
+- [ ] FM-native facts remain separate from Wyscout CSV and StatsBomb event datasets.
 
-## Tester & Logs
-- [ ] Quick checks show database/log/Python bridge/process/snapshot status
-- [ ] Store profile appears as not reliably distinguished (expected until adapter validation)
-- [ ] Copy safe diagnostics works and omits save filename/player list by default
-- [ ] Copy recent application log works
-- [ ] Support ZIP opens and contains report/log/readme but not career save or SQLite DB
-- [ ] Optional personal-detail checkbox is only enabled knowingly; inspect before sending
+## UI, performance and diagnostics
+- [ ] 100%, 125% and 150% Windows scaling checked where available.
+- [ ] Window resize does not clip primary controls or data grids.
+- [ ] Search, paging, filtering, sorting and profile opening remain responsive.
+- [ ] Save-switch/cancellation checks do not mix snapshots.
+- [ ] Diagnostics export is redacted by default and excludes the career save/SQLite database.
 
-## Critical limitations
-- [ ] Do not treat the live identity count as full player-profile coverage
-- [ ] Do not attempt live memory writes or assume Game Pass and Steam layouts are interchangeable
-- [ ] Do not treat the Role Fit score as the SI formula or in-game star rating
-- [ ] Do not assume every xG/xA/defensive/pass metric is present in the save reader
-- [ ] Keep the original career save unchanged; test with a copy
+## Safety — mandatory
+- [ ] Live-memory Apply is unavailable/hard-blocked.
+- [ ] Live-memory Undo is unavailable/hard-blocked.
+- [ ] No memory write was attempted.
+- [ ] No test was run against the only save or an online/shared career.
+- [ ] No local Atlas editing was performed during the initial read-only test round.
 
-## When reporting a problem
-Send the following where relevant:
-1. `build-logs\latest-build.log` for a compile/publish failure.
-2. A redacted diagnostics text or Tester & Logs support ZIP for runtime problems.
-3. The page name, action performed, expected result and actual result.
-4. A screenshot of the error or UI problem (without private details you do not wish to share).
+## Do not mark V10 release-ready until
+- [ ] A real FM27 save has been checked against in-game Data Hub and League Hub values.
+- [ ] Steam and/or Game Pass process attachment has been confirmed for the actual tested build.
+- [ ] Monolith styling and DPI are accepted on the user's Windows display.
+- [ ] Known mismatches are classified as source limitations, unverified fields, unfinished features or actual defects.
+- [ ] Installer, upgrade, uninstall and database rollback receive a separate acceptance round.

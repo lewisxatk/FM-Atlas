@@ -65,6 +65,7 @@ public partial class MainWindow
         var performanceValueButton = SoftButton("Performance vs Value", async (_, _) =>
             await PerformanceValueAnalysisWindow.ShowAsync(this, _database, metricFields));
         options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton); options.Children.Add(performanceValueButton);
+        options.Children.Add(SoftButton("Add matches to shortlist", async (_, _) => await AddResultsToShortlistAsync()));
         options.Children.Add(profileName);
         options.Children.Add(profilePicker);
         options.Children.Add(SoftButton("Save profile", (_, _) => SaveCurrentProfile()));
@@ -230,6 +231,41 @@ public partial class MainWindow
                 MessageBox.Show(this, ex.Message, "FM Atlas · FM View CSV import", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally { importViewButton.IsEnabled = true; }
+        }
+
+        async Task AddResultsToShortlistAsync()
+        {
+            if (resultRows.Count == 0)
+            {
+                MessageBox.Show(this, "Run a statistical search before adding candidates to a shortlist.", "FM Atlas · Scouting Matrix");
+                return;
+            }
+            var answer = MessageBox.Show(this,
+                $"Add all {resultRows.Count:N0} current matches to the 'Scouting Matrix' shortlist? Existing shortlist entries will be updated with the latest evidence note.",
+                "Confirm shortlist action", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (answer != MessageBoxResult.Yes) return;
+            try
+            {
+                var added = await RunDatabaseAsync(async () =>
+                {
+                    var count = 0;
+                    foreach (var match in resultRows)
+                    {
+                        var player = new PlayerRecord { SourceId = match.SourceId, Name = match.Name, Club = match.Club };
+                        var note = $"Scouting Matrix · period: {match.Period ?? "unknown"} · minutes: {match.Minutes?.ToString("0.##", CultureInfo.InvariantCulture) ?? "not supplied"} · matched metrics: {match.ValuesSummary}";
+                        await _database.AddToShortlistAsync(player, "Scouting Matrix", note).ConfigureAwait(false);
+                        count++;
+                    }
+                    return count;
+                });
+                status.Text = $"Added {added:N0} matching players to the Scouting Matrix shortlist with period and metric evidence.";
+                AtlasLog.Info($"Scouting Matrix bulk shortlist action completed: {added} candidates.");
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Scouting Matrix shortlist action failed.", ex);
+                status.Text = "Could not add matches to the shortlist: " + ex.Message;
+            }
         }
 
         void ExportResults()

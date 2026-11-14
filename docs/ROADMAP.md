@@ -1,5 +1,12 @@
 # FM Atlas Roadmap
 
+> **Current checkpoint — V10 pre-testing (14 November 2026):** the consolidated application source is in `application/R7.2.0/FM-Atlas-R7.2.0-Work/` on `feature/v9-all-roadmap`, with [PR #5](https://github.com/lewisxatk/FM-Atlas/pull/5) open. Windows workflow #605 attempt 2 passed restore, Release build, Python adapter checks (2), xUnit (**109/109**), self-contained win-x64 publish and artifact upload. The live-memory Apply/Undo service gate and its regression tests are included in that verified application commit. The next milestone is a real Windows launch and read-only FM27 copied-save comparison, not another speculative feature rebuild.
+>
+> **Safety:** live-memory Apply/Undo are hard-disabled in the V10 pre-testing build. Do not run live-write tests. Use a copy of an offline single-player save. Real FM27 field meanings, Steam/Game Pass attachment, DPI, and installer acceptance are still open.
+>
+> The phase checkboxes below contain the original R7.2.0 recovery-era plan. Treat them as historical roadmap context where they conflict with this V10 checkpoint and the active handover in `docs/NEXT_STEPS.md`.
+
+
 Status labels: **Source implemented** = present in the supplied R7.2.0 package but not necessarily compiled; **Verified** = passed the relevant reproducible Windows/game test; **Pending** = not yet completed. R7.2.0 is the latest supplied candidate. The complete source import is still pending.
 
 ## Current release gate — R7.2.0 recovery

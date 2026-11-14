@@ -1,10 +1,14 @@
-# FM Atlas V8 — Monolith Glass
+# FM Atlas V10 — Monolith Glass and Football Intelligence
 
-FM Atlas is a Windows desktop scouting, career-intelligence, analytics, squad-planning and editing workbench for Football Manager 27. V8 keeps the R7.2.0 data and workspace foundation while rebuilding the application shell around the graphite-and-amber Monolith Glass visual system. The source is still subject to a clean Windows Release build and user-side acceptance testing.
+> **V10 test status:** the consolidated Windows x64 Release build, automated regression suite and self-contained publish passed on the initial integration checkpoint. Follow-up safety hardening adds a service-level read-only gate and regression coverage; use the latest successful workflow artifact. This is a controlled pre-testing build, not a release-ready claim.
+>
+> **Live-write safety:** live-memory Apply and Undo are hard-disabled at the service boundary in V10 pre-testing. A detected FM process/profile is not proof that every field mapping is verified.
 
-## V8 design direction — Monolith Glass
+FM Atlas is a Windows desktop scouting, career-intelligence, analytics, squad-planning and editing workbench for Football Manager 27. V10 keeps the R7.2.0 data and workspace foundation while rebuilding the application shell around the graphite-and-amber Monolith Glass visual system. The source is still subject to a clean Windows Release build and user-side acceptance testing.
 
-V8 uses a **Monolith Glass** visual language: graphite/charcoal surfaces, warm amber-orange accents, translucent raised cards, fine warm glass borders, controlled shadows and restrained motion. Three coordinated appearances remain available: **Glass Dark**, **Glass Light** and **Studio**. The first-run default is Monolith Glass; an existing saved appearance is preserved. The selected appearance is saved under `%LOCALAPPDATA%\\FMAtlas\\theme.txt`.
+## V10 design direction — Monolith Glass
+
+V10 uses a **Monolith Glass** visual language: graphite/charcoal surfaces, warm amber-orange accents, translucent raised cards, fine warm glass borders, controlled shadows and restrained motion. Three coordinated appearances remain available: **Glass Dark**, **Glass Light** and **Studio**. The first-run default is Monolith Glass; an existing saved appearance is preserved. The selected appearance is saved under `%LOCALAPPDATA%\\FMAtlas\\theme.txt`.
 
 - A glass-style top action toolbar uses compact icon buttons with explanatory hover tooltips, including direct shortcuts to the human manager and current club.
 - The toolbar Activity Centre reports the active live scan or offline save import, current stage/status text, elapsed time, cancellation availability and the most recent task summary.
@@ -24,7 +28,7 @@ The shared Monolith Glass tokens are implemented in source. Visual acceptance at
 - The staff reader uses the profile's person-block layout, identifies the human-manager record using name-decoding evidence, and imports the manager's club/nation context. The same records appear in the Players, Staff and Clubs workspaces.
 - The monitor checks process/build/save-generation changes every three seconds and starts the profile-bounded read-only scan for a supported loaded career. Each scan has a two-minute deadline, progress updates, toolbar cancellation and save-generation cancellation; no partial snapshot is committed.
 - The live scan is read-only. It reads player CA/PA, the mapped 52 standard player attributes, eight personality ratings, 15 position ratings, nationality, staff CA/PA and the human-manager context. Player-coach identity fields use the separately detected +0xF8 block. These layout-matched values remain provisional until compared with the in-game UI; this is not a claim that every memory field is certified.
-- Live Apply and Undo through game memory remain blocked. Editor Studio in V8 saves local Atlas database changes only; its live Apply controls are disabled and live entries in Edit History cannot invoke an inverse memory write. The guarded writer code remains dormant behind the hard V8 gate.
+- Live Apply and Undo through game memory remain blocked. Editor Studio in V8 saves local Atlas database changes only; its live Apply controls are disabled and live entries in Edit History cannot invoke an inverse memory write. The guarded writer code remains dormant behind the hard V10 pre-testing gate.
 - Offline career-save import is now optional for additional career history, match/season statistics, contracts, and other tables not exposed by the live identity scan. Select a COPY of the career save; the fmsave reader is read-only.
 
 ## Retained R7.2.0 feature foundation
@@ -76,7 +80,7 @@ The licenses above apply to those projects. Their ideas and public game-layout o
 
 ## What is not complete yet
 
-This is an integrated V8 source milestone, not a claim that the entire FM Atlas vision is finished or that the latest live-career changes have passed Windows compilation or in-game acceptance. The universal player Advanced Search, multi-attribute builder, CA/PA filtering, paged people directory, player comparison and similar-player foundations are retained. Full field coverage for every player/staff/club attribute, every in-game season and match statistic, staff/club/contract/transfer data, full Match Lab event/shot-map data, comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain unfinished. The user-side build and FM27 validation gates remain open. See:
+This is an V10 pre-testing integration milestone, not a claim that the entire FM Atlas vision is finished or that the latest live-career changes have passed Windows compilation or in-game acceptance. The universal player Advanced Search, multi-attribute builder, CA/PA filtering, paged people directory, player comparison and similar-player foundations are retained. Full field coverage for every player/staff/club attribute, every in-game season and match statistic, staff/club/contract/transfer data, full Match Lab event/shot-map data, comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain unfinished. The user-side build and FM27 validation gates remain open. See:
 
 - `docs/architecture/FM-ATLAS-V8-IMPLEMENTATION-STATUS.md`
 - `docs/R7.2.0-IMPLEMENTATION-STATUS.md`

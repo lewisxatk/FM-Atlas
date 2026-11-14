@@ -111,10 +111,12 @@ public partial class MainWindow
                 try { var pid = LiveMemoryEditService.FindSupportedProcessId(); return Task.FromResult((true, $"Exact FM27 Windows module profile matched for process {pid}. This is a profile match, not a field-by-field write certification.")); }
                 catch (Exception ex) { return Task.FromResult((false, ex.Message)); }
             });
-            await Add("Live edit write safety", () =>
+            await Add("Live-memory write gate", () =>
             {
-                try { var pid = LiveMemoryEditService.FindSupportedProcessId(); return Task.FromResult((true, $"READY · narrow guarded writer can stage CA, PA and 47 visible standard-player attributes for exact profile process {pid}. Writes remain user-confirmed, provisional and require copied offline single-player save testing.")); }
-                catch (Exception ex) { return Task.FromResult((false, "BLOCKED · " + ex.Message)); }
+                var disabled = !LiveMemoryEditService.LiveWritesEnabled;
+                return Task.FromResult((disabled, disabled
+                    ? "DISABLED · V10 pre-testing is read-only; Apply/Undo are hard-blocked even when a supported FM27 process is detected."
+                    : "UNEXPECTED · live writes are enabled. Stop testing and report this build."));
             });
             checkStatus.Text = $"Completed {checkList.Children.Count:N0} checks · review INFO/FAIL rows before sending the support ZIP.";
             logView.Text = AtlasLog.ReadRecent(12000);
@@ -152,7 +154,7 @@ public partial class MainWindow
         sb.AppendLine("FM ATLAS 27 — SUPPORT DIAGNOSTICS");
         sb.AppendLine("Report schema: 1 · Redacted by default");
         sb.AppendLine("Generated UTC: " + DateTime.UtcNow.ToString("O"));
-        sb.AppendLine("App version: 7.2.0");
+        sb.AppendLine("App version: 10.0.0 · FM Atlas V10");
         sb.AppendLine("OS: " + Environment.OSVersion.VersionString + " · 64-bit OS: " + Environment.Is64BitOperatingSystem);
         sb.AppendLine("Runtime: " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
         sb.AppendLine("Process architecture: " + System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture);
@@ -181,7 +183,7 @@ public partial class MainWindow
         foreach (var table in tables) sb.AppendLine($"{table.TableName}: {table.RowCount:N0}");
         sb.AppendLine();
         sb.AppendLine("EDITOR SAFETY");
-        sb.AppendLine("Editor mode is session-only and OFF by default. Local Atlas edits are separate from FM. The narrow live writer supports CA, PA and 47 visible standard-player attributes only; five inherited hidden-attribute offsets are blocked; it checks exact module profile, current career-load counter, player UID/name, original bytes, value range and write read-back. It is early test functionality, not a blanket certification of all FM fields.");
+        sb.AppendLine("V10 PRE-TESTING SAFETY GATE: live-memory Apply and Undo are hard-disabled at the service boundary. The live FM connection is read-only. A supported process/profile match is not a field-mapping or write-safety certification. Local Atlas database edits are separate from FM and must not be confused with live-game writes.");
         if (includePersonal)
         {
             var history = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync(30));
@@ -192,7 +194,7 @@ public partial class MainWindow
         sb.AppendLine(AtlasLog.ReadRecent(30000));
         sb.AppendLine();
         sb.AppendLine("KNOWN LIMITS");
-        sb.AppendLine("The live importer reads player identities, positions and provisional candidate CA/PA/attribute values. Field meanings must be checked against the FM UI. The live writer does not support hidden attributes, staff, club, contract, transfer, personality or position edits. Save-file statistics remain limited by fmsave/CSV source coverage and import validation.");
+        sb.AppendLine("The live importer is read-only and exposes provisional candidate fields that must be checked against the FM UI. Live-memory Apply/Undo are hard-disabled in this V10 pre-testing build. Hidden attributes, personality, position, staff, club, contracts, transfers and loans are not writable. Save-file statistics remain limited by fmsave/CSV source coverage and import validation.");
         return sb.ToString();
     }
 

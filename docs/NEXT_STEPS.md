@@ -1,69 +1,87 @@
-# Next Steps — FM Atlas
+# FM Atlas — Current Handover and Next Steps
 
-## Current verified state (2026-11-13)
+**Checkpoint:** 14 November 2026  
+**Current integration branch:** `feature/v9-all-roadmap`  
+**Pull request:** [#5 — FM Atlas V10: FM27 Data Hub & Pre-Testing Integration](https://github.com/lewisxatk/FM-Atlas/pull/5)  
+**Base branch:** `rebuild/v8-full-product-rebuild`
 
-The complete R7.2.0 application source is imported on:
+## Verified repository and build state
 
-`recovery/r7.2.0-source-import`
+- The V10 source is on `feature/v9-all-roadmap`; do not continue on `main` or recreate the product from the recovery branch.
+- The latest inspected integration checkpoint was commit `5f8dc334485d71ca39215d427921c5f6ddf1242d`.
+- Windows workflow run **#585** completed successfully on a Windows x64 runner.
+- .NET 8 solution restore and Release build succeeded.
+- Python 3.12.10 installed and verified `fmsave 0.12.4`.
+- Save-bridge Python syntax validation succeeded; both Python adapter tests passed.
+- The complete xUnit suite passed: **106 passed, 0 failed**.
+- Self-contained Windows x64 publish completed; `FmAtlas.exe` was present and the ZIP artifact upload succeeded.
+- Artifact: `FM-Atlas-V10-win-x64`, run `43618498530`, artifact ID `14123521191`. The artifact expires on 28 November 2026.
+- These checks prove compilation, automated tests and packaging. They do **not** prove a WPF launch on the user's PC, an actual FM27 save's field meanings, a store-specific live attachment, visual acceptance or release readiness.
 
-- GitHub recursive tree is complete (not truncated).
-- The application folder contains exactly 106 tracked files, matching the R7.2.0 checkpoint count.
-- Required solution, WPF project, source, assets, installer, docs, archive and tools paths are present.
-- Temporary import placeholder removed; root `.gitignore` added.
-- No merge to `main`; all work remains isolated on the recovery branch.
-- Static audit: [R7.2.0 Static Audit](../recovery/R7.2.0-STATIC-AUDIT.md).
-- R7.2.0 source archive SHA-256: `34d985a39526698026b1e09855d7f37e9f6a00dfba4863cf6f4d467aafedc2c8`.
+The follow-up hard gate, three regression tests, diagnostics corrections, read-only test instructions, workflow path fix and dispatcher-warning correction were verified by Windows workflow **#605, attempt 2**, which completed successfully. The final xUnit result is **109 passed, 0 failed**; the self-contained win-x64 publish and artifact upload also passed. Verified application/test commit: `3e236ea9cd4d2b95c299b5ecd53a255b39a92658`. The branch subsequently received only root-level handover/roadmap documentation updates; application source and tests are unchanged. Current artifact: `FM-Atlas-V10-win-x64`, artifact ID `14126731937`, SHA-256 `3d02aec66ad6a9fe3ccdfe553637095bc78c75619dca36bde5f52623ff86368c`.
 
-**Important:** file count and paths are verified, but a byte-for-byte per-file comparison with the original ZIP has not been performed. Keep all original source ZIPs and the recovery bundle as offline backups. R7.0.2 and R7.1.0 are documented in the recovery inventory but their full application source archives have not been imported as separate source trees in this branch.
+## Product foundations to preserve
 
-## Immediate gate — Windows baseline build
+This is additive development. Preserve the existing V10 foundations and do not replace them with a reduced demo:
 
-1. Use a fresh extracted copy of `application/R7.2.0/FM-Atlas-R7.2.0-Work`; do not build over an older working installation.
-2. Confirm .NET 8 SDK x64 is installed.
-3. Run `Build-FM-Atlas-27.bat`.
-4. Send the unedited `build-logs/latest-build.log` back for review.
-5. If build succeeds, launch the WPF app and test startup, navigation and Tester & Logs.
-6. Record Windows version, .NET SDK version and exact FM27 store/build.
+- Monolith Glass application shell and navigation.
+- Global Ctrl+K search and FMRTE-style Advanced Search, including saved criteria.
+- Player profiles, Player Comparison, attribute radar, position-suitability ratings and similar-player discovery.
+- Value Finder / Performance vs Value.
+- Scouting Matrix, saved scouting profiles, shortlist/pipeline and shortlist handoff.
+- Tactical Lab / role-fit screening and Player Development opportunity screening.
+- StatsBomb Open Data event import and the separate user-owned Wyscout player-season CSV import.
+- Event Lab's shared action representation, possession/passing analysis and explicitly empirical Atlas xT layer.
+- FM27 fmsave adapter, offline save import, player season/match/history tables, FM Player Stats Explorer, League Explorer and Team Match Explorer.
+- Read-only live-career detection and import, with save-generation/cancellation safeguards.
+- Local database persistence, source provenance, missing-value handling and redacted diagnostics.
 
-No compile, WPF startup or runtime acceptance has yet been verified by this repository audit.
+Do not claim Wyscout event-feed parity, StatsBomb commercial model parity, invented physical tracking metrics, unverified FM field meanings or an official FM position/role score.
 
-## Gate 2 — database and read-only data
+## Immediate next gate — first controlled Windows/FM27 test
 
-- Back up `%LOCALAPPDATA%\FmAtlas` before any migration test.
-- Use a COPY of an offline single-player FM27 career.
-- Test save bridge export/import and record player/staff/club/stat counts and warnings.
-- Compare representative CA/PA, attributes and statistics against the FM UI.
-- Test multi-attribute search, multi-condition statistical search, missing-value handling, minutes thresholds and FM View CSV import.
-- Test Value & Upside Finder as a relative screening index, not a real FM valuation formula.
-- Test Graphics Resolver against the user's actual Game Pass graphics directory and config.xml files.
+Use the latest successful `FM-Atlas-V10-win-x64` artifact from the GitHub Actions workflow on `feature/v9-all-roadmap`.
 
-## Gate 3 — live editor (blocked until Gates 1–2 pass)
+1. Extract into a new folder; preserve previous versions.
+2. Back up `%LOCALAPPDATA%\FmAtlas`.
+3. Open the app and verify startup, Monolith, navigation, diagnostics and database preservation.
+4. Exercise Global Search, Advanced Search, player profiles, comparisons/position ratings, Similar Players, Value Finder, Scouting Matrix/shortlist, Tactical Lab, Player Development and Shortlists.
+5. Export a snapshot from a COPY of an offline FM27 single-player career using the read-only fmsave bridge; import and compare representative values against FM27 screens.
+6. Compare FM Player Stats Explorer, League Explorer and Team Match Explorer with the corresponding Data Hub/League Hub pages in the same save.
+7. Check missing values, minutes, source tables, competition/team IDs, fixture join status and field-validation warnings.
+8. Check DPI/resizing at 100%, 125% and 150% where available.
+9. If testing live attachment, keep it read-only and use only a copied offline career. Check the exact Steam/Game Pass profile, game build and manager/club identity.
 
-The source contains a narrow live-memory writer, but it is not accepted or certified safe. Exact PE profile matching does not prove each field offset/encoding. Player field mappings and save-load generation pointers require independent validation against the user's exact FM27 build.
+**Mandatory safety boundary:** live-memory Apply and Undo are hard-disabled in the V10 pre-testing build. Never test live edits in this round. If Tester & Logs does not say `Live-memory write gate: DISABLED`, stop and report it.
 
-- Keep live editor disabled.
-- Do not test on the only career save or an online/shared career.
-- Do not attempt Apply/Undo until read-only identity/import tests pass and field mappings have independent witnesses.
-- Hidden attributes, personality, position, staff, club, contract, transfer and loan writes remain unsupported.
+Full user instructions: `application/R7.2.0/FM-Atlas-R7.2.0-Work/docs/R7.2.0-USER-TESTING.md`. Checklist: `application/R7.2.0/FM-Atlas-R7.2.0-Work/docs/R7/BUILD-AND-TEST-CHECKLIST.md`. Report template: `application/R7.2.0/FM-Atlas-R7.2.0-Work/TEST-REPORT-TEMPLATE.md`.
 
-## Development sequence after baseline gates
+## Remaining release gates after read-only smoke test
 
-The agreed visual direction is **MONOLITH**: Obsidian/Graphite surfaces, Atlas Orange accent, restrained animation, rounded controls, high readability, Swiss Sport editorial structure with Touchline football-specific visuals and Pulse data presentation. R7.2.0's current lime-accent Obsidian theme is not the final agreed design.
+- Fix and classify actual defects found by the user's real Windows run.
+- Verify representative FM27 player-season stats and League Hub rows against in-game screens using exact player, competition and season context.
+- Verify save bridge export/import against the exact FM27 build; keep unconfirmed fields labelled as such.
+- Validate Steam and Game Pass attachment separately where applicable; a PE/profile fingerprint is not a field witness.
+- Test save switching, process restarts, scan cancellation and snapshot isolation on copied careers.
+- Finish systematic Monolith layout, scaling, contrast, navigation, empty/loading/error-state and performance review.
+- Reconcile StatsBomb event conversion against the public raw source on identical matches; test malformed/incomplete imports, cancellation and large datasets.
+- Review installer, first install, upgrade, uninstall, local DB preservation and rollback.
+- Only after independent disposable-save field witnesses and rollback sign-off should live editing be reconsidered. It is not part of V10's first testing round.
 
-1. Build shared MONOLITH design tokens and reusable WPF components (buttons, rounded panels, inputs, tables, dialogs, pop-out panels, navigation).
-2. Build the FMRTE-style Advanced Search pop-out on the shared components, preserving verified query logic.
-3. Build the Scouting Matrix flagship screen (filter builder, player results, selected-player profile).
-4. Build Player DNA and Tactical Intelligence screens using only verified data.
-5. Apply the design system across the rest of FM Atlas.
+## Development continuation after the first test
 
-### Advanced Search acceptance requirements
+Prioritise real defects and data fidelity over another speculative feature batch. Then:
+1. Resolve field mapping gaps and increase save schema fixtures only from real, privacy-safe source samples.
+2. Finish xT/action edge cases and model version/sample-quality reporting; VAEP remains a separate future model and requires its own training/validation.
+3. Expand Advanced Search grouped AND/OR logic and custom result columns only where the query engine can support them correctly.
+4. Finish Monolith consistency across secondary windows, dialogs and charts.
+5. Complete installer/update flow and release-grade diagnostics.
+6. Re-run the complete Windows build/test/publish gate after every material code change.
 
-- Quick Search plus one-click advanced pop-out.
-- Searchable field catalogue grouped by identity, positions, attributes, contracts, club/league, origin/home-grown and verified season statistics.
-- Add/remove/duplicate/reorder conditions; grouped AND/OR; include/exclude; type-aware operators and values.
-- Active-filter chips, result counts, reset/clear, saved searches and presets.
-- No dead filters: every visible criterion must map to an existing field and tested query behaviour.
+## Repository safety and workflow
 
-## Checkpoint rule
-
-Every development session ends with a GitHub commit or an explicitly documented uncommitted state, changed-file list, build/test evidence, known risks and the next exact action. Never label source code complete solely because a feature is described in a roadmap or implementation note.
+- Continue on `feature/v9-all-roadmap` and PR #5. Do not merge to `main` or base branch until acceptance gates pass.
+- Keep `recovery/r7.2.0-source-import`, `rebuild/v8-full-product-rebuild` and prior release copies intact.
+- Every development checkpoint must have a Git commit, changed-file record, exact test evidence, known risks and next action.
+- Never add real FM career saves, personal databases, credentials, licensed facepacks/logos or user secrets to Git.
+- Keep raw imported values and source provenance; unknown is not zero.
