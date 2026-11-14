@@ -167,7 +167,7 @@ public static class ScoutingActionAnalyticsService
                 shots[start.X, start.Y]++;
                 if (a.IsGoal) goals[start.X, start.Y]++;
             }
-            else if (a.ActionType is "pass" or "carry" && a.Successful &&
+            else if ((a.ActionType is "pass" or "carry") && a.Successful &&
                      a.EndX.HasValue && a.EndY.HasValue)
             {
                 var end = Zone(a.EndX.Value, a.EndY.Value);
@@ -283,7 +283,7 @@ public static class ScoutingActionAnalyticsService
                     rows.Count(x => x.Action.ActionType == "pressure"),
                     rows.Count(x => x.Action.ActionType == "tackle"),
                     rows.Count(x => x.Action.ActionType == "interception"),
-                    rows.Count(x => x.Action.ActionType is "pass" or "carry" && x.Action.EndX >= 80 && x.Action.StartX < 80),
+                    rows.Count(x => (x.Action.ActionType is "pass" or "carry") && x.Action.EndX >= 80 && x.Action.StartX < 80),
                     rows.Count(x => x.Action.ActionType == "pass" && IsProgressive(x.Action)),
                     rows.Count(x => x.Action.ActionType == "carry" && IsProgressive(x.Action)),
                     passes == 0 ? null : completed * 100d / passes, null);
