@@ -430,6 +430,13 @@ def main() -> int:
 
     manifest = {
         "schema": "fmatlas.fmsave.snapshot.ndjson.v1",
+        "reader_scope": {
+            "game": save_info.get("game"),
+            "intended_views": ["FM Data Hub", "FM League Hub", "FM player and club records"],
+            "native_tables": table_names,
+            "external_metrics_included": False,
+            "field_meanings_confirmed": save_info.get("field_meanings_confirmed"),
+        },
         "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "source_file_name": save_path.name,
         "source_file_size": save_path.stat().st_size,
