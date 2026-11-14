@@ -18,7 +18,9 @@ public sealed record PerformanceValueCandidate(
     double? LeaguePerformancePercentile,
     int LeagueCohortSize,
     double ValueGap,
-    double DataCoverage)
+    double DataCoverage,
+    string? PositionRatingCode = null,
+    int? PositionRating = null)
 {
     public string DisplayPerformanceValue => PerformanceValue.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
     public string DisplayPerformancePercentile => PerformancePercentile.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
@@ -28,4 +30,7 @@ public sealed record PerformanceValueCandidate(
     public string DisplayValueGap => ValueGap.ToString("+0.0;-0.0;0.0", System.Globalization.CultureInfo.InvariantCulture);
     public string DisplayMinutes => TotalMinutes.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
     public string DisplayCoverage => DataCoverage.ToString("P0", System.Globalization.CultureInfo.InvariantCulture);
+    public string DisplayPositionRating => PositionRating.HasValue && PositionRatingCode is not null
+        ? $"{PositionRatingCode} {PositionRating.Value}/20"
+        : "—";
 }
