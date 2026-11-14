@@ -778,6 +778,43 @@ public static partial class LiveEntityMemoryEditService
         return U64(handle,gameUi+SaveCounterOffset);
     }
 
+
+    private static List<string> RollBack(
+        nint handle, ulong moduleBase, Fm27BuildProfile profile, ulong saveCounter,
+        List<(PlannedValue Change, int BytesWritten)> written)
+    {
+        var errors = new List<string>();
+        foreach (var item in written.AsEnumerable().Reverse())
+        {
+            var change = item.Change;
+            try
+            {
+                if (ReadSaveCounter(handle, moduleBase, profile) != saveCounter)
+                {
+                    errors.Add(change.FieldKey + " rollback skipped because the FM career session changed");
+                    continue;
+                }
+                var expectedPartial = change.OriginalBytes.ToArray();
+                Array.Copy(change.TargetBytes, 0, expectedPartial, 0, item.BytesWritten);
+                var address = (nint)change.Address;
+                var current = Read(handle, address, change.OriginalBytes.Length);
+                if (!current.SequenceEqual(expectedPartial))
+                {
+                    errors.Add(change.FieldKey + " changed again; rollback skipped");
+                    continue;
+                }
+                if (!Write(handle, address, change.OriginalBytes)
+                    || !Read(handle, address, change.OriginalBytes.Length).SequenceEqual(change.OriginalBytes))
+                    errors.Add(change.FieldKey + " rollback/read-back failed");
+            }
+            catch (Exception ex) { errors.Add(change.FieldKey + " rollback error: " + ex.Message); }
+        }
+        return errors;
+    }
+
+    private static byte[] Read(nint handle, ulong address, int size)
+        => Read(handle, (nint)address, size);
+
     private static bool Pointer(ulong value)=>value>=0x10000&&value<=0x7FFF_FFFF_FFFF;
     private static ulong U64(nint handle,ulong address)=>BitConverter.ToUInt64(Read(handle,(nint)address,8),0);
     private static byte[] Read(nint handle,nint address,int size)
