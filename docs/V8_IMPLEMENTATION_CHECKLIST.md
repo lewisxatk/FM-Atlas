@@ -92,7 +92,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [~] Existing player results are indexed/paged in source; cancellation and full stable sorting still require validation and implementation.
 - [~] Added a dedicated Advanced Search hub routing to the current player, attribute/personality, performance-stat and Global Search tools; the full filter-builder workspace is still outstanding.
 - [ ] Add filter library: General, Contract, Technical, Mental, Physical, Hidden, Position, Performance and Source/Coverage.
-- [ ] Add arbitrary available-field filters, min/max, include/exclude and AND/OR condition groups.
+- [~] AND/OR match logic is implemented in the existing attribute/personality and performance-stat builders; a single mixed-category universal query, arbitrary core/contract filters and nested AND/OR groups remain outstanding.
 - [ ] Add saved searches/profiles, saved column sets, presets and reset-to-default.
 - [ ] Add configurable columns, multi-sort, paging, multi-select, comparison and shortlist actions.
 - [ ] Support all 15 FM positions and validated five-level suitability display.
@@ -185,3 +185,5 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Cancellable career snapshot indexing | `1ed64ed2` | Cancellation is checked during player, staff, club and additional-table indexing; progress is reported and cancellation before commit rolls back the active transaction. |
 | 2026-11-14 | Cancellable save-import UI and elapsed time | `005af6a0`, `f0701bb1` | Added a toolbar Cancel action, visible import status, elapsed time and a clear message that the previous committed snapshot is retained. |
 | 2026-11-14 | Reduce duplicate JSON array allocations | `26104ba3` | Player, staff and club arrays are now lazily enumerated from JsonDocument rather than being copied into duplicate arrays and Lists. Full envelope memory is still materialised; true bounded streaming remains open. |
+| 2026-11-14 | AND/OR logic for specialist search engines | `e9fae94d`, `590d205a` | Attribute/personality and performance-stat search can now match ALL (AND) or ANY (OR) conditions. A single cross-category query builder remains open. |
+| 2026-11-14 | First Windows Release compile and fixes | `80b4160d`, `b35432d8` | Windows runner restored successfully but compile exposed 7 errors (four event-handler signatures, three WPF/System.IO Path ambiguities). Fixed the callback signatures and added an explicit System.IO.Path alias; rerun pending. |
