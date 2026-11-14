@@ -21,6 +21,8 @@ public static class StatsBombOpenDataImporter
         public required string Name { get; init; }
         public string? Team { get; set; }
         public string? Position { get; set; }
+        public string? Competition { get; set; }
+        public string? Season { get; set; }
         public double Minutes { get; set; }
         public Dictionary<string, double> M { get; } = new(StringComparer.OrdinalIgnoreCase);
         public void Add(string key, double value = 1) => M[key] = M.GetValueOrDefault(key) + value;
@@ -171,13 +173,16 @@ public static class StatsBombOpenDataImporter
 
                 foreach (var p in matchPlayers.Values)
                 {
-                    if (!totals.TryGetValue(p.Id, out var total))
+                    var aggregateKey = p.Id + "|" + competition + "|" + season;
+                    if (!totals.TryGetValue(aggregateKey, out var total))
                     {
-                        total = new Aggregate { Id = p.Id, Name = p.Name, Team = p.Team, Position = p.Position };
-                        totals[p.Id] = total;
+                        total = new Aggregate { Id = p.Id, Name = p.Name, Team = p.Team, Position = p.Position, Competition = competition, Season = season };
+                        totals[aggregateKey] = total;
                     }
                     total.Team = p.Team ?? total.Team;
                     total.Position ??= p.Position;
+                    total.Competition = competition;
+                    total.Season = season;
                     total.Minutes += p.Minutes > 0 ? p.Minutes : 0;
                     foreach (var metric in p.M) total.Add(metric.Key, metric.Value);
                 }
@@ -190,7 +195,7 @@ public static class StatsBombOpenDataImporter
         {
             var metrics = p.M.ToDictionary(x => x.Key, x => (double?)x.Value, StringComparer.OrdinalIgnoreCase);
             metrics["minutes_played"] = p.Minutes;
-            return new ScoutingPlayerSeason("SB:" + p.Id, p.Name, p.Team, null, "Imported event dataset", PositionGroup(p.Position), p.Minutes,
+            return new ScoutingPlayerSeason("SB:" + p.Id, p.Name, p.Team, p.Competition, p.Season ?? "Unknown season", PositionGroup(p.Position), p.Minutes,
                 metrics, "StatsBomb Open Data", "open-data JSON", true);
         }).ToList();
 
@@ -211,14 +216,16 @@ public static class StatsBombOpenDataImporter
         return p;
     }
 
-    private static string? PositionGroup(string? position) => position?.ToLowerInvariant() switch
+    private static string? PositionGroup(string? position)
     {
-        var x when x?.Contains("goalkeeper") == true => "Goalkeeper",
-        var x when x?.Contains("back") == true || x?.Contains("defender") == true => "Defender",
-        var x when x?.Contains("midfield") == true => "Midfielder",
-        var x when x?.Contains("forward") == true || x?.Contains("wing") == true or true => "Attacker",
-        _ => null
-    };
+        if (string.IsNullOrWhiteSpace(position)) return null;
+        var value = position.ToLowerInvariant();
+        if (value.Contains("goalkeeper")) return "Goalkeeper";
+        if (value.Contains("back") || value.Contains("defender")) return "Defender";
+        if (value.Contains("midfield")) return "Midfielder";
+        if (value.Contains("forward") || value.Contains("wing") || value.Contains("striker")) return "Attacker";
+        return null;
+    }
 
     private static JsonElement Prop(JsonElement e, string name) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var p) ? p : default;
     private static string? Str(JsonElement e, params string[] path)
