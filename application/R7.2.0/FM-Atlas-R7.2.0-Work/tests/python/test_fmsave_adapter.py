@@ -23,8 +23,8 @@ TABLE_NAMES = [
     "players", "contracts", "suspensions", "staff", "staff_lists",
     "clubs", "managed_clubs", "finances", "sponsorships", "facilities",
     "stadiums", "affiliates", "job_vacancies", "stages", "competitions",
-    "fixtures", "league_tables", "competition_rules", "transfer_windows",
-    "player_match_stats", "player_season_stats", "player_season_history",
+    "fixtures", "league_tables", "competition_rules", "transfer_windows", "officials",
+    "player_match_stats", "team_match_stats", "player_season_stats", "player_season_history", "squad_planner",
     "nations", "injury_types", "injuries", "training", "mentoring",
     "tactics", "set_pieces", "selections"
 ]
@@ -113,6 +113,17 @@ class FakeSave:
                     "minutes_played": 900,
                     "goals": 10,
                 }])
+            if name == "team_match_stats":
+                return FakeTable([{
+                    "team_uid": "C-10",
+                    "competition_id": 42,
+                    "home_team_id": "C-10",
+                    "away_team_id": "C-20",
+                    "date": "2026-11-01",
+                    "shots": 14,
+                    "possession": 61.5,
+                    "expected_goals": 1.8,
+                }])
             return FakeTable([])
 
         return read_table
@@ -151,6 +162,9 @@ class FmsaveAdapterStreamingTests(unittest.TestCase):
             self.assertEqual(manifest["counts"]["staff"], 1)
             self.assertEqual(manifest["counts"]["clubs"], 1)
             self.assertEqual(manifest["counts"]["player_season_stats"], 1)
+            self.assertEqual(manifest["counts"]["team_match_stats"], 1)
+            self.assertIn("officials", manifest["counts"])
+            self.assertIn("squad_planner", manifest["counts"])
 
             player_rows = [json.loads(line) for line in (output / "players.ndjson").read_text(encoding="utf-8").splitlines()]
             self.assertEqual(len(player_rows), 1)
@@ -164,9 +178,12 @@ class FmsaveAdapterStreamingTests(unittest.TestCase):
             staff_rows = [json.loads(line) for line in (output / "staff.ndjson").read_text(encoding="utf-8").splitlines()]
             club_rows = [json.loads(line) for line in (output / "clubs.ndjson").read_text(encoding="utf-8").splitlines()]
             stats_rows = [json.loads(line) for line in (output / "player_season_stats.ndjson").read_text(encoding="utf-8").splitlines()]
+            team_stats_rows = [json.loads(line) for line in (output / "team_match_stats.ndjson").read_text(encoding="utf-8").splitlines()]
             self.assertEqual(staff_rows[0]["job_title"], "Manager")
             self.assertEqual(club_rows[0]["name"], "Example FC")
             self.assertEqual(stats_rows[0]["goals"], 10)
+            self.assertEqual(team_stats_rows[0]["possession"], 61.5)
+            self.assertEqual(team_stats_rows[0]["expected_goals"], 1.8)
 
             # The bundle keeps only a small JSON manifest plus one-row-per-line table streams.
             self.assertFalse(list(output.glob("*.raw.ndjson")))
