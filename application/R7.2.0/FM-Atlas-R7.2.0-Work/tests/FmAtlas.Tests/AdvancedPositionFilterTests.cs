@@ -123,12 +123,11 @@ public sealed class AdvancedPositionFilterTests
             {
                 await connection.OpenAsync();
                 var snapshot = connection.CreateCommand();
-                snapshot.CommandText = """
-                    INSERT INTO FmsaveImportRuns(SourceFileName,SourceFileSize,CreatedUtc)
-                    VALUES('position-test.fm',1,'2026-11-14T00:00:00Z');
-                    SELECT last_insert_rowid();
-                    """;
-                var snapshotId = Convert.ToInt32(await snapshot.ExecuteScalarAsync());
+                snapshot.CommandText = "INSERT INTO FmsaveImportRuns(SourceFileName,SourceFileSize,CreatedUtc) VALUES('position-test.fm',1,'2026-11-14T00:00:00Z');";
+                await snapshot.ExecuteNonQueryAsync();
+                var snapshotIdCommand = connection.CreateCommand();
+                snapshotIdCommand.CommandText = "SELECT last_insert_rowid();";
+                var snapshotId = Convert.ToInt32(await snapshotIdCommand.ExecuteScalarAsync());
 
                 async Task AddOfflinePlayer(string sourceId, string name, double dc, double stc, string uid)
                 {
@@ -162,12 +161,11 @@ public sealed class AdvancedPositionFilterTests
                 await AddOfflinePlayer("FMSAVE:test:gamma", "Gamma", 14, 18, "3");
 
                 var liveRun = connection.CreateCommand();
-                liveRun.CommandText = """
-                    INSERT INTO LiveImportRuns(GameVersion,ModuleSha256,StartedUtc,Status)
-                    VALUES('FM27','test-hash','2026-11-14T00:00:00Z','Complete');
-                    SELECT last_insert_rowid();
-                    """;
-                var liveRunId = Convert.ToInt32(await liveRun.ExecuteScalarAsync());
+                liveRun.CommandText = "INSERT INTO LiveImportRuns(GameVersion,ModuleSha256,StartedUtc,Status) VALUES('FM27','test-hash','2026-11-14T00:00:00Z','Complete');";
+                await liveRun.ExecuteNonQueryAsync();
+                var liveRunIdCommand = connection.CreateCommand();
+                liveRunIdCommand.CommandText = "SELECT last_insert_rowid();";
+                var liveRunId = Convert.ToInt32(await liveRunIdCommand.ExecuteScalarAsync());
 
                 var livePlayer = connection.CreateCommand();
                 livePlayer.CommandText = "INSERT INTO LivePlayers(PlayerUid,PlayerName,SourceRunId,UpdatedUtc) VALUES(42,'Delta',$run,'2026-11-14T00:00:00Z');";
