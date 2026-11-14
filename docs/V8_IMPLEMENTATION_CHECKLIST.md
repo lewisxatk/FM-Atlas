@@ -61,6 +61,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add a background job centre with stages, elapsed time, cancellation, completion and failure details.
 - [ ] Persist selected workspace, open tabs, filters, grid columns and layout state.
 - [ ] Verify UI remains responsive during large queries/imports and failures leave the last stable workspace usable.
+- [x] Request cooperative cancellation of active live-career scans and offline save imports when the main window closes; the importer/database cancellation path retains rollback semantics for unpublished snapshots.
+- [ ] Verify window-close cancellation on Windows during both a live scan and an offline import; confirm no orphaned worker remains and the last committed snapshot is intact.
 
 ## 3. Football Manager stability and live-memory safety
 
