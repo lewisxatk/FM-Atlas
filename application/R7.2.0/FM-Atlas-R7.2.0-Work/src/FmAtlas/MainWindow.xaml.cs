@@ -1320,6 +1320,105 @@ public partial class MainWindow : Window
         if (_playerResultsGrid is not null) _playerResultsGrid.ItemsSource = _players;
     }
 
+
+    private async Task<UIElement> BuildLocalEntityFactEditorAsync(
+        string entityType, string sourceId, string displayName, IReadOnlyList<AtlasFactRecord> sourceFacts)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 14, 0, 10) };
+        panel.Children.Add(Txt("LOCAL FIELD EDITOR · " + entityType.ToUpperInvariant(), 9, true, Teal));
+        panel.Children.Add(Txt(
+            "Every scalar field supplied by the current FM save/live import is exposed below. The source value is preserved separately; saving creates an Atlas-only override and an audit entry. It does not write to Football Manager.",
+            9, false, Muted, wrap: true));
+
+        var imported = sourceFacts
+            .Where(x => !string.IsNullOrWhiteSpace(x.Group) && !string.IsNullOrWhiteSpace(x.Field))
+            .GroupBy(x => x.Group.Trim() + "\u001f" + x.Field.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .OrderBy(x => x.Group, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Field, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (imported.Count == 0)
+        {
+            panel.Children.Add(Txt("No source-backed scalar fields were imported for this record. Atlas will not invent editable fields; import a richer save or connect to a supported live career.", 9, false, Muted, wrap: true));
+            return panel;
+        }
+
+        var existing = await RunDatabaseAsync(() => _database.GetLocalEntityOverridesAsync(entityType, sourceId));
+        var overrideByKey = existing.ToDictionary(
+            x => x.Group + "\u001f" + x.Field, x => x, StringComparer.OrdinalIgnoreCase);
+        var rows = new ObservableCollection<EditableEntityFactView>();
+        foreach (var fact in imported)
+        {
+            var original = fact.Value ?? string.Empty;
+            var key = fact.Group.Trim() + "\u001f" + fact.Field.Trim();
+            overrideByKey.TryGetValue(key, out var prior);
+            rows.Add(new EditableEntityFactView
+            {
+                Group = fact.Group, Field = fact.Field,
+                OriginalValue = prior?.OriginalValue ?? original,
+                InitialValue = prior?.OverrideValue ?? original,
+                Value = prior?.OverrideValue ?? original,
+                SourceLabel = prior?.SourceLabel ?? fact.Group
+            });
+        }
+
+        var grid = CreateGrid();
+        grid.IsReadOnly = false;
+        grid.CanUserAddRows = false;
+        grid.MinHeight = 220;
+        grid.MaxHeight = 480;
+        var groupColumn = Column("SOURCE GROUP", nameof(EditableEntityFactView.Group), 1.0); groupColumn.IsReadOnly = true; grid.Columns.Add(groupColumn);
+        var fieldColumn = Column("FIELD", nameof(EditableEntityFactView.Field), 1.2); fieldColumn.IsReadOnly = true; grid.Columns.Add(fieldColumn);
+        var sourceColumn = Column("IMPORTED VALUE", nameof(EditableEntityFactView.OriginalValue), 1.0); sourceColumn.IsReadOnly = true; grid.Columns.Add(sourceColumn);
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "LOCAL OVERRIDE",
+            Binding = new Binding(nameof(EditableEntityFactView.Value)) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+            Width = new DataGridLength(1.25, DataGridLengthUnitType.Star), MinWidth = 140
+        });
+        grid.ItemsSource = rows;
+        panel.Children.Add(Txt($"{rows.Count:N0} source-backed fields · {existing.Count:N0} existing local overrides", 8, true, Muted));
+        panel.Children.Add(grid);
+        panel.Children.Add(PrimaryButton("Save changed local fields", async (_, _) =>
+        {
+            grid.CommitEdit(DataGridEditingUnit.Cell, true);
+            grid.CommitEdit(DataGridEditingUnit.Row, true);
+            var changed = rows.Where(x => !string.Equals(x.Value, x.InitialValue, StringComparison.Ordinal)).ToList();
+            if (changed.Count == 0)
+            {
+                MessageBox.Show(this, "No local field changes to save.", "FM Atlas local editor", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            try
+            {
+                await RunDatabaseAsync(() => _database.SaveLocalEntityOverridesAsync(
+                    entityType, sourceId, displayName,
+                    changed.Select(x => new AtlasLocalEntityEdit(x.Group, x.Field, x.OriginalValue, x.Value, x.SourceLabel)).ToList()));
+                foreach (var item in changed) item.InitialValue = item.Value;
+                AtlasLog.Info($"Saved {changed.Count:N0} local {entityType} overrides for {displayName}.");
+                MessageBox.Show(this,
+                    $"Saved {changed.Count:N0} local {entityType} field overrides for {displayName}. The original imported facts are preserved and Football Manager was not changed.",
+                    "Atlas local overrides saved", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error($"Local {entityType} editor save failed for {displayName}.", ex);
+                MessageBox.Show(this, ex.Message, "FM Atlas local editor", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+        return panel;
+    }
+
+    private sealed class EditableEntityFactView
+    {
+        public string Group { get; set; } = "";
+        public string Field { get; set; } = "";
+        public string OriginalValue { get; set; } = "";
+        public string InitialValue { get; set; } = "";
+        public string Value { get; set; } = "";
+        public string SourceLabel { get; set; } = "";
+    }
+
     private async Task ShowPlayerProfileAsync(PlayerRecord player)
     {
         if (_profileTabs is null) return;
@@ -1641,6 +1740,14 @@ public partial class MainWindow : Window
             }));
             if (editableRows.Count == 0)
                 profileEditorTab.Children.Add(Txt("No source-backed editable attribute values were imported for this player. Import a supported FM27 save or connect to a supported live career first.", 9, false, Muted, wrap: true));
+            var allPlayerFacts = generalFacts.Concat(positionFacts).Concat(reputationFacts)
+                .Concat(stateFacts).Concat(contractFacts).Concat(traits)
+                .Concat(liveFacts.Select(x => new AtlasFactRecord(
+                    "Live FM27 · " + (x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase) ? "verified" : "provisional"),
+                    x.FieldKey, x.NumericValue?.ToString("0.########", CultureInfo.InvariantCulture) ?? x.TextValue)))
+                .ToList();
+            profileEditorTab.Children.Add(await BuildLocalEntityFactEditorAsync(
+                "player", player.SourceId, player.Name, allPlayerFacts));
         }
         if (attributes.Count == 0)
             attributesTab.Children.Add(Txt("No player attribute rows were supplied by the selected source.", 10, false, Muted, wrap: true));
@@ -2214,6 +2321,11 @@ public partial class MainWindow : Window
             else clubLogo.Child = Txt("CLUB", 9, true, Teal);
             clubHero.Children.Add(clubLogo); clubHero.Children.Add(Txt(club.Name, 23, true, Ink, wrap: true));
             stack.Children.Add(clubHero);
+            stack.Children.Add(SoftButton(_editorEnabled ? "Local club editor · ON" : "Enable local club editor", async (_, _) =>
+            {
+                _editorEnabled = !_editorEnabled;
+                await ShowClubSummaryAsync(club);
+            }));
             AddDetailRow(stack, "Nation", club.Nation ?? "Not decoded");
             AddDetailRow(stack, "Linked players", club.PlayerCount.ToString("N0"));
             AddDetailRow(stack, "Source", club.DataSource);
@@ -2227,6 +2339,10 @@ public partial class MainWindow : Window
                 stack.Children.Add(Txt(group.Key.Replace('_', ' ').ToUpperInvariant(), 8, true, Teal));
                 foreach (var fact in group.Take(80)) AddDetailRow(stack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
             }
+            if (_editorEnabled)
+                stack.Children.Add(await BuildLocalEntityFactEditorAsync("club", club.SourceId, club.Name, facts));
+            else
+                stack.Children.Add(Txt("Enable the local club editor above to create auditable overrides for every imported club, finance, facility and stadium fact. These changes remain inside Atlas.", 9, false, Muted, wrap: true));
 
             stack.Children.Add(Txt("CLUB STAFF", 9, true, Teal) is var staffHeading ? Configure(staffHeading, new Thickness(0, 17, 0, 6)) : new TextBlock());
             if (isLive)
@@ -2379,6 +2495,11 @@ public partial class MainWindow : Window
             var facts = await RunDatabaseAsync(() => _database.GetFmsaveStaffFactsAsync(person.SourceId));
             if (requestVersion != staffProfileVersion) return;
             profileStack.Children.Clear(); profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt(person.Name, 22, true, Ink));
+            profileStack.Children.Add(SoftButton(_editorEnabled ? "Local staff editor · ON" : "Enable local staff editor", async (_, _) =>
+            {
+                _editorEnabled = !_editorEnabled;
+                await ShowStaffAsync(person);
+            }));
             AddDetailRow(profileStack, "Role", person.Job); AddDetailRow(profileStack, "Club", person.Club); AddDetailRow(profileStack, "Age", person.Age?.ToString()); AddDetailRow(profileStack, "Nation", person.Nation); AddDetailRow(profileStack, "Current ability", person.CurrentAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Potential ability", person.PotentialAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Human manager", person.IsHumanManager ? "Yes" : "No / not identified"); AddDetailRow(profileStack, "Source / confidence", person.ValidationStatus); AddDetailRow(profileStack, "Record ID", person.SourceId);
             var preferenceFacts = facts.Where(x => x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)).ToList();
             if (preferenceFacts.Count > 0)
@@ -2445,6 +2566,10 @@ public partial class MainWindow : Window
                 profileStack.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal));
                 foreach (var fact in group.Take(50)) AddDetailRow(profileStack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
             }
+            if (_editorEnabled)
+                profileStack.Children.Add(await BuildLocalEntityFactEditorAsync("staff", person.SourceId, person.Name, facts));
+            else
+                profileStack.Children.Add(Txt("Enable the local staff editor above to create auditable overrides for every imported staff fact. These changes remain inside Atlas.", 9, false, Muted, wrap: true));
         }
 
         dg.SelectionChanged += async (_, _) =>
