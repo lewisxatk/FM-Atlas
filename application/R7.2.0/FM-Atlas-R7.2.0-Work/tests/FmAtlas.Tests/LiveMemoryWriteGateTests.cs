@@ -23,6 +23,16 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
+    public void DefaultSupportLogRedactsQuotedEntityNamesAndKeepsFailureContext()
+    {
+        const string raw = "Identity mismatch: FM reports 'Lewis Atkinson', not 'Lewis Atkinson Jr'. Live edit blocked.";
+        var safe = AtlasLog.RedactForSupport(raw);
+        Assert.DoesNotContain("Lewis Atkinson", safe, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Identity mismatch", safe);
+        Assert.Contains("Live edit blocked", safe);
+    }
+
+    [Fact]
     public void ModuleDiagnosticPersonalDetailsAreIncludedOnlyAfterExplicitOptIn()
     {
         const string raw = "Lewis Atkinson · C:\\Users\\Lewis\\FM";
