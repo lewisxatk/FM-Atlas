@@ -148,8 +148,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 11. Quality gates, performance and testing
 
-- [ ] Restore and compile full solution using .NET 8 on Windows.
-- [ ] Resolve all compile errors and actionable warnings; record exact build command and output.
+- [x] Restore and compile full solution using .NET 8 on a hosted Windows runner (GitHub Actions run #79, commit `18d32e2d`).
+- [~] All compile errors found in the first run were fixed and the Release build now passes; review remaining non-fatal compiler warnings before declaring warning-clean.
 - [ ] Add unit tests for data mapping, identity joins, filter logic, calculations and validation.
 - [ ] Add integration tests for import staging, rollback, SQLite contention, cancellation and retry.
 - [ ] Add performance benchmarks at 40k+ players, 28k+ clubs and large stats tables.
@@ -162,7 +162,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 ## 12. Release handover
 
 - [ ] Update README and user setup/test tutorial to match the delivered build.
-- [ ] Publish complete integrated build artifact with SHA-256 checksum.
+- [x] Publish a self-contained Windows x64 V8 checkpoint ZIP with SHA-256 checksum (run #79; `4a16f815150e41855b2b1d5dba884c6878ac5a69f44b8ae44ebea8570b2798e2`).
 - [ ] Provide one simple download/setup/launch/test procedure.
 - [ ] Include known limitations and safe rollback steps.
 - [ ] Provide final checklist report with links to commits, CI, build log and acceptance evidence.
@@ -186,4 +186,5 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Cancellable save-import UI and elapsed time | `005af6a0`, `f0701bb1` | Added a toolbar Cancel action, visible import status, elapsed time and a clear message that the previous committed snapshot is retained. |
 | 2026-11-14 | Reduce duplicate JSON array allocations | `26104ba3` | Player, staff and club arrays are now lazily enumerated from JsonDocument rather than being copied into duplicate arrays and Lists. Full envelope memory is still materialised; true bounded streaming remains open. |
 | 2026-11-14 | AND/OR logic for specialist search engines | `e9fae94d`, `590d205a` | Attribute/personality and performance-stat search can now match ALL (AND) or ANY (OR) conditions. A single cross-category query builder remains open. |
-| 2026-11-14 | First Windows Release compile and fixes | `80b4160d`, `b35432d8` | Windows runner restored successfully but compile exposed 7 errors (four event-handler signatures, three WPF/System.IO Path ambiguities). Fixed the callback signatures and added an explicit System.IO.Path alias; rerun pending. |
+| 2026-11-14 | First Windows Release compile and fixes | `80b4160d`, `b35432d8` | First attempt exposed 7 errors (four event-handler signatures, three WPF/System.IO Path ambiguities). Fixed callback signatures and added an explicit System.IO.Path alias. |
+| 2026-11-14 | Successful Windows x64 Release build and package | GitHub Actions run [#79](https://github.com/lewisxatk/FM-Atlas/actions/runs/43534383967), commit `18d32e2d` | .NET 8 setup, solution restore, Release compilation, self-contained win-x64 publish and artifact upload all passed. Product ZIP SHA-256: `4a16f815150e41855b2b1d5dba884c6878ac5a69f44b8ae44ebea8570b2798e2`. This is a compile/package checkpoint only; Windows runtime and FM acceptance remain open. |
