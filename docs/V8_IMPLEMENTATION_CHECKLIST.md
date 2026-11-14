@@ -376,3 +376,21 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - FMRTE 27, Genie Scout 27 and FMLibreEditor research has been recorded in the reverse-engineering notes.
 - The latest available Windows workflow (run `43554026041`) passed Release build and Python adapter checks but had one test-fixture expectation failure (59/60); publish/artifact steps were skipped. The corrected head must pass a fresh complete workflow before the build is considered verified.
 - Glass implementation remains in source; real Windows visual acceptance, dialog/high-contrast and other remaining control-state polish are not yet complete.
+
+
+## Position scouting map — 14 November 2026
+
+- [x] Replace the flat position tile matrix with a responsive pitch-shaped 15-position player-profile map.
+- [x] Keep source ratings and the five display bands in `PositionSuitabilityService`; pitch coordinates are presentation-only.
+- [x] Preserve unrated status for missing, zero and out-of-range values; do not invent suitability scores.
+- [x] Add selectable position tiles with source rating and band detail.
+- [x] Add regression tests for the 15 canonical positions, five band boundaries, invalid/missing values, legacy ST alias and later-source precedence.
+- [ ] Fresh Windows Release build and full xUnit suite after pitch/test commits.
+- [ ] Manually verify pitch layout, hover/selection, readability and 100%/125%/150% DPI scaling on Windows.
+- [ ] Extend Advanced Search position criteria to support FMRTE-style multi-position AND/ANY and minimum familiarity only after the data schema and semantics are explicitly represented and tested.
+
+## Latest verified delivery
+
+- Windows workflow `43554520053` passed Python adapter checks, .NET 8 restore, Release build, all xUnit tests, self-contained win-x64 publish and artifact upload for commit `6a65a8a2`.
+- Artifact SHA-256: `3adbd4232d0e1e8910df43ab83acb81f1fbde9880cdb3e60fb121f8efbf746c4`.
+- Later pitch and regression-test commits are not covered by that artifact; a fresh workflow is required.
