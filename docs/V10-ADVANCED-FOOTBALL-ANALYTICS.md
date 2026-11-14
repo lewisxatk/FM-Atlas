@@ -21,7 +21,7 @@ We have implemented the architecture pattern, not copied proprietary commercial 
 ### Unified event actions
 - Adds a shared action record for match, competition, season, period, clock, possession, team, player, recipient, event/action type, result, start/end coordinates, shot, goal, xG, provider and source event ID.
 - Adds StatsBomb Open Data conversion for supported pass, carry, shot, dribble, pressure, tackle/duel, interception, recovery, clearance, block and foul events.
-- Normalises pitch coordinates to a 120 × 80 attacking-direction coordinate system by team and period.
+- Normalises pitch coordinates to a 105 × 68 attacking-direction coordinate system by team and period.
 - Preserves recipient IDs/names for directed passing networks.
 - Keeps provider-specific adapters explicit; Wyscout player-stat CSV is not misrepresented as Wyscout event feed.
 
