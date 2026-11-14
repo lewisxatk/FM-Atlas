@@ -3450,6 +3450,12 @@ public sealed class ScoutDatabase
             {
                 var group = reader.GetString(0);
                 var key = reader.GetString(1);
+                // Position familiarity is exposed in its own FMRTE-style grouped control
+                // so its ALL/ANY and At Least semantics never mix with global criteria.
+                if (group.Equals("positions", StringComparison.OrdinalIgnoreCase)
+                    || group.Equals("natural_positions", StringComparison.OrdinalIgnoreCase)
+                    || group.Equals("accomplished_positions", StringComparison.OrdinalIgnoreCase))
+                    continue;
                 var hasNumeric = reader.GetInt32(2) == 1;
                 var category = group switch
                 {
@@ -3482,9 +3488,11 @@ public sealed class ScoutDatabase
         int limit = 250,
         int offset = 0,
         CancellationToken cancellationToken = default,
-        IReadOnlyList<AdvancedSearchSort>? sorts = null)
+        IReadOnlyList<AdvancedSearchSort>? sorts = null,
+        AdvancedPositionFilter? positionFilter = null)
     {
-        if (criteria.Count == 0) return new();
+        positionFilter = AdvancedPositionFilterRules.Normalize(positionFilter);
+        if (criteria.Count == 0 && positionFilter is null) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 conditions in one advanced player search.");
 
         var coreColumns = new Dictionary<string, (string Column, AdvancedSearchFieldType Type)>(StringComparer.OrdinalIgnoreCase)
@@ -3593,6 +3601,51 @@ public sealed class ScoutDatabase
             throw new ArgumentException($"Unsupported advanced search field: {key}", nameof(criteria));
         }
 
+        var positionPredicates = new List<string>();
+        if (positionFilter?.Positions is { Count: > 0 } selectedPositions)
+        {
+            for (var positionIndex = 0; positionIndex < selectedPositions.Count; positionIndex++)
+            {
+                var selected = selectedPositions[positionIndex];
+                var valueParameter = "$positionValue" + positionIndex;
+                var keyParameter = "$positionKey" + positionIndex;
+                var aliasParameter = "$positionAlias" + positionIndex;
+                var liveFieldParameter = "$livePositionField" + positionIndex;
+                var comparison = positionFilter.AtLeast ? ">=" : "=";
+                var aliases = selected.PositionCode.Equals("STC", StringComparison.OrdinalIgnoreCase)
+                    ? new[] { "STC", "ST" }
+                    : new[] { selected.PositionCode };
+                positionPredicates.Add($"""
+                    (
+                      EXISTS (
+                        SELECT 1 FROM FmsavePlayerFacts pf
+                        WHERE pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                          AND pf.PlayerSourceId=p.SourceId
+                          AND pf.FactGroup IN ('positions','natural_positions','accomplished_positions')
+                          AND (upper(pf.FieldKey)={keyParameter} OR upper(pf.FieldKey)={aliasParameter})
+                          AND pf.NumericValue IS NOT NULL
+                          AND pf.NumericValue {comparison} {valueParameter}
+                      )
+                      OR EXISTS (
+                        SELECT 1 FROM LivePlayerFacts lf
+                        JOIN LivePlayers lp ON lp.PlayerUid=lf.PlayerUid
+                        WHERE p.SourceId='LIVE:' || CAST(lp.PlayerUid AS TEXT)
+                          AND lower(lf.FieldKey)={liveFieldParameter}
+                          AND lf.NumericValue IS NOT NULL
+                          AND lf.NumericValue {comparison} {valueParameter}
+                      )
+                    )
+                    """);
+                cmd.Parameters.AddWithValue(keyParameter, selected.PositionCode.ToUpperInvariant());
+                cmd.Parameters.AddWithValue(aliasParameter, aliases.Last().ToUpperInvariant());
+                cmd.Parameters.AddWithValue(liveFieldParameter, "positions." + selected.PositionCode.ToLowerInvariant());
+                cmd.Parameters.AddWithValue(valueParameter, selected.Rating);
+            }
+        }
+        var positionGroupPredicate = positionPredicates.Count == 0
+            ? "1=1"
+            : "(" + string.Join(positionFilter!.MatchAny ? " OR " : " AND ", positionPredicates) + ")";
+
         var query = (search ?? string.Empty).Trim();
         var sortTerms = new List<string>();
         var usedSortKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -3618,7 +3671,8 @@ public sealed class ScoutDatabase
             FROM Players p
             WHERE ($q='' OR p.Name LIKE $pattern COLLATE NOCASE OR COALESCE(p.Club,'') LIKE $pattern COLLATE NOCASE
                 OR COALESCE(p.Nation,'') LIKE $pattern COLLATE NOCASE OR p.SourceId LIKE $pattern)
-              AND ({string.Join(matchAll ? " AND " : " OR ", predicates)})
+              AND ({(predicates.Count == 0 ? "1=1" : string.Join(matchAll ? " AND " : " OR ", predicates))})
+              AND ({positionGroupPredicate})
               AND (p.SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (
                     SELECT 1 FROM FmsavePlayerSnapshots s
                     WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=p.SourceId
