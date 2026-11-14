@@ -349,7 +349,8 @@ public sealed class PerformanceValueAnalysisWindow : Window
         var positionRatingSummary = _positionRatingCode.SelectedItem is string code && !code.Equals("Any FM pos", StringComparison.OrdinalIgnoreCase)
             ? $"FM {code} familiarity ≥ {Math.Clamp(int.TryParse(_minimumPositionRating.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var floor) ? floor : 15, 1, 20)}/20"
             : "No FM familiarity floor";
-        _status.Text = $"{_results.Count:N0} of {_allResults.Count:N0} eligible players shown · minimum {_activeMinimumSampleSize} source sample(s) · {_results[0].DisplayCoverage} coverage of the eligible valued-player pool · {positionRatingSummary} · {cohortSummary}. Percentiles are calculated within the qualifying familiarity pool, after minutes/sample floors; visible position/league filters are display filters only.";
+        var chartBasis = _percentileBasis.SelectedItem as string ?? "Overall pool";
+        _status.Text = $"{_results.Count:N0} of {_allResults.Count:N0} eligible players shown · minimum {_activeMinimumSampleSize} source sample(s) · {_results[0].DisplayCoverage} coverage of the eligible valued-player pool · {positionRatingSummary} · chart rank: {chartBasis} · {cohortSummary}. Overall/value percentiles use the qualifying familiarity pool; position/league percentiles use their named cohorts and require at least three players. Visible position/league filters are display filters only.";
     }
 
     private void DrawEmptyChart()
