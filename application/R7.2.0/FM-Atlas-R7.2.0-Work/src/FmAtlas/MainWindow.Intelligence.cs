@@ -37,15 +37,12 @@ public partial class MainWindow
         var maxValue = Input("Max value · source units"); maxValue.Width = 145;
         var position = new ComboBox { Width = 145, Height = 36, Margin = new Thickness(0, 0, 7, 8), IsEditable = true, IsTextSearchEnabled = true, ToolTip = "Optional position text filter; uses the imported position label." };
         position.Items.Add("Any position"); position.SelectedIndex = 0;
-        var run = PrimaryButton("Find development targets", async (_, _) => await RunSearchAsync());
-        var export = SoftButton("Export CSV", (_, _) => ExportRows());
         controls.Children.Add(FilterControl("MIN AGE", minAge, 82));
         controls.Children.Add(FilterControl("MAX AGE", maxAge, 82));
         controls.Children.Add(FilterControl("MIN HEADROOM", minGap, 112));
         controls.Children.Add(FilterControl("MIN CA", minCa, 82));
         controls.Children.Add(FilterControl("MAX VALUE", maxValue, 152));
         controls.Children.Add(FilterControl("POSITION", position, 150));
-        controls.Children.Add(run); controls.Children.Add(export);
         intro.Children.Add(controls);
         var status = Txt("Loading the latest local and live player records…", 9, false, Muted, wrap: true);
         status.Margin = new Thickness(0, 8, 0, 0);
@@ -72,6 +69,9 @@ public partial class MainWindow
 
         List<DevelopmentCandidate> allCandidates = new();
         List<DevelopmentCandidate> visibleCandidates = new();
+        var run = PrimaryButton("Find development targets", async (_, _) => await RunSearchAsync());
+        var export = SoftButton("Export CSV", (_, _) => ExportRows());
+        controls.Children.Add(run); controls.Children.Add(export);
 
         async Task LoadSnapshotAsync()
         {
