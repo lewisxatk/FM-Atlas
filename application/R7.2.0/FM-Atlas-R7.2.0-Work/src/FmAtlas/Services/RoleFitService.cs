@@ -1,6 +1,6 @@
 namespace FmAtlas.Services;
 
-public sealed record RoleFitProfile(string Name, string Phase, string PositionGroup, string Description, IReadOnlyDictionary<string, double> Weights);
+public sealed record RoleFitProfile(string Name, string Phase, string PositionGroup, string Description, IReadOnlyDictionary<string, double> Weights, bool IsCustom = false);
 public sealed record RoleFitAttributeContribution(string Attribute, double Value, double Weight, double WeightedPoints, double ShareOfTotal);
 
 public sealed record RoleFitCandidate(string SourceId, string Name, string? Club, int? Age, string? Position, int? CurrentAbility, int? PotentialAbility, double Score, int AttributesAvailable, int AttributesExpected, double Coverage, IReadOnlyList<RoleFitAttributeContribution>? Contributions = null)

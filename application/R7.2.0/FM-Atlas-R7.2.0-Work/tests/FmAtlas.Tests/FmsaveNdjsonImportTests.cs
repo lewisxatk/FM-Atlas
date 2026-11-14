@@ -473,6 +473,49 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(100d, results[0].DataCoverage);
     }
 
+
+    [Fact]
+    public void RoleFitProfileStoreAtomicallySavesReplacesLoadsAndDeletesCustomTemplates()
+    {
+        using var temp = new TemporaryFolder();
+        var path = Path.Combine(temp.Path, "role-templates.json");
+        var first = new RoleFitProfile(
+            "Barnstorming Wingback", "In Possession", "Defender", "High-energy wide progression.",
+            new Dictionary<string, double> { ["Pace"] = 2, ["Stamina"] = 1.5, ["Crossing"] = 1 });
+        RoleFitProfileStore.Save(first, path);
+
+        var loaded = Assert.Single(RoleFitProfileStore.LoadAll(path));
+        Assert.True(loaded.IsCustom);
+        Assert.Equal("Barnstorming Wingback", loaded.Name);
+        Assert.Equal(2d, loaded.Weights["Pace"]);
+
+        var replacement = first with
+        {
+            Description = "Updated wide progression template.",
+            Weights = new Dictionary<string, double> { ["Pace"] = 3, ["Dribbling"] = 2 }
+        };
+        RoleFitProfileStore.Save(replacement, path);
+
+        var replaced = Assert.Single(RoleFitProfileStore.LoadAll(path));
+        Assert.Equal("Updated wide progression template.", replaced.Description);
+        Assert.Equal(3d, replaced.Weights["Pace"]);
+        Assert.True(RoleFitProfileStore.Delete("Barnstorming Wingback", path));
+        Assert.Empty(RoleFitProfileStore.LoadAll(path));
+        Assert.False(RoleFitProfileStore.Delete("Barnstorming Wingback", path));
+    }
+
+    [Fact]
+    public void RoleFitProfileStoreRejectsInvalidWeightsAndIncompleteTemplates()
+    {
+        using var temp = new TemporaryFolder();
+        var path = Path.Combine(temp.Path, "invalid-role-templates.json");
+        var invalid = new RoleFitProfile(
+            "Broken template", "Both", "Test", "Invalid weight.",
+            new Dictionary<string, double> { ["Pace"] = 0, ["Finishing"] = 1 });
+        Assert.Throws<ArgumentException>(() => RoleFitProfileStore.Save(invalid, path));
+        Assert.False(File.Exists(path));
+    }
+
     private static string CreateBundle(
         string root,
         string name,
