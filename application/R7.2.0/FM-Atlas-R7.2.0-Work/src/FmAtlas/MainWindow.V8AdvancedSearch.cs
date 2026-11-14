@@ -20,6 +20,7 @@ public partial class MainWindow
         public TextBox Minimum { get; init; } = null!;
         public TextBox Maximum { get; init; } = null!;
         public TextBox TextValue { get; init; } = null!;
+        public ComboBox PositionValue { get; init; } = null!;
         public ComboBox BooleanValue { get; init; } = null!;
         public StackPanel ValueHost { get; init; } = null!;
         public Border Container { get; init; } = null!;
@@ -585,7 +586,10 @@ public partial class MainWindow
                     row.ValueHost.Children.Add(row.Maximum);
                     break;
                 case AdvancedSearchFieldType.Text:
-                    row.ValueHost.Children.Add(row.TextValue);
+                    if (field.Key.Equals("player:Position", StringComparison.OrdinalIgnoreCase))
+                        row.ValueHost.Children.Add(row.PositionValue);
+                    else
+                        row.ValueHost.Children.Add(row.TextValue);
                     break;
                 case AdvancedSearchFieldType.Boolean:
                     row.ValueHost.Children.Add(row.BooleanValue);
@@ -647,6 +651,17 @@ public partial class MainWindow
             textValue.Width = 150;
             textValue.Height = 34;
             textValue.Margin = new Thickness(0, 0, 6, 0);
+            var positionValue = new ComboBox
+            {
+                Width = 132,
+                Height = 34,
+                Margin = new Thickness(0, 0, 6, 0),
+                FontSize = 10,
+                IsEditable = true,
+                IsTextSearchEnabled = true,
+                ItemsSource = PositionSuitabilityService.PositionCodes.Concat(new[] { "ST" }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                ToolTip = "Choose one of the 15 canonical FM positions. ST is retained as a legacy centre-forward alias; you can also type a source-specific position value."
+            };
             var booleanValue = new ComboBox
             {
                 Width = 105,
@@ -695,6 +710,7 @@ public partial class MainWindow
                 Minimum = minimum,
                 Maximum = maximum,
                 TextValue = textValue,
+                PositionValue = positionValue,
                 BooleanValue = booleanValue,
                 ValueHost = valueHost,
                 Container = container
@@ -758,7 +774,9 @@ public partial class MainWindow
                     }
                     case AdvancedSearchFieldType.Text:
                     {
-                        var value = row.TextValue.Text.Trim();
+                        var value = field.Key.Equals("player:Position", StringComparison.OrdinalIgnoreCase)
+                            ? row.PositionValue.Text.Trim()
+                            : row.TextValue.Text.Trim();
                         if (value.Length == 0) continue;
                         criteria.Add(new AdvancedSearchCriterion(field.Key, null, null, value, null));
                         break;
@@ -878,7 +896,10 @@ public partial class MainWindow
                         row.Maximum.Text = criterion.Maximum?.ToString(CultureInfo.InvariantCulture) ?? "";
                         break;
                     case AdvancedSearchFieldType.Text:
-                        row.TextValue.Text = criterion.TextValue ?? "";
+                        if (field.Key.Equals("player:Position", StringComparison.OrdinalIgnoreCase))
+                            row.PositionValue.Text = criterion.TextValue ?? "";
+                        else
+                            row.TextValue.Text = criterion.TextValue ?? "";
                         break;
                     case AdvancedSearchFieldType.Boolean:
                         row.BooleanValue.SelectedIndex = criterion.BooleanValue.HasValue ? (criterion.BooleanValue.Value ? 1 : 2) : 0;

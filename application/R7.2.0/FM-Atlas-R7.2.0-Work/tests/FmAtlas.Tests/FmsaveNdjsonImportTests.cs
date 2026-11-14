@@ -909,6 +909,12 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(new[] { "LOCAL:SORT:BRAVO" }, sweepers.Select(x => x.SourceId));
         var centreForwards = await database.SearchAsync("", null, null, "STC", null, null, null, limit: 100);
         Assert.Equal(new[] { "LOCAL:SORT:CHARLIE" }, centreForwards.Select(x => x.SourceId));
+        var advancedSweeper = await database.SearchAdvancedPlayersAsync(
+            "", new[] { new AdvancedSearchCriterion("player:Position", null, null, "SW", null) }, limit: 100);
+        Assert.Equal(new[] { "LOCAL:SORT:BRAVO" }, advancedSweeper.Select(x => x.SourceId));
+        var advancedForward = await database.SearchAdvancedPlayersAsync(
+            "", new[] { new AdvancedSearchCriterion("player:Position", null, null, "STC", null) }, limit: 100);
+        Assert.Equal(new[] { "LOCAL:SORT:CHARLIE" }, advancedForward.Select(x => x.SourceId));
         Assert.Equal(new[] { "GK", "SW", "DL", "DC", "DR", "WBL", "WBR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "STC" },
             PositionSuitabilityService.PositionCodes);
     }
