@@ -144,7 +144,7 @@ public static class ScoutingActionAnalyticsService
         var shots = new double[Columns, Rows];
         var goals = new double[Columns, Rows];
         var moves = new double[Columns, Rows];
-        var transitions = new double[Columns * Rows, Columns * Rows];
+        var transitions = Enumerable.Range(0, Columns * Rows).Select(_ => new double[Columns * Rows]).ToArray();
         foreach (var a in actions)
         {
             if (!a.StartX.HasValue || !a.StartY.HasValue) continue;
@@ -160,7 +160,7 @@ public static class ScoutingActionAnalyticsService
                 var end = Zone(a.EndX.Value, a.EndY.Value);
                 if (end.X == start.X && end.Y == start.Y) continue;
                 moves[start.X, start.Y]++;
-                transitions[Index(start)] [Index(end)]++;
+                transitions[Index(start)][Index(end)]++;
             }
         }
 
@@ -240,7 +240,7 @@ public static class ScoutingActionAnalyticsService
                 var rows = g.ToList();
                 var passes = rows.Count(x => x.Action.ActionType == "pass");
                 var completed = rows.Count(x => x.Action.ActionType == "pass" && x.Action.Successful);
-                var minutes = Math.Max(1, rows.Select(x => x.Action.Period).Distinct().Count() * 45);
+                var minutes = 0;
                 var xt = rows.Sum(x => x.XtAdded ?? 0);
                 return new PlayerEventAnalytics(g.Key.PlayerId ?? "", g.Key.Player, g.Key.Team, minutes,
                     passes, completed, rows.Count(x => x.Action.ActionType == "carry"),
@@ -252,7 +252,7 @@ public static class ScoutingActionAnalyticsService
                     rows.Count(x => x.Action.EndX >= 80 && x.Action.StartX < 80),
                     rows.Count(x => x.Action.ActionType == "pass" && IsProgressive(x.Action)),
                     rows.Count(x => x.Action.ActionType == "carry" && IsProgressive(x.Action)),
-                    passes == 0 ? null : completed * 100d / passes, xt * 90d / minutes);
+                    passes == 0 ? null : completed * 100d / passes, null);
             }).ToList();
     }
 
