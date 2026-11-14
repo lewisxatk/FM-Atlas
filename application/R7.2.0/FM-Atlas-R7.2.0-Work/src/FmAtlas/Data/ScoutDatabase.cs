@@ -32,7 +32,7 @@ public sealed class ScoutDatabase
     /// Creates a database facade for the user's local Atlas database, or an explicit
     /// database path supplied by an automated integration test.
     /// </summary>
-    public ScoutDatabase(string? databasePath)
+    public ScoutDatabase(string? databasePath, bool pooling = true)
     {
         var resolvedPath = string.IsNullOrWhiteSpace(databasePath)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas", "scouting.db")
@@ -43,7 +43,8 @@ public sealed class ScoutDatabase
         {
             DataSource = resolvedPath,
             DefaultTimeout = 30,
-            ForeignKeys = true
+            ForeignKeys = true,
+            Pooling = pooling
         }.ToString();
     }
 
