@@ -53,7 +53,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [x] Navigation no longer disables all sidebar controls while a workspace is loading; latest destination can be queued.
 - [ ] Replace monolithic MainWindow code-behind with testable view models/services (incrementally; retain proven legacy workspaces until replacement).
-- [ ] Add cancellable workspace-load/query operations and stale-request cancellation.
+- [~] Add cancellable search operations: universal Advanced Search now has a Cancel button, propagates a CancellationToken to the SQLite query, retains the last successful result page when cancelled, and cancels on reset/profile load. Other workspace loads and stale query cancellation remain open.
 - [x] Previously opened player profiles are restored after the Players workspace is displayed, not awaited in the navigation construction path.
 - [ ] Add a background job centre with stages, elapsed time, cancellation, completion and failure details.
 - [ ] Persist selected workspace, open tabs, filters, grid columns and layout state.
@@ -91,6 +91,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [~] Existing player results are indexed/paged in source; cancellation and full stable sorting still require validation and implementation.
 - [x] Add a unified Advanced Search workspace combining core player fields, dynamically discovered PlayerAttributes and latest-save facts in one field/category builder.
+- [x] Add a Cancel search action with cancellation propagated through SQLite and last successful result-page retention.
 - [~] Add a dynamic category and field library for core fields, contract facts, attributes/personality, positions, traits, state, reputation and raw attributes. Performance metrics remain in the dedicated per-period search workspace; source coverage display and additional categories are still open.
 - [x] Universal player search supports up to 60 mixed core/attribute/save-fact conditions with ALL/AND or ANY/OR matching. Specialist performance search remains separate because its criteria are scoped to player-period rows.
 - [x] Add local saved universal search profiles with create/replace/load/delete, persisted criteria, search text, AND/OR mode and selected result columns. Reset-to-default is present for the active filter builder; broader filter presets remain open.
