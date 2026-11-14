@@ -676,13 +676,16 @@ public static partial class LiveEntityMemoryEditService
             "supporters.mix.fair_weather", "supporters.mix.corporate", "supporters.mix.casual" };
         if (values.Any(x => mixKeys.Contains(x.FieldKey, StringComparer.OrdinalIgnoreCase)))
         {
-            var total = 0;
+            var originalTotal = mixKeys.Sum(key => ReadCurrentForKey(handle, target, key, financeClass, stadiumClass));
+            if (originalTotal != 100)
+                throw new InvalidOperationException("This club has no validated six-part supporter profile (the source percentages do not total 100%). Supporter editing is unavailable for this record.");
+            var targetTotal = 0;
             foreach (var key in mixKeys)
             {
                 var changed = values.FirstOrDefault(x => x.FieldKey.Equals(key, StringComparison.OrdinalIgnoreCase));
-                total += changed?.TargetValue ?? ReadCurrentForKey(handle, target, key, financeClass, stadiumClass);
+                targetTotal += changed?.TargetValue ?? ReadCurrentForKey(handle, target, key, financeClass, stadiumClass);
             }
-            if (total != 100)
+            if (targetTotal != 100)
                 throw new InvalidOperationException("Supporter profile percentages must add up to exactly 100%. Adjust the six groups together before staging.");
         }
         var cap=values.FirstOrDefault(x=>x.FieldKey=="stadium.capacity");
