@@ -46,7 +46,7 @@ public sealed class LiveCareerImportTests
         Assert.Contains(advanced, result => result.SourceId == "LIVE:7001");
 
         var personality = await database.GetPlayerAttributesAsync("LIVE:7001");
-        Assert.Equal(18d, personality["professionalism"]);
+        Assert.Equal(18d, personality["Personality · professionalism"]);
 
         var tooHigh = await database.SearchLivePlayersAsync("Fixture Player", minCa: 180);
         Assert.Empty(tooHigh);
@@ -154,7 +154,7 @@ public sealed class LiveCareerImportTests
 
         var results = await database.SearchFmsaveStaffAsync("Fixture Manager");
         var staffer = Assert.Single(results);
-        Assert.Equal("9001", staffer.SourceId);
+        Assert.Equal("LIVE:9001", staffer.SourceId);
         Assert.True(staffer.IsHumanManager);
         Assert.Equal(132, staffer.CurrentAbility);
         Assert.Equal(164, staffer.PotentialAbility);
@@ -369,7 +369,11 @@ public sealed class LiveCareerImportTests
 
         public void Dispose()
         {
-            try { Directory.Delete(Path, recursive: true); }
+            try
+            {
+                SqliteConnection.ClearAllPools();
+                Directory.Delete(Path, recursive: true);
+            }
             catch { /* Test cleanup must not mask an assertion or SQLite failure. */ }
         }
     }
