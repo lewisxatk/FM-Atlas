@@ -1850,6 +1850,55 @@ public sealed class ScoutDatabase
     /// Returns only explicitly imported numeric wage facts from the current save snapshot.
     /// Values stay in source units because currency and pay period are not inferred here.
     /// </summary>
+    /// <summary>Loads latest-snapshot wage facts only for the requested players, in bounded batches.</summary>
+    public async Task<Dictionary<string, double>> GetLatestPlayerWageFactsAsync(
+        IReadOnlyCollection<string> playerSourceIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(playerSourceIds);
+        var ids = playerSourceIds.Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var results = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        if (ids.Count == 0) return results;
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        const int batchSize = 400;
+        for (var start = 0; start < ids.Count; start += batchSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var batch = ids.Skip(start).Take(batchSize).ToList();
+            var command = db.CreateCommand();
+            var parameters = new List<string>(batch.Count);
+            for (var index = 0; index < batch.Count; index++)
+            {
+                var name = "$player" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                parameters.Add(name);
+                command.Parameters.AddWithValue(name, batch[index]);
+            }
+            command.CommandText = $"""
+                SELECT PlayerSourceId,NumericValue
+                FROM FmsavePlayerFacts
+                WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                  AND FactGroup='contract'
+                  AND LOWER(FieldKey)='wage'
+                  AND NumericValue IS NOT NULL
+                  AND NumericValue>0
+                  AND PlayerSourceId IN ({string.Join(",", parameters)})
+                ORDER BY PlayerSourceId;
+                """;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var value = reader.GetDouble(1);
+                if (double.IsFinite(value) && value > 0)
+                    results[reader.GetString(0)] = value;
+            }
+        }
+        return results;
+    }
+
     public async Task<Dictionary<string, double>> GetLatestPlayerWageFactsAsync(
         CancellationToken cancellationToken = default)
     {

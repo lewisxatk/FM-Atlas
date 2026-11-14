@@ -1643,13 +1643,22 @@ public partial class MainWindow : Window
         {
             var requestVersion = ++clubProfileVersion;
             var isLive = club.DataSource.Contains("live", StringComparison.OrdinalIgnoreCase);
-            var (facts, squadRows) = await Task.Run(async () =>
+            var (facts, squadRows, clubStaff, squadWages) = await Task.Run(async () =>
             {
                 var loadedFacts = isLive
                     ? await _database.GetLiveClubFactsAsync(club.SourceId).ConfigureAwait(false)
                     : await _database.GetFmsaveClubFactsAsync(club.SourceId).ConfigureAwait(false);
                 var loadedSquad = await _database.GetPlayersForClubAsync(club.SourceId, isLive, 5000).ConfigureAwait(false);
-                return (loadedFacts, loadedSquad);
+                var loadedStaff = isLive
+                    ? new List<AtlasStaffRecord>()
+                    : (await _database.SearchFmsaveStaffAsync(club.Name).ConfigureAwait(false))
+                        .Where(x => string.Equals(x.Club?.Trim(), club.Name.Trim(), StringComparison.OrdinalIgnoreCase))
+                        .Take(100).ToList();
+                var loadedWages = isLive
+                    ? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+                    : await _database.GetLatestPlayerWageFactsAsync(
+                        loadedSquad.Select(x => x.SourceId).ToList()).ConfigureAwait(false);
+                return (loadedFacts, loadedSquad, loadedStaff, loadedWages);
             });
             if (requestVersion != clubProfileVersion) return;
 
@@ -1682,11 +1691,49 @@ public partial class MainWindow : Window
                 foreach (var fact in group.Take(80)) AddDetailRow(stack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
             }
 
+            stack.Children.Add(Txt("CLUB STAFF", 9, true, Teal) is var staffHeading ? Configure(staffHeading, new Thickness(0, 17, 0, 6)) : new TextBlock());
+            if (isLive)
+                stack.Children.Add(Txt("Live staff-to-club relationships are not validated by the current reader, so no staff are inferred here.", 9, false, Muted, wrap: true));
+            else if (clubStaff.Count == 0)
+                stack.Children.Add(Txt("No staff records with an exact matching club name were supplied by this save snapshot.", 9, false, Muted, wrap: true));
+            else
+            {
+                AddDetailRow(stack, "Exact club-name matches", clubStaff.Count.ToString("N0"));
+                var staffGrid = CreateGrid();
+                staffGrid.Columns.Add(Column("NAME", "Name", 1.2));
+                staffGrid.Columns.Add(Column("ROLE", "Job", 1));
+                staffGrid.Columns.Add(Column("AGE", "Age", .4));
+                staffGrid.ItemsSource = clubStaff;
+                staffGrid.Height = Math.Min(260, Math.Max(100, clubStaff.Count * 32));
+                stack.Children.Add(staffGrid);
+            }
+
             stack.Children.Add(Txt("CLUB SQUAD", 9, true, Teal) is var squadTitle ? Configure(squadTitle, new Thickness(0, 18, 0, 6)) : new TextBlock());
             if (squadRows.Count == 0)
                 stack.Children.Add(Txt("No player-to-club links were imported for this club. The identity reader can find club names without necessarily decoding the complete squad relationship for every record.", 10, false, Muted, wrap: true));
             else
             {
+                var squadAnalysis = ClubSquadAnalysisService.Analyse(squadRows, squadWages);
+                var squadMetrics = new UniformGrid { Columns = 4, Margin = new Thickness(0, 5, 0, 8) };
+                squadMetrics.Children.Add(MetricCard("AVG AGE", squadAnalysis.AverageAge?.ToString("0.0") ?? "—", $"{squadAnalysis.AgeKnownCount}/{squadAnalysis.PlayerCount} known", "◷"));
+                squadMetrics.Children.Add(MetricCard("AVG CA", squadAnalysis.AverageCurrentAbility?.ToString("0.0") ?? "—", $"{squadAnalysis.CurrentAbilityKnownCount}/{squadAnalysis.PlayerCount} known", "↗"));
+                squadMetrics.Children.Add(MetricCard("AVG PA", squadAnalysis.AveragePotentialAbility?.ToString("0.0") ?? "—", $"{squadAnalysis.PotentialAbilityKnownCount}/{squadAnalysis.PlayerCount} known", "⌁"));
+                squadMetrics.Children.Add(MetricCard("TOTAL VALUE", squadAnalysis.TotalValue?.ToString("N0", CultureInfo.InvariantCulture) ?? "—", $"{squadAnalysis.ValueKnownCount}/{squadAnalysis.PlayerCount} · source units", "◈"));
+                stack.Children.Add(squadMetrics);
+                stack.Children.Add(Txt("AGE PROFILE", 8, true, Teal));
+                foreach (var band in squadAnalysis.AgeBands)
+                    AddDetailRow(stack, band.Label, band.Count.ToString("N0", CultureInfo.InvariantCulture));
+                stack.Children.Add(Txt("PRIMARY POSITION COVERAGE", 8, true, Teal));
+                foreach (var position in squadAnalysis.PositionCounts.Take(12))
+                    AddDetailRow(stack, position.Position, position.Count.ToString("N0", CultureInfo.InvariantCulture));
+                AddDetailRow(stack, "Wages recorded", squadAnalysis.WageKnownCount.ToString("N0", CultureInfo.InvariantCulture) + "/" + squadAnalysis.PlayerCount.ToString("N0", CultureInfo.InvariantCulture));
+                AddDetailRow(stack, "Wage total / mean", squadAnalysis.TotalWage.HasValue
+                    ? $"{squadAnalysis.TotalWage.Value.ToString("N0", CultureInfo.InvariantCulture)} / {squadAnalysis.AverageWage?.ToString("N0", CultureInfo.InvariantCulture) ?? "—"} source units"
+                    : "Unavailable");
+                AddDetailRow(stack, "Home-grown at club", $"{squadAnalysis.HomeGrownClubYes} yes · {squadAnalysis.HomeGrownClubNo} no · {squadAnalysis.HomeGrownClubUnknown} unknown");
+                AddDetailRow(stack, "Home-grown in nation", $"{squadAnalysis.HomeGrownNationYes} yes · {squadAnalysis.HomeGrownNationNo} no · {squadAnalysis.HomeGrownNationUnknown} unknown");
+                AddDetailRow(stack, "Other data coverage", $"Age {squadAnalysis.AgeKnownCount}/{squadAnalysis.PlayerCount} · CA {squadAnalysis.CurrentAbilityKnownCount}/{squadAnalysis.PlayerCount} · PA {squadAnalysis.PotentialAbilityKnownCount}/{squadAnalysis.PlayerCount} · value {squadAnalysis.ValueKnownCount}/{squadAnalysis.PlayerCount}");
+                stack.Children.Add(Txt("Player values and wages retain imported source units. Currency and wage pay period are not inferred from a numeric field alone.", 9, false, Muted, wrap: true));
                 AddDetailRow(stack, "Roster rows loaded", squadRows.Count.ToString("N0"));
                 var squadGrid = CreateGrid(); squadGrid.RowHeight = 34;
                 squadGrid.Columns.Add(Column("PLAYER", "Name", 1.3));

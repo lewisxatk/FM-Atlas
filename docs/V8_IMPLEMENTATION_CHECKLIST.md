@@ -144,7 +144,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 8. Squad, clubs, staff and tactics
 
-- [ ] Complete club directory and squad depth view.
+- [~] Club profile includes linked squad size and source coverage, age bands, primary-position counts, average age/CA/PA, total player value, wage records/mean/total, home-grown Yes/No/Unknown, and staff only on exact save club-name matches. Currency/pay period and missing fields are not inferred. Windows verification pending.
 - [ ] Add formation builder, positional coverage, role-fit and age/payroll structure.
 - [ ] Add tactical/role analysis with in/out-of-possession distinctions where supported.
 - [ ] Add staff search, coaching-role fit and backroom gaps where supported.
@@ -194,6 +194,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Provide final checklist report with links to commits, CI, build log and acceptance evidence.
 
 ## Work log
+
+| 2026-11-14 | Club profile squad, contract, home-grown and staff intelligence | Pending CI | Added source-backed club squad aggregates, wage coverage/total/mean in source units, home-grown Yes/No/Unknown, exact club-name save staff records, and regression tests for missing fields and units. Live staff links remain undisplayed until validated. Windows verification pending. |
 
 | 2026-11-14 | Advanced Search canonical position picker | Pending CI | Replaced free-text-only input for the core Position field with a searchable editable picker populated from the shared 15-position catalogue plus the legacy ST alias. Saved profile load/save continues to use the same TextValue criterion contract. Added database regression coverage for SW and STC filters. Windows verification pending. |
 | 2026-11-14 | Performance vs Value minimum sample floor and 40k metric-search verification | Pending CI | The existing 40,000-player / 80,000-fact indexed ALL/ANY fixture passed the full Windows integration suite in run #220. Added a minimum sample-count input to Performance vs Value, enforced in the SQLite aggregate before percentiles are calculated, plus a regression proving one-row candidates are excluded while two-row candidates remain. Real-save validation, import throughput and peak-memory profiling remain open. |

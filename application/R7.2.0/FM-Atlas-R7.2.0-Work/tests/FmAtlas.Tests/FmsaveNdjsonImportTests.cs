@@ -498,6 +498,45 @@ public sealed class FmsaveNdjsonImportTests
 
 
     [Fact]
+    public void ClubSquadAnalysisUsesOnlyPopulatedValuesAndCountsUnknownHomeGrownFields()
+    {
+        var players = new[]
+        {
+            new PlayerRecord { SourceId = "P1", Name = "One", Age = 22, Position = "ST", CurrentAbility = 120, PotentialAbility = 145, Value = 1500000m, HomeGrownClub = true, HomeGrownNation = null },
+            new PlayerRecord { SourceId = "P2", Name = "Two", Age = 27, Position = "ST", CurrentAbility = null, PotentialAbility = 155, Value = null, HomeGrownClub = false, HomeGrownNation = true },
+            new PlayerRecord { SourceId = "P3", Name = "Three", Age = null, Position = "CB", CurrentAbility = 140, PotentialAbility = null, Value = 2500000m, HomeGrownClub = null, HomeGrownNation = false },
+            new PlayerRecord { SourceId = "P4", Name = "Four", Age = 32, Position = null, CurrentAbility = 100, PotentialAbility = 125, Value = null, HomeGrownClub = null, HomeGrownNation = null }
+        };
+        var wages = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["P1"] = 10000, ["P2"] = 20000, ["P3"] = 0, ["P4"] = 15000
+        };
+        var result = ClubSquadAnalysisService.Analyse(players, wages);
+        Assert.Equal(4, result.PlayerCount);
+        Assert.Equal(3, result.AgeKnownCount);
+        Assert.Equal(27d, result.AverageAge, 5);
+        Assert.Equal(3, result.CurrentAbilityKnownCount);
+        Assert.Equal(120d, result.AverageCurrentAbility, 5);
+        Assert.Equal(3, result.PotentialAbilityKnownCount);
+        Assert.Equal(425d / 3d, result.AveragePotentialAbility, 5);
+        Assert.Equal(2, result.ValueKnownCount);
+        Assert.Equal(4000000m, result.TotalValue);
+        Assert.Equal(2, result.WageKnownCount);
+        Assert.Equal(30000d, result.TotalWage);
+        Assert.Equal(15000d, result.AverageWage);
+        Assert.Equal(1, result.HomeGrownClubYes);
+        Assert.Equal(1, result.HomeGrownClubNo);
+        Assert.Equal(2, result.HomeGrownClubUnknown);
+        Assert.Equal(1, result.HomeGrownNationYes);
+        Assert.Equal(1, result.HomeGrownNationNo);
+        Assert.Equal(2, result.HomeGrownNationUnknown);
+        Assert.Contains(result.PositionCounts, x => x.Position == "ST" && x.Count == 2);
+        Assert.Contains(result.PositionCounts, x => x.Position == "CB" && x.Count == 1);
+        Assert.Contains(result.PositionCounts, x => x.Position == "Unspecified" && x.Count == 1);
+        Assert.Contains(result.AgeBands, x => x.Label == "Unknown" && x.Count == 1);
+    }
+
+    [Fact]
     public async Task PerformanceValueAnalysisUsesSourceMetricMinutesAndValuePercentiles()
     {
         using var temp = new TemporaryFolder();
