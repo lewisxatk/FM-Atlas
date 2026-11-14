@@ -65,7 +65,7 @@
 - [x] Keep the universal Advanced Search hub and existing multi-condition player filters.
 - [x] Keep the multi-attribute/personality builder and its ALL/AND and ANY/OR behaviour.
 - [x] Expose CA and PA in player search result columns and the existing database filter model.
-- [x] Add direct min/max CA and PA controls to the existing paged Players finder, including negative PA ranges, filter-only searches and consistent live/offline source counts.
+- [x] Add direct min/max CA and PA controls to the existing paged Players finder, including negative PA ranges, name-free position/CA/PA searches and consistent live/offline source counts.
 - [x] Store live player CA/PA in the same player table used by the existing search/profile workspace.
 - [x] Preserve negative PA values used by random-potential ranges rather than dropping them.
 - [x] Store the live 1–20 player attribute candidates in PlayerAttributes so the existing player profile and attribute search can use them.
