@@ -157,7 +157,7 @@ public partial class MainWindow
                 return "\"" + text.Replace("\"", "\"\"") + "\"";
             }
 
-            var sb = new StringBuilder("Player,Source ID,Club,Age,Position,Atlas role fit / 20,Coverage,Attributes available,Attributes expected,CA,PA\r\n");
+            var sb = new StringBuilder("Player,Source ID,Club,Age,Position,Atlas role fit / 20,Coverage,Attribute evidence,Attributes available,Attributes expected,CA,PA\r\n");
             foreach (var item in results)
             {
                 sb.AppendLine(string.Join(",", new[]

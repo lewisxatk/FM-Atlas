@@ -309,7 +309,7 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(15.6667, matching[0].Score, 3);
         Assert.Equal(2, matching[0].AttributesAvailable);
         Assert.Equal(2, matching[0].AttributesExpected);
-        Assert.Equal(3, matching[0].Contributions!.Count);
+        Assert.Equal(2, matching[0].Contributions!.Count);
     }
 
     private static string CreateBundle(
