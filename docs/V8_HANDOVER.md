@@ -193,3 +193,27 @@ The Monolith Glass source system now includes the shared glass-card material, th
 ### Permanent reverse-engineering reference rule
 
 Every meaningful reverse-engineering or competitor-research batch must update `docs/V8_REVERSE_ENGINEERING_NOTES_2026-11-14.md` with date, source/repository links, files/pages reviewed, observed behaviour, confidence/limitations, Atlas implementation decision and future follow-up. Also update the implementation checklist and this handover when implementation status changes.
+
+
+## Verified Windows build — 14 November 2026
+
+The latest branch-head workflow is now green; this supersedes the earlier pending-build statements above.
+
+- Branch: rebuild/v8-full-product-rebuild
+- Commit: 21430f4fa4ca5b831022e67c70438a5e5cc9dff0
+- Workflow run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43555015459
+- Result: all 12 workflow steps passed, including Python adapter validation, .NET 8 restore, Release build, career-import integration tests, self-contained Windows x64 publish and artifact upload.
+- Artifact: FM-Atlas-V8-win-x64, 68,887,451 bytes; SHA-256 5813abb152cc4f82147c20fb0325fd309c1d34fddc4082161a791be2c6496541; expires 28 November 2026.
+- This artifact includes the pitch-map changes and the Canvas type-shadowing fix.
+
+Still not release acceptance: real Windows visual/DPI review, real FM27 career field validation, live scan performance/peak memory and full user-PC acceptance remain open. Live editing remains disabled.
+
+## Next implementation batch
+
+The next source task is an independent Advanced Search position group (ALL / ANY and minimum familiarity where supported by the stored schema). Keep this separate from the existing global ALL / ANY mode. First trace the actual fact keys and SQL/query contract; do not guess the storage shape. Saved profiles must remain backward compatible, and existing criteria, columns, paging, sorting, cancellation, compare, similar-player, export and shortlist actions must remain intact.
+
+## Reverse-engineering safety rule — FMLibreEditor
+
+The FMLibreEditor development notes document a fail-closed write pattern: verify the same save/session, confirm the object still belongs to the intended person, validate the new value, confirm the current value matches the expected field layout, then read back the write. Any failed precondition means no write. A save change invalidates pending edits and requires reload; unsupported layouts fall back to read-only.
+
+FM Atlas adopts this as a future safety checklist only. It does not enable live writes. Before any future live Apply/Undo work, require all five checks, exact build/profile support, save-generation invalidation, tested rollback and an independent in-game witness. Current live editing remains OFF.
