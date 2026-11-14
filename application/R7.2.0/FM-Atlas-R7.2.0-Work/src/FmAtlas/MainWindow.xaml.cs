@@ -199,8 +199,8 @@ public partial class MainWindow : Window
 
         var header = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(_themeMode == "Glass Light" ? (byte)220 : (byte)190, _themeMode == "Glass Light" ? (byte)255 : (byte)24, _themeMode == "Glass Light" ? (byte)255 : (byte)38, _themeMode == "Glass Light" ? (byte)255 : (byte)58)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(95, 175, 205, 235)),
+            Background = new SolidColorBrush(Color.FromArgb(_themeMode == "Glass Light" ? (byte)220 : (byte)190, _themeMode == "Glass Light" ? (byte)255 : (byte)24, _themeMode == "Glass Light" ? (byte)255 : (byte)27, _themeMode == "Glass Light" ? (byte)255 : (byte)30)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(105, 244, 155, 100)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(18),
             Padding = new Thickness(3),
@@ -254,9 +254,9 @@ public partial class MainWindow : Window
             Height = 42,
             Padding = new Thickness(0),
             Margin = new Thickness(3, 0, 3, 0),
-            Background = new SolidColorBrush(Color.FromArgb(105, 110, 150, 190)),
+            Background = new SolidColorBrush(Color.FromArgb(108, 139, 79, 48)),
             Foreground = Ink,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(95, 180, 210, 240)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(110, 244, 155, 100)),
             BorderThickness = new Thickness(1),
             Cursor = Cursors.Hand,
             ToolTip = description,
@@ -3103,7 +3103,7 @@ public partial class MainWindow : Window
                 : new SolidColorBrush(Color.FromArgb(198, 23, 38, 58));
         var border = light
             ? new SolidColorBrush(Color.FromArgb(172, 151, 188, 220))
-            : new SolidColorBrush(Color.FromArgb(122, 169, 207, 238));
+            : new SolidColorBrush(Color.FromArgb(112, 244, 155, 100));
         return new Border
         {
             Background = background,
@@ -3114,7 +3114,7 @@ public partial class MainWindow : Window
             Margin = margin ?? new Thickness(0),
             Effect = new DropShadowEffect
             {
-                Color = light ? Color.FromRgb(69, 104, 140) : Color.FromRgb(0, 0, 0),
+                Color = light ? Color.FromRgb(176, 104, 64) : Color.FromRgb(0, 0, 0),
                 BlurRadius = 22,
                 ShadowDepth = 4,
                 Opacity = light ? 0.10 : 0.24
@@ -3167,8 +3167,8 @@ public partial class MainWindow : Window
         template.VisualTree = border;
 
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(Border.BackgroundProperty, Brush("#294765"), "AtlasButtonSurface"));
-        hover.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#78BDEB"), "AtlasButtonSurface"));
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, Brush("#483022"), "AtlasButtonSurface"));
+        hover.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#F7A46A"), "AtlasButtonSurface"));
         template.Triggers.Add(hover);
 
         var pressed = new Trigger { Property = ButtonBase.IsPressedProperty, Value = true };
@@ -3176,7 +3176,7 @@ public partial class MainWindow : Window
         template.Triggers.Add(pressed);
 
         var focused = new Trigger { Property = UIElement.IsKeyboardFocusedProperty, Value = true };
-        focused.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#78BDEB"), "AtlasButtonSurface"));
+        focused.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#F7A46A"), "AtlasButtonSurface"));
         focused.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2), "AtlasButtonSurface"));
         template.Triggers.Add(focused);
 
@@ -3206,15 +3206,15 @@ public partial class MainWindow : Window
             mapped = key switch
             {
                 "#E8EEF4" => "#172B40",
-                "#C6F36B" or "#D5E5C3" or "#A9D6FF" => "#397FC1",
-                "#294765" => "#DCEBFA",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" => "#D97736",
+                "#294765" => "#FCE9DC",
                 "#9EADB9" => "#657A8F",
                 "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#D1DDE8",
                 "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#FFFFFF",
                 "#0D1117" or "#111820" => "#EEF3F8",
                 "#171F28" or "#202A35" or "#1C242E" or "#151B22" => "#E5EDF5",
                 "#35424E" => "#CAD7E4",
-                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" => "#397FC1",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" => "#D97736",
                 "#F08C96" => "#C34D68",
                 "#8BCFA6" => "#34845C",
                 "#E6C477" => "#A87822",
@@ -3226,7 +3226,7 @@ public partial class MainWindow : Window
             mapped = key switch
             {
                 "#E8EEF4" => "#E8F0FA",
-                "#C6F36B" or "#D5E5C3" => "#79BDEB",
+                "#C6F36B" or "#D5E5C3" => "#F29A5C",
                 "#9EADB9" => "#91A4BA",
                 "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#2B3A50",
                 "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#111D2C",
@@ -3234,7 +3234,7 @@ public partial class MainWindow : Window
                 "#111820" or "#171F28" => "#0C1726",
                 "#202A35" or "#1C242E" => "#18263A",
                 "#35424E" => "#26364D",
-                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" => "#79BDEB",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" => "#F29A5C",
                 "#F08C96" => "#F18EAA",
                 "#8BCFA6" => "#70C99C",
                 "#E6C477" => "#E5BD72",
@@ -3246,9 +3246,9 @@ public partial class MainWindow : Window
             mapped = key switch
             {
                 "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" => "#E8EEF4",
-                "#C6F36B" => "#79BDEB",
-                "#D5E5C3" => "#B6DFFF",
-                "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#79BDEB",
+                "#C6F36B" => "#F08A42",
+                "#D5E5C3" => "#FFD0AA",
+                "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#F08A42",
                 "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9EADB9",
                 "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#303943",
                 "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#171F28",
