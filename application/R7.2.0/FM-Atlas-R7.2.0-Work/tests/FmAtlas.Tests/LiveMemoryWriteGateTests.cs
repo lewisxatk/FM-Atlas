@@ -225,6 +225,87 @@ public sealed class LiveMemoryWriteGateTests
         => Assert.False(LiveEntityMemoryEditService.SupportsField(entity, field));
 
     [Fact]
+    public void LiveEntityWriterRequiresExplicitSessionOptIn()
+    {
+        LiveEntityMemoryEditService.SetLiveEditingEnabled(false);
+        try
+        {
+            Assert.False(LiveEntityMemoryEditService.LiveEditingEnabled);
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => LiveEntityMemoryEditService.ApplyBatch(CreateEntityPlan()));
+            Assert.Contains("OFF", exception.Message);
+        }
+        finally
+        {
+            LiveEntityMemoryEditService.SetLiveEditingEnabled(false);
+        }
+    }
+
+    [Fact]
+    public void LiveEntityUndoRequiresExplicitSessionOptIn()
+    {
+        LiveEntityMemoryEditService.SetLiveEditingEnabled(false);
+        var receipt = new LiveEntityMemoryEditService.BatchReceipt(
+            CreateEntityPlan(), DateTime.UtcNow, ReadBackVerified: true);
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => LiveEntityMemoryEditService.UndoBatch(receipt));
+        Assert.Contains("OFF", exception.Message);
+    }
+
+    [Fact]
+    public void TacticalLiveApplyRequiresExplicitSessionOptIn()
+    {
+        LiveEntityMemoryEditService.SetLiveEditingEnabled(false);
+        var plan = CreateTacticalPlan();
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => LiveEntityMemoryEditService.ApplyTacticalExposureBatch(plan));
+        Assert.Contains("OFF", exception.Message);
+    }
+
+    [Fact]
+    public void TacticalLiveUndoRequiresExplicitSessionOptIn()
+    {
+        LiveEntityMemoryEditService.SetLiveEditingEnabled(false);
+        var plan = CreateTacticalPlan();
+        var receipt = new LiveEntityMemoryEditService.TacticalBatchReceipt(
+            plan, DateTime.UtcNow, Array.Empty<LiveEntityMemoryEditService.AppliedTacticalListChange>());
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => LiveEntityMemoryEditService.UndoTacticalExposureBatch(receipt));
+        Assert.Contains("OFF", exception.Message);
+    }
+
+    private static LiveEntityMemoryEditService.BatchPlan CreateEntityPlan()
+        => new(
+            ProcessId: -1,
+            Entity: LiveEntityMemoryEditService.EntityKind.Player,
+            Uid: 1,
+            Name: "Test Player",
+            ObjectAddress: 0,
+            IdentityShift: 0,
+            ProfileId: "test-profile",
+            ProfileFingerprint: "test-fingerprint",
+            SaveLoadCounter: 1,
+            CreatedUtc: DateTime.UtcNow,
+            Values: Array.Empty<LiveEntityMemoryEditService.PlannedValue>());
+
+    private static LiveEntityMemoryEditService.TacticalBatchPlan CreateTacticalPlan()
+        => new(
+            ProcessId: -1,
+            ClubUid: 1,
+            ClubName: "Test Club",
+            ClubAddress: 0,
+            SeniorTeamAddress: 0,
+            TeamUid: 1,
+            TacticAddress: 0,
+            TacticInstructions: Array.Empty<byte>(),
+            ProfileId: "test-profile",
+            ProfileFingerprint: "test-fingerprint",
+            SaveLoadCounter: 1,
+            CreatedUtc: DateTime.UtcNow,
+            PlayersVisited: 0,
+            Changes: Array.Empty<LiveEntityMemoryEditService.TacticalListChange>());
+
+    [Fact]
     public void ApplyBatchIsBlockedBeforeAttemptingToOpenTheGameProcess()
     {
         var exception = Assert.Throws<InvalidOperationException>(
