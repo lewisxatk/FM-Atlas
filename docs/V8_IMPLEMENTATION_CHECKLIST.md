@@ -61,7 +61,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 3. Football Manager stability and live-memory safety
 
-**Safety gate (2026-11-14):** `LiveMemoryImportEnabled` is OFF. Automatic monitoring is detection-only; it does not start large player/staff/club entity-array reads. The manual toolbar action also reports the paused state. Do not mark automatic manager/player indexing as delivered until the gate is deliberately re-enabled after controlled FM performance and field-witness acceptance.
+**Safety gate (2026-11-14):** `LiveMemoryImportEnabled` is ON for exact supported FM27 profiles. The read-only entity-array scan has a two-minute hard deadline, toolbar cancellation and save-generation cancellation. Live editing remains OFF; real FM performance and field-witness acceptance are still required.
 
 - [x] Add exact PE-fingerprint process detection for supported Windows FM27 Steam and Game Pass builds; unknown builds and duplicate supported processes fail closed.
 - [x] Add read-only GAME_UI save-load generation detection. A career connection is keyed by process, build profile and the in-game load counter, not by a remembered save-file path.
@@ -293,7 +293,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 11. Live career identity, staff and manager integration (2026-11-14)
 
-The full live entity-array import gate is OFF. The three-second monitor detects the supported process/build/save-generation only. The dormant read-only importer retains a two-minute deadline, cancellation checkpoints and save-generation validation for controlled future testing.
+The exact-profile read-only live scan is enabled for supported FM27 builds. Each scan is hard-limited to two minutes, cancellable from the toolbar, and monitored against the process/build/save-generation session.
 
 - [x] Add the profile-matched read-only staff extractor, including the distinct human-manager identity-block layout and class-scoped layout selection.
 - [x] Capture staff UID/name, DOB/age, CA/PA, nation UID/name, linked club UID/name and job code/title when the source exposes them.
@@ -308,12 +308,12 @@ The full live entity-array import gate is OFF. The three-second monitor detects 
 - [x] Add a cancelled-before-process-open regression to ensure a cancelled live scan exits without attaching to FM.
 - [x] Extend the live staff search contract so name, club and numeric UID queries all work against live rows; add regressions for club and UID search.
 - [x] Keep live editing disabled.
-- [x] Retain a two-minute deadline and cancellation checkpoints in the importer for controlled future tests; do not start entity-array scans while the V8 gate is OFF.
+- [x] Bound live entity-array scanning to a two-minute deadline and check cancellation at entity batches; keep the monitor checking the session while the worker runs.
 - [ ] Run Windows Release build and the full .NET integration suite after the latest staff-search, bounded-scan and exact-session commits.
-- [ ] Run controlled FM27 PC acceptance: load career, verify detection-only behaviour while the gate is OFF, then separately validate a controlled bounded scan before considering re-enablement.
-- [ ] Profile FM CPU/RAM, scan duration and responsiveness at menu and during a match before re-enabling; confirm the two-minute deadline is sufficient for a real large career.
+- [ ] Run controlled FM27 PC acceptance: load career, verify the bounded scan and staff/manager identity, switch career during a scan, cancel manually, close/reopen FM and confirm no mixed-session snapshot is committed.
+- [ ] Profile FM CPU/RAM, scan duration and responsiveness at menu and during a match; confirm the two-minute deadline is sufficient for a real large career.
 - [ ] Validate every staff field and the human-manager object layout against the in-game UI and an independent source; keep all un-witnessed values provisional.
-- [ ] Keep the live import gate OFF until performance and field-witness checks pass. Retain the two-minute cap, cancellation and exact-session guards; do not enable live editing without independent field and rollback evidence.
+- [ ] Keep the two-minute cap, cancellation and exact-session guards in place. Do not increase scan scope or enable live editing without independent field and rollback evidence.
 
 ## 12. Latest handover
 
@@ -321,7 +321,7 @@ The full live entity-array import gate is OFF. The three-second monitor detects 
 - Current release source remains the R7.2.0-based V8 WPF/.NET 8 application under `application/R7.2.0/FM-Atlas-R7.2.0-Work/`.
 - Advanced Search, Players search, paged results, profile tabs, deferred profile restoration and staff/club workspaces are retained. Do not replace these with a simplified new search or rebuild.
 - The Staff live-facts lookup already handles the `LIVE:` source-ID prefix in this branch. Do not reintroduce a numeric-ID-only lookup.
-- The read-only live-memory import gate is OFF. Career detection remains ON; full entity-array scanning is paused until controlled FM performance and field-witness checks pass. The dormant importer retains its two-minute deadline and cancellation support. Offline save import remains available for career data. Live editing remains OFF.
+- The read-only live-memory import is ON for exact supported profiles, with a two-minute deadline, toolbar cancellation and session-change cancellation. Offline save import remains available for extended history and match statistics. Live editing remains OFF.
 - No Windows build/test result is claimed for the latest commits until a fresh Actions run reports success. Historical green runs do not validate the latest edits.
 - User PC/runtime acceptance, actual FM27 save compatibility, full import throughput/peak-memory, and packaged release acceptance remain outstanding.
 - Canonical handover companion: `docs/V8_HANDOVER.md`.
