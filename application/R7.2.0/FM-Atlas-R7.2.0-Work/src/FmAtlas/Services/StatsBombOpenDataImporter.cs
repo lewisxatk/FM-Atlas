@@ -195,7 +195,7 @@ public static class StatsBombOpenDataImporter
         {
             var metrics = p.M.ToDictionary(x => x.Key, x => (double?)x.Value, StringComparer.OrdinalIgnoreCase);
             metrics["minutes_played"] = p.Minutes;
-            return new ScoutingPlayerSeason("SB:" + p.Id, p.Name, p.Team, p.Competition, p.Season ?? "Unknown season", PositionGroup(p.Position), p.Minutes,
+            return new ScoutingPlayerSeason("SB:" + p.Id + ":" + p.Competition + ":" + p.Season, p.Name, p.Team, p.Competition, p.Season ?? "Unknown season", PositionGroup(p.Position), p.Minutes,
                 metrics, "StatsBomb Open Data", "open-data JSON", true);
         }).ToList();
 
@@ -231,7 +231,12 @@ public static class StatsBombOpenDataImporter
     private static string? Str(JsonElement e, params string[] path)
     {
         foreach (var part in path) { if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty(part, out e)) return null; }
-        return e.ValueKind == JsonValueKind.String ? e.GetString() : null;
+        return e.ValueKind switch
+        {
+            JsonValueKind.String => e.GetString(),
+            JsonValueKind.Number => e.GetRawText(),
+            _ => null
+        };
     }
     private static int? Int(JsonElement e, params string[] path) => Number(e, path) is { } n ? (int)n : null;
     private static double? Number(JsonElement e, params string[] path)
@@ -240,5 +245,13 @@ public static class StatsBombOpenDataImporter
         return e.ValueKind == JsonValueKind.Number ? e.GetDouble() : null;
     }
     private static bool Bool(JsonElement e, string key) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
-    private static double? Minute(string? value) => string.IsNullOrWhiteSpace(value) ? null : TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var t) ? t.TotalMinutes : null;
+    private static double? Minute(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var parts = value.Split(':');
+        if (parts.Length >= 2 && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes) &&
+            double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+            return minutes + seconds / 60d;
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var direct) ? direct : null;
+    }
 }
