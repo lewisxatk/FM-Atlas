@@ -432,3 +432,10 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - [ ] Review Monolith Glass and Advanced Search at 100%, 125% and 150% DPI; inspect keyboard focus, contrast, text clipping, dropdown popups and dense position tiles.
 - [ ] Check that all 15 position values shown by Atlas match the same player's in-game Positions page. Live-memory values remain provisional until witnessed.
 
+
+
+### Position-search integration hardening — 14 November 2026
+
+- [x] Saved-profile restore clears the transient field-library query before rebuilding criteria, preventing a filtered picker from silently selecting a different field.
+- [x] Added SQLite integration coverage that seeds both FMSAVE snapshot facts and live position facts, then asserts exact ALL, exact ANY and At Least ALL result sets.
+- [ ] Run a fresh Windows Release build and complete xUnit suite after these additional changes; the previously uploaded artifact predates this test-only/profile-restore follow-up.
