@@ -216,11 +216,34 @@ public partial class MainWindow : Window
 
         var header = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(_themeMode == "Glass Light" ? (byte)220 : (byte)190, _themeMode == "Glass Light" ? (byte)255 : (byte)24, _themeMode == "Glass Light" ? (byte)255 : (byte)27, _themeMode == "Glass Light" ? (byte)255 : (byte)30)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(105, 244, 155, 100)),
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(_themeMode == "Glass Light"
+                        ? Color.FromArgb(240, 255, 255, 255)
+                        : Color.FromArgb(222, 38, 40, 45), 0),
+                    new GradientStop(_themeMode == "Glass Light"
+                        ? Color.FromArgb(220, 233, 241, 249)
+                        : Color.FromArgb(188, 20, 22, 27), 1)
+                },
+                new Point(0, 0), new Point(0, 1)),
+            BorderBrush = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(172, 255, 255, 255), 0),
+                    new GradientStop(Color.FromArgb(68, 244, 155, 100), 1)
+                },
+                new Point(0, 0), new Point(0, 1)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(18),
             Padding = new Thickness(3),
+            Effect = new DropShadowEffect
+            {
+                Color = Color.FromRgb(0, 0, 0),
+                BlurRadius = 20,
+                ShadowDepth = 3,
+                Opacity = _themeMode == "Glass Light" ? 0.08 : 0.22
+            },
             Child = headerGrid
         };
         header.Margin = new Thickness(0, 0, 0, 12);
@@ -271,9 +294,21 @@ public partial class MainWindow : Window
             Height = 42,
             Padding = new Thickness(0),
             Margin = new Thickness(3, 0, 3, 0),
-            Background = new SolidColorBrush(Color.FromArgb(108, 139, 79, 48)),
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(142, 125, 76, 49), 0),
+                    new GradientStop(Color.FromArgb(76, 57, 39, 30), 1)
+                },
+                new Point(0, 0), new Point(0, 1)),
             Foreground = Ink,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(110, 244, 155, 100)),
+            BorderBrush = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(170, 255, 197, 155), 0),
+                    new GradientStop(Color.FromArgb(78, 220, 125, 74), 1)
+                },
+                new Point(0, 0), new Point(0, 1)),
             BorderThickness = new Thickness(1),
             Cursor = Cursors.Hand,
             ToolTip = description,
@@ -327,15 +362,38 @@ public partial class MainWindow : Window
     {
         var rail = new Border
         {
-            Background = _themeMode == "Glass Light"
-                ? new SolidColorBrush(Color.FromArgb(232, 246, 250, 255))
-                : _themeMode == "Monolith Glass"
-                    ? new SolidColorBrush(Color.FromArgb(226, 24, 25, 29))
-                    : new SolidColorBrush(Color.FromArgb(218, 16, 27, 43)),
-            BorderBrush = _themeMode == "Monolith Glass"
-                ? new SolidColorBrush(Color.FromArgb(105, 226, 132, 80))
-                : new SolidColorBrush(Color.FromArgb(90, 160, 195, 230)),
-            BorderThickness = new Thickness(0, 0, 1, 0)
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(_themeMode == "Glass Light"
+                        ? Color.FromArgb(238, 250, 253, 255)
+                        : _themeMode == "Monolith Glass"
+                            ? Color.FromArgb(232, 29, 31, 36)
+                            : Color.FromArgb(224, 20, 31, 46), 0),
+                    new GradientStop(_themeMode == "Glass Light"
+                        ? Color.FromArgb(224, 228, 237, 246)
+                        : _themeMode == "Monolith Glass"
+                            ? Color.FromArgb(210, 17, 19, 23)
+                            : Color.FromArgb(202, 12, 21, 34), 1)
+                },
+                new Point(0, 0), new Point(1, 1)),
+            BorderBrush = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(150, 255, 255, 255), 0),
+                    new GradientStop(_themeMode == "Glass Light"
+                        ? Color.FromArgb(105, 128, 158, 188)
+                        : Color.FromArgb(92, 244, 155, 100), 1)
+                },
+                new Point(0, 0), new Point(0, 1)),
+            BorderThickness = new Thickness(0, 0, 1, 0),
+            Effect = new DropShadowEffect
+            {
+                Color = Color.FromRgb(0, 0, 0),
+                BlurRadius = 28,
+                ShadowDepth = 0,
+                Opacity = _themeMode == "Glass Light" ? 0.07 : 0.20
+            }
         };
         var dock = new DockPanel { Margin = new Thickness(_navCollapsed ? 9 : 14, 15, _navCollapsed ? 9 : 14, 14) };
         rail.Child = dock;
