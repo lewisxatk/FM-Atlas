@@ -1543,8 +1543,8 @@ public sealed class ScoutDatabase
         var cmd = db.CreateCommand();
         cmd.CommandText = """
             SELECT p.PlayerUid,p.PlayerName,c.ClubName,p.DateOfBirth,
-              (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1),
-              (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1)
+              (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating') AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1),
+              (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating') AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1)
             FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
               AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
             WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
