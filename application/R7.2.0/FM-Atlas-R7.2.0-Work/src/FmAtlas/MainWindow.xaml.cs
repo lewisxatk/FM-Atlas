@@ -2179,6 +2179,11 @@ public partial class MainWindow : Window
         pressed.Setters.Add(new Setter(UIElement.OpacityProperty, 0.78, "AtlasButtonSurface"));
         template.Triggers.Add(pressed);
 
+        var focused = new Trigger { Property = UIElement.IsKeyboardFocusedProperty, Value = true };
+        focused.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#78BDEB"), "AtlasButtonSurface"));
+        focused.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2), "AtlasButtonSurface"));
+        template.Triggers.Add(focused);
+
         var disabled = new Trigger { Property = UIElement.IsEnabledProperty, Value = false };
         disabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.42, "AtlasButtonSurface"));
         template.Triggers.Add(disabled);
