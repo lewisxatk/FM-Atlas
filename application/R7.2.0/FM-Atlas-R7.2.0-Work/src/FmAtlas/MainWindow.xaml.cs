@@ -3625,26 +3625,31 @@ public partial class MainWindow : Window
         // callers at runtime. The material is therefore rendered by the Border itself.
         var light = _themeMode == "Glass Light";
         var studio = _themeMode == "Studio";
+        var monolith = _themeMode == "Monolith Glass";
         var top = light
             ? Color.FromArgb(246, 255, 255, 255)
             : studio
                 ? Color.FromArgb(238, 23, 26, 32)
-                : _themeMode == "Monolith Glass"
-                    ? Color.FromArgb(230, 39, 41, 46)
+                : monolith
+                    ? Color.FromArgb(236, 47, 48, 53)
                     : Color.FromArgb(222, 26, 35, 46);
         var bottom = light
             ? Color.FromArgb(232, 237, 244, 250)
             : studio
                 ? Color.FromArgb(228, 13, 16, 21)
-                : _themeMode == "Monolith Glass"
-                    ? Color.FromArgb(210, 22, 24, 28)
+                : monolith
+                    ? Color.FromArgb(224, 23, 24, 28)
                     : Color.FromArgb(204, 15, 24, 35);
         var edgeTop = light
             ? Color.FromArgb(210, 255, 255, 255)
-            : Color.FromArgb(158, 244, 155, 100);
+            : monolith
+                ? Color.FromArgb(188, 242, 140, 69)
+                : Color.FromArgb(158, 244, 155, 100);
         var edgeBottom = light
             ? Color.FromArgb(132, 151, 178, 205)
-            : Color.FromArgb(58, 244, 155, 100);
+            : monolith
+                ? Color.FromArgb(88, 242, 140, 69)
+                : Color.FromArgb(58, 244, 155, 100);
 
         return new Border
         {
@@ -3660,7 +3665,7 @@ public partial class MainWindow : Window
                 new GradientStopCollection
                 {
                     new GradientStop(edgeTop, 0),
-                    new GradientStop(Color.FromArgb(light ? (byte)100 : (byte)50, 255, 255, 255), 0.45),
+                    new GradientStop(Color.FromArgb(light ? (byte)120 : monolith ? (byte)64 : (byte)50, 255, 255, 255), 0.42),
                     new GradientStop(edgeBottom, 1)
                 },
                 new Point(0, 0),
@@ -3672,9 +3677,9 @@ public partial class MainWindow : Window
             Effect = new DropShadowEffect
             {
                 Color = light ? Color.FromRgb(111, 126, 145) : Color.FromRgb(0, 0, 0),
-                BlurRadius = 22,
-                ShadowDepth = 4,
-                Opacity = light ? 0.10 : 0.24
+                BlurRadius = monolith ? 26 : 22,
+                ShadowDepth = monolith ? 5 : 4,
+                Opacity = light ? 0.10 : monolith ? 0.30 : 0.24
             },
             SnapsToDevicePixels = true,
             Child = child
