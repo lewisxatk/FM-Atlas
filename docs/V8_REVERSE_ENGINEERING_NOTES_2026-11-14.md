@@ -154,3 +154,37 @@ Reference links:
 ### Research record maintenance
 
 This file is the permanent reverse-engineering reference for future work. Add a dated entry for every new research batch, including links, reviewed files/pages, observed behaviour, confidence/limitations, implementation decisions and explicit future follow-ups. Update the V8 checklist and handover alongside any implementation.
+
+
+## FMLibreEditor write-safety checklist and branch-head verification — 14 November 2026
+
+### Research source
+
+- Repository: https://github.com/tozmoz/FMLibreEditor
+- Development notes: https://github.com/tozmoz/FMLibreEditor/blob/main/docs/DEVELOPING.md
+
+### Observed pattern
+
+The documented writer performs a sequence of preflight checks before changing memory: (1) confirm the save/session is still the same, (2) confirm the object still belongs to the intended person, (3) validate the proposed value, (4) confirm the current value matches the expected field layout, and (5) read the value back after writing. Failed checks are fail-closed. A save change suspends edits/freezes until reload; unsupported builds use read-only fallback.
+
+Confidence: high for the project's published safety design; this is not proof that its offsets or writer are suitable for FM Atlas.
+
+### FM Atlas decision
+
+- Keep live Apply/Undo disabled.
+- Retain the five preflight/read-back checks as mandatory future acceptance criteria, alongside exact build/profile matching, process identity, save-generation invalidation and tested rollback.
+- Never carry pending edits across a save switch; require a fresh reload.
+- Do not port the writer or its offsets as a shortcut. Atlas must validate its own field layout and identity model.
+
+### Latest Windows verification
+
+- Workflow: https://github.com/lewisxatk/FM-Atlas/actions/runs/43555015459
+- Branch: rebuild/v8-full-product-rebuild
+- Commit: 21430f4fa4ca5b831022e67c70438a5e5cc9dff0
+- All 12 steps passed: Python adapter validation, .NET 8 restore, Release build, career-import integration tests, self-contained Windows x64 publish and artifact upload.
+- Artifact: FM-Atlas-V8-win-x64, 68,887,451 bytes; SHA-256 5813abb152cc4f82147c20fb0325fd309c1d34fddc4082161a791be2c6496541; expiry 28 November 2026.
+- This is the first verified artifact containing the 15-position pitch map and the canvas type-shadowing fix. It does not constitute real FM27 acceptance or DPI visual testing.
+
+### Next follow-up
+
+Trace the actual Advanced Search position-fact schema and query path before adding independent ALL/ANY position-group semantics and minimum familiarity. Preserve the current global condition logic and old saved-profile compatibility. Add regression coverage for empty/zero, ALL, ANY, threshold, legacy aliases, old/new profile round-trip, cancellation and paging. If the schema does not retain numeric per-position familiarity, stop and document the gap rather than synthesising values.
