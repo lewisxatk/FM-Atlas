@@ -20,13 +20,24 @@ Implementation and verification are tracked separately. A feature can be impleme
 - Design: Monolith Glass primary appearance — graphite/charcoal surfaces, warm orange accents and translucent glass controls; Glass Dark, Glass Light and Studio remain available.
 - User testing: deliberately deferred until a coherent integrated milestone exists.
 
+## 2026-11-14 implementation log
+
+- Preserved the existing branch and all earlier V8 work; no reset, force-push or replacement of the R7.2.0 baseline.
+- Dashboard: replaced leftover CoachPro copy with FM Atlas branding, moved the hero onto the shared glass-card surface, and made the metric-card columns responsive at desktop/medium/narrow widths.
+- Shared data grids: introduced consistent themed header, row, hover and selection styles while retaining row/column virtualization and deferred scrolling.
+- Activity Centre: added a modeless status window for live scans and offline save imports, elapsed time, cancellation and the previous task summary. Scan/import lifecycle is tracked in the existing operation flow; the UI does not block search/navigation.
+- Editor safety: removed clickable live CA/PA and attribute Apply actions from Editor Studio; the local editor remains Atlas-database-only. Removed live-memory Apply/Undo execution from the Edit History action; historical live rows remain visible for audit, while local Atlas edits retain local undo.
+- Window sizing: reduced the minimum window dimensions to improve use on common laptop screens.
+- Reverse-engineering research: reviewed FMSuperScout's shared read-only scanner/versioned Fields layout/diagnostics, barak14/fm-editor's build-specific field evidence and golden UI witness approach, and FMLibreEditor's save-generation invalidation/read-only fallback. Findings and source links are recorded in [V8 reverse-engineering notes](V8_REVERSE_ENGINEERING_NOTES_2026-11-14.md). No third-party offsets or code were copied into Atlas.
+- Verification: GitHub Actions Windows Release workflow run `43553401532` was queued for commit `39475aa4` at the time checked. It is not yet a passing build. Fresh build/test and visual Windows acceptance remain release gates.
+
 ## 0. Preservation, recovery and delivery controls
 
 - [x] V8 branch created separately from the R7.2.0 release integration line.
 - [x] Full rebuild specification committed.
 - [x] Atlas Liquid visual specification, top toolbar, hover tooltips and side navigation made mandatory.
 - [x] This durable checklist created.
-- [ ] Record a per-commit V8 work log entry whenever implementation changes are committed.
+- [x] Record a per-commit V8 work log entry whenever implementation changes are committed; 2026-11-14 research/implementation entries are recorded below.
 - [x] Add a reproducible Windows build and publish workflow for V8 branch (commit `528dfb02`).
 - [ ] Produce a single integrated Release package with versioned installer/portable ZIP and checksums.
 - [ ] Verify clean install, upgrade path, uninstall and preservation of the user's existing Atlas database/settings.
@@ -103,7 +114,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Run the live-career database/search regression tests, the staff attribute/personality decoder tests, and the new live/offline CA/PA count-filter tests against the exact current branch head in the Windows workflow.
 - [ ] Compare player/staff CA/PA, all mapped player attributes, eight personality ratings, position ratings, player-coach identity fields, manager identity, nation and club against the current FM27 UI on supported Steam and Game Pass builds.
 - [ ] Profile memory/CPU and FM responsiveness with FM closed, at menus and during a match; verify save switch, save close, game restart and duplicate-process behaviour, including two simultaneously running FM installs and permission mismatch.
-- [ ] Add a user-visible capability/status matrix for read-only, provisional and write-supported fields; maintain write gates until mapping, identity, read-back and rollback are independently validated.
+- [x] Add a user-visible capability/status matrix for read-only, provisional and write-supported fields; V8 labels live data provisional, local edits local-only, and live Apply/Undo blocked.
 
 ## 4. Save import, data provenance and database reliability
 
@@ -194,7 +205,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Complete local player/staff/club editing and mass edit preview.
 - [ ] Add edit history, changed-field indicators, undo/rollback and audit export.
 - [ ] Add presets and validation rules per editable field.
-- [ ] Keep every unsupported live write blocked; never weaken existing session/build/identity checks.
+- [x] Keep every unsupported live write blocked; V8 exposes no live Apply/Undo action in Editor Studio or Edit History. MainWindow contains no calls to LiveMemoryEditService StageBatch/ApplyBatch/UndoBatch. Never weaken existing session/build/identity checks.
 - [ ] Verify local edits never change the original career save file.
 
 ## 10. Data Lab, diagnostics and graphics
