@@ -68,7 +68,7 @@ public sealed class LiveMemoryWriteGateTests
         {
             "attribute.finishing", "attribute.consistency", "attribute.important_matches",
             "attribute.injury_proneness", "attribute.dirtiness", "attribute.versatility",
-            "date_of_birth", "contract.unhappiness",
+            "date_of_birth", "contract.unhappiness", "loan.expires", "loan.option_fee",
             "position.gk", "position.amc", "personality.professionalism",
             "left_foot", "right_foot", "trait.0", "trait.63",
             "contract.wage", "contract.expires", "contract.squad_number",
