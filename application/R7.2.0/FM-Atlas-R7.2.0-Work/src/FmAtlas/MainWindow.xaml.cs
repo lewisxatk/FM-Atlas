@@ -3305,6 +3305,8 @@ public partial class MainWindow : Window
         {
             var liveFacts = await RunDatabaseAsync(() => _database.GetLivePlayerFactsAsync(livePlayerUid));
             var stageRows = new ObservableCollection<LiveFieldStageView>();
+            LiveMemoryEditService.BatchPlan? stagedPlan = null;
+            LiveMemoryEditService.BatchReceipt? appliedReceipt = null;
             foreach (var fact in liveFacts)
             {
                 if (!fact.NumericValue.HasValue || !double.IsFinite(fact.NumericValue.Value)
@@ -3321,9 +3323,9 @@ public partial class MainWindow : Window
             }
 
             var stagePanel = new StackPanel { Margin = new Thickness(0, 12, 0, 10) };
-            stagePanel.Children.Add(Txt("LIVE FIELD PREVIEW · READ ONLY", 9, true, Teal));
+            stagePanel.Children.Add(Txt("LIVE FM27 PLAYER EDITOR · APPLY / UNDO", 9, true, Teal));
             stagePanel.Children.Add(Txt(
-                "The FM27 field catalogue currently supports staged previews for player attributes, positions, personality, foot ratings, CA/PA, height, condition, match sharpness, jadedness, morale, reputation, asking price and international statistics. This reads the current player again, checks the build and save session, and prepares a change plan. Apply/Undo remains hard-disabled.",
+                "Edits below target the running FM27 process, not Atlas's local database. Supported fields include visible and hidden attributes, positions, personality, feet, 64 preferred-move flags, CA/PA, player status, reputation, international statistics and verified contract scalars. Back up the career first. After applying, save the career inside Football Manager to persist the changes.",
                 9, false, Muted, wrap: true));
             var stageGrid = CreateGrid();
             stageGrid.IsReadOnly = false;
@@ -3342,7 +3344,7 @@ public partial class MainWindow : Window
             stagePanel.Children.Add(Txt($"{stageRows.Count:N0} live values have a supported, range-checked preview mapping.", 8, true, Muted));
             stagePanel.Children.Add(stageGrid);
             var stageStatus = Txt("No live preview staged.", 9, false, Muted, wrap: true);
-            stagePanel.Children.Add(PrimaryButton("Stage read-only live preview", async (_, _) =>
+            var stageButton = PrimaryButton("Stage live edit preview", async (_, _) =>
             {
                 stageGrid.CommitEdit(DataGridEditingUnit.Cell, true);
                 stageGrid.CommitEdit(DataGridEditingUnit.Row, true);
@@ -3370,13 +3372,17 @@ public partial class MainWindow : Window
                         var processId = LiveMemoryEditService.FindSupportedProcessId();
                         return LiveMemoryEditService.StageBatch(processId, checked((uint)livePlayerUid), _selectedPlayer.Name, changes);
                     });
-                    stageStatus.Text = $"PREVIEW READY · {plan.Changes.Count:N0} field(s) · {plan.ProfileId} · no writes made";
+                    stagedPlan = plan;
+                    appliedReceipt = null;
+                    applyButton.IsEnabled = true;
+                    undoButton.IsEnabled = false;
+                    stageStatus.Text = $"PREVIEW READY · {plan.Changes.Count:N0} field(s) · {plan.ProfileId} · review before applying";
                     var preview = string.Join("\n", plan.Changes.Take(24).Select(x =>
                         $"{x.FieldKey}: {x.ExpectedCurrentValue:N0} → {x.TargetValue:N0}  (offset 0x{x.Offset:X})"));
                     if (plan.Changes.Count > 24) preview += $"\n…and {plan.Changes.Count - 24:N0} more field(s).";
                     MessageBox.Show(this,
-                        $"A read-only live preview was staged for {_selectedPlayer.Name}.\n\nBuild: {plan.ProfileId}\nFields: {plan.Changes.Count:N0}\n\n{preview}\n\nNo memory was written. Apply and Undo remain disabled.",
-                        "FM Atlas · Preview only", MessageBoxButton.OK, MessageBoxImage.Information);
+                        $"A live edit preview was staged for {_selectedPlayer.Name}.\n\nBuild: {plan.ProfileId}\nFields: {plan.Changes.Count:N0}\n\n{preview}\n\nNo memory has been written yet. Select Apply to write these values to the running game.",
+                        "FM Atlas · Review staged changes", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
@@ -3385,22 +3391,75 @@ public partial class MainWindow : Window
                     MessageBox.Show(this, ex.Message, "FM Atlas · Live preview blocked", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
                 finally { Mouse.OverrideCursor = null; }
-            }));
+            });
+            stagePanel.Children.Add(stageButton);
             stagePanel.Children.Add(stageStatus);
-            var disabledApply = SoftButton("Apply live changes · disabled pending acceptance", (_, _) => { });
-            disabledApply.IsEnabled = false;
-            disabledApply.ToolTip = "Live writes remain hard-disabled until the exact field witnesses, disposable-save checks and rollback acceptance are complete.";
-            stagePanel.Children.Add(disabledApply);
+            var applyButton = PrimaryButton("Apply to running Football Manager", async (_, _) =>
+            {
+                if (stagedPlan is null)
+                {
+                    MessageBox.Show(this, "Stage and review a live edit first.", "FM Atlas", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                var answer = MessageBox.Show(this,
+                    $"This will write {stagedPlan.Changes.Count:N0} field(s) into the running Football Manager process for {_selectedPlayer.Name}.\n\nMake a backup of your career first. These changes persist in the career only after you save inside Football Manager.\n\nContinue?",
+                    "Confirm live FM27 edit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    applyButton.IsEnabled = false;
+                    stageStatus.Text = "APPLYING · checking save identity, original values and write permissions…";
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    var receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(stagedPlan));
+                    appliedReceipt = receipt;
+                    undoButton.IsEnabled = true;
+                    stageStatus.Text = $"APPLIED · {receipt.Plan.Changes.Count:N0} field(s) · read-back verified · save the career in FM";
+                    MessageBox.Show(this,
+                        $"FM Atlas wrote {receipt.Plan.Changes.Count:N0} field(s) to {_selectedPlayer.Name} and verified every value by reading it back.\n\nSave your career in Football Manager to keep the changes. You can use Live Undo in Atlas before saving if you want to revert them.",
+                        "FM Atlas · Live edit applied", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    stageStatus.Text = "APPLY BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Warning("Live FM27 player edit failed: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Live edit failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                    applyButton.IsEnabled = stagedPlan is not null;
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            applyButton.IsEnabled = false;
+            stagePanel.Children.Add(applyButton);
+            var undoButton = SoftButton("Undo last live edit", async (_, _) =>
+            {
+                if (appliedReceipt is null) return;
+                var answer = MessageBox.Show(this,
+                    $"Undo {appliedReceipt.Plan.Changes.Count:N0} live field(s) for {_selectedPlayer.Name}? This restores the original values only if none has changed since Apply.",
+                    "Confirm live Undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    undoButton.IsEnabled = false;
+                    stageStatus.Text = "UNDOING · verifying current values and career identity…";
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    await Task.Run(() => LiveMemoryEditService.UndoBatch(appliedReceipt));
+                    appliedReceipt = null;
+                    stagedPlan = null;
+                    applyButton.IsEnabled = false;
+                    stageStatus.Text = "UNDONE · original values restored and read-back verified";
+                    MessageBox.Show(this, "The live changes have been undone and the original values verified. Refresh the player profile before staging another edit.", "FM Atlas · Live Undo complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    stageStatus.Text = "UNDO BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Warning("Live FM27 player edit undo failed: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Live Undo failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                    undoButton.IsEnabled = appliedReceipt is not null;
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            undoButton.IsEnabled = false;
+            stagePanel.Children.Add(undoButton);
             DockPanel.SetDock(stagePanel, Dock.Bottom); dock.Children.Add(stagePanel);
-        }
-        if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
-        {
-            var liveAttributeApply = SoftButton("Live attribute Apply disabled in V10", (_, _) => { });
-            liveAttributeApply.IsEnabled = false;
-            liveAttributeApply.ToolTip = "Live memory writes are hard-disabled. Save local edits or prepare a read-only preview only.";
-            liveAttributeApply.Margin = new Thickness(0, 8, 0, 0);
-            DockPanel.SetDock(liveAttributeApply, Dock.Bottom);
-            dock.Children.Add(liveAttributeApply);
         }
         Grid.SetRow(editor, 1); root.Children.Add(editor); return root;
     }
