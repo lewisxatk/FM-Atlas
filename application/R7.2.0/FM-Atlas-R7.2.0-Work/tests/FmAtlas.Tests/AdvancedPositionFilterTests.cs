@@ -1,0 +1,66 @@
+using FmAtlas.Models;
+using Xunit;
+
+namespace FmAtlas.Tests;
+
+public sealed class AdvancedPositionFilterTests
+{
+    [Fact]
+    public void ZeroRatingsAreNoRequirementAndEmptyFilterNormalizesToNull()
+    {
+        Assert.Null(AdvancedPositionFilterRules.Normalize(null));
+        Assert.Null(AdvancedPositionFilterRules.Normalize(new AdvancedPositionFilter(
+            Positions: new[] { new AdvancedPositionCriterion("GK", 0), new AdvancedPositionCriterion("DC", 0) })));
+    }
+
+    [Fact]
+    public void NormalizesLegacyStrikerAliasAndKeepsExactAllSemantics()
+    {
+        var result = AdvancedPositionFilterRules.Normalize(new AdvancedPositionFilter(
+            MatchAny: false,
+            AtLeast: false,
+            Positions: new[]
+            {
+                new AdvancedPositionCriterion("ST", 16),
+                new AdvancedPositionCriterion("DC", 14)
+            }));
+
+        Assert.NotNull(result);
+        Assert.False(result.MatchAny);
+        Assert.False(result.AtLeast);
+        Assert.Equal(new[] { "DC", "STC" }, result.Positions!.Select(x => x.PositionCode));
+        Assert.Equal(new[] { 14, 16 }, result.Positions.Select(x => x.Rating));
+    }
+
+    [Fact]
+    public void PreservesAnyAndAtLeastOptionsForSelectedPositions()
+    {
+        var result = AdvancedPositionFilterRules.Normalize(new AdvancedPositionFilter(
+            MatchAny: true,
+            AtLeast: true,
+            Positions: new[] { new AdvancedPositionCriterion("AML", 12) }));
+
+        Assert.NotNull(result);
+        Assert.True(result.MatchAny);
+        Assert.True(result.AtLeast);
+        Assert.Equal(12, Assert.Single(result.Positions!).Rating);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(21)]
+    public void RejectsPositionRatingsOutsideZeroToTwenty(int rating)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AdvancedPositionFilterRules.Normalize(new AdvancedPositionFilter(
+                Positions: new[] { new AdvancedPositionCriterion("DC", rating) })));
+    }
+
+    [Fact]
+    public void RejectsUnknownPositionCodes()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            AdvancedPositionFilterRules.Normalize(new AdvancedPositionFilter(
+                Positions: new[] { new AdvancedPositionCriterion("CB", 15) })));
+    }
+}
