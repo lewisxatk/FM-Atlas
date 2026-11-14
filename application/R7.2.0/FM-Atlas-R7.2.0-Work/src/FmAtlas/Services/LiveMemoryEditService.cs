@@ -38,7 +38,7 @@ public static partial class LiveMemoryEditService
     private static extern bool CloseHandle(nint handle);
 
     public sealed record Change(string FieldKey, int ExpectedCurrentValue, int TargetValue);
-    public sealed record PlannedChange(string FieldKey, int Offset, int ExpectedCurrentValue, int TargetValue, byte[] OriginalBytes, byte[] TargetBytes, string RecordKind = "Player");
+    public sealed record PlannedChange(string FieldKey, int Offset, int ExpectedCurrentValue, int TargetValue, byte[] OriginalBytes, byte[] TargetBytes, string RecordKind = "Player", ulong TargetAddress = 0);
     public sealed record BatchPlan(int ProcessId, uint PlayerUid, string PlayerName, string ProfileId, string ProfileFingerprint, ulong SaveLoadCounter, DateTime CreatedUtc, IReadOnlyList<PlannedChange> Changes);
     public sealed record BatchReceipt(BatchPlan Plan, DateTime AppliedUtc, bool ReadBackVerified);
 
@@ -100,8 +100,6 @@ public static partial class LiveMemoryEditService
         foreach (var change in changes)
         {
             var field = ResolveWritableField(change.FieldKey);
-            if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
-                field = field with { Offset = field.Offset + personShift };
             ValidateValue(field, change.ExpectedCurrentValue, change.TargetValue);
             var fieldAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
             var current = Read(handle.Value, (nint)fieldAddress, field.Size);
@@ -109,7 +107,7 @@ public static partial class LiveMemoryEditService
             if (displayed != change.ExpectedCurrentValue)
                 throw new InvalidOperationException($"Live preview blocked for {field.DisplayName}: Atlas expected {change.ExpectedCurrentValue}, but the running FM memory currently decodes to {displayed}. Refresh the player and verify the in-game value before trying again.");
             var target = EncodeValue(field, change.TargetValue, current);
-            planRows.Add(new PlannedChange(field.Key, field.Offset, displayed, change.TargetValue, current, target, field.RecordKind));
+            planRows.Add(new PlannedChange(field.Key, field.Offset, displayed, change.TargetValue, current, target, field.RecordKind, fieldAddress));
         }
         return new BatchPlan(processId, playerUid, expectedPlayerName, profile.Id, profile.Fingerprint, saveLoadCounter, DateTime.UtcNow, planRows);
     }
@@ -136,13 +134,13 @@ public static partial class LiveMemoryEditService
         foreach (var change in plan.Changes)
         {
             var field = ResolveWritableField(change.FieldKey);
-            if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
-                field = field with { Offset = field.Offset + personShift };
             if (field.Offset != change.Offset || !string.Equals(field.RecordKind, change.RecordKind, StringComparison.Ordinal)
                 || change.OriginalBytes.Length != field.Size || change.TargetBytes.Length != field.Size)
                 throw new InvalidOperationException($"Staged edit integrity check failed for {change.FieldKey}; the field mapping no longer matches the plan.");
             ValidateValue(field, change.ExpectedCurrentValue, change.TargetValue);
             var fieldAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+            if (fieldAddress != change.TargetAddress)
+                throw new InvalidOperationException($"Live write blocked: {change.FieldKey} now resolves to a different FM object. Refresh and stage again.");
             var current = Read(handle.Value, (nint)fieldAddress, change.OriginalBytes.Length);
             if (!current.SequenceEqual(change.OriginalBytes))
                 throw new InvalidOperationException($"Live write blocked: {change.FieldKey} changed after preview. No fields in this batch were written.");
@@ -158,7 +156,9 @@ public static partial class LiveMemoryEditService
                 if (ReadSaveLoadCounter(handle.Value, moduleBase, profile) != plan.SaveLoadCounter)
                     throw new InvalidOperationException("The FM career changed during this edit batch. Atlas stopped before the next field; automatic rollback will only be attempted if the original career session is still active.");
                 var field = ResolveWritableField(change.FieldKey);
-                var address = (nint)ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+                var resolvedAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+                if (resolvedAddress != change.TargetAddress) throw new InvalidOperationException($"The FM object for {change.FieldKey} moved during Apply; stopping the batch.");
+                var address = (nint)resolvedAddress;
                 var succeeded = Write(handle.Value, address, change.TargetBytes, out var bytesWritten);
                 if (bytesWritten > 0) written.Add((change, bytesWritten));
                 if (!succeeded || bytesWritten != change.TargetBytes.Length)
@@ -182,7 +182,9 @@ public static partial class LiveMemoryEditService
                         continue;
                     }
                     var field = ResolveWritableField(change.FieldKey);
-                    var address = (nint)ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+                    var resolvedAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+                    if (resolvedAddress != change.TargetAddress) { rollbackErrors.Add(change.FieldKey + " object moved; rollback skipped"); continue; }
+                    var address = (nint)resolvedAddress;
                     var expectedPartial = change.OriginalBytes.ToArray();
                     Array.Copy(change.TargetBytes, 0, expectedPartial, 0, writtenItem.BytesWritten);
                     var current = Read(handle.Value, address, change.TargetBytes.Length);
@@ -217,12 +219,12 @@ public static partial class LiveMemoryEditService
         foreach (var change in plan.Changes)
         {
             var field = ResolveWritableField(change.FieldKey);
-            if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
-                field = field with { Offset = field.Offset + personShift };
             if (field.Offset != change.Offset || !string.Equals(field.RecordKind, change.RecordKind, StringComparison.Ordinal)
                 || field.Size != change.TargetBytes.Length || field.Size != change.OriginalBytes.Length)
                 throw new InvalidOperationException($"Undo integrity check failed for {change.FieldKey}.");
             var fieldAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+            if (fieldAddress != change.TargetAddress)
+                throw new InvalidOperationException($"Undo blocked: {change.FieldKey} now resolves to a different FM object.");
             var current = Read(handle.Value, (nint)fieldAddress, change.TargetBytes.Length);
             if (!current.SequenceEqual(change.TargetBytes))
                 throw new InvalidOperationException($"Undo blocked: {change.FieldKey} has changed again in FM. Refresh the player and inspect the edit history before attempting another undo.");
@@ -235,7 +237,9 @@ public static partial class LiveMemoryEditService
                 if (ReadSaveLoadCounter(handle.Value, moduleBase, profile) != plan.SaveLoadCounter)
                     throw new InvalidOperationException("The FM career changed during undo. Atlas stopped before the next field; rollback will only be attempted while the original career session remains active.");
                 var field = ResolveWritableField(change.FieldKey);
-                var address = (nint)ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+                var resolvedAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+                if (resolvedAddress != change.TargetAddress) throw new InvalidOperationException($"The FM object for {change.FieldKey} moved during Undo; stopping the batch.");
+                var address = (nint)resolvedAddress;
                 var succeeded = Write(handle.Value, address, change.OriginalBytes, out var bytesWritten);
                 if (bytesWritten > 0) undone.Add((change, bytesWritten));
                 if (!succeeded || bytesWritten != change.OriginalBytes.Length)
@@ -258,7 +262,9 @@ public static partial class LiveMemoryEditService
                         continue;
                     }
                     var field = ResolveWritableField(change.FieldKey);
-                    var address = (nint)ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+                    var resolvedAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+                    if (resolvedAddress != change.TargetAddress) { rollbackErrors.Add(change.FieldKey + " object moved; restore skipped"); continue; }
+                    var address = (nint)resolvedAddress;
                     var expectedPartial = change.TargetBytes.ToArray();
                     Array.Copy(change.OriginalBytes, 0, expectedPartial, 0, undoneItem.BytesWritten);
                     var current = Read(handle.Value, address, change.OriginalBytes.Length);
