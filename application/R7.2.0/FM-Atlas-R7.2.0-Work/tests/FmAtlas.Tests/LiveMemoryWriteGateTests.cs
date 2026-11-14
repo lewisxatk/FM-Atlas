@@ -145,7 +145,7 @@ public sealed class LiveMemoryWriteGateTests
             "date_of_birth", "contract.unhappiness", "loan.expires", "loan.option_fee",
             "position.gk", "position.amc", "personality.professionalism",
             "left_foot", "right_foot", "trait.0", "trait.63",
-            "transfer_value", "contract.wage", "contract.signed", "contract.expires", "contract.joined", "contract.type", "contract.squad_number",
+            "contract.wage", "contract.signed", "contract.expires", "contract.joined", "contract.squad_number",
             "contract.squad_status", "contract.transfer_listed", "contract.loan_listed",
             "contract.loyalty_bonus", "contract.happiness", "contract.playing_time_happiness"
         })
@@ -189,7 +189,7 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Theory]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "transfer_value")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.type")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.signed")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.joined")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.type")]
@@ -209,6 +209,7 @@ public sealed class LiveMemoryWriteGateTests
         => Assert.True(LiveEntityMemoryEditService.SupportsField(entity, field));
 
     [Theory]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "transfer_value")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.release_clause")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Staff, "attribute.potential_pa")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "ownership.sugar_daddy")]
