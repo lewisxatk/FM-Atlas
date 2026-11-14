@@ -41,12 +41,14 @@ public partial class MainWindow
         foreach (var value in new[] { "50% coverage", "60% coverage", "70% coverage", "80% coverage", "90% coverage", "100% coverage" }) coverage.Items.Add(value);
         coverage.SelectedIndex = 0;
         Button cancel = null!;
+        Button deleteTemplate = null!;
+        TextBlock description = null!;
         find = PrimaryButton("Find best fits", async (_, _) => await SearchAsync()); find.Margin = new Thickness(0, 0, 8, 8);
         cancel = SoftButton("Cancel search", (_, _) => activeSearchCancellation?.Cancel()); cancel.Margin = new Thickness(0, 0, 8, 8); cancel.IsEnabled = false;
         var export = SoftButton("Export results CSV", (_, _) => ExportResults()); export.Margin = new Thickness(0, 0, 8, 8);
         var saveTemplate = SoftButton("Create / customise role template", (_, _) => EditRoleTemplate());
         saveTemplate.Margin = new Thickness(0, 0, 8, 8);
-        var deleteTemplate = SoftButton("Delete custom template", (_, _) => DeleteSelectedTemplate());
+        deleteTemplate = SoftButton("Delete custom template", (_, _) => DeleteSelectedTemplate());
         deleteTemplate.Margin = new Thickness(0, 0, 8, 8);
         deleteTemplate.IsEnabled = role.SelectedItem is RoleFitProfile { IsCustom: true };
         controls.Children.Add(role);
@@ -59,7 +61,7 @@ public partial class MainWindow
         controls.Children.Add(find); controls.Children.Add(cancel); controls.Children.Add(export);
         controls.Children.Add(saveTemplate); controls.Children.Add(deleteTemplate);
         hs.Children.Add(controls);
-        var description = Txt("", 9, false, Muted, wrap: true); hs.Children.Add(description);
+        description = Txt("", 9, false, Muted, wrap: true); hs.Children.Add(description);
         status = Txt("Choose a role and search the latest imported player snapshot.", 10, false, Muted); status.Margin = new Thickness(0, 8, 0, 0); hs.Children.Add(status);
         Grid.SetRow(header, 0); root.Children.Add(header);
 
