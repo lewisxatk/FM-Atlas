@@ -172,7 +172,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [~] Club profile includes linked squad size and source coverage, age bands, primary-position counts, average age/CA/PA, total player value, wage records/mean/total, home-grown Yes/No/Unknown, and staff only on exact save club-name matches. Currency/pay period and missing fields are not inferred. Windows verification pending.
 - [ ] Add formation builder, positional coverage, role-fit and age/payroll structure.
 - [ ] Add tactical/role analysis with in/out-of-possession distinctions where supported.
-- [~] Staff directory search and selectable profiles are implemented for imported save/live staff; live CA/PA, nation, club, age, role and human-manager indicators are present. Full coaching-attribute coverage, coaching-role fit and backroom gap analysis remain open.
+- [~] Staff directory search and selectable profiles are implemented for imported save/live staff; live CA/PA, nation, club, age, role and human-manager indicators are present. The documented 19 coaching fields, two direct ratings, eight personality fields and available contract facts are now decoded and shown in profiles but remain provisional pending in-game witnesses. Coaching-role fit and backroom gap analysis remain open.
 - [~] Add a local shortlist recruitment pipeline with Identified, Monitoring, Scouting, Contact, Offer, Signed and Rejected stages; candidate notes are editable and retained locally. Existing databases add the Stage column in-place with an Identified default. Windows verification pending.
 - [ ] Add drag/drop formation interactions with keyboard alternatives and reduced-motion support.
 
