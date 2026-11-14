@@ -172,16 +172,16 @@ public partial class MainWindow : Window
         headerGrid.Children.Add(titleStack);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 10, 0) };
-        actions.Children.Add(ToolbarIcon("\\uE721", "Global search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
-        actions.Children.Add(ToolbarIcon("\\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
-        actions.Children.Add(ToolbarIcon("\\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
-        actions.Children.Add(ToolbarIcon("\\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
-        actions.Children.Add(ToolbarIcon("\\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
-        _liveLoadButton = ToolbarIcon("\\uE72C", "Live-memory scanning is paused in V8 until bounded scanning is independently validated. Use offline save import instead.", (_, _) => ShowLiveScanPaused());
+        actions.Children.Add(ToolbarIcon("\uE721", "Global search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
+        actions.Children.Add(ToolbarIcon("\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
+        actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
+        actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
+        actions.Children.Add(ToolbarIcon("\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
+        _liveLoadButton = ToolbarIcon("\uE72C", "Live-memory scanning is paused in V8 until bounded scanning is independently validated. Use offline save import instead.", (_, _) => ShowLiveScanPaused());
         _liveLoadButton.IsEnabled = false;
         actions.Children.Add(_liveLoadButton);
-        actions.Children.Add(ToolbarIcon("\\uE713", "Change appearance: Glass Dark, Glass Light or Studio.", async (_, _) => await CycleThemeAsync()));
-        actions.Children.Add(ToolbarIcon("\\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
+        actions.Children.Add(ToolbarIcon("\uE713", "Change appearance: Glass Dark, Glass Light or Studio.", async (_, _) => await CycleThemeAsync()));
+        actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
         Grid.SetColumn(actions, 1);
         headerGrid.Children.Add(actions);
 
@@ -2135,9 +2135,32 @@ public partial class MainWindow : Window
     private static ControlTemplate RoundedButtonTemplate(double radius)
     {
         var template = new ControlTemplate(typeof(Button));
-        var border = new FrameworkElementFactory(typeof(Border)); border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
-        border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty)); border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty)); border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Control.BorderThicknessProperty)); border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(Control.PaddingProperty));
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center); presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center); border.AppendChild(presenter); template.VisualTree = border; return template;
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.Name = "AtlasButtonSurface";
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
+        border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
+        border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty));
+        border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Control.BorderThicknessProperty));
+        border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(Control.PaddingProperty));
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(presenter);
+        template.VisualTree = border;
+
+        var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, Brush("#294765"), "AtlasButtonSurface"));
+        hover.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#78BDEB"), "AtlasButtonSurface"));
+        template.Triggers.Add(hover);
+
+        var pressed = new Trigger { Property = Button.IsPressedProperty, Value = true };
+        pressed.Setters.Add(new Setter(UIElement.OpacityProperty, 0.78, "AtlasButtonSurface"));
+        template.Triggers.Add(pressed);
+
+        var disabled = new Trigger { Property = UIElement.IsEnabledProperty, Value = false };
+        disabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.42, "AtlasButtonSurface"));
+        template.Triggers.Add(disabled);
+        return template;
     }
 
     private static string LoadThemeMode()
