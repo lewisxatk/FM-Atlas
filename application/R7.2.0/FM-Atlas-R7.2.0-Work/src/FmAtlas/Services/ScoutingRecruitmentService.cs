@@ -17,7 +17,9 @@ public static class ScoutingRecruitmentService
         new ScoutingMetricGroup("Attacking", new[]
         {
             D("goals","Goals / 90"), D("xg","Expected goals / 90","xG"),
-            D("shots","Shots / 90"), D("assists","Assists / 90"), D("key_passes","Key passes / 90"),
+            D("shots","Shots / 90"), D("shots_on_target","Shots on target / 90"), D("assists","Assists / 90"), D("key_passes","Key passes / 90"),
+            new ScoutingMetricDefinition("pass_completion_pct", "Pass completion %", "%", false, true, 0, "StatsBomb event-derived"),
+            new ScoutingMetricDefinition("dribble_success_pct", "Dribble success %", "%", false, true, 0, "StatsBomb event-derived"),
             D("dribbles_completed","Successful dribbles / 90"), D("carries","Carries / 90")
         }),
         new ScoutingMetricGroup("Passing & progression", new[]
@@ -31,7 +33,14 @@ public static class ScoutingRecruitmentService
             D("pressures","Pressures / 90"), D("tackles","Tackles / 90"), D("interceptions","Interceptions / 90"),
             D("recoveries","Ball recoveries / 90"), D("clearances","Clearances / 90"),
             D("blocks","Blocks / 90"), D("aerial_duels","Aerial duels / 90"),
-            D("aerial_duels_won","Aerial duels won / 90"), D("fouls_committed","Fouls committed / 90", higher:false)
+            D("aerial_duels_won","Aerial duels won / 90"),
+            new ScoutingMetricDefinition("aerial_duel_win_pct", "Aerial duel win %", "%", false, true, 0, "StatsBomb event-derived"),
+            D("fouls_committed","Fouls committed / 90", higher:false)
+        }),
+        new ScoutingMetricGroup("Goalkeeping", new[]
+        {
+            D("saves","Saves / 90"), D("claims","Claims / 90"), D("punches","Punches / 90"),
+            D("sweeper_actions","Sweeper actions / 90"), D("goalkeeper_actions","Goalkeeper actions / 90")
         }),
         new ScoutingMetricGroup("Discipline & security", new[]
         {
