@@ -1464,6 +1464,7 @@ public partial class MainWindow : Window
                         processId, entityType, uid, displayName, changes));
                     status.Text = "STAGED · " + stagedPlan.Values.Count.ToString("N0", CultureInfo.InvariantCulture)
                         + " field(s) · " + stagedPlan.ProfileId + " · no memory written";
+                    AtlasLog.Info("Live FM27 edit staged · entity=" + entityType + " · uid=" + uid + " · profile=" + stagedPlan.ProfileId + " · fields=" + string.Join(",", stagedPlan.Values.Select(x => x.FieldKey)) + " · no memory written.");
                     applyButton!.IsEnabled = true;
                     undoButton!.IsEnabled = false;
                     var preview = string.Join(Environment.NewLine, stagedPlan.Values.Take(30).Select(x =>
