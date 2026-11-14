@@ -36,6 +36,8 @@ public sealed record AdvancedSearchCriterion(
     string? TextValue,
     bool? BooleanValue);
 
+public sealed record AdvancedSearchSort(string FieldKey, bool Descending = false);
+
 public sealed record AdvancedSearchProfile(
     string Id,
     string Name,
@@ -43,4 +45,5 @@ public sealed record AdvancedSearchProfile(
     string SearchText,
     bool MatchAll,
     IReadOnlyList<AdvancedSearchCriterion> Criteria,
-    IReadOnlyList<string>? VisibleColumns = null);
+    IReadOnlyList<string>? VisibleColumns = null,
+    IReadOnlyList<AdvancedSearchSort>? Sorts = null);

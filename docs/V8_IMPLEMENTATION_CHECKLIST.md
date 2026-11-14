@@ -96,8 +96,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [~] Add a dynamic category and field library for core fields, contract facts, attributes/personality, positions, traits, state, reputation and raw attributes. Performance metrics remain in the dedicated per-period search workspace; source coverage display and additional categories are still open.
 - [x] Universal player search supports up to 60 mixed core/attribute/save-fact conditions with ALL/AND or ANY/OR matching. Specialist performance search remains separate because its criteria are scoped to player-period rows.
 - [x] Add local saved universal search profiles with create/replace/load/delete, persisted criteria, search text, AND/OR mode and selected result columns. Reset-to-default is present for the active filter builder; broader filter presets remain open.
-- [~] Add configurable visible columns, stable 250-row paging and multi-select bulk Add-to-Shortlist. Bulk insertion is transactional and reports new versus already-present players accurately. Multi-sort, player comparison and shortlist removal/notes actions from the search result grid remain open.
-- [x] Support all 15 FM position slots through source-key aliases, including fmsave's canonical STC slot, with five Atlas display bands over source 1–20 ratings. Only imported position values and explicitly Verified live fields contribute; zero, missing, non-finite, out-of-range and unknown fields remain unrated. Regression tests cover all 15 slots, key aliases, five bands and invalid values; latest Windows verification pending.
+- [~] Add configurable visible columns, stable 250-row paging and multi-select bulk Add-to-Shortlist. Bulk insertion is transactional and reports new versus already-present players accurately. Two-key server-side sorting now works before paging and is saved/restored with Advanced Search profiles; shortlist removal/notes actions remain open.
+- [x] Support all 15 FM position slots through source-key aliases, including fmsave's canonical STC slot, with five Atlas display bands over source 1–20 ratings. The main Players dropdown now consumes the same canonical position catalogue, including Sweeper (SW), so search and profile suitability cannot drift apart. Only imported position values and explicitly Verified live fields contribute; zero, missing, non-finite, out-of-range and unknown fields remain unrated. Regression tests cover all 15 slots, key aliases, five bands and invalid values; latest Windows verification pending.
 - [x] Add source-backed Home-grown at club / Home-grown in nation Boolean criteria to Advanced Search, with Yes/No/Unknown result values and regression coverage proving missing NULL data matches neither Yes nor No.
 - [ ] Add remaining league, nationality, contract and staff filters when available in source data.
 - [ ] Ensure missing/undecoded values are never silently treated as zero or as a failed filter match.
@@ -188,6 +188,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Provide final checklist report with links to commits, CI, build log and acceptance evidence.
 
 ## Work log
+
+| 2026-11-14 | Advanced Search multi-sort and position filter parity | Pending CI | Added two-key SQL-whitelisted server-side sorting before pagination, persisted primary/secondary sort fields and directions in local profiles, and wired the Players dropdown to the shared canonical 15-position catalogue including Sweeper. Added a database regression for sort tie-breaks across pages and the SW position filter. Windows verification pending. |
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|

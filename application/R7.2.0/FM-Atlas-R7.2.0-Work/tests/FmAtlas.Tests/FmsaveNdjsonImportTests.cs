@@ -816,6 +816,62 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public async Task AdvancedSearchUsesTwoLevelDatabaseSortAcrossPagesAndSupportsSweeperFilter()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "advanced-sort", playerManifestCount: 1, includeContractRow: false);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        await using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            foreach (var player in new[]
+            {
+                (Source: "LOCAL:SORT:ALPHA", Name: "Alpha", Age: 22, Position: "DC", Ability: 175, Potential: 180, Value: 900000m),
+                (Source: "LOCAL:SORT:BRAVO", Name: "Bravo", Age: 19, Position: "SW", Ability: 175, Potential: 178, Value: 800000m),
+                (Source: "LOCAL:SORT:CHARLIE", Name: "Charlie", Age: 24, Position: "STC", Ability: 160, Potential: 169, Value: 700000m)
+            })
+            {
+                var insert = db.CreateCommand();
+                insert.CommandText = """
+                    INSERT INTO Players(SourceId,Name,Age,Club,Position,CurrentAbility,PotentialAbility,Value,DataOrigin,UpdatedUtc)
+                    VALUES($source,$name,$age,'Sort Test FC',$position,$ability,$potential,$value,'Synthetic sort test','2026-11-14');
+                    """;
+                insert.Parameters.AddWithValue("$source", player.Source);
+                insert.Parameters.AddWithValue("$name", player.Name);
+                insert.Parameters.AddWithValue("$age", player.Age);
+                insert.Parameters.AddWithValue("$position", player.Position);
+                insert.Parameters.AddWithValue("$ability", player.Ability);
+                insert.Parameters.AddWithValue("$potential", player.Potential);
+                insert.Parameters.AddWithValue("$value", player.Value);
+                await insert.ExecuteNonQueryAsync();
+            }
+        }
+
+        var criteria = new[] { new AdvancedSearchCriterion("player:Age", 18, null, null, null) };
+        var sorts = new[]
+        {
+            new AdvancedSearchSort("player:CurrentAbility", Descending: true),
+            new AdvancedSearchSort("player:Age", Descending: false)
+        };
+        var firstPage = await database.SearchAdvancedPlayersAsync(
+            "", criteria, matchAll: true, limit: 2, offset: 0, sorts: sorts);
+        var secondPage = await database.SearchAdvancedPlayersAsync(
+            "", criteria, matchAll: true, limit: 2, offset: 2, sorts: sorts);
+
+        Assert.Equal(new[] { "LOCAL:SORT:BRAVO", "LOCAL:SORT:ALPHA" }, firstPage.Select(x => x.SourceId));
+        Assert.Equal(new[] { "LOCAL:SORT:CHARLIE", "FMSAVE:FM27:test-db:1001" }, secondPage.Select(x => x.SourceId));
+
+        var sweepers = await database.SearchAsync("", null, null, "SW", null, null, null, limit: 100);
+        Assert.Equal(new[] { "LOCAL:SORT:BRAVO" }, sweepers.Select(x => x.SourceId));
+        Assert.Equal(new[] { "GK", "SW", "DL", "DC", "DR", "WBL", "WBR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "STC" },
+            PositionSuitabilityService.PositionCodes);
+    }
+
+    [Fact]
     public void RoleFitProfileStoreAtomicallySavesReplacesLoadsAndDeletesCustomTemplates()
     {
         using var temp = new TemporaryFolder();

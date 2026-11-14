@@ -693,7 +693,10 @@ public partial class MainWindow : Window
         _playerSearch.Height = 40; _playerSearch.FontSize = 12; _playerSearch.Margin = new Thickness(0, 2, 8, 4);
         _playerSearch.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; _playerOffset = 0; await RefreshPlayerResultsAsync(); } };
         Grid.SetColumn(_playerSearch, 0); searchRow.Children.Add(_playerSearch);
-        _positionPicker = new ComboBox { ItemsSource = new[] { "Any position", "ATTACKERS", "MIDFIELDERS", "DEFENDERS", "GOALKEEPERS", "GK", "DL", "DC", "DR", "WBL", "WBR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST" }, SelectedIndex = 0, Margin = new Thickness(0, 2, 8, 4), Padding = new Thickness(9), MinHeight = 40, FontSize = 11 };
+        var positionOptions = new[] { "Any position", "ATTACKERS", "MIDFIELDERS", "DEFENDERS", "GOALKEEPERS" }
+            .Concat(PositionSuitabilityService.PositionCodes)
+            .ToArray();
+        _positionPicker = new ComboBox { ItemsSource = positionOptions, SelectedIndex = 0, Margin = new Thickness(0, 2, 8, 4), Padding = new Thickness(9), MinHeight = 40, FontSize = 11 };
         Grid.SetColumn(_positionPicker, 1); searchRow.Children.Add(_positionPicker);
         var searchButton = PrimaryButton("Search", async (_, _) => { _playerOffset = 0; await RefreshPlayerResultsAsync(); });
         searchButton.MinWidth = 88; searchButton.Height = 40; Grid.SetColumn(searchButton, 2); searchRow.Children.Add(searchButton);

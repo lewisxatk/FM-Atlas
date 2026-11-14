@@ -3002,7 +3002,8 @@ public sealed class ScoutDatabase
         bool matchAll = true,
         int limit = 250,
         int offset = 0,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<AdvancedSearchSort>? sorts = null)
     {
         if (criteria.Count == 0) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 conditions in one advanced player search.");
@@ -3114,6 +3115,24 @@ public sealed class ScoutDatabase
         }
 
         var query = (search ?? string.Empty).Trim();
+        var sortTerms = new List<string>();
+        var usedSortKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sort in (sorts ?? Array.Empty<AdvancedSearchSort>()).Take(2))
+        {
+            if (sort is null || !coreColumns.TryGetValue(sort.FieldKey, out var sortColumn)
+                || !usedSortKeys.Add(sort.FieldKey))
+                continue;
+            // Keep missing values last regardless of sort direction. Field names come only
+            // from the static whitelist above; user/profile strings never enter SQL directly.
+            sortTerms.Add($"CASE WHEN {sortColumn.Column} IS NULL THEN 1 ELSE 0 END ASC");
+            var expression = sortColumn.Type == AdvancedSearchFieldType.Text
+                ? sortColumn.Column + " COLLATE NOCASE"
+                : sortColumn.Column;
+            sortTerms.Add(expression + (sort.Descending ? " DESC" : " ASC"));
+        }
+        var orderBy = sortTerms.Count == 0
+            ? "CASE WHEN $q<>'' AND p.Name LIKE $prefix COLLATE NOCASE THEN 0 ELSE 1 END,p.Name COLLATE NOCASE,p.SourceId"
+            : string.Join(",", sortTerms) + ",p.Name COLLATE NOCASE ASC,p.SourceId ASC";
         cmd.CommandText = $"""
             SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,p.CurrentAbility,p.PotentialAbility,p.Value,
                    p.HomeGrownClub,p.HomeGrownNation,p.DataOrigin,p.PreferredFoot,p.LeftFoot,p.RightFoot
@@ -3125,7 +3144,7 @@ public sealed class ScoutDatabase
                     SELECT 1 FROM FmsavePlayerSnapshots s
                     WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=p.SourceId
               ))
-            ORDER BY CASE WHEN $q<>'' AND p.Name LIKE $prefix COLLATE NOCASE THEN 0 ELSE 1 END,p.Name COLLATE NOCASE,p.SourceId
+            ORDER BY {orderBy}
             LIMIT $limit OFFSET $offset;
             """;
         cmd.Parameters.AddWithValue("$q", query);

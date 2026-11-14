@@ -126,6 +126,80 @@ public partial class MainWindow
         toolbar.Children.Add(SoftButton("Multi-entity Search", (_, _) => ShowGlobalSearch()));
         builderStack.Children.Add(toolbar);
 
+        var sortOptions = new (string Label, string Key)[]
+        {
+            ("Player name", "player:Name"),
+            ("Age", "player:Age"),
+            ("Club", "player:Club"),
+            ("Position", "player:Position"),
+            ("League", "player:League"),
+            ("Nationality", "player:Nation"),
+            ("Current ability", "player:CurrentAbility"),
+            ("Potential ability", "player:PotentialAbility"),
+            ("Market value", "player:Value")
+        };
+        var primarySortPicker = new ComboBox
+        {
+            Width = 175, Height = 32, FontSize = 10, Margin = new Thickness(0, 0, 8, 0),
+            ItemsSource = sortOptions.Select(x => x.Label).ToList(),
+            ToolTip = "Primary sort. Applied in SQLite before paging, not just to the visible page."
+        };
+        primarySortPicker.SelectedItem = "Player name";
+        var primarySortDirection = new ComboBox
+        {
+            Width = 112, Height = 32, FontSize = 10, Margin = new Thickness(0, 0, 8, 0),
+            ItemsSource = new[] { "Ascending", "Descending" }
+        };
+        primarySortDirection.SelectedIndex = 0;
+        var secondarySortPicker = new ComboBox
+        {
+            Width = 175, Height = 32, FontSize = 10, Margin = new Thickness(0, 0, 8, 0),
+            ItemsSource = new[] { "(None)" }.Concat(sortOptions.Select(x => x.Label)).ToList(),
+            ToolTip = "Optional secondary sort for ties in the primary field."
+        };
+        secondarySortPicker.SelectedIndex = 0;
+        var secondarySortDirection = new ComboBox
+        {
+            Width = 112, Height = 32, FontSize = 10, Margin = new Thickness(0, 0, 8, 0),
+            ItemsSource = new[] { "Ascending", "Descending" }
+        };
+        secondarySortDirection.SelectedIndex = 0;
+        var sortToolbar = new WrapPanel { Margin = new Thickness(2, 2, 0, 8) };
+        sortToolbar.Children.Add(FilterControl("SORT BY", primarySortPicker, 185));
+        sortToolbar.Children.Add(FilterControl("DIRECTION", primarySortDirection, 122));
+        sortToolbar.Children.Add(FilterControl("THEN BY", secondarySortPicker, 185));
+        sortToolbar.Children.Add(FilterControl("DIRECTION", secondarySortDirection, 122));
+        builderStack.Children.Add(sortToolbar);
+
+        string? ResolveSortKey(string? label)
+            => sortOptions.FirstOrDefault(x => x.Label.Equals(label, StringComparison.OrdinalIgnoreCase)).Key;
+
+        string? ResolveSortLabel(string? key)
+            => sortOptions.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase)).Label;
+
+        List<AdvancedSearchSort> CaptureSorts()
+        {
+            var captured = new List<AdvancedSearchSort>(2);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var primaryKey = ResolveSortKey(primarySortPicker.SelectedItem?.ToString());
+            if (!string.IsNullOrWhiteSpace(primaryKey) && seen.Add(primaryKey))
+                captured.Add(new AdvancedSearchSort(primaryKey, primarySortDirection.SelectedIndex == 1));
+            var secondaryKey = ResolveSortKey(secondarySortPicker.SelectedItem?.ToString());
+            if (!string.IsNullOrWhiteSpace(secondaryKey) && seen.Add(secondaryKey))
+                captured.Add(new AdvancedSearchSort(secondaryKey, secondarySortDirection.SelectedIndex == 1));
+            return captured;
+        }
+
+        void ApplySorts(IReadOnlyList<AdvancedSearchSort>? savedSorts)
+        {
+            var primary = savedSorts?.FirstOrDefault();
+            primarySortPicker.SelectedItem = ResolveSortLabel(primary?.FieldKey) ?? "Player name";
+            primarySortDirection.SelectedItem = primary?.Descending == true ? "Descending" : "Ascending";
+            var secondary = savedSorts?.Skip(1).FirstOrDefault();
+            secondarySortPicker.SelectedItem = ResolveSortLabel(secondary?.FieldKey) ?? "(None)";
+            secondarySortDirection.SelectedItem = secondary?.Descending == true ? "Descending" : "Ascending";
+        }
+
         conditionPanel = new StackPanel();
         builderStack.Children.Add(Txt("CONDITIONS · CHOOSE A CATEGORY, FIELD AND VALUE", 8, true, Muted));
         builderStack.Children.Add(conditionPanel);
@@ -638,7 +712,8 @@ public partial class MainWindow
                 searchText.Text.Trim(),
                 logic.SelectedIndex == 0,
                 criteria,
-                resultColumns.Where(x => x.Value.Visibility == Visibility.Visible).Select(x => x.Key).ToList());
+                resultColumns.Where(x => x.Value.Visibility == Visibility.Visible).Select(x => x.Key).ToList(),
+                CaptureSorts());
             try
             {
                 AdvancedSearchProfileStore.Save(profile);
@@ -661,6 +736,7 @@ public partial class MainWindow
             conditionPanel.Children.Clear();
             searchText.Text = profile.SearchText ?? "";
             logic.SelectedIndex = profile.MatchAll ? 0 : 1;
+            ApplySorts(profile.Sorts);
             var missingFields = new List<string>();
             foreach (var criterion in profile.Criteria.Take(60))
             {
@@ -742,7 +818,9 @@ public partial class MainWindow
             status.Text = $"Searching {criteria.Count:N0} conditions across {(matchAll ? "ALL / AND" : "ANY / OR")} of the available fields…";
             try
             {
-                var pageRows = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(searchText.Text, criteria, matchAll, pageSize + 1, pageOffset, searchCancellation.Token));
+                var activeSorts = CaptureSorts();
+                var pageRows = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(
+                    searchText.Text, criteria, matchAll, pageSize + 1, pageOffset, searchCancellation.Token, activeSorts));
                 searchCancellation.Token.ThrowIfCancellationRequested();
                 hasNextPage = pageRows.Count > pageSize;
                 if (hasNextPage) pageRows.RemoveAt(pageRows.Count - 1);
@@ -754,7 +832,9 @@ public partial class MainWindow
                 pageStatus.Text = results.Count == 0
                     ? "No results on this page"
                     : $"Showing {pageOffset + 1:N0}–{pageOffset + results.Count:N0}" + (hasNextPage ? " · more available" : " · end of results");
-                status.Text = $"{results.Count:N0} players on this page · {criteria.Count:N0} conditions · {(matchAll ? "ALL / AND" : "ANY / OR")} · only actual stored fields and values were tested.";
+                var sortSummary = string.Join(" → ", activeSorts.Select(x =>
+                    $"{ResolveSortLabel(x.FieldKey)} {(x.Descending ? "↓" : "↑")}"));
+                status.Text = $"{results.Count:N0} players on this page · {criteria.Count:N0} conditions · {(matchAll ? "ALL / AND" : "ANY / OR")} · sort: {sortSummary} · only actual stored fields and values were tested.";
                 AtlasLog.Info($"Universal advanced player search: conditions={criteria.Count}; matchAll={matchAll}; results={results.Count}.");
             }
             catch (OperationCanceledException)

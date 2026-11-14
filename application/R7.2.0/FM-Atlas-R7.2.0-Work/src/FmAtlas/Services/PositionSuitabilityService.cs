@@ -57,6 +57,9 @@ public static class PositionSuitabilityService
         new PositionDefinition("STC", "Centre Forward", new[] { "stc", "st", "striker", "centreforward", "centerforward" })
     };
 
+    /// <summary>Canonical, ordered Football Manager position slots, shared by filters and displays.</summary>
+    public static IReadOnlyList<string> PositionCodes => Positions.Select(x => x.Code).ToArray();
+
     public static IReadOnlyList<PositionSuitabilityEntry> MapSourceRatings(
         IEnumerable<KeyValuePair<string, double?>> sourceValues)
     {
