@@ -34,6 +34,12 @@ The current implementation checklist, architecture status and quick-start guidan
 
 ## Commits made in this continuation
 
+- `ae669c2d` — upgrade save-bridge setup to fmsave 0.12.4.
+- `01af910e` — update the adapter's fmsave compatibility documentation.
+- `3f05e462` — require fmsave 0.12.4 or newer before enabling save import.
+- `8982d262` — install and verify fmsave 0.12.4 in Windows CI.
+- `e448faff` — explain missing/outdated save-reader versions in the UI.
+- `f5e74be5` — document the upstream fmsave compatibility upgrade.
 - `23a19615` — validate real FM installation via adjacent `fm_Data`, distinguish access denial and select newest supported process.
 - `414264fb` — add regression coverage for FM installation-path discovery.
 - `76ea9085` — align staff attribute fact keys with FMLibreEditor layout terminology.
@@ -79,6 +85,13 @@ The current implementation checklist, architecture status and quick-start guidan
 - Corrected the three staff fact keys that diverged from the reference layout: `judging_player_ability` → `judging_ability`, `judging_player_potential` → `judging_potential`, and `judging_staff_ability` → `judging_staff`. Added a regression test that checks canonical keys and rejects the invented aliases.
 - Rechecked fmsave's documented FM27 trust model and the Atlas adapter: missing nation display names remain null because fmsave exposes save-local nation IDs; field meanings remain provisional where unconfirmed; managed-club and staff tables are already part of the adapter's streaming table list. No guessed nationality labels were added.
 - The live importer remains read-only, background, cancellation-aware, bounded to two minutes and keyed to the FM process/build/save-load generation. FMSuperScout's separate child-process scanner and memory-snapshot retry have not been ported: they require performance measurements and a separate worker protocol rather than an untested architectural change.
+
+## Third reference pass — fmsave compatibility
+
+- The old setup script installed `fmsave==0.9.3`, dated before the FM27 27.0.1 full-release build. Upstream now publishes `0.12.4` (13 November 2026), with additional FM27 reader fixes including the 27.0.1 training/mentoring block trailer handling.
+- Updated `Setup-FMAtlas-Save-Bridge.ps1` to install 0.12.4; `FmsaveBridgeService.IsAvailableAsync` now requires 0.12.4 or newer; the Windows workflow installs and checks 0.12.4 before adapter tests.
+- The adapter remains streaming and preserves fmsave's coverage/validation warnings. It does not infer nationality names from save-local nation IDs, and it does not treat a structurally readable unregistered build as verified.
+- Exact-save acceptance still requires running the import against a COPY of the user's current save on Windows. The Python adapter unit tests use synthetic records; they are not a substitute for a real career fixture.
 
 ## Current user workflow
 
