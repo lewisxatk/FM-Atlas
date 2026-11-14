@@ -23,7 +23,10 @@ public sealed record LiveStaffRecord(
     string? ClubName, uint? ClubUid, string? JobTitle, int? JobCode,
     int? CurrentAbility, int? PotentialAbility,
     StaffJobPreferenceResult? JobPreferences = null,
-    IReadOnlyDictionary<string, double>? Attributes = null);
+    IReadOnlyDictionary<string, double>? Attributes = null,
+    IReadOnlyDictionary<string, double>? Personality = null,
+    int? WagePerWeek = null, DateTime? ContractStart = null,
+    DateTime? ContractExpiry = null, DateTime? JoinedClub = null);
 // ModuleSha256 is retained as the database/API field name for schema compatibility. The profile-matched
 // importer stores the PE build fingerprint (SizeOfImage + TimeDateStamp) here, not a cryptographic file hash.
 public sealed record LiveImportPayload(
@@ -368,6 +371,9 @@ public static class LiveDataImporter
                     int? ca = caRaw is >= 1 and <= 200 ? caRaw : null;
                     int? pa = paRaw is >= -10 and <= 200 ? paRaw : null;
                     var staffAttributes = StaffAttributeDecoder.Decode(buffer);
+                    // Personality belongs to the staff identity/person block, so the human
+                    // manager uses the documented +0x340 shift; coaching ratings above do not.
+                    var staffPersonality = StaffAttributeDecoder.DecodePersonality(buffer, shift);
 
                     string? nationName = null;
                     uint? nationUid = null;
@@ -386,13 +392,23 @@ public static class LiveDataImporter
                     uint? clubUid = null;
                     string? jobTitle = null;
                     int? jobCode = null;
+                    int? wagePerWeek = null;
+                    DateTime? contractStart = null, contractExpiry = null, joinedClub = null;
                     var contractAddress = U64(handle, (nint)(address + (ulong)(0x1A8 + shift)));
                     if (Pointer(contractAddress))
                     {
                         try
                         {
-                            jobCode = Read(handle, (nint)(contractAddress + 0x26), 1)[0];
-                            var teamAddress = U64(handle, (nint)(contractAddress + 0x10));
+                            // FM27 FULL_CONTRACT layout: weekly wage in GBP, signed/expiry/joined dates,
+                            // team relationship and current contract job code.
+                            var contract = Read(handle, (nint)contractAddress, 0xC8);
+                            jobCode = contract[0x26];
+                            var wage = BitConverter.ToInt32(contract, 0x20);
+                            if (wage is >= 0 and <= 10_000_000) wagePerWeek = wage;
+                            contractStart = TryReadDate(contract, 0x44);
+                            contractExpiry = TryReadDate(contract, 0x48);
+                            joinedClub = TryReadDate(contract, 0x4C);
+                            var teamAddress = BitConverter.ToUInt64(contract, 0x10);
                             if (Pointer(teamAddress))
                             {
                                 var clubAddress = U64(handle, (nint)(teamAddress + 0x30));
@@ -408,14 +424,15 @@ public static class LiveDataImporter
                                 }
                             }
                         }
-                        catch { /* Keep the staff record when its contract relationship is unreadable. */ }
+                        catch { /* Contract facts are optional; keep a valid staff identity if they are unreadable. */ }
                     }
                     jobTitle = JobName(jobCode);
                     var isHuman = shift != 0;
                     var age = gameDate.HasValue && dob.HasValue ? CalculateAge(dob.Value, gameDate.Value) : (int?)null;
                     var jobPreferences = ReadStaffJobPreferences(handle, address, shift);
                     decoded = new LiveStaffRecord(uid, name, i, address, isHuman, dob, age, nationName, nationUid,
-                        clubName, clubUid, jobTitle, jobCode, ca, pa, jobPreferences, staffAttributes);
+                        clubName, clubUid, jobTitle, jobCode, ca, pa, jobPreferences, staffAttributes,
+                        staffPersonality, wagePerWeek, contractStart, contractExpiry, joinedClub);
                 }
                 if (decoded is not null && seen.Add(decoded.Uid))
                     staff.Add(decoded);
