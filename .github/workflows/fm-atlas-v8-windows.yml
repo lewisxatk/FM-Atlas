@@ -32,6 +32,19 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Install Python for adapter validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate save adapter syntax and streaming bundle tests
+        shell: pwsh
+        run: |
+          python -m py_compile "application/R7.2.0/FM-Atlas-R7.2.0-Work/tools/Export-FMAtlas-Fmsave.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s "application/R7.2.0/FM-Atlas-R7.2.0-Work/tests/python" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Install .NET 8 SDK
         uses: actions/setup-dotnet@v4
         with:
