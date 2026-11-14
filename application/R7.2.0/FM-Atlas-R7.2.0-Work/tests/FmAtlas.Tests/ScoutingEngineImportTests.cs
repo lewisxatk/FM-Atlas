@@ -33,12 +33,12 @@ public sealed class ScoutingEngineImportTests
             Assert.Equal("Test League", player.Competition);
             Assert.Equal("2025/26", player.Season);
             Assert.Equal(90d, player.MinutesPlayed!.Value);
-            Assert.Equal(1, player.Metrics["passes_attempted"]);
-            Assert.Equal(1, player.Metrics["passes_completed"]);
-            Assert.Equal(1, player.Metrics["key_passes"]);
-            Assert.Equal(1, player.Metrics["goals"]);
+            Assert.Equal(1d, player.Metrics["passes_attempted"]!.Value);
+            Assert.Equal(1d, player.Metrics["passes_completed"]!.Value);
+            Assert.Equal(1d, player.Metrics["key_passes"]!.Value);
+            Assert.Equal(1d, player.Metrics["goals"]!.Value);
             Assert.Equal(.25d, player.Metrics["xg"]!.Value);
-            Assert.Equal(1, player.Metrics["pressures"]);
+            Assert.Equal(1d, player.Metrics["pressures"]!.Value);
             Assert.Equal(1, summary.MatchesImported);
         }
         finally { Directory.Delete(root, true); }
