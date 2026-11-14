@@ -270,10 +270,18 @@ public sealed class PerformanceValueAnalysisWindow : Window
             _activeMetricName = metric.DisplayName;
             _activePer90 = _per90.IsChecked == true;
             _activeMinimumSampleSize = minimumSampleSize;
+            var selectedPositionCode = _positionRatingCode.SelectedItem as string;
+            var positionRatingCode = selectedPositionCode is not null
+                && !selectedPositionCode.Equals("Any FM pos", StringComparison.OrdinalIgnoreCase)
+                    ? selectedPositionCode
+                    : null;
+            var minimumPositionRating = int.TryParse(_minimumPositionRating.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var positionFloor)
+                ? Math.Clamp(positionFloor, 1, 20)
+                : 15;
             _allResults = await _database.GetPerformanceValueCandidatesAsync(
                 metric.Key, _activePer90, minutes, 5000, minimumSampleSize: minimumSampleSize,
-                positionRatingCode: _positionRatingCode.SelectedItem as string is { } selectedPosition && !selectedPosition.Equals("Any FM pos", StringComparison.OrdinalIgnoreCase) ? selectedPosition : null,
-                minimumPositionRating: int.TryParse(_minimumPositionRating.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var positionFloor) ? Math.Clamp(positionFloor, 1, 20) : 15);
+                positionRatingCode: positionRatingCode,
+                minimumPositionRating: minimumPositionRating);
             RefreshCohortFilterOptions();
             ApplyCohortFilters();
         }
