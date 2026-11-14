@@ -199,12 +199,30 @@ public sealed class LiveCareerDetectionTests
         var decoded = StaffAttributeDecoder.Decode(staffObject);
 
         Assert.Equal(15, decoded["attacking"]);
-        Assert.Equal(18, decoded["judging_player_ability"]);
+        Assert.Equal(18, decoded["judging_ability"]);
         Assert.Equal(14, decoded["sports_science"]);
         Assert.Equal(17, decoded["authority"]);
         Assert.Equal(19, decoded["working_with_youngsters"]);
         Assert.False(decoded.ContainsKey("defending"));
         Assert.Equal(20, decoded.Count);
+    }
+
+    [Fact]
+    public void StaffAttributeDecoderUsesFmlibreCanonicalFieldKeys()
+    {
+        var staffObject = new byte[0x80];
+        foreach (var offset in new[] { 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x3F, 0x41, 0x42, 0x43, 0x3C, 0x1D })
+            staffObject[offset] = 50;
+
+        var decoded = StaffAttributeDecoder.Decode(staffObject);
+
+        Assert.Contains("judging_ability", decoded.Keys);
+        Assert.Contains("judging_potential", decoded.Keys);
+        Assert.Contains("judging_staff", decoded.Keys);
+        Assert.DoesNotContain("judging_player_ability", decoded.Keys);
+        Assert.DoesNotContain("judging_player_potential", decoded.Keys);
+        Assert.DoesNotContain("judging_staff_ability", decoded.Keys);
+        Assert.Equal(19, decoded.Count);
     }
 
     [Fact]
