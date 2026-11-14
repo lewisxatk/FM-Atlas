@@ -16,6 +16,7 @@
 | Button feedback | Source implemented | Rounded controls include hover, pressed, keyboard-focus and disabled visual states. |
 | Workspace motion | Source implemented | 150 ms workspace fade-in is conditional on the Windows system animation setting; no continuous decorative animation. |
 | Keyboard search | Source implemented | Ctrl+K opens the existing Global Search window; Ctrl+F remains supported. |
+| Advanced Search hub | Source implemented | A new workspace links to player discovery, the 60-condition attribute/personality builder, the performance-stat builder and multi-entity Global Search; counts available attribute and performance fields. It does not yet combine them into one universal AND/OR query. |
 | Navigation responsiveness | Improved in source | Navigation buttons stay enabled while workspace construction runs; latest requested destination is queued. |
 | Player workspace activation | Improved in source | Previously open profiles are restored after the workspace is displayed rather than awaited during workspace construction. |
 | Live-memory scan safety | Blocked by default in V8 UI | The full legacy scan is behind a compile-time false gate and the toolbar action is disabled. |
