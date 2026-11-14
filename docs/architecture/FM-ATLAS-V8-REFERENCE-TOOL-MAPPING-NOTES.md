@@ -79,6 +79,18 @@ FM Atlas implementation in this update:
 
 The Atlas importer already uses a cancellable background task, two-minute deadline and save-generation cancellation. The reference scanner's separate child-process isolation and adaptive snapshot retry are not copied in this update; those need a measured memory/CPU benchmark and a dedicated worker protocol before adding process orchestration to the WPF app.
 
+## 2B. fmsave — keep the bridge on a current reader
+
+Reference: https://github.com/rhiever/fmsave
+
+The previous Atlas setup pinned `fmsave==0.9.3` (2 November 2026). Upstream's `0.12.4` release (13 November 2026) includes later FM27 reader fixes, including the FM27 27.0.1 training/mentoring block trailer correction. The upstream README identifies 27.0.0+2486695 as the registered FM27 build and treats other builds as unverified when borrowing available FM27 layouts; structural compatibility must not be confused with verified field meaning.
+
+FM Atlas changes in this update:
+- The setup script now installs `fmsave==0.12.4`.
+- The bridge availability check rejects versions older than 0.12.4 instead of reporting an outdated parser as ready.
+- The Windows workflow installs the same pinned package and checks its version before adapter tests.
+- The adapter continues to stream all supported tables, including `managed_clubs`, `staff` and player season/match data; it preserves validation warnings and does not invent nation display names from save-local IDs.
+
 ## 3. fmsave — field trust and coverage
 
 Reference: https://github.com/rhiever/fmsave  
