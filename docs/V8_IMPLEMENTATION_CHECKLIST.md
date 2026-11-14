@@ -412,3 +412,23 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - [ ] Preserve old saved profiles by making new fields optional with safe defaults; test old-profile load and new-profile round-trip.
 - [ ] Test no position filter, multiple positions ALL, multiple positions ANY, minimum threshold, zero/no-op, invalid values, cancellation and paged results.
 - [ ] Do not infer missing position ratings, and do not change source field discovery or the existing 60-condition limit.
+
+
+## Monolith Glass finishing + FMRTE-style position filters — 14 November 2026
+
+- [x] Refine the shared Monolith Glass card material: deeper graphite gradient, warm amber edge light, restrained inner highlight and controlled shadow depth. Existing direct-child card contract and other themes are preserved.
+- [x] Keep the established visual direction: graphite/obsidian, off-white typography, amber-orange accent, rounded dense panels, restrained transitions; no neon/glow or heavy blur.
+- [x] Add a searchable field-library input to Advanced Search; category filtering and source-discovered field list remain intact.
+- [x] Keep core CA/PA fields directly searchable; validate CA as integer 0–200 and PA as integer -10–200, preserving signed random-potential values.
+- [x] Keep player attributes as whole-number 1–20 requirements.
+- [x] Add the dedicated 15-position familiarity group with 0–20 integer inputs; zero means no requirement.
+- [x] Implement FMRTE position semantics: ALL selected by default; Any of these switches to ANY; At Least switches exact matching to minimum matching.
+- [x] Keep position group logic separate from global general-condition AND/OR.
+- [x] Support position-only search, saved-profile round-trip, export, paging, cancellation and sort paths.
+- [x] Keep old saved profiles compatible when the optional PositionFilter property is absent.
+- [x] Add regression tests for zero/no-op, ST→STC alias, ALL/ANY flags, At Least flag, invalid values, unknown positions, legacy profile loading and profile round-trip.
+- [ ] Fresh Windows Release build and complete xUnit suite after this batch.
+- [ ] Validate actual SQL results for ALL, ANY, exact, At Least and zero against an FM27 save copy.
+- [ ] Review Monolith Glass and Advanced Search at 100%, 125% and 150% DPI; inspect keyboard focus, contrast, text clipping, dropdown popups and dense position tiles.
+- [ ] Check that all 15 position values shown by Atlas match the same player's in-game Positions page. Live-memory values remain provisional until witnessed.
+
