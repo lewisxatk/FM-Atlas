@@ -1,6 +1,6 @@
 # FM Atlas V8 — Live Career, People Search and Monolith Glass
 
-> **Current safety state (2026-11-14):** Full live entity-array scanning is OFF. The monitor performs process/build/save-generation detection only. The importer retains a two-minute hard deadline and cancellation support for controlled testing, but is not activated automatically or by the toolbar. Live Apply/Undo remains disabled.
+> **Current safety state (2026-11-14):** The read-only scan is enabled for exact supported profiles, with a two-minute hard deadline, toolbar cancellation and save-generation cancellation. Live Apply/Undo remains disabled. Real FM performance and field-witness acceptance are still outstanding.
 
 **Working branch:** `rebuild/v8-full-product-rebuild`  
 **Status:** source implementation committed; fresh Windows build and real FM27 acceptance still required.  
@@ -18,8 +18,8 @@
 - [x] Include process ID, storefront profile and save-load counter in the session key.
 - [x] Re-check the same save-load counter before and after the scan.
 - [x] Discard the snapshot if the career changes while Atlas is reading it.
-- [x] Detect and report a changed career generation without starting an entity-array scan while the safety gate is OFF.
-- [x] Detect a supported FM process/build when Atlas opens while a career is already loaded; keep the entity-array import paused.
+- [x] Detect and report a changed career generation; cancel an active scan if the process/build/session key changes.
+- [x] Detect a supported FM process/build when Atlas opens while a career is already loaded and begin the bounded read-only import.
 - [x] Keep a toolbar action that explains the paused import gate; it does not initiate a memory scan.
 - [x] Keep the original local Atlas database and offline save-import path intact.
 
@@ -27,11 +27,11 @@
 
 - [ ] Confirm the Steam and Game Pass profiles match the exact FM27 build installed on the user's PC.
 - [ ] Confirm the monitor sees the career only after FM has finished loading it.
-- [ ] Before re-enabling, confirm the bounded scan does not materially affect FM CPU/RAM or responsiveness; record elapsed time and peak memory.
-- [x] Retain a two-minute deadline and cancellation checkpoints in the dormant importer for controlled future testing.
-- [ ] Load a second save without closing Atlas and confirm detection reports the new generation without importing it while the gate is OFF.
+- [ ] Confirm the bounded scan does not materially affect FM CPU/RAM or responsiveness; record elapsed time and peak memory.
+- [x] Limit each scan to two minutes, report progress, and avoid repeated import attempts while a scan is active.
+- [ ] Load a second save without closing Atlas and confirm the active scan cancels, the partial snapshot is discarded and a new scan starts for the new generation.
 - [ ] After a bounded scanner is implemented and enabled for controlled testing, confirm a save switch during a scan discards that scan.
-- [ ] Measure CPU/memory and scan duration on a real career before considering activation; confirm the two-minute cap is adequate for the full player/staff/club arrays.
+- [ ] Measure CPU/memory and scan duration on a real career; confirm the two-minute cap is adequate for the full player/staff/club arrays.
 
 ## 2. Human manager, club and nation
 
