@@ -1534,8 +1534,9 @@ public sealed class ScoutDatabase
             warnings.Add($"Additional table row reconciliation: manifest={expectedExtraRows:N0}, indexed={extraCount:N0}. Check the bridge bundle before relying on full table coverage.");
 
         var finish = db.CreateCommand(); finish.Transaction = (SqliteTransaction)tx;
-        finish.CommandText = "UPDATE FmsaveImportRuns SET PlayersImported=$players,StaffImported=$staff,ClubsImported=$clubs,ExtraRowsImported=$extra WHERE SnapshotId=$id;";
-        finish.Parameters.AddWithValue("$players", playerCount); finish.Parameters.AddWithValue("$staff", staffCount); finish.Parameters.AddWithValue("$clubs", clubCount); finish.Parameters.AddWithValue("$extra", extraCount); finish.Parameters.AddWithValue("$id", snapshotId);
+        finish.CommandText = "UPDATE FmsaveImportRuns SET PlayersImported=$players,StaffImported=$staff,ClubsImported=$clubs,ExtraRowsImported=$extra,WarningsJson=$warnings WHERE SnapshotId=$id;";
+        finish.Parameters.AddWithValue("$players", playerCount); finish.Parameters.AddWithValue("$staff", staffCount); finish.Parameters.AddWithValue("$clubs", clubCount); finish.Parameters.AddWithValue("$extra", extraCount);
+        finish.Parameters.AddWithValue("$warnings", JsonSerializer.Serialize(warnings)); finish.Parameters.AddWithValue("$id", snapshotId);
         await finish.ExecuteNonQueryAsync();
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report("Validating and committing the new career snapshot…");
