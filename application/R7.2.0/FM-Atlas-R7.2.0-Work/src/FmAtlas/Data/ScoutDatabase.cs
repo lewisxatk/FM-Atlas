@@ -1665,11 +1665,6 @@ public sealed class ScoutDatabase
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
-        async Task<int> Count(string table)
-        {
-            var cmd = db.CreateCommand(); cmd.CommandText = $"SELECT COUNT(*) FROM {table};";
-            return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
-        }
         var activeRun = "(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')";
         async Task<int> CountActive(string table)
         {
