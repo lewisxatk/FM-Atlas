@@ -233,6 +233,7 @@ public static partial class LiveEntityMemoryEditService
     /// <summary>Applies all staged tactical Match Exposure list changes with preflight, save-generation checks and read-back.</summary>
     public static TacticalBatchReceipt ApplyTacticalExposureBatch(TacticalBatchPlan plan)
     {
+        EnsureLiveEditingEnabled();
         if (DateTime.UtcNow - plan.CreatedUtc > TimeSpan.FromMinutes(2) || plan.CreatedUtc > DateTime.UtcNow.AddSeconds(10))
             throw new InvalidOperationException("The tactical preview expired. Read the team again and stage the changes again.");
         using var process = Process.GetProcessById(plan.ProcessId);
@@ -328,6 +329,7 @@ public static partial class LiveEntityMemoryEditService
     /// <summary>Restores the original Match Exposure lists only while the same team/tactic/career still holds the applied values.</summary>
     public static void UndoTacticalExposureBatch(TacticalBatchReceipt receipt)
     {
+        EnsureLiveEditingEnabled();
         var plan = receipt.Plan;
         using var process = Process.GetProcessById(plan.ProcessId);
         var module = FindModule(process);
