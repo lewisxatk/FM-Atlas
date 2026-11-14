@@ -149,7 +149,7 @@ public static class GameModuleDiagnostics
         // Redact every diagnostic string value that may contain a person/club name,
         // not only the hard-coded witnesses used to validate the layout.
         safe = Regex.Replace(safe, @"(?i)(common|first|last|display|joined|decoded|expected|full-name|short-name)='[^']*'", "$1='[redacted]'");
-        safe = Regex.Replace(safe, @"(?i)(expected club:\\s*)[^)]+", "$1[redacted]");
+        safe = Regex.Replace(safe, @"(?i)(expected club:\s*)[^)]+", "$1[redacted]");
         // Redact absolute paths, including install paths and user-profile paths.
         safe = Regex.Replace(safe, @"(?i)\\\\[^\r\n]+", "[path redacted]");
         safe = Regex.Replace(safe, @"(?i)\b[A-Z]:\\[^\r\n]+", "[path redacted]");
