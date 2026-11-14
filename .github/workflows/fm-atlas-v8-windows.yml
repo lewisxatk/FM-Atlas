@@ -1,9 +1,9 @@
 name: FM Atlas V8 — Windows Release Build
 
 on:
-  push:
+  pull_request:
     branches:
-      - rebuild/v8-full-product-rebuild
+      - fix/r7.2.0-release-build-integration
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: fm-atlas-v8-windows-${{ github.head_ref || github.ref_name }}
+  group: fm-atlas-v8-windows-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
