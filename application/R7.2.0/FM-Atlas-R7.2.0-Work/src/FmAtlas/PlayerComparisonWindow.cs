@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.IO;
+using System.Text;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -64,7 +67,34 @@ public sealed class PlayerComparisonWindow : Window
             var property = "Value" + i.ToString(CultureInfo.InvariantCulture);
             grid.Columns.Add(new DataGridTextColumn { Header = label, Binding = new Binding(property), Width = new DataGridLength(1.2, DataGridLengthUnitType.Star) });
         }
-        grid.ItemsSource = BuildRows(players, attributes, positionRatings);
+        var comparisonRows = BuildRows(players, attributes, positionRatings, performanceFacts);
+        var view = CollectionViewSource.GetDefaultView(comparisonRows);
+        grid.ItemsSource = view;
+
+        var tools = new DockPanel { Margin = new Thickness(0, 0, 0, 10), LastChildFill = false };
+        var searchBox = new TextBox { Width = 290, Height = 34, Margin = new Thickness(0, 0, 8, 0), ToolTip = "Filter comparison rows by group, metric or value." };
+        searchBox.TextChanged += (_, _) =>
+        {
+            var query = searchBox.Text.Trim();
+            view.Filter = item => item is ComparisonRow row
+                && (query.Length == 0 || string.Join(" ", row.Group, row.Field, row.Value0, row.Value1, row.Value2, row.Value3)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase));
+        };
+        tools.Children.Add(searchBox);
+        var exportButton = new Button { Content = "Export comparison CSV", Height = 34, Padding = new Thickness(12, 5, 12, 5), ToolTip = "Export every comparison row, including rows currently hidden by the filter." };
+        exportButton.Click += (_, _) =>
+        {
+            var dialog = new SaveFileDialog { Title = "Export player comparison", FileName = "FM-Atlas-player-comparison.csv", Filter = "CSV files (*.csv)|*.csv" };
+            if (dialog.ShowDialog(this) != true) return;
+            static string Q(string? value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
+            var headers = new[] { "Group", "Metric" }.Concat(players.Select(x => x.Name)).ToArray();
+            var lines = new List<string> { string.Join(",", headers.Select(Q)) };
+            lines.AddRange(comparisonRows.Select(row => string.Join(",", new[] { Q(row.Group), Q(row.Field), Q(row.Value0), Q(row.Value1), Q(row.Value2), Q(row.Value3) }.Take(players.Count + 2))));
+            File.WriteAllLines(dialog.FileName, lines, new UTF8Encoding(true));
+        };
+        tools.Children.Add(exportButton);
+        DockPanel.SetDock(tools, Dock.Top);
+        root.Children.Add(tools);
 
         var radarData = PlayerComparisonRadarService.Build(
             players.Select(x => x.Name).ToList(), attributes);
