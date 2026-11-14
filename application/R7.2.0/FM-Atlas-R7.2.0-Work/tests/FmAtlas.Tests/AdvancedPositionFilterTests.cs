@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FmAtlas.Models;
 using Xunit;
 
@@ -63,4 +64,48 @@ public sealed class AdvancedPositionFilterTests
             AdvancedPositionFilterRules.Normalize(new AdvancedPositionFilter(
                 Positions: new[] { new AdvancedPositionCriterion("CB", 15) })));
     }
+    [Fact]
+    public void OlderSavedProfilesWithoutPositionFilterRemainLoadable()
+    {
+        const string json = """
+            {
+              "Id": "legacy",
+              "Name": "Legacy search",
+              "UpdatedUtc": "2026-11-14T00:00:00Z",
+              "SearchText": "",
+              "MatchAll": true,
+              "Criteria": []
+            }
+            """;
+
+        var profile = JsonSerializer.Deserialize<AdvancedSearchProfile>(json);
+
+        Assert.NotNull(profile);
+        Assert.Null(profile.PositionFilter);
+    }
+
+    [Fact]
+    public void PositionSettingsRoundTripInsideSavedProfile()
+    {
+        var profile = new AdvancedSearchProfile(
+            "position-only",
+            "Any natural winger",
+            DateTime.UtcNow,
+            "",
+            true,
+            Array.Empty<AdvancedSearchCriterion>(),
+            PositionFilter: new AdvancedPositionFilter(
+                MatchAny: true,
+                AtLeast: true,
+                Positions: new[] { new AdvancedPositionCriterion("AML", 18), new AdvancedPositionCriterion("AMR", 18) }));
+
+        var json = JsonSerializer.Serialize(profile);
+        var loaded = JsonSerializer.Deserialize<AdvancedSearchProfile>(json);
+
+        Assert.NotNull(loaded?.PositionFilter);
+        Assert.True(loaded.PositionFilter.MatchAny);
+        Assert.True(loaded.PositionFilter.AtLeast);
+        Assert.Equal(new[] { "AML", "AMR" }, loaded.PositionFilter.Positions!.Select(x => x.PositionCode));
+    }
+
 }
