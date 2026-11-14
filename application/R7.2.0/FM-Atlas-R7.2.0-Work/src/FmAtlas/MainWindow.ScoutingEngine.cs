@@ -61,7 +61,7 @@ public partial class MainWindow
         var season = new ComboBox { Width = 140, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Season cohort" };
         var position = new ComboBox { Width = 130, Height = 34, Margin = new Thickness(3), ItemsSource = new[] { "All positions", "Goalkeeper", "Defender", "Midfielder", "Attacker" }, SelectedIndex = 0 };
         var roleProfile = new ComboBox { Width = 190, Height = 34, Margin = new Thickness(3), IsTextSearchEnabled = true, DisplayMemberPath = nameof(ScoutingRoleProfile.Name) };
-        roleProfile.Items.Add("All roles");
+        roleProfile.Items.Add(new ScoutingRoleProfile("All roles", "", Array.Empty<string>()));
         foreach (var profile in ScoutingRecruitmentService.RoleProfiles) roleProfile.Items.Add(profile);
         roleProfile.SelectedIndex = 0;
         var metric = new ComboBox { Width = 270, Height = 34, Margin = new Thickness(3), IsTextSearchEnabled = true };
@@ -152,7 +152,7 @@ public partial class MainWindow
             var comp = competition.Text.Trim();
             var sea = season.Text.Trim();
             var selectedRole = roleProfile.SelectedItem as ScoutingRoleProfile;
-            var pos = selectedRole?.PositionGroup ?? position.SelectedItem?.ToString();
+            var pos = selectedRole is { Name: not "All roles" } ? selectedRole.PositionGroup : position.SelectedItem?.ToString();
             return (comp.Equals("All competitions", StringComparison.OrdinalIgnoreCase) || comp.Length == 0 ? null : comp,
                 sea.Equals("All seasons", StringComparison.OrdinalIgnoreCase) || sea.Length == 0 ? null : sea,
                 pos == "All positions" ? null : pos);
@@ -358,7 +358,7 @@ public partial class MainWindow
 
         roleProfile.SelectionChanged += (_, _) =>
         {
-            if (roleProfile.SelectedItem is not ScoutingRoleProfile selectedRole) return;
+            if (roleProfile.SelectedItem is not ScoutingRoleProfile selectedRole || selectedRole.Name == "All roles") return;
             position.SelectedItem = selectedRole.PositionGroup;
             var preferred = selectedRole.PreferredMetricKeys
                 .Select(key => metric.Items.Cast<MetricChoice>().FirstOrDefault(x => x.Definition.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
