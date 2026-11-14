@@ -1163,16 +1163,12 @@ public sealed class FmsaveNdjsonImportTests
             DataOrigin = "FMSave snapshot"
         };
 
-        var cells = CsvExportSafety.FormatAdvancedPlayerRow(player).Split(',');
+        var row = CsvExportSafety.FormatAdvancedPlayerRow(player);
 
-        Assert.Equal(16, cells.Length);
-        Assert.Equal("\"FMSAVE:FM27:fixture:42\"", cells[0]);
-        Assert.Equal("\"'=HYPERLINK(\"\"https://example.invalid\"\")\"", cells[1]);
-        Assert.Equal("\"Test, FC\"", cells[3]);
-        Assert.Equal("\"—\"", cells[8]);
-        Assert.Equal("\"Unknown\"", cells[10]);
-        Assert.Equal("\"No\"", cells[11]);
-        Assert.Equal(CsvExportSafety.AdvancedPlayerHeader.Split(',').Length, 16);
+        Assert.Equal(
+            "\"FMSAVE:FM27:fixture:42\",\"'=HYPERLINK(\"\"https://example.invalid\"\")\",\"19\",\"Test, FC\",\"Test League\",\"England\",\"STC\",\"120\",\"\",\"1250000\",\"Unknown\",\"No\",\"Right\",\"8\",\"18\",\"FMSave snapshot\"",
+            row);
+        Assert.Equal(16, CsvExportSafety.AdvancedPlayerHeader.Split(',').Length);
     }
 
     [Fact]
