@@ -188,3 +188,41 @@ Confidence: high for the project's published safety design; this is not proof th
 ### Next follow-up
 
 Trace the actual Advanced Search position-fact schema and query path before adding independent ALL/ANY position-group semantics and minimum familiarity. Preserve the current global condition logic and old saved-profile compatibility. Add regression coverage for empty/zero, ALL, ANY, threshold, legacy aliases, old/new profile round-trip, cancellation and paging. If the schema does not retain numeric per-position familiarity, stop and document the gap rather than synthesising values.
+
+
+## FMRTE position criteria and fmsave numeric position schema — 14 November 2026
+
+### Sources reviewed
+
+- FMRTE 27 Advanced Search: https://docs.fmrte.com/scouting/search/
+- FMRTE 27 position familiarity: https://docs.fmrte.com/players/positions-and-traits/
+- FMRTE 27 attribute scales: https://docs.fmrte.com/players/attributes/
+- fmsave 0.12.3 player record reference: https://rhiever.github.io/fmsave/reference/records.html
+- fmsave Positions model source: https://rhiever.github.io/fmsave/_modules/fmsave/models/players.html
+- FM Atlas adapter: `application/R7.2.0/FM-Atlas-R7.2.0-Work/tools/Export-FMAtlas-Fmsave.py`
+- FM Atlas snapshot ingestion: `src/FmAtlas/Data/ScoutDatabase.cs`, especially the `FmsavePlayerFacts` ingestion loop and the `positions` JSON group.
+
+### Evidence and confidence
+
+- **FMRTE documented search semantics — high confidence:** all nonzero position criteria must match by default; “Any of these” changes the position group to any selected position; “At Least” changes exact position values into minimum values; zero contributes no position requirement. This is separate from the rest of the search criteria.
+- **fmsave numeric source schema — high confidence for the published reader model:** the `Positions` value object contains 15 numeric 1–20 ratings, with named fields `gk, sw, dl, dc, dr, dm, ml, mc, mr, aml, amc, amr, stc, wbl, wbr`. `natural_positions` and `accomplished_positions` are classification lists (18+ and 15–17), not substitutes for the numeric ratings.
+- **FM27 field meaning — still unconfirmed by fmsave:** the reader documents structural coverage, but FM27 meaning still requires in-game comparison. FM Atlas keeps the existing provisional-source warning for live-memory fields.
+
+### FM Atlas implementation decision
+
+- Added a dedicated 15-slot position-familiarity group to Advanced Search.
+- Each position accepts an integer rating from 0 to 20. Zero is a no-op. Exact matching is the default; “At Least” uses greater-than-or-equal.
+- “Any of these” controls only the position group. With it off, every entered position must match. The existing general ALL/AND or ANY/OR condition mode is untouched; the position group is ANDed with the overall general-condition result.
+- The SQL uses the numeric `positions` facts from the latest fmsave snapshot and the existing `LivePlayerFacts` position keys for live records. It does not infer familiarity from natural/accomplished classification lists.
+- Legacy `ST` is normalized to canonical `STC`; the 15 canonical position codes are retained.
+- Position-only searches are supported. Position settings are stored as an optional profile property, so existing JSON profiles without that property remain compatible.
+- Added a searchable field-library text filter; the field list remains discovered from the imported data. Attributes stay 1–20, CA 0–200, and PA -10–200 (including signed random-potential values).
+- Kept all existing general filters, 60-condition cap, saved columns/sorts, global logic, cancellation, paging, comparison, similar-player, CSV and shortlist actions.
+
+### Visual direction carried forward
+
+Monolith Glass remains the primary interface: graphite/obsidian surfaces, warm off-white typography, amber-orange accent, layered translucent cards with a fine warm edge, restrained shadow depth, compact rounded controls, dense but readable information hierarchy, and minimal animation. No neon glow, flashing, glass blur over text, or heavy 3D. The shared card material has been refined and the Advanced Search condition rows/position tiles use the same dark graphite surface language.
+
+### Verification still required
+
+The source and regression tests are committed, but a fresh Windows workflow must pass before calling this batch build-verified. Then inspect the Advanced Search workspace and shared Monolith Glass surfaces at 100%, 125% and 150% DPI. Confirm the exact/At Least, ALL/ANY and zero no-op behaviours against a real imported FM27 career; keep live-memory values labelled provisional until witnessed in-game.
