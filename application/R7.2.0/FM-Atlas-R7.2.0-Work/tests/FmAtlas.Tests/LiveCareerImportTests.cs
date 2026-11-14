@@ -1,5 +1,6 @@
 using FmAtlas.Data;
 using FmAtlas.Services;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace FmAtlas.Tests;
@@ -102,6 +103,89 @@ public sealed class LiveCareerImportTests
         Assert.Equal("Second Manager", metrics.CurrentManager);
         Assert.Equal("Second FC", metrics.CurrentManagerClub);
         Assert.Equal(43L, metrics.LiveSaveLoadCounter);
+    }
+
+    [Fact]
+    public async Task NewLiveSnapshotReplacesOnlyActiveLiveRecordsAndKeepsOfflineLocalData()
+    {
+        using var temp = new TemporaryDirectory();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        await database.ImportLiveSnapshotAsync(CreatePayload());
+
+        // Seed a durable local/CSV-style player row that must survive a live career switch.
+        await using (var connection = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = databasePath, ForeignKeys = true }.ToString()))
+        {
+            await connection.OpenAsync();
+            var player = connection.CreateCommand();
+            player.CommandText = """
+                INSERT INTO Players(SourceId,Name,Age,Club,Nation,League,Position,DataOrigin,UpdatedUtc)
+                VALUES('LOCAL:KEEP','Offline Local Prospect',23,'Local FC','England','Local League','MC','Local CSV','2026-11-14T00:00:00Z');
+                INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc)
+                VALUES('LOCAL:KEEP','Passing','Technical',16,'2026-11-14T00:00:00Z');
+                """;
+            await player.ExecuteNonQueryAsync();
+        }
+
+        var next = CreatePayload() with
+        {
+            SaveLoadCounter = 43,
+            Players = new List<LivePlayerRecord>
+            {
+                new(7002, "Second Career Player", "0x220000", 55, 0, 0x230000,
+                    true, true, new DateTime(2001, 6, 4), "Unknown",
+                    "Second career test fixture.", 151, -6,
+                    new Dictionary<string, double> { ["Finishing"] = 18 },
+                    new Dictionary<string, double>(),
+                    new Dictionary<string, double> { ["ST"] = 19 })
+            },
+            Staff = new List<LiveStaffRecord>
+            {
+                new(9002, "Second Career Manager", 0, 0x240000, true,
+                    new DateTime(1988, 3, 4), 38, "Scotland", 1651,
+                    "Fixture FC", 55, "Manager", 16, 128, 158)
+            }
+        };
+        await database.ImportLiveSnapshotAsync(next);
+
+        Assert.Empty(await database.SearchLivePlayersAsync("Fixture Player"));
+        var current = Assert.Single(await database.SearchLivePlayersAsync("Second Career Player"));
+        Assert.Equal(151, current.CurrentAbility);
+        Assert.Equal(-6, current.PotentialAbility);
+
+        var offline = Assert.Single(await database.SearchAsync(
+            "Offline Local Prospect", null, null, null, null, null, null, limit: 10));
+        Assert.Equal("LOCAL:KEEP", offline.SourceId);
+        var offlineAttributes = await database.GetPlayerAttributesAsync("LOCAL:KEEP");
+        Assert.Equal(16d, offlineAttributes["Passing"]);
+
+        var manager = Assert.Single(await database.SearchFmsaveStaffAsync("Second Career Manager"));
+        Assert.Equal("Second Career Manager", manager.Name);
+        Assert.Equal(43L, (await database.GetWorkspaceMetricsAsync()).LiveSaveLoadCounter);
+    }
+
+    [Fact]
+    public void LiveScannerHonoursCancellationBeforeOpeningTheGameProcess()
+    {
+        var probe = new LiveCareerProbe(
+            IsGameRunning: true,
+            IsSupportedBuild: true,
+            IsCareerLoaded: true,
+            ProcessId: 1234,
+            ProfileId: "steam-26385295",
+            ProfileName: "FM27 Steam",
+            SaveLoadCounter: 42,
+            PlayerSlots: 40_286,
+            StaffSlots: 28_497,
+            ClubSlots: 8_000,
+            Status: "Test career");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() =>
+            LiveDataImporter.Extract(probe, cancellation.Token));
     }
 
     private static LiveImportPayload CreatePayload()
