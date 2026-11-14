@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Globalization;
 
 namespace FmAtlas.Services;
 
@@ -37,7 +38,7 @@ public static class LiveMemoryEditService
     private static extern bool CloseHandle(nint handle);
 
     public sealed record Change(string FieldKey, int ExpectedCurrentValue, int TargetValue);
-    public sealed record PlannedChange(string FieldKey, int Offset, int ExpectedCurrentValue, int TargetValue, byte[] OriginalBytes, byte[] TargetBytes);
+    public sealed record PlannedChange(string FieldKey, int Offset, int ExpectedCurrentValue, int TargetValue, byte[] OriginalBytes, byte[] TargetBytes, string RecordKind = "Player");
     public sealed record BatchPlan(int ProcessId, uint PlayerUid, string PlayerName, string ProfileId, string ProfileFingerprint, ulong SaveLoadCounter, DateTime CreatedUtc, IReadOnlyList<PlannedChange> Changes);
     public sealed record BatchReceipt(BatchPlan Plan, DateTime AppliedUtc, bool ReadBackVerified);
 
@@ -101,12 +102,13 @@ public static class LiveMemoryEditService
             if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
                 field = field with { Offset = field.Offset + personShift };
             ValidateValue(field, change.ExpectedCurrentValue, change.TargetValue);
-            var current = Read(handle.Value, (nint)(playerAddress + (ulong)field.Offset), field.Size);
+            var fieldAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+            var current = Read(handle.Value, (nint)fieldAddress, field.Size);
             var displayed = DecodeValue(field, current);
             if (displayed != change.ExpectedCurrentValue)
                 throw new InvalidOperationException($"Live preview blocked for {field.DisplayName}: Atlas expected {change.ExpectedCurrentValue}, but the running FM memory currently decodes to {displayed}. Refresh the player and verify the in-game value before trying again.");
-            var target = EncodeValue(field, change.TargetValue);
-            planRows.Add(new PlannedChange(field.Key, field.Offset, displayed, change.TargetValue, current, target));
+            var target = EncodeValue(field, change.TargetValue, current);
+            planRows.Add(new PlannedChange(field.Key, field.Offset, displayed, change.TargetValue, current, target, field.RecordKind));
         }
         return new BatchPlan(processId, playerUid, expectedPlayerName, profile.Id, profile.Fingerprint, saveLoadCounter, DateTime.UtcNow, planRows);
     }
@@ -135,10 +137,12 @@ public static class LiveMemoryEditService
             var field = ResolveWritableField(change.FieldKey);
             if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
                 field = field with { Offset = field.Offset + personShift };
-            if (field.Offset != change.Offset || change.OriginalBytes.Length != field.Size || change.TargetBytes.Length != field.Size)
+            if (field.Offset != change.Offset || !string.Equals(field.RecordKind, change.RecordKind, StringComparison.Ordinal)
+                || change.OriginalBytes.Length != field.Size || change.TargetBytes.Length != field.Size)
                 throw new InvalidOperationException($"Staged edit integrity check failed for {change.FieldKey}; the field mapping no longer matches the plan.");
             ValidateValue(field, change.ExpectedCurrentValue, change.TargetValue);
-            var current = Read(handle.Value, (nint)(playerAddress + (ulong)change.Offset), change.OriginalBytes.Length);
+            var fieldAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+            var current = Read(handle.Value, (nint)fieldAddress, change.OriginalBytes.Length);
             if (!current.SequenceEqual(change.OriginalBytes))
                 throw new InvalidOperationException($"Live write blocked: {change.FieldKey} changed after preview. No fields in this batch were written.");
         }
@@ -152,7 +156,8 @@ public static class LiveMemoryEditService
                 // between fields, never continue writing into the new session's address space.
                 if (ReadSaveLoadCounter(handle.Value, moduleBase, profile) != plan.SaveLoadCounter)
                     throw new InvalidOperationException("The FM career changed during this edit batch. Atlas stopped before the next field; automatic rollback will only be attempted if the original career session is still active.");
-                var address = (nint)(playerAddress + (ulong)change.Offset);
+                var field = ResolveWritableField(change.FieldKey);
+                var address = (nint)ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
                 var succeeded = Write(handle.Value, address, change.TargetBytes, out var bytesWritten);
                 if (bytesWritten > 0) written.Add((change, bytesWritten));
                 if (!succeeded || bytesWritten != change.TargetBytes.Length)
@@ -175,7 +180,8 @@ public static class LiveMemoryEditService
                         rollbackErrors.Add(change.FieldKey + " rollback skipped because the FM career session changed");
                         continue;
                     }
-                    var address = (nint)(playerAddress + (ulong)change.Offset);
+                    var field = ResolveWritableField(change.FieldKey);
+                    var address = (nint)ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
                     var expectedPartial = change.OriginalBytes.ToArray();
                     Array.Copy(change.TargetBytes, 0, expectedPartial, 0, writtenItem.BytesWritten);
                     var current = Read(handle.Value, address, change.TargetBytes.Length);
@@ -212,9 +218,11 @@ public static class LiveMemoryEditService
             var field = ResolveWritableField(change.FieldKey);
             if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
                 field = field with { Offset = field.Offset + personShift };
-            if (field.Offset != change.Offset || field.Size != change.TargetBytes.Length || field.Size != change.OriginalBytes.Length)
+            if (field.Offset != change.Offset || !string.Equals(field.RecordKind, change.RecordKind, StringComparison.Ordinal)
+                || field.Size != change.TargetBytes.Length || field.Size != change.OriginalBytes.Length)
                 throw new InvalidOperationException($"Undo integrity check failed for {change.FieldKey}.");
-            var current = Read(handle.Value, (nint)(playerAddress + (ulong)change.Offset), change.TargetBytes.Length);
+            var fieldAddress = ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
+            var current = Read(handle.Value, (nint)fieldAddress, change.TargetBytes.Length);
             if (!current.SequenceEqual(change.TargetBytes))
                 throw new InvalidOperationException($"Undo blocked: {change.FieldKey} has changed again in FM. Refresh the player and inspect the edit history before attempting another undo.");
         }
@@ -225,7 +233,8 @@ public static class LiveMemoryEditService
             {
                 if (ReadSaveLoadCounter(handle.Value, moduleBase, profile) != plan.SaveLoadCounter)
                     throw new InvalidOperationException("The FM career changed during undo. Atlas stopped before the next field; rollback will only be attempted while the original career session remains active.");
-                var address = (nint)(playerAddress + (ulong)change.Offset);
+                var field = ResolveWritableField(change.FieldKey);
+                var address = (nint)ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
                 var succeeded = Write(handle.Value, address, change.OriginalBytes, out var bytesWritten);
                 if (bytesWritten > 0) undone.Add((change, bytesWritten));
                 if (!succeeded || bytesWritten != change.OriginalBytes.Length)
@@ -247,7 +256,8 @@ public static class LiveMemoryEditService
                         rollbackErrors.Add(change.FieldKey + " restore skipped because the FM career session changed");
                         continue;
                     }
-                    var address = (nint)(playerAddress + (ulong)change.Offset);
+                    var field = ResolveWritableField(change.FieldKey);
+                    var address = (nint)ResolveFieldAddress(handle.Value, playerAddress, field, personShift);
                     var expectedPartial = change.TargetBytes.ToArray();
                     Array.Copy(change.OriginalBytes, 0, expectedPartial, 0, undoneItem.BytesWritten);
                     var current = Read(handle.Value, address, change.OriginalBytes.Length);
@@ -262,10 +272,11 @@ public static class LiveMemoryEditService
         }
     }
 
-    private enum ValueEncoding { ScaledAttribute, DirectByte, UInt8, UInt16, Int16, Int32 }
+    private enum ValueEncoding { ScaledAttribute, DirectByte, UInt8, UInt16, Int16, Int32, FmDate, BitFlag }
     private sealed record WritableField(
         string Key, string DisplayName, int Offset, int Size,
-        ValueEncoding Encoding, int Minimum, int Maximum);
+        ValueEncoding Encoding, int Minimum, int Maximum,
+        string RecordKind = "Player", byte BitMask = 0);
 
     /// <summary>Returns whether a player field has a defined, range-checked live preview mapping. Apply/Undo remains separately gated.</summary>
     public static bool SupportsPlayerFieldPreview(string fieldKey)
@@ -289,8 +300,8 @@ public static class LiveMemoryEditService
         var attribute = PlayerAttributeSchema.Fields.FirstOrDefault(x => x.Key.Equals(normalized, StringComparison.OrdinalIgnoreCase));
         if (attribute is not null)
         {
-            if (string.Equals(attribute.Category, "Hidden", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"{attribute.Label} remains searchable when imported, but its FM27 live-memory offset is still an inherited lead rather than an independently witnessed mapping. Atlas will not stage or write it.");
+            // FM27's Libre layout maps all five hidden attributes at these exact player offsets.
+            // They are stored as 1–100 raw bytes and displayed by FM as 1–20.
             if (attribute.Offset >= 0x288) throw new InvalidOperationException("This field lies outside the standard player block and is not supported by the player live editor.");
             return new WritableField(attribute.Key, attribute.Label, attribute.Offset, 1, ValueEncoding.ScaledAttribute, 1, 20);
         }
@@ -318,6 +329,27 @@ public static class LiveMemoryEditService
             return new WritableField("left_foot", "Left Foot", 0x177, 1, ValueEncoding.DirectByte, 1, 20);
         if (normalized.Equals("right_foot", StringComparison.OrdinalIgnoreCase))
             return new WritableField("right_foot", "Right Foot", 0x178, 1, ValueEncoding.DirectByte, 1, 20);
+
+        if (normalized.StartsWith("trait.", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(normalized["trait.".Length..], out var traitIndex) && traitIndex is >= 0 and < 64)
+            return new WritableField("trait." + traitIndex, "Preferred Move " + (traitIndex + 1), 0x348 + traitIndex / 8, 1,
+                ValueEncoding.BitFlag, 0, 1, BitMask: (byte)(1 << (traitIndex % 8)));
+
+        var contractFields = new Dictionary<string, WritableField>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["contract.wage"] = new("contract.wage", "Contract Wage (£/week)", 0x20, 4, ValueEncoding.Int32, 0, 10_000_000, "Contract"),
+            ["contract.signed"] = new("contract.signed", "Contract Signed", 0x44, 4, ValueEncoding.FmDate, 20000101, 21001231, "Contract"),
+            ["contract.expires"] = new("contract.expires", "Contract Expiry", 0x48, 4, ValueEncoding.FmDate, 20000101, 21001231, "Contract"),
+            ["contract.joined"] = new("contract.joined", "Joined Club", 0x4C, 4, ValueEncoding.FmDate, 20000101, 21001231, "Contract"),
+            ["contract.loyalty_bonus"] = new("contract.loyalty_bonus", "Loyalty Bonus (£/week)", 0x38, 4, ValueEncoding.Int32, 0, 10_000_000, "Contract"),
+            ["contract.happiness"] = new("contract.happiness", "Happiness", 0x5A, 1, ValueEncoding.Int16, -100, 100, "Contract"),
+            ["contract.playing_time_happiness"] = new("contract.playing_time_happiness", "Playing Time Happiness", 0x5C, 1, ValueEncoding.Int16, -100, 100, "Contract"),
+            ["contract.squad_number"] = new("contract.squad_number", "Squad Number", 0x5D, 1, ValueEncoding.UInt8, 1, 99, "Contract"),
+            ["contract.squad_status"] = new("contract.squad_status", "Squad Status", 0x54, 1, ValueEncoding.UInt8, 1, 40, "Contract"),
+            ["contract.transfer_listed"] = new("contract.transfer_listed", "Transfer Listed", 0x57, 1, ValueEncoding.BitFlag, 0, 1, "Contract", 0x01),
+            ["contract.loan_listed"] = new("contract.loan_listed", "Loan Listed", 0x57, 1, ValueEncoding.BitFlag, 0, 1, "Contract", 0x02)
+        };
+        if (contractFields.TryGetValue(normalized, out var contractField)) return contractField;
 
         // Additional scalar player fields explicitly represented in the FM27 Libre
         // layout and edit schema. Dynamic pointers/collections are intentionally excluded.
@@ -363,12 +395,30 @@ public static class LiveMemoryEditService
                 $"{field.DisplayName}: current value must be {currentMinimum:N0}–{currentMaximum:N0}; target must be {field.Minimum:N0}–{field.Maximum:N0} in FM27 storage units.");
     }
 
+    private static ulong ResolveFieldAddress(nint handle, ulong playerAddress, WritableField field, int personShift)
+    {
+        if (field.RecordKind.Equals("Contract", StringComparison.Ordinal))
+        {
+            var contractPointer = U64(handle, playerAddress + (ulong)(0x330 + personShift));
+            if (!Pointer(contractPointer)) throw new InvalidOperationException("This player has no readable contract record. Contract edits are blocked.");
+            var owner = U64(handle, contractPointer + 0x08);
+            var expectedOwner = playerAddress + (ulong)(0x288 + personShift);
+            if (owner != expectedOwner)
+                throw new InvalidOperationException("The contract pointer does not point back to this player's person block. Contract edit is blocked.");
+            return contractPointer + (ulong)field.Offset;
+        }
+        var shift = field.Offset >= 0x288 ? personShift : 0;
+        return playerAddress + (ulong)(field.Offset + shift);
+    }
+
     private static int DecodeValue(WritableField field, byte[] bytes)
     {
         return field.Encoding switch
         {
             ValueEncoding.ScaledAttribute => (bytes[0] <= 98 ? (bytes[0] + 2) / 5
                 : throw new InvalidOperationException($"{field.DisplayName} raw byte {bytes[0]} is outside the FM 1–20 attribute encoding range.")),
+            ValueEncoding.BitFlag => (bytes[0] & field.BitMask) != 0 ? 1 : 0,
+            ValueEncoding.FmDate => DecodeFmDate(bytes),
             ValueEncoding.DirectByte or ValueEncoding.UInt8 => bytes[0],
             ValueEncoding.UInt16 => BitConverter.ToUInt16(bytes, 0),
             ValueEncoding.Int16 => BitConverter.ToInt16(bytes, 0),
@@ -377,11 +427,33 @@ public static class LiveMemoryEditService
         };
     }
 
-    private static byte[] EncodeValue(WritableField field, int value)
+    private static int DecodeFmDate(byte[] bytes)
+    {
+        var day = (ushort)(BitConverter.ToUInt16(bytes, 0) & 0x01FF);
+        var year = BitConverter.ToUInt16(bytes, 2);
+        if (year is < 1900 or > 2200 || day is < 1 or > 366) throw new InvalidOperationException("The contract date bytes are not a valid FM date.");
+        var date = new DateTime(year, 1, 1).AddDays(day - 1);
+        return date.Year * 10000 + date.Month * 100 + date.Day;
+    }
+
+    private static byte[] EncodeFmDate(int value)
+    {
+        if (!DateTime.TryParseExact(value.ToString(CultureInfo.InvariantCulture), "yyyyMMdd",
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            throw new ArgumentOutOfRangeException(nameof(value), "Enter a valid date as YYYYMMDD.");
+        var bytes = new byte[4];
+        BitConverter.GetBytes(checked((ushort)date.DayOfYear)).CopyTo(bytes, 0);
+        BitConverter.GetBytes(checked((ushort)date.Year)).CopyTo(bytes, 2);
+        return bytes;
+    }
+
+    private static byte[] EncodeValue(WritableField field, int value, byte[] originalBytes)
     {
         return field.Encoding switch
         {
             ValueEncoding.ScaledAttribute => new[] { checked((byte)(value * 5 - 2)) },
+            ValueEncoding.BitFlag => new[] { value == 0 ? (byte)(originalBytes[0] & ~field.BitMask) : (byte)(originalBytes[0] | field.BitMask) },
+            ValueEncoding.FmDate => EncodeFmDate(value),
             ValueEncoding.DirectByte or ValueEncoding.UInt8 => new[] { checked((byte)value) },
             ValueEncoding.UInt16 => BitConverter.GetBytes(checked((ushort)value)),
             ValueEncoding.Int16 => BitConverter.GetBytes(checked((short)value)),
