@@ -90,6 +90,7 @@ public static class ScoutingActionAnalyticsService
                     {
                         "Pass" => "pass", "Carry" => "carry", "Shot" => "shot",
                         "Dribble" => "dribble", "Pressure" => "pressure", "Tackle" => "tackle",
+                        "Duel" when Str(ev, "duel", "type", "name") == "Tackle" => "tackle",
                         "Interception" => "interception", "Ball Recovery" => "recovery",
                         "Clearance" => "clearance", "Block" => "block", "Duel" => "duel",
                         "Foul Committed" => "foul", "Foul Won" => "foul_won",
