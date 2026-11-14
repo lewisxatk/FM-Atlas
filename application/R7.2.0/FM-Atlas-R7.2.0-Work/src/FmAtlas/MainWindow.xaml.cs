@@ -335,6 +335,93 @@ public partial class MainWindow : Window
         return button;
     }
 
+    private static void ApplyGlassControlTheme(DependencyObject root, HashSet<DependencyObject>? visited = null)
+    {
+        visited ??= new HashSet<DependencyObject>();
+        if (!visited.Add(root)) return;
+
+        switch (root)
+        {
+            case TextBox textBox:
+                textBox.Background = Brush("#171F28");
+                textBox.Foreground = Ink;
+                textBox.BorderBrush = Brush("#303943");
+                textBox.BorderThickness = new Thickness(1);
+                textBox.CaretBrush = Teal;
+                textBox.SelectionBrush = Brush("#483022");
+                textBox.Padding = new Thickness(9, 6, 9, 6);
+                textBox.SnapsToDevicePixels = true;
+                break;
+
+            case ComboBox comboBox:
+                comboBox.Background = Brush("#171F28");
+                comboBox.Foreground = Ink;
+                comboBox.BorderBrush = Brush("#303943");
+                comboBox.BorderThickness = new Thickness(1);
+                comboBox.Padding = new Thickness(8, 4, 8, 4);
+                comboBox.SnapsToDevicePixels = true;
+                var comboItemStyle = new Style(typeof(ComboBoxItem));
+                comboItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#171F28")));
+                comboItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
+                comboItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 6, 9, 6)));
+                var comboHover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+                comboHover.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#483022")));
+                comboItemStyle.Triggers.Add(comboHover);
+                var comboSelected = new Trigger { Property = ComboBoxItem.IsSelectedProperty, Value = true };
+                comboSelected.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#483022")));
+                comboSelected.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
+                comboItemStyle.Triggers.Add(comboSelected);
+                comboBox.ItemContainerStyle = comboItemStyle;
+                break;
+
+            case TabControl tabs:
+                tabs.Background = Brush("#171F28");
+                tabs.Foreground = Ink;
+                tabs.BorderBrush = Brush("#303943");
+                tabs.BorderThickness = new Thickness(1);
+                var tabItemStyle = new Style(typeof(TabItem));
+                tabItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#202A35")));
+                tabItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Muted));
+                tabItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 7, 12, 7)));
+                tabItemStyle.Setters.Add(new Setter(Control.MarginProperty, new Thickness(2, 0, 2, 0)));
+                var tabSelected = new Trigger { Property = TabItem.IsSelectedProperty, Value = true };
+                tabSelected.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#483022")));
+                tabSelected.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
+                tabSelected.Setters.Add(new Setter(Control.BorderBrushProperty, Teal));
+                tabSelected.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0, 0, 0, 2)));
+                tabItemStyle.Triggers.Add(tabSelected);
+                tabs.ItemContainerStyle = tabItemStyle;
+                break;
+
+            case CheckBox checkBox:
+                checkBox.Foreground = Ink;
+                checkBox.Focusable = true;
+                break;
+
+            case RadioButton radioButton:
+                radioButton.Foreground = Ink;
+                radioButton.Focusable = true;
+                break;
+
+            case ProgressBar progressBar:
+                progressBar.Foreground = Teal;
+                progressBar.Background = Brush("#303943");
+                break;
+        }
+
+        // Walk both logical children and already-realised visual children. This covers
+        // ordinary workspace controls and controls created by templates without styling
+        // the contents of a popup that has not been opened.
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+            ApplyGlassControlTheme(child, visited);
+        if (root is Visual visual)
+        {
+            var count = VisualTreeHelper.GetChildrenCount(visual);
+            for (var childIndex = 0; childIndex < count; childIndex++)
+                ApplyGlassControlTheme(VisualTreeHelper.GetChild(visual, childIndex), visited);
+        }
+    }
+
     private void BeginBackgroundOperation(string name)
     {
         _activeBackgroundOperation = name;
@@ -707,6 +794,7 @@ public partial class MainWindow : Window
                 _ => DashboardPageFallback()
             };
             _pageHost.Content = content;
+            ApplyGlassControlTheme(content);
             if (SystemParameters.ClientAreaAnimation)
             {
                 _pageHost.Opacity = 0;
