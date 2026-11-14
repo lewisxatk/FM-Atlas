@@ -1141,6 +1141,15 @@ public partial class MainWindow : Window
         var overviewTab = AddProfileTab("Overview");
         var attributesTab = AddProfileTab("Attributes");
         var positionsTab = AddProfileTab("Positions & Roles");
+        if (player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+        {
+            attributesTab.Children.Add(Txt(
+                "LIVE FM27 · 52 player attribute fields and 8 personality fields are shown where the current supported layout supplies them. These are provisional reads, not certified field values. Hidden attributes in particular still need independent in-game UI witnesses.",
+                9, false, Brush("#D89A60"), wrap: true));
+            positionsTab.Children.Add(Txt(
+                "LIVE FM27 POSITION RATINGS · values are taken from the current process layout and remain provisional until compared with the player's Positions screen in Football Manager.",
+                9, false, Brush("#D89A60"), wrap: true));
+        }
         var contractTab = AddProfileTab("Contract");
         var performanceTab = AddProfileTab("Performance");
         var developmentTab = AddProfileTab("Development");
@@ -1204,7 +1213,7 @@ public partial class MainWindow : Window
 
         if (performanceFacts.Count == 0)
             performanceTab.Children.Add(Txt(
-                "PERFORMANCE DATA · No player-season, career-history or match-stat rows for this player were supplied by the latest import. Re-import a save snapshot with those tables or add an FM View Exporter CSV.",
+                "PERFORMANCE DATA · No player-season, career-history or match-stat rows for this player were supplied by the current live index. To add historical and match statistics, import a read-only snapshot of a COPY of the career save or add an FM View Exporter CSV. The live player/CA/PA index does not require that manual import.",
                 9, false, Muted, wrap: true));
         else
         {
