@@ -2286,7 +2286,7 @@ public sealed class ScoutDatabase
         }
         var live = db.CreateCommand();
         live.CommandText = """
-            SELECT CAST(s.StaffUid AS TEXT),s.StaffName,
+            SELECT 'LIVE:' || CAST(s.StaffUid AS TEXT),s.StaffName,
                    (SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.club_name'),
                    (SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.job_title'),
                    CAST((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.age') AS INTEGER),
@@ -2333,7 +2333,8 @@ public sealed class ScoutDatabase
             return FlattenScalarFacts(doc.RootElement).Where(x => !string.IsNullOrWhiteSpace(x.Key)).Take(150)
                 .Select(x => new AtlasFactRecord("Staff", x.Key, x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)).ToList();
         }
-        if (!long.TryParse(staffUid, out var staffId)) return new List<AtlasFactRecord>();
+        var liveStaffId = staffUid.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) ? staffUid[5..] : staffUid;
+        if (!long.TryParse(liveStaffId, out var staffId)) return new List<AtlasFactRecord>();
         var live = db.CreateCommand();
         live.CommandText = "SELECT FieldKey,NumericValue,TextValue FROM LiveStaffFacts WHERE StaffUid=$id ORDER BY FieldKey LIMIT 150;";
         live.Parameters.AddWithValue("$id", staffId);
