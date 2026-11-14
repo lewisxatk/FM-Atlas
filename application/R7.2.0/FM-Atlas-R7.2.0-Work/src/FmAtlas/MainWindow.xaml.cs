@@ -345,21 +345,29 @@ public partial class MainWindow : Window
             case TextBox textBox:
                 textBox.Background = Brush("#171F28");
                 textBox.Foreground = Ink;
-                textBox.BorderBrush = Brush("#303943");
+                var textBoxRestingBorder = Brush("#303943");
+                textBox.BorderBrush = textBoxRestingBorder;
                 textBox.BorderThickness = new Thickness(1);
                 textBox.CaretBrush = Teal;
                 textBox.SelectionBrush = Brush("#483022");
                 textBox.Padding = new Thickness(9, 6, 9, 6);
                 textBox.SnapsToDevicePixels = true;
+                // A clear keyboard-focus ring makes the dark glass controls usable
+                // without relying on hover or colour-only selection cues.
+                textBox.GotKeyboardFocus += (_, _) => textBox.BorderBrush = Teal;
+                textBox.LostKeyboardFocus += (_, _) => textBox.BorderBrush = textBoxRestingBorder;
                 break;
 
             case ComboBox comboBox:
                 comboBox.Background = Brush("#171F28");
                 comboBox.Foreground = Ink;
-                comboBox.BorderBrush = Brush("#303943");
+                var comboRestingBorder = Brush("#303943");
+                comboBox.BorderBrush = comboRestingBorder;
                 comboBox.BorderThickness = new Thickness(1);
                 comboBox.Padding = new Thickness(8, 4, 8, 4);
                 comboBox.SnapsToDevicePixels = true;
+                comboBox.GotKeyboardFocus += (_, _) => comboBox.BorderBrush = Teal;
+                comboBox.LostKeyboardFocus += (_, _) => comboBox.BorderBrush = comboRestingBorder;
                 var comboItemStyle = new Style(typeof(ComboBoxItem));
                 comboItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#171F28")));
                 comboItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
