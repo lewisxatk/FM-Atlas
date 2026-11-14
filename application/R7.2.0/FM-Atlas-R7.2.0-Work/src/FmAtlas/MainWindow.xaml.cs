@@ -3093,8 +3093,6 @@ public partial class MainWindow : Window
         var search = Input("Search names, IDs or imported values");
         search.Margin = new Thickness(0, 6, 0, 6);
         controls.Children.Add(search);
-        var searchButton = PrimaryButton("Search selected directory", async (_, _) => await RefreshWorldRowsAsync());
-        controls.Children.Add(searchButton);
         var tableStatus = Txt($"{tables.Count:N0} imported directories available", 8, true, Muted);
         controls.Children.Add(tableStatus);
         DockPanel.SetDock(controls, Dock.Top);
@@ -3148,6 +3146,9 @@ public partial class MainWindow : Window
                 AtlasLog.Error("World Editor directory search failed.", ex);
             }
         }
+        // Declare the event handler only after all captured controls have been initialised.
+        var searchButton = PrimaryButton("Search selected directory", async (_, _) => await RefreshWorldRowsAsync());
+        controls.Children.Add(searchButton);
 
         rowsGrid.SelectionChanged += async (_, _) =>
         {
