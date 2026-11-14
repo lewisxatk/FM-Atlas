@@ -240,8 +240,11 @@ public partial class MainWindow
         foreach (var value in new[] { "50%", "60%", "70%", "80%", "90%", "100%" }) coverage.Items.Add(value);
         coverage.SelectedIndex = 1;
         var position = Input("Position contains"); position.Width = 125;
-        var find = PrimaryButton("Find role fits", async (_, _) => await SearchAsync());
-        var cancel = SoftButton("Cancel", (_, _) => activeCancellation?.Cancel()); cancel.IsEnabled = false;
+        // Declare captured controls before wiring callbacks/local functions so definite-assignment is explicit.
+        Button find = null!;
+        Button cancel = null!;
+        find = PrimaryButton("Find role fits", async (_, _) => await SearchAsync());
+        cancel = SoftButton("Cancel", (_, _) => activeCancellation?.Cancel()); cancel.IsEnabled = false;
         var export = SoftButton("Export CSV", (_, _) => ExportRows());
         controls.Children.Add(FilterControl("ROLE PROFILE", role, 270));
         controls.Children.Add(FilterControl("MIN AGE", minAge, 82));
