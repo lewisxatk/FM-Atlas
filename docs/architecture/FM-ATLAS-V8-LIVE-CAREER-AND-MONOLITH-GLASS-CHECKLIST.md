@@ -77,13 +77,16 @@
 - [x] Decode 19 FM27 staff coaching attributes from the documented raw-byte offsets and convert them using the reference display scale.
 - [x] Decode the two direct staff ratings (authority and working with youngsters) as 1–20 values.
 - [x] Persist staff coaching/direct ratings as provisional `staff_attributes.*` facts; the existing Staff profile renders them without a replacement UI.
+- [x] Decode and persist eight staff personality ratings, applying the +0x340 identity shift for the human manager.
+- [x] Decode and persist available staff contract wage (GBP/week), signed date, expiry date and joined-club date from the documented contract structure.
+- [ ] Compare staff personality and contract fields against in-game screens before promoting them beyond provisional.
 - [ ] Compare all 21 staff coaching/direct fields with the in-game FM27 staff profile before promotion to verified.
 - [ ] Compare preferred-job group ratings and displayed top preference against FM27's Staff Search / staff profile on the user's supported build.
 
 ### Known boundary
 
 - The live identity scan does not provide every historical or match-performance statistic. Those facts are still supplied by the optional read-only fmsave save import or FM View Exporter CSVs.
-- The current live staff extractor now includes 19 coaching attributes and two direct staff ratings from the public FM27 layout, in addition to CA/PA, identity and preferred-job groups. They remain provisional pending in-game witnesses; it still does not claim complete staff personality, wage/contract, training or staff history coverage.
+- The current live staff extractor now includes 19 coaching attributes, two direct staff ratings, eight personality ratings and available contract wage/dates from the public FM27 layout, in addition to CA/PA, identity and preferred-job groups. All remain provisional pending in-game witnesses; training and staff history coverage are still not claimed.
 - Any field not actually supplied by the source remains blank; a module fingerprint is not proof that every field offset is verified.
 - The existing player Advanced Search and Attribute Search are retained; this pass does not claim that every entity type now has one universal, identical filter builder.
 
