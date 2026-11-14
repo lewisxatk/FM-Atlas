@@ -1,4 +1,5 @@
 name: FM Atlas V10 — Windows Release Build
+# Editor parity branch acceptance: importer checks, Windows build, xUnit and publish.
 
 on:
   push:
