@@ -135,3 +135,14 @@ Continued the V8 visual foundation without changing the data/search/import paths
 - Commit `96eff9e0` (checklist update): records the implementation and keeps the Windows build, complete test suite and DPI/theme visual review explicitly pending.
 
 **Verification boundary:** source changes are committed to `rebuild/v8-full-product-rebuild`. They have not yet been compiled or visually reviewed on Windows. Do not mark the glass system release-verified until the current branch head passes the Windows workflow and 100%/125%/150% DPI checks. Dialogs, tabs, filters, grids, charts, empty/loading/error states and accessibility/high-contrast coverage remain on the design-system backlog.
+
+
+## Native Windows backdrop research — 2026-11-14
+
+The V8 glass treatment remains deliberately cross-version and does not depend on undocumented Windows composition APIs.
+
+- Microsoft documents `DWMWA_SYSTEMBACKDROP_TYPE` from Windows 11 build 22621; `DWMSBT_MAINWINDOW` maps to the long-lived-window Mica material. See https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type and https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute.
+- Microsoft explicitly says `SetWindowCompositionAttribute` is not recommended and advises using `DwmSetWindowAttribute` instead: https://learn.microsoft.com/en-us/windows/win32/dwm/setwindowcompositionattribute.
+- Decision: retain the layered WPF glass material as the reliable Windows 10/11 baseline. Consider an optional, guarded Windows 11 Mica backdrop adapter only after the current WPF build and visual tests pass; always preserve the existing solid/translucent fallback for Windows 10, disabled transparency and unsupported systems. Do not add an undocumented Acrylic dependency or compromise window-drag/resize responsiveness for blur.
+
+This keeps the app's Windows 10 target intact while leaving a documented route to native Windows 11 material support.
