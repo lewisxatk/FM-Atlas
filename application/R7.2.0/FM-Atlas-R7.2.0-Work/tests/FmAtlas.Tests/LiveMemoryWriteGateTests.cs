@@ -47,6 +47,72 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
+    public void MaxTrainingContributionBuildsAtLeastEighteenEntriesPerArea()
+    {
+        var oldHistory = new byte[12];
+        BitConverter.GetBytes((ushort)120).CopyTo(oldHistory, 0);
+        BitConverter.GetBytes((ushort)0x0C8C).CopyTo(oldHistory, 2);
+        oldHistory[4] = 0;
+        oldHistory[6] = 12;
+        oldHistory[9] = 20;
+        oldHistory[10] = 20;
+        oldHistory[11] = 156;
+
+        var built = LiveEntityMemoryEditService.BuildMaxTrainingContributionHistory(
+            oldHistory, new[] { 5, 17, 10, 4, 20, 10 }, 250);
+
+        Assert.Equal(18 * 6 * 12, built.Length);
+        for (var area = 0; area < 6; area++)
+        {
+            var count = Enumerable.Range(0, built.Length / 12)
+                .Count(i => built[i * 12 + 4] == area);
+            Assert.Equal(18, count);
+        }
+        Assert.Equal((ushort)250, BitConverter.ToUInt16(built, 0));
+        Assert.Equal((ushort)0x0C8C, BitConverter.ToUInt16(built, 2));
+        Assert.Equal((byte)5, built[6]);
+        Assert.Equal((byte)20, built[9]);
+        Assert.Equal((byte)20, built[10]);
+        Assert.Equal((byte)156, built[11]);
+    }
+
+    [Fact]
+    public void MaxTrainingContributionPreservesKnownShapesAndAddsBothShapeAreas()
+    {
+        var oldHistory = new byte[12];
+        BitConverter.GetBytes((ushort)200).CopyTo(oldHistory, 0);
+        BitConverter.GetBytes((ushort)0x1234).CopyTo(oldHistory, 2);
+        oldHistory[4] = 6;
+        oldHistory[6] = 255;
+        oldHistory[8] = 1;
+        oldHistory[9] = 20;
+        oldHistory[10] = 20;
+        oldHistory[11] = 156;
+
+        var built = LiveEntityMemoryEditService.BuildMaxTrainingContributionHistory(
+            oldHistory, new[] { 5, 17, 10, 4, 20, 10 }, 250);
+
+        Assert.Equal(18 * 8 * 12, built.Length);
+        Assert.Equal((ushort)0x1234, BitConverter.ToUInt16(built, 2 + 6 * 12));
+        Assert.Equal((byte)1, built[8 + 6 * 12]);
+        Assert.Equal((ushort)0x1234, BitConverter.ToUInt16(built, 2 + 7 * 12));
+        Assert.Equal((byte)1, built[8 + 7 * 12]);
+    }
+
+    [Theory]
+    [InlineData(48, 48)]
+    [InlineData(156, 160)]
+    [InlineData(288, 288)]
+    [InlineData(513, 1024)]
+    [InlineData(4096, 4096)]
+    public void TacticalGrowthUsesMeasuredFMAllocatorClasses(ulong capacity, ulong expected)
+        => Assert.Equal((ulong?)expected, LiveEntityMemoryEditService.GetMeasuredTacticalBufferBlockSize(capacity));
+
+    [Fact]
+    public void TacticalGrowthBeyondLargestMeasuredBlockIsRefused()
+        => Assert.Null(LiveEntityMemoryEditService.GetMeasuredTacticalBufferBlockSize(4097));
+
+    [Fact]
     public void LatestSteamBuild26577676IsRegisteredForLiveEditingAndTactics()
     {
         var profile = Fm27BuildProfiles.Match(0x185FA000, 0x6AF38E5C);
