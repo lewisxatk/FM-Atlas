@@ -117,7 +117,11 @@ public sealed class LiveCareerDetectionTests
                     (42,'identity.nation_name',NULL,'England','Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
                     (42,'identity.club_name',NULL,'Example FC','Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
                     (42,'identity.job_title',NULL,'Manager','Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
-                    (42,'identity.is_human_manager',1,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z');
+                    (42,'identity.is_human_manager',1,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (42,'staff_attributes.attacking',15,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (42,'staff_personality.professionalism',18,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (42,'contract.wage_per_week_gbp',2500,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (42,'contract.expiry_date',NULL,'2028-06-30','Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z');
                     """;
                 fact.Parameters.AddWithValue("$run", runId);
                 await fact.ExecuteNonQueryAsync();
@@ -149,6 +153,10 @@ public sealed class LiveCareerDetectionTests
             var facts = await database.GetFmsaveStaffFactsAsync(manager.SourceId);
             Assert.Contains(facts, x => x.Field == "ability.current_ability" && x.Value == "145");
             Assert.Contains(facts, x => x.Field == "ability.potential_ability" && x.Value == "-8");
+            Assert.Contains(facts, x => x.Field == "staff_attributes.attacking" && x.Value == "15");
+            Assert.Contains(facts, x => x.Field == "staff_personality.professionalism" && x.Value == "18");
+            Assert.Contains(facts, x => x.Field == "contract.wage_per_week_gbp" && x.Value == "2500");
+            Assert.Contains(facts, x => x.Field == "contract.expiry_date" && x.Value == "2028-06-30");
         }
         finally
         {
