@@ -252,6 +252,7 @@ public partial class MainWindow : Window
         };
         ToolTipService.SetInitialShowDelay(button, 350);
         ToolTipService.SetShowDuration(button, 30000);
+        ToolTipService.SetShowOnDisabled(button, true);
         button.Click += click;
         return button;
     }
@@ -431,6 +432,7 @@ public partial class MainWindow : Window
         };
         ToolTipService.SetInitialShowDelay(button, 350);
         ToolTipService.SetShowDuration(button, 30000);
+        ToolTipService.SetShowOnDisabled(button, true);
         button.Template = RoundedButtonTemplate(13);
         button.Click += async (_, _) => await NavigateAsync(label);
         _navPanel.Children.Add(button);
@@ -2173,7 +2175,7 @@ public partial class MainWindow : Window
         hover.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#78BDEB"), "AtlasButtonSurface"));
         template.Triggers.Add(hover);
 
-        var pressed = new Trigger { Property = Button.IsPressedProperty, Value = true };
+        var pressed = new Trigger { Property = ButtonBase.IsPressedProperty, Value = true };
         pressed.Setters.Add(new Setter(UIElement.OpacityProperty, 0.78, "AtlasButtonSurface"));
         template.Triggers.Add(pressed);
 
