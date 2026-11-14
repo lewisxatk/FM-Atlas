@@ -24,6 +24,7 @@ Continue the integrated V8 rebuild without replacing existing R7.2.0 functionali
 - Staff profile facts are grouped by their source keys and rendered by the existing profile view; the new fields do not create a parallel staff directory or replace the established search flow.
 - Reference findings and limitations are recorded in `docs/architecture/FM-ATLAS-V8-REFERENCE-TOOL-MAPPING-NOTES.md`; the implementation deliberately keeps group 7 unresolved and recruitment/performance analyst preferences combined.
 - Players search is paged at 250 rows, merges local and live source rows before paging, prefers the most complete source row, and restores open profile tabs after navigation. Existing Advanced Search must remain intact.
+- The existing Players finder now has direct min/max CA and PA controls for both offline and live sources. It accepts signed PA ranges down to -10, supports ability-only searches without a name query, validates min/max ordering and uses matching filtered count queries. Advanced Search and the saved-profile workflow remain separate and preserved.
 
 ## Safety state
 
@@ -65,6 +66,9 @@ The current implementation checklist, architecture status and quick-start guidan
 - `54600473` — add staff personality and contract fields to the live staff reader.
 - `011f54e0` — persist staff personality and contract facts in the staff profile store.
 - `dcfe6f52`, `38b1b02d` — add personality-shift and expanded staff-fact regression coverage.
+- `37e039d3`, `7610d216` — add CA/PA-aware live/offline source counts and align local count text matching with player search.
+- `f840de7d` — add CA/PA range controls to the existing Players workspace.
+- `741ff78f` — add live/offline CA and signed-PA filter regression coverage.
 - The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
 
 ## Second reference/reverse-engineering batch
@@ -87,15 +91,15 @@ The current implementation checklist, architecture status and quick-start guidan
 
 ## Verification still required
 
-1. Fresh Windows Release build of the exact post-correction branch head (the correction triggers the V8 Windows workflow).
-2. Full .NET integration suite, including the live staff fixture tests and Advanced Search regressions.
+1. Fresh Windows Release build of the exact current branch head.
+2. Full .NET integration suite, including live-career, staff decoder, expanded staff-fact and CA/PA range-filter regressions.
 3. Confirm monitor detects load/unload/new-generation changes during the bounded scan and cancels the worker when the session changes.
 4. Confirm the Staff directory searches by name, club and UID; select a live staff fixture and verify CA/PA, nation, job, club and all stored live facts.
 5. Verify preferred-job ratings and tie/threshold handling against the in-game FM27 Staff Search UI; do not promote these values beyond provisional before that comparison.
 6. Verify the 19 staff coaching attributes plus authority/working-with-youngsters against the in-game staff profile; keep them provisional until witnessed.
 7. Verify staff personality, weekly wage and contract dates against the in-game screens; keep them provisional until witnessed.
-5. Confirm the manager shortcut refuses stale data from a previous FM process even if the save-load counter is identical.
-6. Windows PC test of Advanced Search preservation, Players pagination, profile tabs and navigation restoration.
-7. FM27 real-save compatibility, two-minute scan duration, CPU/RAM/peak-memory testing and package acceptance.
+8. Confirm the manager shortcut refuses stale data from a previous FM process even if the save-load counter is identical.
+9. Windows PC test of Advanced Search preservation, CA/PA quick filters (including negative PA), Players pagination, profile tabs and navigation restoration.
+10. FM27 real-save compatibility, two-minute scan duration, CPU/RAM/peak-memory testing and package acceptance.
 
 Do not mark a verification item complete based only on source inspection or a historical Actions run.
