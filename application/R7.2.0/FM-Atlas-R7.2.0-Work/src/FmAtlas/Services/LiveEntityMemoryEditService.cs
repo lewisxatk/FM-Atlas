@@ -41,7 +41,7 @@ public static partial class LiveEntityMemoryEditService
         IReadOnlyList<PlannedValue> Values);
     public sealed record BatchReceipt(BatchPlan Plan, DateTime AppliedUtc, bool ReadBackVerified);
 
-    private enum Place { Object, Contract, Concerns, SeniorTeam, ClubInfo, ClubFinance, Stadium }
+    private enum Place { Object, Contract, Concerns, Loan, SeniorTeam, ClubInfo, ClubFinance, Stadium }
     private enum EncodingKind { ScaledAttribute, DirectByte, UInt8, Int8, UInt16, Int16, UInt32, Int32, Date, Flag }
     private sealed record FieldSpec(
         string Key, string Label, EntityKind Entity, Place Place, ulong Offset, int Size,
@@ -338,6 +338,10 @@ public static partial class LiveEntityMemoryEditService
             for (var bit = 0; bit < 64; bit++)
                 fields.Add(F("trait." + bit, "Preferred Move " + bit, entity, Place.Object, 0x348UL + (ulong)(bit / 8), 1, EncodingKind.Flag, 0, 1, 0, 1, shifted: true, bit: bit % 8));
             AddContractFields(fields, entity);
+            fields.Add(F("loan.expires","Loan Expiry (YYYYMMDD)",entity,Place.Loan,0x48,4,EncodingKind.Date,
+                20000101,21001231,0,22001231));
+            fields.Add(F("loan.option_fee","Loan Optional Future Fee (GBP)",entity,Place.Loan,0xC0,4,EncodingKind.Int32,
+                0,2_000_000_000,-1,int.MaxValue,blank:-1));
         }
         else if (entity == EntityKind.Staff)
         {
@@ -588,6 +592,21 @@ public static partial class LiveEntityMemoryEditService
                 var owner=U64(handle,record+0x08);
                 if(owner!=target.Address+identityOffset+(ulong)target.Shift)
                     throw new InvalidOperationException("The contract's owner pointer does not match the selected entity. Live editing is blocked.");
+                break;
+            case Place.Loan:
+                if (field.Entity != EntityKind.Player)
+                    throw new InvalidOperationException("Loan terms are only available for player contracts.");
+                var loanRecord = U64(handle, target.Address + 0x338UL + (ulong)target.Shift);
+                if (!Pointer(loanRecord))
+                    throw new InvalidOperationException("The player is not currently linked to an FM27 loan contract.");
+                record = U64(handle, loanRecord);
+                if (!Pointer(record))
+                    throw new InvalidOperationException("The player's loan record has no primary loan contract.");
+                if (U64(handle, record + 0x08) != target.Address + 0x288UL + (ulong)target.Shift)
+                    throw new InvalidOperationException("The loan contract's owner pointer does not match the selected player.");
+                var loanTeam = U64(handle, record + 0x10);
+                if (!Pointer(loanTeam) || !Pointer(U64(handle, loanTeam + 0x30)))
+                    throw new InvalidOperationException("The loan contract does not point to a valid loaning team and club.");
                 break;
             case Place.Concerns:
                 if (field.Entity != EntityKind.Player)
