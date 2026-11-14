@@ -291,8 +291,11 @@ public partial class MainWindow
                 }
 
                 var added = await RunDatabaseAsync(() => _database.AddPlayersToShortlistAsync(selected, shortlistName));
-                status.Text = $"{added:N0} selected players added to shortlist “{shortlistName}”.";
-                AtlasLog.Info($"Advanced Search shortlist batch: name={shortlistName}; players={added}.");
+                var alreadyPresent = selected.Count - added;
+                status.Text = added == 0
+                    ? $"All {alreadyPresent:N0} selected players were already in “{shortlistName}”."
+                    : $"Added {added:N0} new players to “{shortlistName}” · {alreadyPresent:N0} were already there.";
+                AtlasLog.Info($"Advanced Search shortlist batch: name={shortlistName}; selected={selected.Count}; added={added}; existing={alreadyPresent}.");
                 grid.SelectedItems.Clear();
             }
             catch (Exception ex)
