@@ -294,16 +294,18 @@ public sealed class LiveCareerDetectionTests
                     (101,'ability.current_ability',145,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
                     (101,'ability.potential_ability',-8,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
                     (102,'ability.current_ability',95,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
-                    (102,'ability.potential_ability',160,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z');
+                    (102,'ability.potential_ability',160,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (101,'positions.st',18,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z'),
+                    (102,'positions.dc',18,NULL,'Provisional-ProfileMatched-Needs-UI-Witness',$run,'2026-11-14T00:00:05Z');
                     """;
                 liveFacts.Parameters.AddWithValue("$run", runId);
                 await liveFacts.ExecuteNonQueryAsync();
 
                 var localPlayers = connection.CreateCommand();
                 localPlayers.CommandText = """
-                    INSERT INTO Players(SourceId,Name,CurrentAbility,PotentialAbility,DataOrigin,UpdatedUtc) VALUES
-                    ('LOCAL:1','Local Target',145,-8,'Fixture','2026-11-14T00:00:05Z'),
-                    ('LOCAL:2','Local Other',95,160,'Fixture','2026-11-14T00:00:05Z');
+                    INSERT INTO Players(SourceId,Name,Position,CurrentAbility,PotentialAbility,DataOrigin,UpdatedUtc) VALUES
+                    ('LOCAL:1','Local Target','ST',145,-8,'Fixture','2026-11-14T00:00:05Z'),
+                    ('LOCAL:2','Local Other','DC',95,160,'Fixture','2026-11-14T00:00:05Z');
                     """;
                 await localPlayers.ExecuteNonQueryAsync();
             }
@@ -312,9 +314,11 @@ public sealed class LiveCareerDetectionTests
                 minCa: 120, minPa: -10, maxPa: -1);
             Assert.Equal("LOCAL:1", Assert.Single(localRows).SourceId);
             Assert.Equal(1, await database.CountLocalPlayersAsync("", minCa: 120, minPa: -10, maxPa: -1));
+            Assert.Equal(1, await database.CountLocalPlayersAsync("", position: "ATTACKERS"));
 
             Assert.Equal(1, await database.CountLivePlayersAsync("", minCa: 120, minPa: -10, maxPa: -1));
             Assert.Equal(0, await database.CountLivePlayersAsync("", minCa: 150));
+            Assert.Equal(1, await database.CountLivePlayersAsync("", positionFilter: "ATTACKERS"));
         }
         finally
         {
