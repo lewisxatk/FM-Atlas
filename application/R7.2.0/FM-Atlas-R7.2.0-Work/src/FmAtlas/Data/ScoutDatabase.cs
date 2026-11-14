@@ -1185,10 +1185,10 @@ public sealed class ScoutDatabase
         foreach (var player in payload.Players)
         {
             var cmd = db.CreateCommand(); cmd.Transaction = (SqliteTransaction)tx;
-            cmd.CommandText = "INSERT INTO LivePlayers(PlayerUid,PlayerName,TeamUid,ClubUid,ArrayIndex,ObjectAddress,SourceRunId,NameValidation,RelationshipValidation,UpdatedUtc,TeamObjectAddress,DateOfBirth,RegenStatus,RegenEvidence,RegenConfidence) VALUES($id,$name,NULL,$club,$idx,$addr,$run,'Decoded','Candidate',$utc,$team,$dob,'Unknown',$evidence,'Unverified') ON CONFLICT(PlayerUid) DO UPDATE SET PlayerName=excluded.PlayerName,ClubUid=excluded.ClubUid,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,NameValidation='Decoded',RelationshipValidation=CASE WHEN excluded.ClubUid IS NOT NULL THEN 'LayoutValidated' ELSE 'Unresolved' END,UpdatedUtc=excluded.UpdatedUtc,TeamObjectAddress=excluded.TeamObjectAddress,DateOfBirth=COALESCE(excluded.DateOfBirth,LivePlayers.DateOfBirth),RegenEvidence=excluded.RegenEvidence;";
+            cmd.CommandText = "INSERT INTO LivePlayers(PlayerUid,PlayerName,TeamUid,ClubUid,ArrayIndex,ObjectAddress,SourceRunId,NameValidation,RelationshipValidation,UpdatedUtc,TeamObjectAddress,DateOfBirth,RegenStatus,RegenEvidence,RegenConfidence) VALUES($id,$name,NULL,$club,$idx,$addr,$run,'Decoded',$relationship,$utc,$team,$dob,'Unknown',$evidence,'Unverified') ON CONFLICT(PlayerUid) DO UPDATE SET PlayerName=excluded.PlayerName,ClubUid=excluded.ClubUid,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,NameValidation='Decoded',RelationshipValidation=excluded.RelationshipValidation,UpdatedUtc=excluded.UpdatedUtc,TeamObjectAddress=excluded.TeamObjectAddress,DateOfBirth=COALESCE(excluded.DateOfBirth,LivePlayers.DateOfBirth),RegenEvidence=excluded.RegenEvidence;";
             cmd.Parameters.AddWithValue("$id", (long)player.Uid); cmd.Parameters.AddWithValue("$name", player.Name);
             cmd.Parameters.AddWithValue("$club", player.ClubUid.HasValue ? (object)(long)player.ClubUid.Value : DBNull.Value); cmd.Parameters.AddWithValue("$idx", player.ArrayIndex);
-            cmd.Parameters.AddWithValue("$addr", $"0x{player.Address:X}"); cmd.Parameters.AddWithValue("$run", runId); cmd.Parameters.AddWithValue("$utc", now);
+            cmd.Parameters.AddWithValue("$addr", $"0x{player.Address:X}"); cmd.Parameters.AddWithValue("$run", runId); cmd.Parameters.AddWithValue("$relationship", player.RelationshipVerified ? "ProfileMatched-Provisional" : "Unresolved"); cmd.Parameters.AddWithValue("$utc", now);
             cmd.Parameters.AddWithValue("$team", (object?)player.TeamObjectAddress ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$dob", player.DateOfBirth?.ToString("yyyy-MM-dd") ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("$evidence", player.RegenEvidence);
@@ -1361,7 +1361,7 @@ public sealed class ScoutDatabase
                 Club = reader.IsDBNull(2) ? null : reader.GetString(2),
                 CurrentAbility = reader.IsDBNull(8) ? null : Convert.ToInt32(reader.GetDouble(8)),
                 PotentialAbility = reader.IsDBNull(9) ? null : Convert.ToInt32(reader.GetDouble(9)),
-                DataOrigin = $"FM27 Live · {reader.GetString(3)} · {reader.GetString(4)}"
+                DataOrigin = $"FM27 Live · identity {reader.GetString(3)} · club link {reader.GetString(4)} · CA/PA, attributes and positions provisional (UI witness pending)"
             });
         }
         return rows;
