@@ -109,11 +109,20 @@ public static class LiveEntityMemoryEditService
         var fields = requestedFields is null ? Fields(entity) : requestedFields.Select(x => ResolveField(entity, x)).ToList();
         foreach (var field in fields)
         {
-            var address = ResolveFieldAddress(handle.Value, target, field, financeClass, stadiumClass);
-            var bytes = Read(handle.Value, address, field.Size);
-            var value = Decode(field, bytes);
-            ValidateCurrent(field, value);
-            result[field.Key] = value;
+            try
+            {
+                var address = ResolveFieldAddress(handle.Value, target, field, financeClass, stadiumClass);
+                var bytes = Read(handle.Value, address, field.Size);
+                var value = Decode(field, bytes);
+                ValidateCurrent(field, value);
+                result[field.Key] = value;
+            }
+            catch (InvalidOperationException)
+            {
+                // Optional records are field groups: a player without a contract, a
+                // non-league club without full finances, or a club without a stadium
+                // simply has no editable values in that group.
+            }
         }
         if (ReadSaveCounter(handle.Value, moduleBase, profile) != counter)
             throw new InvalidOperationException("FM loaded or unloaded a career while Atlas was reading the entity. Refresh the live record and try again.");
@@ -145,6 +154,8 @@ public static class LiveEntityMemoryEditService
         foreach (var requested in targets)
         {
             var field = ResolveField(entity, requested.FieldKey);
+            if (entity == EntityKind.Player && field.Key == "contract.squad_number")
+                CheckSquadNumber(handle.Value, resolved, requested.Value);
             var address = ResolveFieldAddress(handle.Value, resolved, field, financeClass, stadiumClass);
             var original = Read(handle.Value, address, field.Size);
             var current = Decode(field, original);
@@ -241,10 +252,12 @@ public static class LiveEntityMemoryEditService
         var resolved = ResolveEntity(handle.Value, moduleBase, profile, plan.Entity, plan.Uid, plan.Name);
         if (resolved.Address != plan.ObjectAddress || resolved.Shift != plan.IdentityShift)
             throw new InvalidOperationException("The selected FM object moved. Live Undo is blocked to protect the wrong entity.");
+        var undoFinanceClass = plan.Entity == EntityKind.Club ? FindRecordClass(handle.Value, moduleBase, profile, Place.ClubFinance) : 0UL;
+        var undoStadiumClass = plan.Entity == EntityKind.Club ? FindRecordClass(handle.Value, moduleBase, profile, Place.Stadium) : 0UL;
         foreach (var change in plan.Values)
         {
             var field = ResolveField(plan.Entity, change.FieldKey);
-            var address = ResolveFieldAddress(handle.Value, resolved, field, 0, 0);
+            var address = ResolveFieldAddress(handle.Value, resolved, field, undoFinanceClass, undoStadiumClass);
             if (address != change.Address || !Read(handle.Value, address, change.TargetBytes.Length).SequenceEqual(change.TargetBytes))
                 throw new InvalidOperationException("Undo conflict for " + change.FieldKey + ". Its value has changed in FM since Apply.");
         }
@@ -502,12 +515,8 @@ public static class LiveEntityMemoryEditService
             {
                 if(kind==EntityKind.Player)
                 {
-                    actualUid=BitConverter.ToUInt32(Read(handle,(nint)(obj+0x294),4),0);
-                    if(actualUid!=uid)
-                    {
-                        actualUid=BitConverter.ToUInt32(Read(handle,(nint)(obj+0x294+0xF8),4),0);
-                        if(actualUid==uid)shift=0xF8;
-                    }
+                    shift=DetectPlayerShift(handle,obj);
+                    actualUid=BitConverter.ToUInt32(Read(handle,(nint)(obj+0x294+(ulong)shift),4),0);
                     if(actualUid!=uid)continue;
                     var common=ReadNameSub(handle,obj+(ulong)(0x2E8+shift));
                     var first=ReadNameSub(handle,obj+(ulong)(0x2D8+shift));
