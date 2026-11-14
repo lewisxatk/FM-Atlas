@@ -53,6 +53,18 @@ public static partial class LiveEntityMemoryEditService
         var profile = ReadProfile(handle.Value, moduleBase) ?? throw new InvalidOperationException("The running FM27 build is not in Atlas's exact profile registry.");
         var counter = ReadSaveCounter(handle.Value, moduleBase, profile);
         var context = ReadTacticalContext(handle.Value, moduleBase, profile, clubUid, clubName);
+        var today = ReadCurrentDayOfYear(handle.Value, moduleBase, profile);
+        var playerTraining = context.Players
+            .Where(x => x.History is not null)
+            .Select(x => HistoryAreaValues(x.History!.Bytes, context.Options, today))
+            .ToList();
+        string TrainingAverage(int area)
+        {
+            if (playerTraining.Count == 0) return "No training history";
+            var values = playerTraining.Select(x => x[area]).Where(x => x.HasValue).Select(x => x!.Value).ToArray();
+            return values.Length == 0 ? "No matching training history"
+                : Math.Round(values.Average(), MidpointRounding.AwayFromZero).ToString(CultureInfo.InvariantCulture) + "%";
+        }
         var rows = new List<TacticalAreaValue>();
         for (var area = 0; area < 6; area++)
         {
@@ -61,7 +73,7 @@ public static partial class LiveEntityMemoryEditService
                 .Where(x => x.HasValue).Select(x => x!.Value).ToArray();
             var average = scores.Length == 0 ? 0 : (int)Math.Round(scores.Average(), MidpointRounding.AwayFromZero);
             rows.Add(new TacticalAreaValue(TacticalKeys[area], TacticalLabels[area], average,
-                profile.TrainingManagerRva == 0 ? "Unavailable for this build" : "FM-managed training history · not a direct numeric field"));
+                profile.TrainingManagerRva == 0 ? "Unavailable for this build" : TrainingAverage(area)));
         }
         var shapeScores = context.Players
             .Where(x => x.Shapes is not null)
@@ -69,13 +81,13 @@ public static partial class LiveEntityMemoryEditService
             .Where(x => x.HasValue).Select(x => x!.Value).ToArray();
         var shapeAverage = shapeScores.Length == 0 ? 0 : (int)Math.Round(shapeScores.Average(), MidpointRounding.AwayFromZero);
         rows.Add(new TacticalAreaValue("shapes", "Position / Role Shapes", shapeAverage,
-            profile.TrainingManagerRva == 0 ? "Unavailable for this build" : "FM-managed training history · not a direct numeric field"));
+            profile.TrainingManagerRva == 0 ? "Unavailable for this build" : TrainingAverage(6)));
 
         if (ReadSaveCounter(handle.Value, moduleBase, profile) != counter)
             throw new InvalidOperationException("FM loaded or unloaded a career while tactical effectiveness was being read. Refresh and try again.");
         return new TacticalSnapshot(clubUid, clubName, profile.Id, "Senior Team",
             context.Players.Count, context.Players.Count, rows,
-            "Training Contribution is calculated by Football Manager from the training manager's player history. It is displayed separately from Match Exposure and is not a direct numeric field.");
+            "Training Contribution is calculated from FM's saved player training histories. The Max Training Contribution action rewrites those histories for the currently selected tactic; Atlas does not write a synthetic score field.");
     }
 
     /// <summary>Stages team-wide Match Exposure changes. No writes are made during staging.</summary>
