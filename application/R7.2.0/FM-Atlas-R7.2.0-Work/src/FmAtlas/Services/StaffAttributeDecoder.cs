@@ -11,8 +11,8 @@ public static class StaffAttributeDecoder
     private static readonly (string Key, int Offset)[] CoachingFields =
     {
         ("goalkeeping", 0x2B),
-        ("judging_player_ability", 0x2C),
-        ("judging_player_potential", 0x2D),
+        ("judging_ability", 0x2C),
+        ("judging_potential", 0x2D),
         ("people_management", 0x2E),
         ("motivating", 0x2F),
         ("physiotherapy", 0x30),
@@ -25,7 +25,7 @@ public static class StaffAttributeDecoder
         ("tactical", 0x37),
         ("sports_science", 0x3F),
         ("negotiating", 0x41),
-        ("judging_staff_ability", 0x42),
+        ("judging_staff", 0x42),
         ("set_pieces", 0x43),
         ("data_analysis", 0x3C),
         ("determination", 0x1D)
