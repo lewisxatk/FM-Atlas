@@ -85,6 +85,8 @@ public partial class MainWindow
 
         var searchText = Input("Optional player, club, nation or player ID search");
         searchText.Width = 310;
+        var fieldSearch = Input("Find a field · Finishing, Pace, CA, PA…");
+        fieldSearch.Width = 270;
         var logic = new ComboBox
         {
             Width = 170,
@@ -110,6 +112,7 @@ public partial class MainWindow
         if (savedProfiles.Count > 0) profilePicker.SelectedIndex = 0;
         var toolbar = new WrapPanel { Margin = new Thickness(0, 7, 0, 6) };
         toolbar.Children.Add(FilterControl("OPTIONAL PLAYER / CLUB / ID", searchText, 320));
+        toolbar.Children.Add(FilterControl("SEARCH FIELD LIBRARY", fieldSearch, 280));
         toolbar.Children.Add(FilterControl("MATCH LOGIC", logic, 180));
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
         searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
@@ -237,7 +240,7 @@ public partial class MainWindow
         var positionStack = (StackPanel)positionCard.Child;
         positionStack.Children.Add(Txt("POSITION FAMILIARITY", 9, true, Teal));
         positionStack.Children.Add(Txt("Set a 0–20 rating for any of the 15 FM positions", 15, true, Ink));
-        positionStack.Children.Add(Txt("Zero means no requirement. Exact matches are used by default; turn on At Least to treat each entered rating as a minimum.", 10, false, Muted, wrap: true));
+        positionStack.Children.Add(Txt("Zero means no requirement. Exact matches are used by default; turn on At Least to treat each entered rating as a minimum. Save-reader position values may remain provisional until checked in FM27.", 10, false, Muted, wrap: true));
         var positionOptions = new WrapPanel { Margin = new Thickness(0, 8, 0, 5) };
         positionAny = new CheckBox { Content = "Any of these", Foreground = Ink, FontSize = 10, Margin = new Thickness(0, 3, 18, 5), ToolTip = "A player needs to match at least one entered position. Otherwise every entered position must match." };
         positionAtLeast = new CheckBox { Content = "At Least", Foreground = Ink, FontSize = 10, Margin = new Thickness(0, 3, 18, 5), ToolTip = "Treat each entered position rating as a minimum. Off means exact rating." };
@@ -653,14 +656,32 @@ public partial class MainWindow
         void RefreshFieldChoices(AdvancedSearchUiRow row, string? preferredKey = null)
         {
             var category = row.CategoryPicker.SelectedItem?.ToString() ?? "All categories";
-            var source = category.Equals("All categories", StringComparison.OrdinalIgnoreCase)
+            IEnumerable<AdvancedSearchField> source = category.Equals("All categories", StringComparison.OrdinalIgnoreCase)
                 ? fields
-                : fields.Where(x => x.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
-            row.FieldPicker.ItemsSource = source;
-            row.FieldPicker.SelectedItem = preferredKey is null ? null : source.FirstOrDefault(x => x.Key.Equals(preferredKey, StringComparison.OrdinalIgnoreCase));
-            if (row.FieldPicker.SelectedIndex < 0 && source.Count > 0) row.FieldPicker.SelectedIndex = 0;
+                : fields.Where(x => x.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+            var term = fieldSearch.Text.Trim();
+            if (term.Length > 0)
+                source = source.Where(x => x.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || x.Category.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || x.Key.Contains(term, StringComparison.OrdinalIgnoreCase));
+            var choices = source.ToList();
+            row.FieldPicker.ItemsSource = choices;
+            row.FieldPicker.SelectedItem = preferredKey is null ? null : choices.FirstOrDefault(x => x.Key.Equals(preferredKey, StringComparison.OrdinalIgnoreCase));
+            if (row.FieldPicker.SelectedIndex < 0 && choices.Count > 0) row.FieldPicker.SelectedIndex = 0;
             UpdateValueControls(row);
         }
+
+        fieldSearch.TextChanged += (_, _) =>
+        {
+            foreach (var row in rows.ToArray())
+            {
+                var selectedKey = (row.FieldPicker.SelectedItem as AdvancedSearchField)?.Key;
+                RefreshFieldChoices(row, selectedKey);
+            }
+            status.Text = fieldSearch.Text.Trim().Length == 0
+                ? "Showing the complete field library for the selected categories."
+                : "Field library filtered by “" + fieldSearch.Text.Trim() + "”. Choose a result in each condition.";
+        };
 
         void MoveCondition(AdvancedSearchUiRow row, int offset)
         {
@@ -884,6 +905,18 @@ public partial class MainWindow
                             && ((hasMin && lower is < 1 or > 20) || (hasMax && upper is < 1 or > 20)))
                         {
                             error = $"{field.DisplayName} must be between 1 and 20.";
+                            return new();
+                        }
+                        if (field.Key.Equals("player:CurrentAbility", StringComparison.OrdinalIgnoreCase)
+                            && ((hasMin && lower is < 0 or > 200) || (hasMax && upper is < 0 or > 200)))
+                        {
+                            error = "Current Ability must be between 0 and 200.";
+                            return new();
+                        }
+                        if (field.Key.Equals("player:PotentialAbility", StringComparison.OrdinalIgnoreCase)
+                            && ((hasMin && lower is < -10 or > 200) || (hasMax && upper is < -10 or > 200)))
+                        {
+                            error = "Potential Ability must be between -10 and 200, including negative random-potential values.";
                             return new();
                         }
                         criteria.Add(new AdvancedSearchCriterion(field.Key, hasMin ? lower : null, hasMax ? upper : null, null, null));
