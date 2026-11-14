@@ -109,7 +109,7 @@ public static class LiveCareerMonitor
             var status = loaded
                 ? $"FM27 career detected · {current.Profile.DisplayName} · {players:N0} player slots. Connecting automatically…"
                 : counter == 0
-                    ? "FM27 is open. Load your career and Atlas will connect automatically when the save generation is ready."
+                    ? "FM27 is open. Load your career and Atlas will detect the save generation; full live-memory scanning is paused in V8."
                     : "FM27 has registered a career load. Waiting for its player, staff and club slot counts to stabilise.";
             return new(true, true, loaded, pid, current.Profile.Id, current.Profile.DisplayName, counter, players, staff, clubs, status);
         }
