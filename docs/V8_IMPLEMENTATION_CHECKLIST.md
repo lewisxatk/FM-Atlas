@@ -73,12 +73,15 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Surface live players and staff in the searchable Players/Staff directories. Player CA/PA, 52 mapped attributes, eight personality ratings, 15 position ratings and nationality/club links are read from the current identity block (including the documented player-coach +0xF8 shift) and remain explicitly provisional until an in-game UI witness is recorded.
 - [x] Add an independent FM27 staff preferred-job decoder for the 15 documented role groups; validate exact byte count and 1–20 range, retain every score, preserve small ties and do not invent a single winner for low scores or broad ties.
 - [x] Persist the 15 staff preference ratings and qualified top-group summary as provisional `LiveStaffFacts`; display them in the existing Staff profile without replacing the Staff directory.
+- [x] Decode the 19 FM27 staff coaching attributes and two direct 1–20 ratings from the documented staff layout; keep these base offsets unchanged for the human-manager identity shift.
+- [x] Persist the decoded staff coaching/direct ratings as provisional `staff_attributes.*` facts and expose them automatically in the existing Staff profile fact groups.
+- [ ] Compare staff coaching attributes, authority and working-with-youngsters against the FM27 staff profile on the installed build before promoting any field beyond provisional.
 - [ ] Compare preferred-job ratings and top-group labels against FM27's Staff Search / staff profile on the user's installed build; keep the field provisional until witnessed.
 - [x] Fix live player search to resolve ability.current_ability and ability.potential_ability, including profile-matched provisional values and negative PA ranges, for display and CA/PA filtering. Include live nationality, primary position and CA/PA/personality/attribute/position filters in the existing player/Advanced Search data path.
 - [x] Display all available provisional live position ratings and the eight personality ratings on player profiles with explicit source-confidence warnings; show live nation and primary position in the player directory.
 - [x] Bind My Manager / My Club shortcuts to the currently detected save-load generation; do not display a previous career's manager as current when FM closes or changes career.
 - [x] Keep live CA/PA/attribute Apply and live editing disabled. The automatic connector is read-only.
-- [ ] Run the newly added live-career database/search regression tests against the exact current branch head in the Windows workflow.
+- [ ] Run the live-career database/search regression tests and the new staff attribute decoder tests against the exact current branch head in the Windows workflow.
 - [ ] Compare player/staff CA/PA, all mapped player attributes, eight personality ratings, position ratings, player-coach identity fields, manager identity, nation and club against the current FM27 UI on supported Steam and Game Pass builds.
 - [ ] Profile memory/CPU and FM responsiveness with FM closed, at menus and during a match; verify save switch, save close, game restart and duplicate-process behaviour.
 - [ ] Add a user-visible capability/status matrix for read-only, provisional and write-supported fields; maintain write gates until mapping, identity, read-back and rollback are independently validated.
