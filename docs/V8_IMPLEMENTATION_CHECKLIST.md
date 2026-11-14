@@ -75,9 +75,9 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [ ] Confirm fmsave bridge setup and exact FM27 table support/version; retain unsupported-table warnings.
 - [ ] Replace single giant JSON snapshot materialisation with bounded streaming/table batches.
-- [ ] Add import stages, progress reporting, cancellation and elapsed-time reporting.
+- [x] Add table-by-table save-reader progress, database indexing progress, toolbar Cancel action and elapsed-time reporting; propagate cancellation through the bridge and SQLite importer.
 - [ ] Import into staging snapshot; validate counts/relationships; publish atomically only after success.
-- [ ] Preserve last known-good snapshot on cancellation, parse errors or database lock.
+- [x] Preserve the last committed snapshot on cancellation, parse errors or database lock: the reader process is stopped and an uncommitted SQLite transaction is rolled back before commit.
 - [x] Add a process-wide SQLite writer semaphore around mutating/import/undo/checkpoint operations and a 30-second busy timeout (commit `e63668db`).
 - [ ] Stress-test the writer gate under concurrent imports and page reads; verify WAL checkpoint/backup behaviour.
 - [ ] Further optimise imports with prepared commands and bounded batch inserts; retain existing indexes and transaction safety.
@@ -178,4 +178,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Draft V8 integration pull request | PR [#4](https://github.com/lewisxatk/FM-Atlas/pull/4) | Kept changes isolated from the integration branch pending build and PC acceptance. |
 | 2026-11-14 | Initial V8 durable checklist | `b76f39d7` | Created this checklist; implementation and runtime validation intentionally separate. |
 | 2026-11-14 | Windows x64 build/package automation | `528dfb02` | Workflow now runs on V8 branch pushes, builds Release, publishes self-contained win-x64 output and uploads a ZIP artifact. CI result not yet observed. |
-| 2026-11-14 | SQLite writer coordination and busy timeout | `e63668db` | Added one process-wide writer semaphore around all identified mutations/imports/undo/checkpoint methods and a 30-second lock wait. Concurrency behaviour still requires tests. |
+| 2026-11-14 | SQLite writer coordination and busy timeout | `cb44d29`, `e63668db` | Added one process-wide writer semaphore around all identified mutations/imports/undo/checkpoint methods and a 30-second lock wait; the follow-up commit corrected the gate blocks. Concurrency behaviour still requires tests. |
+| 2026-11-14 | Save-reader progress stream and table stages | `517a25de`, `755c69d3` | The Python adapter reports each table start, row count and warnings to stderr; the desktop bridge consumes it line-by-line for UI progress. |
+| 2026-11-14 | Cancellable career snapshot indexing | `1ed64ed2` | Cancellation is checked during player, staff, club and additional-table indexing; progress is reported and cancellation before commit rolls back the active transaction. |
+| 2026-11-14 | Cancellable save-import UI and elapsed time | `005af6a0`, `f0701bb1` | Added a toolbar Cancel action, visible import status, elapsed time and a clear message that the previous committed snapshot is retained. |
