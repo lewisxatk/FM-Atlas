@@ -43,7 +43,7 @@ public sealed class ScoutDatabase
         if (!string.IsNullOrEmpty(folder))
             Directory.CreateDirectory(folder);
 
-        _connectionString = new SqliteConnectionStringBuilder { DataSource = fullPath, Pooling = pooling }.ToString();
+        _connectionString = new SqliteConnectionStringBuilder { DataSource = fullPath, Pooling = pooling, DefaultTimeout = 60 }.ToString();
     }
 
     public async Task InitialiseAsync()
