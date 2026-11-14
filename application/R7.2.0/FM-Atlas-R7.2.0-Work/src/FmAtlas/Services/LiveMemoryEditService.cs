@@ -6,7 +6,7 @@ using System.Text;
 namespace FmAtlas.Services;
 
 /// <summary>
-/// Guarded FM27 live-memory attribute writer. This is an independent implementation;
+/// Guarded FM27 live-memory player-field preview/writer. This is an independent implementation;
 /// it does not embed or copy another editor's code. It only supports an exact known
 /// Windows FM27 module profile and a player whose UID and name can be re-resolved.
 /// </summary>
@@ -257,6 +257,13 @@ public static class LiveMemoryEditService
     private sealed record WritableField(
         string Key, string DisplayName, int Offset, int Size,
         ValueEncoding Encoding, int Minimum, int Maximum);
+
+    /// <summary>Returns whether a player field has a defined, range-checked live preview mapping. Apply/Undo remains separately gated.</summary>
+    public static bool SupportsPlayerFieldPreview(string fieldKey)
+    {
+        try { _ = ResolveWritableField(fieldKey); return true; }
+        catch (InvalidOperationException) { return false; }
+    }
 
     private static WritableField ResolveWritableField(string key)
     {
