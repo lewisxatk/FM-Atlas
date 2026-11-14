@@ -272,7 +272,7 @@ public static class LiveMemoryEditService
         }
     }
 
-    private enum ValueEncoding { ScaledAttribute, DirectByte, UInt8, UInt16, Int16, Int32, FmDate, BitFlag }
+    private enum ValueEncoding { ScaledAttribute, DirectByte, UInt8, UInt16, Int16, Int32, Int8, FmDate, BitFlag }
     private sealed record WritableField(
         string Key, string DisplayName, int Offset, int Size,
         ValueEncoding Encoding, int Minimum, int Maximum,
@@ -342,8 +342,8 @@ public static class LiveMemoryEditService
             ["contract.expires"] = new("contract.expires", "Contract Expiry", 0x48, 4, ValueEncoding.FmDate, 20000101, 21001231, "Contract"),
             ["contract.joined"] = new("contract.joined", "Joined Club", 0x4C, 4, ValueEncoding.FmDate, 20000101, 21001231, "Contract"),
             ["contract.loyalty_bonus"] = new("contract.loyalty_bonus", "Loyalty Bonus (£/week)", 0x38, 4, ValueEncoding.Int32, 0, 10_000_000, "Contract"),
-            ["contract.happiness"] = new("contract.happiness", "Happiness", 0x5A, 1, ValueEncoding.Int16, -100, 100, "Contract"),
-            ["contract.playing_time_happiness"] = new("contract.playing_time_happiness", "Playing Time Happiness", 0x5C, 1, ValueEncoding.Int16, -100, 100, "Contract"),
+            ["contract.happiness"] = new("contract.happiness", "Happiness", 0x5A, 1, ValueEncoding.Int8, -100, 100, "Contract"),
+            ["contract.playing_time_happiness"] = new("contract.playing_time_happiness", "Playing Time Happiness", 0x5C, 1, ValueEncoding.Int8, -100, 100, "Contract"),
             ["contract.squad_number"] = new("contract.squad_number", "Squad Number", 0x5D, 1, ValueEncoding.UInt8, 1, 99, "Contract"),
             ["contract.squad_status"] = new("contract.squad_status", "Squad Status", 0x54, 1, ValueEncoding.UInt8, 1, 40, "Contract"),
             ["contract.transfer_listed"] = new("contract.transfer_listed", "Transfer Listed", 0x57, 1, ValueEncoding.BitFlag, 0, 1, "Contract", 0x01),
@@ -389,8 +389,13 @@ public static class LiveMemoryEditService
         { currentMinimum = -500; currentMaximum = short.MaxValue; }
         else if (field.Key.Equals("asking_price", StringComparison.OrdinalIgnoreCase))
         { currentMinimum = -1; currentMaximum = int.MaxValue; }
+        else if (field.Encoding == ValueEncoding.FmDate)
+        { currentMinimum = 0; currentMaximum = 22001231; }
+        else if (field.Key.Equals("contract.squad_number", StringComparison.OrdinalIgnoreCase))
+        { currentMinimum = 1; currentMaximum = 255; }
 
-        if (current < currentMinimum || current > currentMaximum || target < field.Minimum || target > field.Maximum)
+        var targetIsBlankSquadNumber = field.Key.Equals("contract.squad_number", StringComparison.OrdinalIgnoreCase) && target == 255;
+        if (current < currentMinimum || current > currentMaximum || (!targetIsBlankSquadNumber && (target < field.Minimum || target > field.Maximum)))
             throw new ArgumentOutOfRangeException(nameof(target),
                 $"{field.DisplayName}: current value must be {currentMinimum:N0}–{currentMaximum:N0}; target must be {field.Minimum:N0}–{field.Maximum:N0} in FM27 storage units.");
     }
@@ -418,6 +423,7 @@ public static class LiveMemoryEditService
             ValueEncoding.ScaledAttribute => (bytes[0] <= 98 ? (bytes[0] + 2) / 5
                 : throw new InvalidOperationException($"{field.DisplayName} raw byte {bytes[0]} is outside the FM 1–20 attribute encoding range.")),
             ValueEncoding.BitFlag => (bytes[0] & field.BitMask) != 0 ? 1 : 0,
+            ValueEncoding.Int8 => unchecked((sbyte)bytes[0]),
             ValueEncoding.FmDate => DecodeFmDate(bytes),
             ValueEncoding.DirectByte or ValueEncoding.UInt8 => bytes[0],
             ValueEncoding.UInt16 => BitConverter.ToUInt16(bytes, 0),
@@ -429,6 +435,7 @@ public static class LiveMemoryEditService
 
     private static int DecodeFmDate(byte[] bytes)
     {
+        if (bytes.Length == 4 && bytes.All(x => x == 0)) return 0;
         var day = (ushort)(BitConverter.ToUInt16(bytes, 0) & 0x01FF);
         var year = BitConverter.ToUInt16(bytes, 2);
         if (year is < 1900 or > 2200 || day is < 1 or > 366) throw new InvalidOperationException("The contract date bytes are not a valid FM date.");
@@ -438,6 +445,7 @@ public static class LiveMemoryEditService
 
     private static byte[] EncodeFmDate(int value)
     {
+        if (value == 0) return new byte[4];
         if (!DateTime.TryParseExact(value.ToString(CultureInfo.InvariantCulture), "yyyyMMdd",
             CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             throw new ArgumentOutOfRangeException(nameof(value), "Enter a valid date as YYYYMMDD.");
@@ -453,6 +461,7 @@ public static class LiveMemoryEditService
         {
             ValueEncoding.ScaledAttribute => new[] { checked((byte)(value * 5 - 2)) },
             ValueEncoding.BitFlag => new[] { value == 0 ? (byte)(originalBytes[0] & ~field.BitMask) : (byte)(originalBytes[0] | field.BitMask) },
+            ValueEncoding.Int8 => new[] { unchecked((byte)checked((sbyte)value)) },
             ValueEncoding.FmDate => EncodeFmDate(value),
             ValueEncoding.DirectByte or ValueEncoding.UInt8 => new[] { checked((byte)value) },
             ValueEncoding.UInt16 => BitConverter.GetBytes(checked((ushort)value)),
