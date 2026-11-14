@@ -1,6 +1,14 @@
 # FM Atlas — FM27 Live Editor Test Plan
 
-Build acceptance for branch `feature/fm27-live-editor-write-parity`.
+Build acceptance for branch `feature/fm27-live-editor-activation`.
+
+## Session opt-in and editor controls
+
+- Atlas Local Editor and Live FM Editing are separate switches. Local overrides only change the Atlas database.
+- Live FM Editing starts OFF on every launch and is enabled from **Editor Studio → Enable Live FM Editing** for the current session only.
+- The live writer also checks this state inside the service before Apply and Undo; hiding or showing a UI panel is not the only write gate.
+- Closing Atlas disarms live editing. Re-enable it explicitly after restarting the application.
+- Live player/staff/club panels show field groups, searchable labels/keys and the permitted numeric range. Stage only submits values that differ from the current value.
 
 ## Build that this plan refers to
 
@@ -15,7 +23,7 @@ Build acceptance for branch `feature/fm27-live-editor-write-parity`.
 2. Close any other Football Manager process. Run FM Atlas and FM at the same Windows privilege level.
 3. Confirm the FM27 executable build is one of the registered profiles. The first supported target is Steam build 26577676 (12 Nov 2026); Steam 26385295 and Game Pass 0.9.2435.0 are also registered.
 4. In FM, record the original values of the test player, staff member, club and active tactic. Keep the in-game windows available for comparison.
-5. In Atlas, open the live career and select an entity with an exact UID/name match. Enable the Editor on its profile.
+5. In Atlas, open the live career and select an entity with an exact UID/name match. Open Editor Studio and explicitly enable **Live FM Editing**. The profile-local Editor switch is for Atlas-local overrides and does not arm live writes.
 
 ## Test protocol for every supported field
 
