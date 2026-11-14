@@ -36,7 +36,11 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [x] Initial Atlas Liquid application resource palette and shared tooltip styling committed.
 - [x] Initial glass top toolbar, side navigation, collapsible navigation and contextual hover descriptions committed.
-- [x] Shared workspace cards now use layered translucent gradients, a fine inner glass edge and a restrained top reflection; content remains sharp and unblurred.
+- [x] Shared workspace cards now use theme-aware translucent gradients, a glass border and restrained elevation; content remains sharp and unblurred.
+- [x] Preserve the existing direct-child contract of the shared Card helper so established workspaces can continue populating the inner panel without runtime casts failing.
+- [x] Apply shared Monolith Glass surfaces to TextBox, ComboBox, TabControl and progress controls after workspace creation; retain graceful fallback if styling cannot be applied.
+- [x] Apply consistent themed DataGrid headers, rows, hover and selection states while keeping dense data cells opaque and readable.
+- [x] Dashboard hero now uses the shared glass card, correct FM Atlas branding and responsive 4/2/1 metric-card columns at desktop, medium and narrow workspace widths.
 - [x] Sidebar and top toolbar now use coordinated diagonal/vertical glass gradients, subtle edge highlights and restrained elevation.
 - [ ] Run a fresh Windows Release build and full test suite against the updated branch head; visually inspect all four appearances at 100%, 125% and 150% DPI.
 - [x] Monolith Glass is the first-run default, with graphite/charcoal surfaces, restrained orange accents and persisted theme preference; Glass Dark, Glass Light and Studio remain selectable.
@@ -46,7 +50,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Add automation names/help text and keyboard focus support to icon-only toolbar controls.
 - [ ] Verify hover/focus tooltips are accurate, readable and stable on every toolbar/navigation action.
 - [~] Monolith Glass token mapping and principal navigation/glass surfaces are implemented; remaining hard-coded colours, dialog coverage and high-contrast refinements remain open.
-- [ ] Apply consistent Monolith Glass surfaces to dialogs, tabs, filters, grids, charts and empty/loading/error states.
+- [~] Apply consistent Monolith Glass surfaces to dialogs, tabs, filters, grids, charts and empty/loading/error states. Shared tab/input/table/progress styling is in source; custom dialog, chart, empty/loading/error and high-contrast polish remain open.
 - [~] Workspace fade-in honours the Windows client-area animation preference; an in-app Reduce Motion setting and full high-contrast pass remain outstanding.
 - [~] A 150 ms system-aware workspace fade-in is implemented; chart transitions and broader interaction motion remain outstanding.
 - [ ] Build and manually review shell at 100%, 125%, 150% Windows display scaling and common laptop/desktop resolutions.
@@ -58,8 +62,9 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Replace monolithic MainWindow code-behind with testable view models/services (incrementally; retain proven legacy workspaces until replacement).
 - [~] Add cancellable search operations: universal Advanced Search now has a Cancel button, propagates a CancellationToken to the SQLite query, retains the last successful result page when cancelled, and cancels on reset/profile load. Other workspace loads and stale query cancellation remain open.
 - [x] Previously opened player profiles are restored after the Players workspace is displayed, not awaited in the navigation construction path.
-- [ ] Add a background job centre with stages, elapsed time, cancellation, completion and failure details.
+- [~] Add a background job centre with stages, elapsed time, cancellation, completion and failure details. The new Activity Centre reports active live scans/offline imports, elapsed time, current status, cancellation and the last task summary; a multi-job queue, staged subtask progress and persisted history remain open.
 - [ ] Persist selected workspace, open tabs, filters, grid columns and layout state.
+- [x] Add the Activity Centre entry to the glass toolbar and link it to the existing read-only scan/save-import cancellation tokens without creating a second import path.
 - [ ] Verify UI remains responsive during large queries/imports and failures leave the last stable workspace usable.
 - [x] Request cooperative cancellation of active live-career scans and offline save imports when the main window closes; the importer/database cancellation path retains rollback semantics for unpublished snapshots.
 - [ ] Verify window-close cancellation on Windows during both a live scan and an offline import; confirm no orphaned worker remains and the last committed snapshot is intact.
@@ -93,6 +98,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Display all available provisional live position ratings and the eight personality ratings on player profiles with explicit source-confidence warnings; show live nation and primary position in the player directory.
 - [x] Bind My Manager / My Club shortcuts to the currently detected save-load generation; do not display a previous career's manager as current when FM closes or changes career.
 - [x] Keep live CA/PA/attribute Apply and live editing disabled. The automatic connector is read-only.
+- [x] Remove clickable live Apply controls from Editor Studio in V8; only local Atlas database edits remain available.
+- [x] Gate edit-history live Undo behind the same hard V8 live-write block; local database undo remains available and live history rows stay visible for audit.
 - [ ] Run the live-career database/search regression tests, the staff attribute/personality decoder tests, and the new live/offline CA/PA count-filter tests against the exact current branch head in the Windows workflow.
 - [ ] Compare player/staff CA/PA, all mapped player attributes, eight personality ratings, position ratings, player-coach identity fields, manager identity, nation and club against the current FM27 UI on supported Steam and Game Pass builds.
 - [ ] Profile memory/CPU and FM responsiveness with FM closed, at menus and during a match; verify save switch, save close, game restart and duplicate-process behaviour, including two simultaneously running FM installs and permission mismatch.
