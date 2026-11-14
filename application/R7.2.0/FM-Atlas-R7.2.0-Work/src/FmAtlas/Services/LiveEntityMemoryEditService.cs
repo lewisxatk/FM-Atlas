@@ -11,7 +11,7 @@ namespace FmAtlas.Services;
 /// mapped fields, after exact-build/session/UID/record checks, preflight and read-back.
 /// Pointer/list operations are deliberately separate from this scalar writer.
 /// </summary>
-public static class LiveEntityMemoryEditService
+public static partial class LiveEntityMemoryEditService
 {
     private const uint QueryInformation = 0x0400;
     private const uint VmRead = 0x0010;
