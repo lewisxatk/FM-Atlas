@@ -17,6 +17,10 @@ Build acceptance for branch `feature/fm27-live-editor-activation`.
 - Artifact: `FM-Atlas-V10-win-x64`
 - Test result: Windows Release build succeeded; xUnit regression suite passed (164 tests); self-contained Windows x64 publish and artifact upload succeeded.
 
+## Automated safety regressions in the activation branch
+
+The xUnit suite now verifies that the player/staff/club scalar writer and the tactical Apply/Undo entry points refuse to open the FM process while Live FM Editing is OFF. These tests prove the opt-in gate only; they do not prove that any particular offset, in-game display refresh or save persistence is correct. The separate Windows build/test/publish workflow must pass before using the artifact, and the in-game protocol below remains mandatory.
+
 ## Before the first live test
 
 1. Make a separate copy of the FM27 career and load that copy offline. Do not use an online/network career or your only save.
