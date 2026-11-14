@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace FmAtlas.Services;
@@ -599,7 +600,7 @@ public static partial class LiveEntityMemoryEditService
         var invalid = new bool[8];
         for (var at = 0; at < history.Length; at += 12)
         {
-            var area = Math.Min(7, history[at + 4]);
+            var area = Math.Min(7, (int)history[at + 4]);
             var weight = TrainingEntryWeight(history, at, options, shapes, today);
             if (!weight.HasValue) invalid[area] = true;
             else sums[area] += weight.Value;
