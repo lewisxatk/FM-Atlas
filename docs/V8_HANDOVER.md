@@ -217,3 +217,25 @@ The next source task is an independent Advanced Search position group (ALL / ANY
 The FMLibreEditor development notes document a fail-closed write pattern: verify the same save/session, confirm the object still belongs to the intended person, validate the new value, confirm the current value matches the expected field layout, then read back the write. Any failed precondition means no write. A save change invalidates pending edits and requires reload; unsupported layouts fall back to read-only.
 
 FM Atlas adopts this as a future safety checklist only. It does not enable live writes. Before any future live Apply/Undo work, require all five checks, exact build/profile support, save-generation invalidation, tested rollback and an independent in-game witness. Current live editing remains OFF.
+
+
+## Monolith Glass finishing and Advanced Search position group — 14 November 2026
+
+### Implemented in source
+
+- Shared Monolith Glass cards now use a deeper graphite material gradient, warm amber-orange edge lighting, a restrained inner highlight and controlled shadow depth. The direct-child Card contract is unchanged; other theme branches are retained.
+- Advanced Search has a dedicated searchable field-library input. It filters the current category's discovered fields without inventing unavailable fields.
+- CA and PA remain first-class numeric criteria: CA integer 0–200; PA integer -10–200 to retain signed random-potential values. Player attributes remain whole-number 1–20.
+- Added a dedicated 15-position familiarity group. Every position accepts 0–20; zero means no requirement. ALL selected is the default, “Any of these” changes only the position group to ANY, and “At Least” changes exact values to minimums.
+- Position group is separate from the existing general criteria AND/OR switch and is combined with the general result. It supports position-only searches.
+- Search profiles gained an optional PositionFilter property. Older saved JSON profiles without it continue to load; position filters are included in new profile save/load and export.
+- Existing criteria, 60-condition cap, field discovery, result columns, sorting, paging, cancellation, compare, similar-player discovery, CSV and shortlist actions are retained.
+- Added position filter model/profile regression tests. SQL searches numeric values from fmsave's `positions` group and the existing live position facts. Natural/accomplished position classifications are not used as numeric ratings.
+
+### Research basis
+
+FMRTE's current search documentation specifies the exact position semantics: ALL nonzero position values by default; “Any of these” for OR within positions; “At Least” converts exact values into minimums; zero means no requirement. fmsave 0.12.3 documents the 15 named numeric position ratings separately from its natural/accomplished classification lists. The research and links are recorded in `docs/V8_REVERSE_ENGINEERING_NOTES_2026-11-14.md`.
+
+### Verification boundary
+
+This batch is source-implemented and regression tests are added, but it is not yet Windows build-verified. Wait for the fresh workflow after the latest commits. Real FM27 SQL-result validation and Windows DPI/visual acceptance remain open. Live-memory ratings remain provisional until checked against the in-game Positions page.
