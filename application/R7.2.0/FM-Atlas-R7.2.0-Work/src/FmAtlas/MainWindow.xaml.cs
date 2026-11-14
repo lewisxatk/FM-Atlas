@@ -2714,11 +2714,11 @@ public partial class MainWindow : Window
             ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
             : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
         var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
-        alert.Child = Txt("Atlas local edits are separate from Football Manager. The guarded live-write path currently supports CA, PA and 47 visible standard player attributes only. Five hidden attribute offsets remain blocked pending stronger FM27 evidence. It requires an exact supported Steam/Game Pass module profile, the same career-load counter, fresh UID/name/current-byte preflight, explicit preview confirmation and read-back. Staff, club, contracts, transfers, personality and position edits remain unsupported. Back up your career and test only on a copied offline single-player save.", 10, true, Brush("#E6C477"), wrap: true);
+        alert.Child = Txt("Atlas local edits are separate from Football Manager. In this V8 build, Editor Studio saves changes to the FM Atlas database only. Live Apply/Undo is hard-disabled; no game-memory writes are exposed. Live editing will remain blocked until exact-build identity, field mappings, in-game witnesses, read-back, rollback and Windows acceptance are independently verified.", 10, true, Brush("#E6C477"), wrap: true);
         hs.Children.Add(alert);
         if (!_editorEnabled)
         {
-            hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas edits and the separately confirmed live-edit path for eligible FM27 player records. The switch resets to OFF when FM Atlas closes; live writes still require their own preview and confirmation.", 11, false, Muted, wrap: true));
+            hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas database edits only. The switch resets to OFF when FM Atlas closes; Football Manager itself is never changed.", 11, false, Muted, wrap: true));
             Grid.SetRow(header, 0); root.Children.Add(header); return root;
         }
         if (_selectedPlayer is null)
@@ -2753,50 +2753,14 @@ public partial class MainWindow : Window
         }));
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            abilityRow.Children.Add(SoftButton("Apply CA / PA to live FM", async (_, _) =>
-            {
-                if (!LiveMemoryEditingEnabled)
-                {
-                    MessageBox.Show(this, "Live Apply is paused in FM Atlas V8 until the FM27 memory mappings and stability have been independently validated. You can still make local Atlas edits, which do not alter Football Manager.", "FM Atlas · Live editing paused", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                if (!uint.TryParse(_selectedPlayer.SourceId[5..], out var uid) || !int.TryParse(caInput.Text, out var ca) || !int.TryParse(paInput.Text, out var pa) || ca is < 1 or > 200 || pa is < 1 or > 200)
-                { MessageBox.Show(this, "Live CA and PA edits need a live FM player UID and whole-number values from 1 to 200.", "Live editor"); return; }
-                if (!_selectedPlayer.CurrentAbility.HasValue || !_selectedPlayer.PotentialAbility.HasValue)
-                { MessageBox.Show(this, "Atlas has no current CA/PA baseline for this player. Refresh the live import before editing.", "Live editor"); return; }
-                LiveMemoryEditService.BatchReceipt? receipt = null;
-                try
-                {
-                    var pid = await Task.Run(LiveMemoryEditService.FindSupportedProcessId);
-                    var plan = await Task.Run(() => LiveMemoryEditService.StageBatch(pid, uid, _selectedPlayer.Name, new[]
-                    {
-                        new LiveMemoryEditService.Change("ability.current_ability", _selectedPlayer.CurrentAbility.Value, ca),
-                        new LiveMemoryEditService.Change("ability.potential_ability", _selectedPlayer.PotentialAbility.Value, pa)
-                    }));
-                    var confirm = MessageBox.Show(this,
-                        $"LIVE FM27 MEMORY WRITE PREVIEW\n\n{_selectedPlayer.Name} · {plan.ProfileId}\nCurrent Ability: {_selectedPlayer.CurrentAbility} → {ca}\nPotential Ability: {_selectedPlayer.PotentialAbility} → {pa}\n\nBefore applying, confirm these original CA/PA values match an independent editor such as FMRTE or FMLibreEditor. Save a new backup copy of your career, and use an offline single-player save. Atlas will re-check the game build, player UID/name and both old values immediately before writing, then read both values back.\n\nApply these changes to the running game now?",
-                        "FM Atlas · Live editor safety check", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (confirm != MessageBoxResult.Yes) return;
-                    receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(plan));
-                    try
-                    {
-                        await RunDatabaseAsync(() => _database.SaveLocalAbilitiesAsync(_selectedPlayer.SourceId, _selectedPlayer.Name, ca, pa, "FM27 live memory · read-back verified"));
-                        await RunDatabaseAsync(() => _database.UpdateLivePlayerFactAsync(uid, "ability.current_ability", ca));
-                        await RunDatabaseAsync(() => _database.UpdateLivePlayerFactAsync(uid, "ability.potential_ability", pa));
-                    }
-                    catch { await Task.Run(() => LiveMemoryEditService.UndoBatch(receipt)); throw; }
-                    AtlasLog.Info($"Live FM27 CA/PA edit read-back verified: uid={uid}; profile={plan.ProfileId}; fields=2.");
-                    await RefreshPlayerResultsAsync();
-                    _selectedPlayer = _players.FirstOrDefault(x => x.SourceId == _selectedPlayer.SourceId) ?? _selectedPlayer;
-                    await ShowPlayerProfileAsync(_selectedPlayer);
-                    MessageBox.Show(this, "FM27 accepted both live CA/PA writes and Atlas read them back successfully. Press Continue in Football Manager to let the game refresh derived displays, then save your career to persist the changes.", "Live edit verified", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex) { AtlasLog.Error("Live CA/PA edit failed or was blocked.", ex); MessageBox.Show(this, ex.Message, "FM Atlas · Live edit stopped", MessageBoxButton.OK, MessageBoxImage.Warning); }
-            }));
+            var liveAbilityApply = SoftButton("Live CA / PA Apply disabled in V8", (_, _) => { });
+            liveAbilityApply.IsEnabled = false;
+            liveAbilityApply.ToolTip = "Live memory writes are hard-disabled. Save local changes to the FM Atlas database only.";
+            abilityRow.Children.Add(liveAbilityApply);
         }
         controls.Children.Add(abilityRow);
         controls.Children.Add(Txt("PLAYER ATTRIBUTES", 9, true, Teal));
-        controls.Children.Add(Txt("Edit imported values. Local saves change Atlas only. Live saves are available for current LIVE:UID records and require a separate safety confirmation.", 9, false, Muted));
+        controls.Children.Add(Txt("Edit imported values. Saving here changes the local FM Atlas database only; it does not change the running Football Manager career.", 9, false, Muted));
         DockPanel.SetDock(controls, Dock.Top); dock.Children.Add(controls);
 
         var rows = await RunDatabaseAsync(() => _database.GetPlayerAttributeRowsAsync(_selectedPlayer.SourceId));
@@ -2825,50 +2789,12 @@ public partial class MainWindow : Window
         saveAttributes.Margin = new Thickness(0, 9, 0, 0); DockPanel.SetDock(saveAttributes, Dock.Bottom); dock.Children.Add(saveAttributes);
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            var liveSaveAttributes = SoftButton("Apply changed attributes to live FM", async (_, _) =>
-            {
-                if (!LiveMemoryEditingEnabled)
-                {
-                    MessageBox.Show(this, "Live Apply is paused in FM Atlas V8 until the FM27 memory mappings and stability have been independently validated. Your staged local edits remain available and do not alter Football Manager.", "FM Atlas · Live editing paused", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                grid.CommitEdit(DataGridEditingUnit.Cell, true); grid.CommitEdit(DataGridEditingUnit.Row, true);
-                var changed = viewRows.Where(x => Math.Abs(x.Value - x.OriginalValue) > 0.0001).ToList();
-                if (changed.Count == 0) { MessageBox.Show(this, "No changed attributes to apply.", "Live editor"); return; }
-                if (changed.Any(x => Math.Abs(x.Value - Math.Round(x.Value)) > 0.0001 || Math.Abs(x.OriginalValue - Math.Round(x.OriginalValue)) > 0.0001 || x.Value is < 1 or > 20 || x.OriginalValue is < 1 or > 20))
-                { MessageBox.Show(this, "Live attribute writes require whole-number current and target values from 1 to 20.", "Live editor"); return; }
-                if (!uint.TryParse(_selectedPlayer.SourceId[5..], out var uid)) { MessageBox.Show(this, "The LIVE player identity could not be decoded.", "Live editor"); return; }
-                LiveMemoryEditService.BatchReceipt? receipt = null;
-                try
-                {
-                    var changes = changed.Select(x => new LiveMemoryEditService.Change(x.AttributeName, (int)Math.Round(x.OriginalValue), (int)Math.Round(x.Value))).ToArray();
-                    var pid = await Task.Run(LiveMemoryEditService.FindSupportedProcessId);
-                    var plan = await Task.Run(() => LiveMemoryEditService.StageBatch(pid, uid, _selectedPlayer.Name, changes));
-                    var preview = string.Join("\n", plan.Changes.Select(x => $"{x.FieldKey}: {x.ExpectedCurrentValue} → {x.TargetValue}"));
-                    var confirm = MessageBox.Show(this,
-                        $"LIVE FM27 ATTRIBUTE WRITE PREVIEW\n\n{_selectedPlayer.Name} · {plan.ProfileId}\n{preview}\n\nConfirm that every original value shown above matches this player's current Attribute screen in Football Manager. Save a new backup copy of your career first and use offline single-player only. Atlas will re-check the exact build, player UID/name and each original byte before writing, then read every field back.\n\nApply {plan.Changes.Count} field(s) to the running FM game now?",
-                        "FM Atlas · Live attribute safety check", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (confirm != MessageBoxResult.Yes) return;
-                    receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(plan));
-                    try
-                    {
-                        await RunDatabaseAsync(() => _database.SavePlayerAttributeBatchAsync(
-                            _selectedPlayer.SourceId,
-                            _selectedPlayer.Name,
-                            changed.Select(item => (item.AttributeName, item.Category, item.Value)).ToArray(),
-                            "FM27 live memory · read-back verified"));
-                        foreach (var item in changed)
-                            await RunDatabaseAsync(() => _database.UpdateLivePlayerFactAsync(uid, "attributes." + item.AttributeName, item.Value));
-                    }
-                    catch { await Task.Run(() => LiveMemoryEditService.UndoBatch(receipt)); throw; }
-                    foreach (var item in changed) item.OriginalValue = item.Value;
-                    AtlasLog.Info($"Live FM27 attribute batch read-back verified: uid={uid}; profile={plan.ProfileId}; fields={plan.Changes.Count}.");
-                    await ShowPlayerProfileAsync(_selectedPlayer);
-                    MessageBox.Show(this, $"FM27 accepted {plan.Changes.Count:N0} live attribute writes and Atlas read each one back successfully. Press Continue in Football Manager to refresh derived displays, then save your career to persist them.", "Live attributes verified", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex) { AtlasLog.Error("Live player attribute write failed or was blocked.", ex); MessageBox.Show(this, ex.Message, "FM Atlas · Live edit stopped", MessageBoxButton.OK, MessageBoxImage.Warning); }
-            });
-            liveSaveAttributes.Margin = new Thickness(0, 8, 0, 0); DockPanel.SetDock(liveSaveAttributes, Dock.Bottom); dock.Children.Add(liveSaveAttributes);
+            var liveAttributeApply = SoftButton("Live attribute Apply disabled in V8", (_, _) => { });
+            liveAttributeApply.IsEnabled = false;
+            liveAttributeApply.ToolTip = "Live memory writes are hard-disabled. The enabled editor saves changes to the FM Atlas database only.";
+            liveAttributeApply.Margin = new Thickness(0, 8, 0, 0);
+            DockPanel.SetDock(liveAttributeApply, Dock.Bottom);
+            dock.Children.Add(liveAttributeApply);
         }
         Grid.SetRow(editor, 1); root.Children.Add(editor); return root;
     }
