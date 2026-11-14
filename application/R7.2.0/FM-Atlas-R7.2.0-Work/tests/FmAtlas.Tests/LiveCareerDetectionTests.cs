@@ -186,4 +186,26 @@ public sealed class LiveCareerDetectionTests
 
         Assert.Empty(decoded);
     }
+
+    [Fact]
+    public void StaffPersonalityDecoderUsesTheHumanManagerIdentityShift()
+    {
+        var staffObject = new byte[0x540];
+        for (var i = 0; i < 8; i++)
+        {
+            staffObject[0x170 + i] = (byte)(i + 1);
+            staffObject[0x170 + 0x340 + i] = (byte)(13 + i);
+        }
+
+        var ordinaryStaff = StaffAttributeDecoder.DecodePersonality(staffObject, 0);
+        var humanManager = StaffAttributeDecoder.DecodePersonality(staffObject, 0x340);
+
+        Assert.Equal(8, ordinaryStaff.Count);
+        Assert.Equal(8, humanManager.Count);
+        Assert.Equal(1, ordinaryStaff["adaptability"]);
+        Assert.Equal(8, ordinaryStaff["controversy"]);
+        Assert.Equal(13, humanManager["adaptability"]);
+        Assert.Equal(20, humanManager["controversy"]);
+        Assert.Throws<ArgumentOutOfRangeException>(() => StaffAttributeDecoder.DecodePersonality(staffObject, 0x100));
+    }
 }
