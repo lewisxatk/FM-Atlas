@@ -257,9 +257,9 @@ public sealed class ScoutDatabase
             CREATE INDEX IF NOT EXISTS IX_Players_Name ON Players(Name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_Players_Club ON Players(Club COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_SourceName ON PlayerAttributes(SourceId, AttributeName);
-CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_SourceNameNoCase ON PlayerAttributes(SourceId, AttributeName COLLATE NOCASE);
-CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotPlayerGroupField ON FmsavePlayerFacts(SnapshotId, PlayerSourceId, FactGroup, FieldKey);
-CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotGroupFieldPlayer ON FmsavePlayerFacts(SnapshotId, FactGroup, FieldKey, PlayerSourceId);
+            CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_SourceNameNoCase ON PlayerAttributes(SourceId, AttributeName COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotPlayerGroupField ON FmsavePlayerFacts(SnapshotId, PlayerSourceId, FactGroup, FieldKey);
+            CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotGroupFieldPlayer ON FmsavePlayerFacts(SnapshotId, FactGroup, FieldKey, PlayerSourceId);
             CREATE INDEX IF NOT EXISTS IX_LivePlayers_Name ON LivePlayers(PlayerName COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_LivePlayers_ClubUid ON LivePlayers(ClubUid);
             CREATE INDEX IF NOT EXISTS IX_LiveClubs_Name ON LiveClubs(ClubName COLLATE NOCASE);
