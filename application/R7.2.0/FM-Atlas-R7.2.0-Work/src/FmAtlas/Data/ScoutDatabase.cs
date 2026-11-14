@@ -225,6 +225,7 @@ public sealed class ScoutDatabase
             );
             CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_Catalog ON FmsaveStatFacts(SnapshotId,FieldKey,TableName);
             CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_PlayerPeriod ON FmsaveStatFacts(SnapshotId,PlayerUid,TableName,PeriodKey);
+            CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_Search ON FmsaveStatFacts(SnapshotId,FieldKey COLLATE NOCASE,NumericValue,TableName,RowIndex);
             CREATE TABLE IF NOT EXISTS ExternalStatImportRuns (
               ImportId INTEGER PRIMARY KEY AUTOINCREMENT, FileName TEXT NOT NULL, ImportedUtc TEXT NOT NULL,
               RowsSeen INTEGER NOT NULL DEFAULT 0, RowsImported INTEGER NOT NULL DEFAULT 0, Notes TEXT NULL
@@ -2274,19 +2275,8 @@ public sealed class ScoutDatabase
         var snapshotValue = await snapshotCmd.ExecuteScalarAsync().ConfigureAwait(false);
         var snapshotId = snapshotValue is null || snapshotValue == DBNull.Value ? (int?)null : Convert.ToInt32(snapshotValue);
 
+        // Resolve player identities only for candidate stat rows returned by this search.
         var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club)>(StringComparer.OrdinalIgnoreCase);
-        if (snapshotId.HasValue)
-        {
-            var playerCmd = db.CreateCommand();
-            playerCmd.CommandText = "SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club FROM FmsavePlayerSnapshots s LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId WHERE s.SnapshotId=$s;";
-            playerCmd.Parameters.AddWithValue("$s", snapshotId.Value);
-            await using (var r = await playerCmd.ExecuteReaderAsync().ConfigureAwait(false))
-                while (await r.ReadAsync().ConfigureAwait(false)) playerMap[r.GetString(0)] = (r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3));
-        }
-        var extMap = db.CreateCommand();
-        extMap.CommandText = "SELECT DISTINCT PlayerIdentity,PlayerSourceId,PlayerName,Club FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns);";
-        await using (var r = await extMap.ExecuteReaderAsync().ConfigureAwait(false))
-            while (await r.ReadAsync().ConfigureAwait(false)) playerMap[r.GetString(0)] = (r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3));
 
         var rowsByIdentity = new Dictionary<string, StatWorkingRow>(StringComparer.OrdinalIgnoreCase);
         var extra = db.CreateCommand();
@@ -2298,16 +2288,70 @@ public sealed class ScoutDatabase
         var statIndexCount = 0;
         if (snapshotId.HasValue)
         {
-            var countCmd = db.CreateCommand(); countCmd.CommandText = "SELECT COUNT(*) FROM FmsaveStatFacts WHERE SnapshotId=$s;"; countCmd.Parameters.AddWithValue("$s", snapshotId.Value);
+            var countCmd = db.CreateCommand();
+            countCmd.CommandText = "SELECT EXISTS(SELECT 1 FROM FmsaveStatFacts WHERE SnapshotId=$s LIMIT 1);";
+            countCmd.Parameters.AddWithValue("$s", snapshotId.Value);
             statIndexCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync().ConfigureAwait(false));
         }
         if (statIndexCount > 0 && criteria.Count > 0)
         {
+            // Filter and group within SQLite so large career stat indexes do not need to be
+            // copied into a large in-memory dictionary before the user’s conditions are applied.
             var indexedRows = db.CreateCommand();
             var keyParameters = new List<string>();
-            for (var i = 0; i < criteria.Count; i++) { var name = "$metric" + i; keyParameters.Add(name); indexedRows.Parameters.AddWithValue(name, criteria[i].Key); }
-            indexedRows.CommandText = $"SELECT TableName,RowIndex,PlayerUid,PeriodKey,Minutes,FieldKey,NumericValue FROM FmsaveStatFacts WHERE SnapshotId=$s AND FieldKey COLLATE NOCASE IN ({string.Join(",", keyParameters)}) ORDER BY TableName,RowIndex;";
+            var criterionPredicates = new List<string>();
+            var metricExpression = per90 ? "(NumericValue * 90.0 / NULLIF(Minutes, 0))" : "NumericValue";
+            for (var i = 0; i < criteria.Count; i++)
+            {
+                var criterion = criteria[i];
+                var keyName = "$metric" + i;
+                keyParameters.Add(keyName);
+                indexedRows.Parameters.AddWithValue(keyName, criterion.Key);
+
+                var bounds = new List<string>();
+                if (criterion.Minimum.HasValue)
+                {
+                    var parameter = "$minimum" + i;
+                    bounds.Add(metricExpression + " >= " + parameter);
+                    indexedRows.Parameters.AddWithValue(parameter, criterion.Minimum.Value);
+                }
+                if (criterion.Maximum.HasValue)
+                {
+                    var parameter = "$maximum" + i;
+                    bounds.Add(metricExpression + " <= " + parameter);
+                    indexedRows.Parameters.AddWithValue(parameter, criterion.Maximum.Value);
+                }
+                criterionPredicates.Add("(FieldKey COLLATE NOCASE = " + keyName + " AND " + string.Join(" AND ", bounds) + ")");
+            }
+
+            var matchedCountExpression = string.Join(" + ",
+                criterionPredicates.Select(predicate => "CASE WHEN " + predicate + " THEN 1 ELSE 0 END"));
             indexedRows.Parameters.AddWithValue("$s", snapshotId!.Value);
+            indexedRows.Parameters.AddWithValue("$requiredMatches", matchAll ? criteria.Count : 1);
+            if (per90) indexedRows.Parameters.AddWithValue("$minimumMinutes", minMinutes);
+
+            indexedRows.CommandText = $"""
+                WITH matched_rows AS (
+                    SELECT TableName,RowIndex,PlayerUid,PeriodKey,Minutes
+                    FROM FmsaveStatFacts
+                    WHERE SnapshotId=$s
+                      AND FieldKey COLLATE NOCASE IN ({string.Join(",", keyParameters)})
+                      {(per90 ? "AND Minutes >= $minimumMinutes" : string.Empty)}
+                    GROUP BY TableName,RowIndex,PlayerUid,PeriodKey,Minutes
+                    HAVING ({matchedCountExpression}) >= $requiredMatches
+                )
+                SELECT f.TableName,f.RowIndex,f.PlayerUid,f.PeriodKey,f.Minutes,f.FieldKey,f.NumericValue
+                FROM FmsaveStatFacts f
+                INNER JOIN matched_rows m
+                    ON m.TableName=f.TableName
+                   AND m.RowIndex=f.RowIndex
+                   AND m.PlayerUid=f.PlayerUid
+                   AND m.PeriodKey=f.PeriodKey
+                WHERE f.SnapshotId=$s
+                  AND f.FieldKey COLLATE NOCASE IN ({string.Join(",", keyParameters)})
+                ORDER BY f.TableName,f.RowIndex,f.FieldKey;
+                """;
+
             await using var indexReader = await indexedRows.ExecuteReaderAsync().ConfigureAwait(false);
             while (await indexReader.ReadAsync().ConfigureAwait(false))
             {
@@ -2385,6 +2429,32 @@ public sealed class ScoutDatabase
                 }
                 catch { }
             }
+        }
+
+        var requiredUids = rowsByIdentity.Values.Select(x => x.PlayerUid)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        foreach (var uidChunk in requiredUids.Chunk(500))
+        {
+            var placeholders = uidChunk.Select((_, i) => "$uid" + i).ToArray();
+            if (snapshotId.HasValue)
+            {
+                var playerCmd = db.CreateCommand();
+                playerCmd.CommandText = $"SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club FROM FmsavePlayerSnapshots s LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId WHERE s.SnapshotId=$s AND s.PlayerUid IN ({string.Join(",", placeholders)});";
+                playerCmd.Parameters.AddWithValue("$s", snapshotId.Value);
+                for (var i = 0; i < uidChunk.Length; i++) playerCmd.Parameters.AddWithValue(placeholders[i], uidChunk[i]);
+                await using var playerReader = await playerCmd.ExecuteReaderAsync().ConfigureAwait(false);
+                while (await playerReader.ReadAsync().ConfigureAwait(false))
+                    playerMap[playerReader.GetString(0)] = (playerReader.GetString(1), playerReader.GetString(2), playerReader.IsDBNull(3) ? null : playerReader.GetString(3));
+            }
+
+            var externalMap = db.CreateCommand();
+            externalMap.CommandText = $"SELECT DISTINCT PlayerIdentity,PlayerSourceId,PlayerName,Club FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns) AND PlayerIdentity IN ({string.Join(",", placeholders)});";
+            for (var i = 0; i < uidChunk.Length; i++) externalMap.Parameters.AddWithValue(placeholders[i], uidChunk[i]);
+            await using var externalReader = await externalMap.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await externalReader.ReadAsync().ConfigureAwait(false))
+                playerMap[externalReader.GetString(0)] = (externalReader.GetString(1), externalReader.GetString(2), externalReader.IsDBNull(3) ? null : externalReader.GetString(3));
         }
 
         var results = new List<StatSearchResult>();

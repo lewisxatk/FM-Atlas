@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FmAtlas.Data;
+using FmAtlas.Models;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
@@ -117,13 +118,62 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal("Fixture Player", await ScalarStringAsync(databasePath, "SELECT Name FROM Players WHERE SourceId='FMSAVE:FM27:test-db:1001';"));
     }
 
+    [Fact]
+    public async Task IndexedStatSearchAppliesAllAnyAndPer90ConditionsBeforeReturningRows()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "indexed-stats", playerManifestCount: 1, includeContractRow: false, includeSeasonStatsRow: true);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        var allMatch = await database.SearchSeasonStatCriteriaAsync(
+            new[]
+            {
+                new StatFilterCriterion("goals", "Goals", 10, null),
+                new StatFilterCriterion("assists", "Assists", 8, null)
+            }, per90: false, minimumMinutes: 450, limit: 500, matchAll: true);
+
+        var anyMatch = await database.SearchSeasonStatCriteriaAsync(
+            new[]
+            {
+                new StatFilterCriterion("goals", "Goals", 11, null),
+                new StatFilterCriterion("assists", "Assists", 8, null)
+            }, per90: false, minimumMinutes: 450, limit: 500, matchAll: false);
+
+        var noMatch = await database.SearchSeasonStatCriteriaAsync(
+            new[]
+            {
+                new StatFilterCriterion("goals", "Goals", 11, null),
+                new StatFilterCriterion("assists", "Assists", 9, null)
+            }, per90: false, minimumMinutes: 450, limit: 500, matchAll: false);
+
+        var per90Match = await database.SearchSeasonStatCriteriaAsync(
+            new[]
+            {
+                new StatFilterCriterion("goals", "Goals per 90", 0.99, null),
+                new StatFilterCriterion("assists", "Assists per 90", 0.79, null)
+            }, per90: true, minimumMinutes: 600, limit: 500, matchAll: true);
+
+        Assert.Single(allMatch);
+        Assert.Equal("Fixture Player", allMatch[0].Name);
+        Assert.Contains("Goals: 10", allMatch[0].ValuesSummary);
+        Assert.Single(anyMatch);
+        Assert.Empty(noMatch);
+        Assert.Single(per90Match);
+        Assert.Contains("Goals per 90: 1", per90Match[0].ValuesSummary);
+        Assert.Contains("Assists per 90: 0.8", per90Match[0].ValuesSummary);
+    }
+
     private static string CreateBundle(
         string root,
         string name,
         int playerManifestCount,
         bool includeContractRow,
         bool malformedContractRow = false,
-        bool includeInvalidStaffRow = false)
+        bool includeInvalidStaffRow = false,
+        bool includeSeasonStatsRow = false)
     {
         var folder = Path.Combine(root, name);
         Directory.CreateDirectory(folder);
@@ -133,7 +183,8 @@ public sealed class FmsaveNdjsonImportTests
             ["players"] = playerManifestCount,
             ["staff"] = includeInvalidStaffRow ? 1 : 0,
             ["clubs"] = 0,
-            ["contracts"] = includeContractRow ? 1 : 0
+            ["contracts"] = includeContractRow ? 1 : 0,
+            ["player_season_stats"] = includeSeasonStatsRow ? 1 : 0
         };
         var manifest = new
         {
@@ -182,6 +233,19 @@ public sealed class FmsaveNdjsonImportTests
             File.WriteAllText(contractPath, malformedContractRow
                 ? "{ this is not valid json }" + Environment.NewLine
                 : JsonSerializer.Serialize(new { player_uid = "player-uid-1001", wage = 10000 }) + Environment.NewLine);
+        }
+
+        if (includeSeasonStatsRow)
+        {
+            var stats = new
+            {
+                player_uid = "1001",
+                season = "2026/27",
+                minutes_played = 900,
+                goals = 10,
+                assists = 8
+            };
+            File.WriteAllText(Path.Combine(folder, "player_season_stats.ndjson"), JsonSerializer.Serialize(stats) + Environment.NewLine);
         }
 
         return folder;
