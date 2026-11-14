@@ -1,3 +1,5 @@
+using FmAtlas.Models;
+
 namespace FmAtlas.Services;
 
 public sealed record PlayerStatSample(
