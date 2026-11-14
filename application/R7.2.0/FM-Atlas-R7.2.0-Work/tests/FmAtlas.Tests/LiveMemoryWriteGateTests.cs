@@ -6,8 +6,8 @@ namespace FmAtlas.Tests;
 public sealed class LiveMemoryWriteGateTests
 {
     [Fact]
-    public void LiveMemoryWritesAreDisabledInV10PreTestingBuild()
-        => Assert.False(LiveMemoryEditService.LiveWritesEnabled);
+    public void LiveMemoryWritesAreEnabledOnlyForTheExplicitlyMappedFieldCatalogue()
+        => Assert.True(LiveMemoryEditService.LiveWritesEnabled);
 
     [Theory]
     [InlineData("position.gk")]
@@ -51,35 +51,20 @@ public sealed class LiveMemoryWriteGateTests
         => Assert.True(LiveMemoryEditService.SupportsPlayerFieldPreview(field));
 
     [Theory]
-    [InlineData("consistency")]
-    [InlineData("important_matches")]
-    [InlineData("injury_proneness")]
-    [InlineData("dirtiness")]
-    [InlineData("versatility")]
-    [InlineData("contract.wage")]
+    [InlineData("nation")]
+    [InlineData("date_of_birth")]
     [InlineData("club.finance.balance")]
-    public void UnwitnessedOrUnresolvedFieldsRemainOutsidePlayerPreview(string field)
+    [InlineData("tactical.effectiveness")]
+    [InlineData("contract.clause")]
+    public void PointerBackedOrUnresolvedFieldsRemainOutsidePlayerPreview(string field)
         => Assert.False(LiveMemoryEditService.SupportsPlayerFieldPreview(field));
 
     [Fact]
-    public void ApplyBatchIsBlockedBeforeAttemptingToOpenTheGameProcess()
+    public void ExpiredPlansAreRejectedBeforeAnyProcessIsOpened()
     {
-        var exception = Assert.Throws<InvalidOperationException>(
-            () => LiveMemoryEditService.ApplyBatch(CreatePlan()));
-
-        Assert.Contains("hard-disabled", exception.Message.ToLowerInvariant());
-    }
-
-    [Fact]
-    public void UndoBatchIsBlockedBeforeAttemptingToOpenTheGameProcess()
-    {
-        var receipt = new LiveMemoryEditService.BatchReceipt(
-            CreatePlan(), DateTime.UtcNow, ReadBackVerified: true);
-
-        var exception = Assert.Throws<InvalidOperationException>(
-            () => LiveMemoryEditService.UndoBatch(receipt));
-
-        Assert.Contains("hard-disabled", exception.Message.ToLowerInvariant());
+        var plan = CreatePlan() with { CreatedUtc = DateTime.UtcNow.AddMinutes(-3) };
+        var exception = Assert.Throws<InvalidOperationException>(() => LiveMemoryEditService.ApplyBatch(plan));
+        Assert.Contains("expired", exception.Message.ToLowerInvariant());
     }
 
     private static LiveMemoryEditService.BatchPlan CreatePlan()
