@@ -14,7 +14,9 @@ public sealed record LivePlayerRecord(
     int? CurrentAbility = null, int? PotentialAbility = null,
     IReadOnlyDictionary<string, double>? Attributes = null,
     IReadOnlyDictionary<string, double>? Personality = null,
-    IReadOnlyDictionary<string, double>? PositionRatings = null);
+    IReadOnlyDictionary<string, double>? PositionRatings = null,
+    string? NationName = null,
+    uint? NationUid = null);
 public sealed record LiveStaffRecord(
     uint Uid, string Name, int ArrayIndex, ulong Address, bool IsHumanManager,
     DateTime? DateOfBirth, int? Age, string? NationName, uint? NationUid,
@@ -36,6 +38,7 @@ public static class LiveDataImporter
 {
     private const uint QueryInformation = 0x0400, VmRead = 0x0010;
     private static readonly string[] PositionKeys = { "GK", "SW", "DL", "DC", "DR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST", "WBL", "WBR" };
+    private static readonly string[] PersonalityKeys = { "adaptability", "ambition", "loyalty", "pressure", "professionalism", "sportsmanship", "temperament", "controversy" };
     [DllImport("kernel32.dll", SetLastError = true)] private static extern nint OpenProcess(uint access, bool inherit, int pid);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadProcessMemory(nint process, nint address, [Out] byte[] buffer, nuint size, out nuint read);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool CloseHandle(nint handle);
@@ -133,6 +136,9 @@ public static class LiveDataImporter
 
                 var players = new List<LivePlayerRecord>(playerBounds.Count);
                 var seenPlayerUids = new HashSet<uint>();
+                // Cache the player identity-block shift by class/vtable, as FMLibreEditor does:
+                // plain players use 0; player-coach objects use the documented +0xF8 shift.
+                var playerIdentityShifts = new Dictionary<ulong, int>();
                 var unnamed = 0; var unlinked = 0;
                 progress?.Report($"Reading player identities, CA/PA and attributes · 0/{playerBounds.Count:N0}");
                 for (var i = 0; i < playerBounds.Count; i++)
@@ -146,14 +152,35 @@ public static class LiveDataImporter
                     {
                         var address = U64(handle, (nint)(playerBounds.Data + (ulong)i * 8));
                         if (!Pointer(address)) { unnamed++; continue; }
-                        var common = ReadNameSub(handle, address + 0x2E8);
-                        var first = ReadNameSub(handle, address + 0x2D8);
-                        var last = ReadNameSub(handle, address + 0x2E0);
+                        var vtable = U64(handle, (nint)address);
+                        if (!playerIdentityShifts.TryGetValue(vtable, out var playerShift))
+                        {
+                            playerShift = DetectPlayerIdentityShift(handle, address);
+                            playerIdentityShifts[vtable] = playerShift;
+                        }
+                        var common = ReadNameSub(handle, address + (ulong)(0x2E8 + playerShift));
+                        var first = ReadNameSub(handle, address + (ulong)(0x2D8 + playerShift));
+                        var last = ReadNameSub(handle, address + (ulong)(0x2E0 + playerShift));
+                        var fullName = TryReadFmName(handle, address + (ulong)(0x2C8 + playerShift));
                         var name = !string.IsNullOrWhiteSpace(common) ? common : Join(first, last);
+                        if (string.IsNullOrWhiteSpace(name)) name = fullName;
                         if (string.IsNullOrWhiteSpace(name)) { unnamed++; continue; }
-                        var uid = BitConverter.ToUInt32(Read(handle, (nint)(address + 0x294), 4), 0);
+                        var uid = BitConverter.ToUInt32(Read(handle, (nint)(address + (ulong)(0x294 + playerShift)), 4), 0);
                         if (uid == 0 || !seenPlayerUids.Add(uid)) { unnamed++; continue; }
-                        var dob = TryReadPlayerDob(handle, moduleBase, address);
+                        var dob = TryReadPlayerDob(handle, address, playerShift);
+                        string? nationName = null;
+                        uint? nationUid = null;
+                        try
+                        {
+                            var nationAddress = U64(handle, (nint)(address + (ulong)(0x2F0 + playerShift)));
+                            if (Pointer(nationAddress))
+                            {
+                                nationUid = BitConverter.ToUInt32(Read(handle, (nint)(nationAddress + 0x0C), 4), 0);
+                                nationName = ReadLengthString(handle, U64(handle, (nint)(nationAddress + 0x18)), 96);
+                                if (nationUid == 0 || nationUid == uint.MaxValue) nationUid = null;
+                            }
+                        }
+                        catch { /* Preserve a valid player identity when nationality is unavailable. */ }
                         string? teamAddress = null; uint? clubUid = null; var relationshipVerified = false;
                         try
                         {
@@ -184,16 +211,21 @@ public static class LiveDataImporter
                             var shown = (raw + 2) / 5;
                             if (raw <= 98 && shown is >= 1 and <= 20) attributes[field.Key] = shown;
                         }
-                        // Personality fields sit in the person block, which is shifted for player-coach objects.
-                        // Until the current build's player-coach class discriminator is validated, don't guess.
+                        // Eight personality ratings sit in the person block. Resolve the same
+                        // per-class +0xF8 shift used for names, DOB and nation; keep only 1–20 values.
                         var personality = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                        for (var keyIndex = 0; keyIndex < PersonalityKeys.Length; keyIndex++)
+                        {
+                            var value = inline[0x2F8 + playerShift + keyIndex];
+                            if (value is >= 1 and <= 20) personality[PersonalityKeys[keyIndex]] = value;
+                        }
                         var positions = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
                         for (var pos = 0; pos < PositionKeys.Length; pos++)
                         {
                             var shown = inline[0x150 + pos];
                             if (shown is >= 1 and <= 20) positions[PositionKeys[pos]] = shown;
                         }
-                        players.Add(new LivePlayerRecord(uid, name, teamAddress, clubUid, i, address, true, relationshipVerified, dob, "Unknown", "No independently verified FM27 generated-player flag is currently mapped.", ca, pa, attributes, personality, positions));
+                        players.Add(new LivePlayerRecord(uid, name, teamAddress, clubUid, i, address, true, relationshipVerified, dob, "Unknown", "No independently verified FM27 generated-player flag is currently mapped.", ca, pa, attributes, personality, positions, nationName, nationUid));
                     }
                     catch (OperationCanceledException) { throw; }
                     catch { unnamed++; }
@@ -494,20 +526,51 @@ public static class LiveDataImporter
         catch { return null; }
     }
 
-    private static DateTime? TryReadPlayerDob(nint handle, ulong moduleBase, ulong playerAddress)
+    private static int DetectPlayerIdentityShift(nint handle, ulong playerAddress)
     {
-        // Public FM27 layout research identifies the player-coach class vtable separately.
-        // Only use the shifted DOB field when that exact class is present; never guess from bytes.
-        ulong offset = 0x310;
+        static bool NameLike(string? value)
+            => !string.IsNullOrWhiteSpace(value)
+               && value.Count(char.IsLetter) >= 2
+               && value.Length <= 96
+               && !value.Any(char.IsControl);
+
+        int Score(int shift)
+        {
+            var score = 0;
+            foreach (var offset in new[] { 0x2D8, 0x2E0, 0x2E8 })
+            {
+                var value = ReadNameSub(handle, playerAddress + (ulong)(offset + shift));
+                if (NameLike(value)) score++;
+            }
+            var full = TryReadFmName(handle, playerAddress + (ulong)(0x2C8 + shift));
+            if (NameLike(full)) score++;
+            return score;
+        }
+
+        // The plain identity block wins ties. A player-coach is shifted only when at least
+        // two name witnesses decode better from the documented +0xF8 block.
+        var plain = Score(0);
+        var shifted = Score(0xF8);
+        return shifted >= 2 && shifted > plain ? 0xF8 : 0;
+    }
+
+    private static string? TryReadFmName(nint handle, ulong pointerAddress)
+    {
         try
         {
-            var vtable = U64(handle, (nint)playerAddress);
-            if (vtable == moduleBase + 0x4F75A08) offset = 0x408;
+            var value = U64(handle, (nint)pointerAddress);
+            return ReadLengthString(handle, value, 128);
         }
         catch { return null; }
+    }
+
+    private static DateTime? TryReadPlayerDob(nint handle, ulong playerAddress, int playerShift)
+    {
+        // The person-block location was resolved from the object's decoded name fields,
+        // not from a stale absolute vtable RVA. FM27 player-coaches shift by +0xF8.
         try
         {
-            var raw = Read(handle, (nint)(playerAddress + offset), 4);
+            var raw = Read(handle, (nint)(playerAddress + (ulong)(0x310 + playerShift)), 4);
             var day = (ushort)(BitConverter.ToUInt16(raw, 0) & 0x01FF); // high bits are date flags
             var year = BitConverter.ToUInt16(raw, 2);
             if (year < 1901 || year > 2100) return null; // 1900 is FM's empty-date sentinel
