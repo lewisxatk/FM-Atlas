@@ -40,11 +40,23 @@ public static class LiveDataImporter
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadProcessMemory(nint process, nint address, [Out] byte[] buffer, nuint size, out nuint read);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool CloseHandle(nint handle);
 
-    public static LiveImportPayload Extract(LiveCareerProbe expectedSession)
+    public static LiveImportPayload Extract(
+        LiveCareerProbe expectedSession,
+        CancellationToken cancellationToken = default,
+        IProgress<string>? progress = null,
+        TimeSpan? maximumDuration = null)
     {
         ArgumentNullException.ThrowIfNull(expectedSession);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!expectedSession.IsCareerLoaded || expectedSession.ProcessId <= 0 || expectedSession.SaveLoadCounter == 0)
             throw new InvalidOperationException("FM27 has not finished loading a supported career. No live data was imported.");
+
+        // Hard time bound plus a user cancellation token. Cancellation is checked at
+        // entity boundaries so a large save cannot keep reading indefinitely.
+        using var scanDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        scanDeadline.CancelAfter(maximumDuration ?? TimeSpan.FromMinutes(2));
+        var scanToken = scanDeadline.Token;
+        progress?.Report("Checking FM27 build and save generation…");
         // Attach only to the exact process and career generation previously observed by the read-only monitor.
         using var process = Process.GetProcessById(expectedSession.ProcessId);
             ProcessModule module;
@@ -84,8 +96,14 @@ public static class LiveDataImporter
                 var clubs = new List<LiveClubRecord>();
                 var clubByAddress = new Dictionary<ulong, LiveClubRecord>();
                 var seenClubUids = new HashSet<uint>();
+                progress?.Report($"Reading club identities · 0/{clubBounds.Count:N0}");
                 for (var i = 0; i < clubBounds.Count; i++)
                 {
+                    if ((i & 255) == 0)
+                    {
+                        scanToken.ThrowIfCancellationRequested();
+                        progress?.Report($"Reading club identities · {i:N0}/{clubBounds.Count:N0}");
+                    }
                     try
                     {
                         var address = U64(handle, (nint)(clubBounds.Data + (ulong)i * 8));
@@ -98,20 +116,32 @@ public static class LiveDataImporter
                         clubByAddress[address] = record;
                         if (seenClubUids.Add(uid)) clubs.Add(record);
                     }
+                    catch (OperationCanceledException) { throw; }
                     catch { /* Keep scanning; one invalid entity must not abort a full import. */ }
                 }
+                scanToken.ThrowIfCancellationRequested();
+                progress?.Report($"Club identities read · {clubs.Count:N0}");
                 if (clubs.Count < 500) throw new InvalidOperationException($"Safety check failed: only {clubs.Count:N0} club names were decoded from {clubBounds.Count:N0} slots. No import was committed.");
 
                 // Staff, including the controlled human manager, is read from FM's staff pointer array.
                 // The 0x340 identity-block shift follows the independently documented FM27 staff layout.
-                var staff = ReadStaff(handle, staffBounds, clubByAddress, gameDate);
+                progress?.Report($"Reading staff and human-manager identities · 0/{staffBounds.Count:N0}");
+                var staff = ReadStaff(handle, staffBounds, clubByAddress, gameDate, scanToken,
+                    (done, total) => progress?.Report($"Reading staff and human-manager identities · {done:N0}/{total:N0}"));
+                scanToken.ThrowIfCancellationRequested();
                 if (staff.Count < 500) throw new InvalidOperationException($"Safety check failed: only {staff.Count:N0} staff identities were decoded from {staffBounds.Count:N0} slots. No live import was committed.");
 
                 var players = new List<LivePlayerRecord>(playerBounds.Count);
                 var seenPlayerUids = new HashSet<uint>();
                 var unnamed = 0; var unlinked = 0;
+                progress?.Report($"Reading player identities, CA/PA and attributes · 0/{playerBounds.Count:N0}");
                 for (var i = 0; i < playerBounds.Count; i++)
                 {
+                    if ((i & 255) == 0)
+                    {
+                        scanToken.ThrowIfCancellationRequested();
+                        progress?.Report($"Reading player identities, CA/PA and attributes · {i:N0}/{playerBounds.Count:N0}");
+                    }
                     try
                     {
                         var address = U64(handle, (nint)(playerBounds.Data + (ulong)i * 8));
@@ -165,8 +195,11 @@ public static class LiveDataImporter
                         }
                         players.Add(new LivePlayerRecord(uid, name, teamAddress, clubUid, i, address, true, relationshipVerified, dob, "Unknown", "No independently verified FM27 generated-player flag is currently mapped.", ca, pa, attributes, personality, positions));
                     }
+                    catch (OperationCanceledException) { throw; }
                     catch { unnamed++; }
                 }
+                scanToken.ThrowIfCancellationRequested();
+                progress?.Report($"Player scan complete · {players.Count:N0} named players");
                 if (players.Count < 30_000) throw new InvalidOperationException($"Safety check failed: only {players.Count:N0} named player records were extracted from {playerBounds.Count:N0} slots. Expected a full FM27 player array; no import was performed.");
                 var attributeCoverage = players.Count(p => p.Attributes?.Count >= 35);
                 if (attributeCoverage < Math.Min(10_000, players.Count / 3))
@@ -177,8 +210,10 @@ public static class LiveDataImporter
                 var humanManagers = staff.Where(x => x.IsHumanManager).ToArray();
                 if (humanManagers.Length > 1)
                     AtlasLog.Warning($"The live staff array contains {humanManagers.Length} human-manager records; Atlas will not silently choose between them.");
+                scanToken.ThrowIfCancellationRequested();
                 if (ReadSaveLoadCounter(handle, moduleBase, profile) != saveLoadCounter)
                     throw new InvalidOperationException("Football Manager loaded or unloaded a career while Atlas was reading it. The partial scan was discarded; Atlas will reconnect to the current career.");
+                progress?.Report("FM27 career scan validated · committing the read-only snapshot…");
                 AtlasLog.Info($"Matched FM27 live read profile: {profile.Id}; fingerprint={profile.Fingerprint}; gameDate={gameDate?.ToString("yyyy-MM-dd") ?? "unavailable"}; players={players.Count}; staff={staff.Count}; humanManagers={humanManagers.Length}; attributeCoverage={attributeCoverage}; clubs={clubs.Count}; saveLoadCounter={saveLoadCounter}.");
                 return new LiveImportPayload(version, profile.Fingerprint, clubs, players, playerBounds.Count, unnamed, unlinked, gameDate,
                     saveLoadCounter, staffBounds.Count, staff);
@@ -241,7 +276,9 @@ public static class LiveDataImporter
         nint handle,
         (ulong Data, int Count) bounds,
         IReadOnlyDictionary<ulong, LiveClubRecord> clubs,
-        DateTime? gameDate)
+        DateTime? gameDate,
+        CancellationToken cancellationToken,
+        Action<int, int>? reportProgress = null)
     {
         var staff = new List<LiveStaffRecord>(bounds.Count);
         var seen = new HashSet<uint>();
@@ -251,6 +288,11 @@ public static class LiveDataImporter
         var shiftByClass = new Dictionary<ulong, int>();
         for (var i = 0; i < bounds.Count; i++)
         {
+            if ((i & 255) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                reportProgress?.Invoke(i, bounds.Count);
+            }
             try
             {
                 var address = U64(handle, (nint)(bounds.Data + (ulong)i * 8));
@@ -340,8 +382,11 @@ public static class LiveDataImporter
                 if (decoded is not null && seen.Add(decoded.Uid))
                     staff.Add(decoded);
             }
+            catch (OperationCanceledException) { throw; }
             catch { /* One corrupt or unloading pointer must not abort the remainder of the read-only scan. */ }
         }
+        cancellationToken.ThrowIfCancellationRequested();
+        reportProgress?.Invoke(bounds.Count, bounds.Count);
         return staff;
     }
 
