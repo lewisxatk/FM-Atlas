@@ -79,7 +79,7 @@ public sealed class LiveMemoryWriteGateTests
             "date_of_birth", "contract.unhappiness", "loan.expires", "loan.option_fee",
             "position.gk", "position.amc", "personality.professionalism",
             "left_foot", "right_foot", "trait.0", "trait.63",
-            "contract.wage", "contract.expires", "contract.squad_number",
+            "transfer_value", "contract.wage", "contract.signed", "contract.expires", "contract.joined", "contract.type", "contract.squad_number",
             "contract.squad_status", "contract.transfer_listed", "contract.loan_listed",
             "contract.loyalty_bonus", "contract.happiness", "contract.playing_time_happiness"
         })
@@ -95,9 +95,12 @@ public sealed class LiveMemoryWriteGateTests
         {
             "ability.current_ability", "ability.potential_ability", "reputation.world", "date_of_birth",
             "attribute.goalkeeping", "attribute.judging_ability", "attribute.working_with_youngsters",
-            "attribute.authority", "personality.professionalism", "contract.wage", "contract.expires"
+            "attribute.authority", "personality.professionalism", "contract.wage"
         })
             Assert.Contains(key, keys);
+        Assert.DoesNotContain("contract.expires", keys);
+        Assert.DoesNotContain("contract.signed", keys);
+        Assert.DoesNotContain("contract.joined", keys);
     }
 
     [Fact]
@@ -109,14 +112,26 @@ public sealed class LiveMemoryWriteGateTests
         {
             "reputation", "facilities.training", "facilities.youth_facilities",
             "facilities.youth_coaching", "facilities.youth_recruitment", "facilities.corporate",
+            "club.season_tickets", "club.social_media",
+            "supporters.mix.hardcore", "supporters.mix.fair_weather",
+            "supporters.trait.loyalty", "supporters.trait.expectations",
             "finance.balance", "finance.transfer_budget", "finance.wage_budget",
-            "finance.total_wage_budget", "stadium.capacity", "stadium.seating",
-            "stadium.used", "stadium.expansion"
+            "finance.total_wage_budget", "finance.ticket_price_pence",
+            "stadium.capacity", "stadium.seating", "stadium.used", "stadium.expansion"
         })
             Assert.Contains(key, keys);
     }
 
     [Theory]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "transfer_value")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.signed")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.joined")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.type")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "club.season_tickets")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "club.social_media")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "supporters.mix.core")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "supporters.trait.passion")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "finance.ticket_price_pence")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.consistency")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "trait.63")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.transfer_listed")]
