@@ -85,7 +85,7 @@ public sealed class ScoutingEngineImportTests
         var players = Enumerable.Range(0, 6).Select(i =>
         {
             var p = Make("p" + i, i * 10, 900);
-            var metrics = new Dictionary<string, double?>(p.Metrics)
+            var metrics = p.Metrics.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase)
             {
                 ["market_value"] = (i + 1) * 100_000,
                 ["age"] = 20 + i
