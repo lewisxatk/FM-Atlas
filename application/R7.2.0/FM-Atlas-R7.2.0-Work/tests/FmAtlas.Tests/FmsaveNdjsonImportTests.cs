@@ -374,6 +374,23 @@ public sealed class FmsaveNdjsonImportTests
             }
         }
 
+        // Hidden and personality rows must never affect footballing similarity vectors.
+        await using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            foreach (var sourceId in new[] { "FMSAVE:FM27:test-db:1001", "LOCAL:similar:close", "LOCAL:similar:far" })
+            {
+                var hidden = db.CreateCommand();
+                hidden.CommandText = "INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc) VALUES($id,'Consistency','attributes:Hidden',20,'2026-11-14');";
+                hidden.Parameters.AddWithValue("$id", sourceId);
+                await hidden.ExecuteNonQueryAsync();
+                var personality = db.CreateCommand();
+                personality.CommandText = "INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc) VALUES($id,'Professionalism','personality',20,'2026-11-14');";
+                personality.Parameters.AddWithValue("$id", sourceId);
+                await personality.ExecuteNonQueryAsync();
+            }
+        }
+
         var matches = await database.FindSimilarPlayersAsync(
             "FMSAVE:FM27:test-db:1001", limit: 10, minimumCommonAttributes: 2, minimumAnchorCoverage: 1);
 
