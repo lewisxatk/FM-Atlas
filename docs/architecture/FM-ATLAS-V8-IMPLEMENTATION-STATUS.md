@@ -2,7 +2,7 @@
 
 **Branch:** `rebuild/v8-full-product-rebuild`  
 **Product identity:** FM Atlas V8 · Atlas Liquid  
-**Status:** integrated source milestone. It has not yet passed a clean Windows Release build, startup test or Football Manager acceptance test.
+**Status:** integrated source milestone. A hosted Windows .NET 8 Release build and self-contained win-x64 package succeeded on 14 November 2026 (GitHub Actions run #79, commit `18d32e2d`). The WPF application has not yet been launched on a real Windows PC and Football Manager acceptance tests have not yet run.
 
 ## Implemented in this V8 source pass
 
@@ -27,8 +27,10 @@
 
 ## Build verification
 
-- First hosted Windows Release attempt: .NET 8 setup and solution restore passed. Compilation failed with seven errors: four `RoutedEventHandler` callback signatures in the Advanced Search hub and three ambiguous `Path` references caused by the WPF Shapes import.
-- Source fixes were committed in `80b4160d` and `b35432d8`. A second Windows Release build is pending; do not mark the build verified until restore, compile and publish all pass.
+- First hosted Windows Release attempt found seven compile errors: four Advanced Search `RoutedEventHandler` callback signatures and three ambiguous `Path` references caused by the WPF Shapes import. The event handlers and explicit `System.IO.Path` alias were fixed in `80b4160d` and `b35432d8`.
+- **Successful run #79:** https://github.com/lewisxatk/FM-Atlas/actions/runs/43534383967 — .NET 8 install, solution restore, Release compilation, self-contained Windows x64 publish and artifact upload all passed for commit `18d32e2d5fbe0f1549da6d9d55391414e0b05bdf`.
+- Artifact: `FM-Atlas-V8-win-x64` (GitHub Actions artifact ID `14088498868`, 68,725,071 bytes including the artifact wrapper). The extracted product ZIP contains `FmAtlas.exe` (x64 PE), `tools/Export-FMAtlas-Fmsave.py`, `Setup-FMAtlas-Save-Bridge.ps1`, and a PDB. Product ZIP SHA-256: `4a16f815150e41855b2b1d5dba884c6878ac5a69f44b8ae44ebea8570b2798e2`.
+- This verifies compile and package only. Startup, visual layout, import, runtime database behaviour and FM performance have not been tested on a real Windows PC; V8 is not release-ready yet.
 
 ## Safety policy
 
