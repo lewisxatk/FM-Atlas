@@ -12,7 +12,8 @@ public static class FmsaveBridgeService
     public static async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
         var start = new ProcessStartInfo("py") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-        start.ArgumentList.Add("-3"); start.ArgumentList.Add("-c"); start.ArgumentList.Add("import fmsave; print('ready')");
+        start.ArgumentList.Add("-3"); start.ArgumentList.Add("-c");
+        start.ArgumentList.Add("import fmsave,sys; v=tuple(int(x) for x in fmsave.__version__.split('.')[:3]); print(fmsave.__version__); sys.exit(0 if v >= (0,12,4) else 1)");
         try
         {
             using var process = Process.Start(start);
