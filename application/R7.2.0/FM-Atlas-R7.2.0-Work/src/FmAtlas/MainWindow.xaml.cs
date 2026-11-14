@@ -266,7 +266,7 @@ public partial class MainWindow : Window
             Directory.CreateDirectory(folder);
             File.WriteAllText(Path.Combine(folder, "theme.txt"), _themeMode);
         }
-        catch (Exception ex) { AtlasLog.Warn("Could not persist Atlas appearance preference: " + ex.Message); }
+        catch (Exception ex) { AtlasLog.Warning("Could not persist Atlas appearance preference: " + ex.Message); }
         var page = _activePage;
         BuildShell();
         await NavigateAsync(page);
@@ -762,7 +762,7 @@ public partial class MainWindow : Window
             if (_activePage is not ("Players" or "Recruitment") || _profileTabs is null)
                 return;
             try { await ShowPlayerProfileAsync(profile); }
-            catch (Exception ex) { AtlasLog.Warn("Deferred profile restore skipped for " + profile.Name + ": " + ex.Message); }
+            catch (Exception ex) { AtlasLog.Warning("Deferred profile restore skipped for " + profile.Name + ": " + ex.Message); }
             await Dispatcher.Yield(DispatcherPriority.Background);
         }
     }
@@ -1948,7 +1948,7 @@ public partial class MainWindow : Window
         if (!LiveMemoryImportEnabled)
         {
             ShowLiveScanPaused();
-            AtlasLog.Warn("Live-memory import request blocked by the V8 safety gate.");
+            AtlasLog.Warning("Live-memory import request blocked by the V8 safety gate.");
             return;
         }
         if (_liveLoadButton is not null) { _liveLoadButton.IsEnabled = false; _liveLoadButton.Content = "Loading…"; }
