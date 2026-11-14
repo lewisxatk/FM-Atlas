@@ -245,15 +245,18 @@ public partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Center,
             Child = pitch
         };
-        pitch.Children.Add(new System.Windows.Shapes.Rectangle
+        var fieldOutline = new System.Windows.Shapes.Rectangle
         {
             Width = 620, Height = 320, RadiusX = 8, RadiusY = 8,
             Stroke = Brush("#8BA99A"), StrokeThickness = 1.2,
             Fill = Brushes.Transparent
-        });
+        };
+        System.Windows.Controls.Canvas.SetLeft(fieldOutline, 10);
+        System.Windows.Controls.Canvas.SetTop(fieldOutline, 10);
+        pitch.Children.Add(fieldOutline);
         pitch.Children.Add(new System.Windows.Shapes.Line
         {
-            X1 = 320, X2 = 320, Y1 = 0, Y2 = 340,
+            X1 = 320, X2 = 320, Y1 = 10, Y2 = 330,
             Stroke = Brush("#78998B"), StrokeThickness = 1, Opacity = .8
         });
         pitch.Children.Add(new System.Windows.Shapes.Ellipse
@@ -261,12 +264,12 @@ public partial class MainWindow
             Width = 104, Height = 104, Stroke = Brush("#78998B"),
             StrokeThickness = 1, Fill = Brushes.Transparent
         });
-        Canvas.SetLeft(pitch.Children[^1], 268);
-        Canvas.SetTop(pitch.Children[^1], 118);
+        System.Windows.Controls.Canvas.SetLeft(pitch.Children[^1], 268);
+        System.Windows.Controls.Canvas.SetTop(pitch.Children[^1], 118);
         foreach (var (x, y, width, height) in new[]
         {
-            (0d, 96d, 74d, 148d), (566d, 96d, 74d, 148d),
-            (0d, 132d, 28d, 76d), (612d, 132d, 28d, 76d)
+            (10d, 106d, 74d, 148d), (556d, 106d, 74d, 148d),
+            (10d, 142d, 28d, 76d), (602d, 142d, 28d, 76d)
         })
         {
             pitch.Children.Add(new System.Windows.Shapes.Rectangle
@@ -274,13 +277,13 @@ public partial class MainWindow
                 Width = width, Height = height, Stroke = Brush("#78998B"),
                 StrokeThickness = 1, Fill = Brushes.Transparent
             });
-            Canvas.SetLeft(pitch.Children[^1], x);
-            Canvas.SetTop(pitch.Children[^1], y);
+            System.Windows.Controls.Canvas.SetLeft(pitch.Children[^1], x);
+            System.Windows.Controls.Canvas.SetTop(pitch.Children[^1], y);
         }
 
         var positionPoints = new Dictionary<string, Point>(StringComparer.OrdinalIgnoreCase)
         {
-            ["GK"] = new Point(38, 170), ["SW"] = new Point(105, 170),
+            ["GK"] = new Point(48, 170), ["SW"] = new Point(105, 170),
             ["DL"] = new Point(165, 88), ["DC"] = new Point(165, 170), ["DR"] = new Point(165, 252),
             ["WBL"] = new Point(245, 88), ["DM"] = new Point(265, 170), ["WBR"] = new Point(245, 252),
             ["ML"] = new Point(350, 88), ["MC"] = new Point(350, 170), ["MR"] = new Point(350, 252),
@@ -320,8 +323,8 @@ public partial class MainWindow
             System.Windows.Automation.AutomationProperties.SetName(tile,
                 has ? $"{position.Label}, rating {rating:0.##} out of 20, {position.BandLabel}" : $"{position.Label}, unrated");
             pitchTiles[position.Code] = tile;
-            Canvas.SetLeft(tile, point.X - tile.Width / 2);
-            Canvas.SetTop(tile, point.Y - tile.Height / 2);
+            System.Windows.Controls.Canvas.SetLeft(tile, point.X - tile.Width / 2);
+            System.Windows.Controls.Canvas.SetTop(tile, point.Y - tile.Height / 2);
             pitch.Children.Add(tile);
         }
 
