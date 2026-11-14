@@ -3591,7 +3591,7 @@ public partial class MainWindow : Window
         var top = new StackPanel();
         top.Children.Add(Txt("AUDIT TRAIL", 9, true, Teal));
         top.Children.Add(Txt("Edit history & local undo", 20, true, Ink));
-        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM history entries are retained for audit purposes, but live Undo is disabled in V8.", 10, false, Muted, wrap: true));
+        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM Apply/Undo is available for the verified player field catalogue and Tactical Effectiveness editor; unsupported fields remain blocked.", 10, false, Muted, wrap: true));
         var dg = CreateGrid(); dg.SelectionMode = DataGridSelectionMode.Single;
         dg.Columns.Add(Column("ID", "Id", .35)); dg.Columns.Add(Column("PLAYER", "PlayerName", 1.1)); dg.Columns.Add(Column("FIELD", "FieldName", 1)); dg.Columns.Add(Column("OLD", "OldValue", .6)); dg.Columns.Add(Column("NEW", "NewValue", .6)); dg.Columns.Add(Column("CHANGED", "ChangedUtc", 1)); dg.Columns.Add(Column("SOURCE", "ChangeSource", 1));
         dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
