@@ -19,6 +19,7 @@ public sealed class LiveCareerImportTests
         Assert.Equal(147, player.CurrentAbility);
         Assert.Equal(-8, player.PotentialAbility);
         Assert.Equal("Fixture FC", player.Club);
+        Assert.Contains("provisional", player.DataOrigin, StringComparison.OrdinalIgnoreCase);
 
         var byAbility = await database.SearchLivePlayersAsync("Fixture Player", minCa: 140, minPa: -9, maxPa: -5);
         Assert.Single(byAbility);
