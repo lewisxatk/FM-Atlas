@@ -55,6 +55,8 @@ Useful methods and constraints:
 - Treat module fingerprints as build selection, not field-level certification.
 - Use in-game witnesses and repeatable probes before promoting a candidate field.
 - Job-code interpretation and preferred-job grouping are different data: current contract job must not be substituted for preferred job.
+- Staff personality is an eight-byte 1–20 array at staff+0x170; for the human manager it follows the +0x340 identity/person-block shift. Atlas stores these as provisional `staff_personality.*` facts.
+- The shared FULL_CONTRACT layout exposes weekly wage at +0x20 (GBP), signed date at +0x44, expiry at +0x48 and joined-club date at +0x4C. Atlas stores these only when the contract pointer and individual values pass range/date checks.
 - The FM27 staff layout documents CA/PA at staff+0xDA/+0xDC and coaching attributes at their base staff-object offsets. The human-manager identity/person block shifts by +0x340, but CA/PA, coaching attributes and reputation remain unshifted.
 - Nineteen coaching attributes are raw bytes in the 0–100 range and display as `(raw + 2) / 5`; authority and working-with-youngsters are direct 1–20 ratings. Atlas now decodes and stores these as provisional staff profile facts, omitting invalid/missing bytes rather than filling defaults.
 
