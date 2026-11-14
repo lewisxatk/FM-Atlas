@@ -3197,7 +3197,7 @@ public sealed class ScoutDatabase
         CancellationToken cancellationToken = default,
         int minimumSampleSize = 1,
         string? positionRatingCode = null,
-        int minimumPositionRating = 1)
+        int minimumPositionRating = 15)
     {
         if (string.IsNullOrWhiteSpace(metricKey))
             throw new ArgumentException("Choose a discovered statistical metric.", nameof(metricKey));
