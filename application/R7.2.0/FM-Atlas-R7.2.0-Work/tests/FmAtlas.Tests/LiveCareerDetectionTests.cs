@@ -152,7 +152,7 @@ public sealed class LiveCareerDetectionTests
                     VALUES($run,7,42,'Current Manager','England',9,'Example FC','2026-11-14T00:00:05Z');
                     """;
                 identity.Parameters.AddWithValue("$run", runId);
-                await identity.ExecuteNonQuery();
+                await identity.ExecuteNonQueryAsync();
             }
 
             var metrics = await database.GetWorkspaceMetricsAsync();
