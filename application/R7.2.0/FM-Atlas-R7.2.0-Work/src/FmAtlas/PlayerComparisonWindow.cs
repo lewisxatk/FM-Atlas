@@ -101,6 +101,8 @@ public sealed class PlayerComparisonWindow : Window
         AddCore("Profile", "Club", x => x.Club ?? "—");
         AddCore("Profile", "League", x => x.League ?? "—");
         AddCore("Profile", "Nationality", x => x.Nation ?? "—");
+        AddCore("Profile", "Home-grown at club", x => x.DisplayHomeGrownClub);
+        AddCore("Profile", "Home-grown in nation", x => x.DisplayHomeGrownNation);
         AddCore("Profile", "Position", x => x.Position ?? "—");
         AddCore("Ability", "Current ability", x => x.CurrentAbility?.ToString(CultureInfo.InvariantCulture) ?? "—");
         AddCore("Ability", "Potential ability", x => x.PotentialAbility?.ToString(CultureInfo.InvariantCulture) ?? "—");

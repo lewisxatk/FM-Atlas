@@ -1,9 +1,14 @@
+using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using Microsoft.Win32;
 using FmAtlas.Data;
 using FmAtlas.Models;
+using FmAtlas.Services;
 
 namespace FmAtlas;
 
@@ -49,12 +54,18 @@ public sealed class SimilarPlayersWindow : Window
             AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(32, 42, 53)),
             GridLinesVisibility = DataGridGridLinesVisibility.Horizontal
         };
-        _grid.Columns.Add(new DataGridTextColumn { Header = "PLAYER", Binding = new Binding("Player.Name"), Width = new DataGridLength(1.4, DataGridLengthUnitType.Star) });
-        _grid.Columns.Add(new DataGridTextColumn { Header = "CLUB", Binding = new Binding("Player.Club"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
-        _grid.Columns.Add(new DataGridTextColumn { Header = "POSITION", Binding = new Binding("Player.Position"), Width = new DataGridLength(.7, DataGridLengthUnitType.Star) });
-        _grid.Columns.Add(new DataGridTextColumn { Header = "SIMILARITY", Binding = new Binding(nameof(SimilarPlayerCandidate.DisplaySimilarity)), Width = new DataGridLength(.8, DataGridLengthUnitType.Star) });
-        _grid.Columns.Add(new DataGridTextColumn { Header = "COVERAGE", Binding = new Binding(nameof(SimilarPlayerCandidate.DisplayCoverage)), Width = new DataGridLength(.7, DataGridLengthUnitType.Star) });
-        _grid.Columns.Add(new DataGridTextColumn { Header = "SHARED ATTRIBUTES", Binding = new Binding(nameof(SimilarPlayerCandidate.EvidenceSummary)), Width = new DataGridLength(1.1, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "PLAYER", Binding = new Binding("Player.Name"), Width = new DataGridLength(1.2, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "AGE", Binding = new Binding("Player.Age"), Width = new DataGridLength(.4, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "CLUB", Binding = new Binding("Player.Club"), Width = new DataGridLength(.9, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "LEAGUE", Binding = new Binding("Player.League"), Width = new DataGridLength(.9, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "NATION", Binding = new Binding("Player.Nation"), Width = new DataGridLength(.75, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "POSITION", Binding = new Binding("Player.Position"), Width = new DataGridLength(.62, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "VALUE · SOURCE UNITS", Binding = new Binding("Player.DisplayValue"), Width = new DataGridLength(.78, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "HOME-GROWN · CLUB", Binding = new Binding("Player.DisplayHomeGrownClub"), Width = new DataGridLength(.72, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "HOME-GROWN · NATION", Binding = new Binding("Player.DisplayHomeGrownNation"), Width = new DataGridLength(.72, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "SIMILARITY", Binding = new Binding(nameof(SimilarPlayerCandidate.DisplaySimilarity)), Width = new DataGridLength(.75, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "COVERAGE", Binding = new Binding(nameof(SimilarPlayerCandidate.DisplayCoverage)), Width = new DataGridLength(.62, DataGridLengthUnitType.Star) });
+        _grid.Columns.Add(new DataGridTextColumn { Header = "SHARED ATTRIBUTES", Binding = new Binding(nameof(SimilarPlayerCandidate.EvidenceSummary)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         _grid.Columns.Add(new DataGridTextColumn { Header = "CA", Binding = new Binding("Player.CurrentAbility"), Width = new DataGridLength(.45, DataGridLengthUnitType.Star) });
         _grid.Columns.Add(new DataGridTextColumn { Header = "PA", Binding = new Binding("Player.PotentialAbility"), Width = new DataGridLength(.45, DataGridLengthUnitType.Star) });
         _grid.ItemsSource = candidates;
@@ -73,6 +84,9 @@ public sealed class SimilarPlayersWindow : Window
         var addToShortlist = new Button { Content = "Add selected to shortlist", Padding = new Thickness(12, 7, 12, 7), IsEnabled = candidates.Count > 0, Margin = new Thickness(0, 0, 8, 0) };
         addToShortlist.Click += async (_, _) => await AddSelectedToShortlistAsync();
         actions.Children.Add(addToShortlist);
+        var export = new Button { Content = "Export CSV", Padding = new Thickness(12, 7, 12, 7), IsEnabled = candidates.Count > 0, Margin = new Thickness(0, 0, 8, 0) };
+        export.Click += (_, _) => ExportCandidates(candidates);
+        actions.Children.Add(export);
         var compare = new Button { Content = "Compare with reference", Padding = new Thickness(12, 7, 12, 7), IsEnabled = candidates.Count > 0 };
         compare.Click += async (_, _) => await CompareSelectedAsync();
         actions.Children.Add(compare);
@@ -82,6 +96,34 @@ public sealed class SimilarPlayersWindow : Window
 
         _grid.MouseDoubleClick += async (_, _) => await CompareSelectedAsync();
         Content = root;
+    }
+
+    private void ExportCandidates(IReadOnlyList<SimilarPlayerCandidate> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            _status.Text = "There are no similar-player results to export.";
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export similar-player candidates",
+            FileName = "FM-Atlas-similar-players.csv",
+            Filter = "CSV files (*.csv)|*.csv"
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            var content = SimilarPlayerCsvExporter.Build(_reference, candidates);
+            File.WriteAllText(dialog.FileName, content, new UTF8Encoding(true));
+            _status.Text = $"Exported {candidates.Count:N0} similar-player candidates with source IDs, similarity and coverage evidence.";
+        }
+        catch (Exception ex)
+        {
+            AtlasLog.Error("Similar-player CSV export failed.", ex);
+            _status.Text = "Could not export similar-player results: " + ex.Message;
+        }
     }
 
     private string? PromptShortlistName()

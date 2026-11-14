@@ -1291,6 +1291,43 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public void SimilarPlayerCsvExportIncludesSourceEvidenceAndProtectsFormulaText()
+    {
+        var reference = new PlayerRecord
+        {
+            SourceId = "FMSAVE:reference:1",
+            Name = "Reference Player"
+        };
+        var candidatePlayer = new PlayerRecord
+        {
+            SourceId = "=candidate-1",
+            Name = "=Prospect",
+            Age = 20,
+            Club = "Target FC",
+            League = "Test League",
+            Nation = "England",
+            Position = "STC",
+            CurrentAbility = 140,
+            PotentialAbility = 165,
+            Value = 1250000m,
+            HomeGrownClub = null,
+            HomeGrownNation = false
+        };
+        var candidate = new SimilarPlayerCandidate(candidatePlayer, 84.26, 9, 12, 0.75);
+
+        var csv = SimilarPlayerCsvExporter.Build(reference, new[] { candidate });
+
+        Assert.Contains("ReferencePlayer,ReferenceSourceId,Player,SourceId", csv);
+        Assert.Contains("\"'=Prospect\"", csv);
+        Assert.Contains("\"'=candidate-1\"", csv);
+        Assert.Contains("\"Unknown\"", csv);
+        Assert.Contains("\"No\"", csv);
+        Assert.Contains("\"84.3\"", csv);
+        Assert.Contains("\"75.0%\"", csv);
+        Assert.Contains("9/12 shared attributes", csv);
+    }
+
+    [Fact]
     public void PlayerComparisonRadarUsesSharedRealAttributeCategoriesAndAverages()
     {
         var names = new[] { "Player One", "Player Two" };
