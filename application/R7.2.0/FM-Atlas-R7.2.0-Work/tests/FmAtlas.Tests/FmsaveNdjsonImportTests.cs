@@ -205,6 +205,13 @@ public sealed class FmsaveNdjsonImportTests
             profile, 50000, new RoleFitSearchFilters(MinimumPotentialAbility: 151, ResultLimit: 25));
         Assert.Empty(paFiltered);
 
+        var positionMatch = await database.SearchRoleFitCandidatesAsync(
+            profile, 50000, new RoleFitSearchFilters(PositionContains: "ST", MinimumCoverage: 1, ResultLimit: 25));
+        Assert.Single(positionMatch);
+        var positionMismatch = await database.SearchRoleFitCandidatesAsync(
+            profile, 50000, new RoleFitSearchFilters(PositionContains: "GK", MinimumCoverage: 1, ResultLimit: 25));
+        Assert.Empty(positionMismatch);
+
         var incompleteProfile = new RoleFitProfile(
             "Incomplete", "In Possession", "Attacker", "Regression profile.",
             new Dictionary<string, double> { ["Finishing"] = 1, ["Pace"] = 1, ["Crossing"] = 1, ["Heading"] = 1 });

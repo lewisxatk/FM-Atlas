@@ -32,6 +32,7 @@ public partial class MainWindow
         var maximumAge = Input("Max age"); maximumAge.Width = 76; maximumAge.Margin = new Thickness(0, 0, 6, 8);
         var minimumCa = Input("Min CA"); minimumCa.Width = 76; minimumCa.Margin = new Thickness(0, 0, 6, 8);
         var minimumPa = Input("Min PA"); minimumPa.Width = 76; minimumPa.Margin = new Thickness(0, 0, 6, 8);
+        var positionFilter = Input("Position contains"); positionFilter.Width = 118; positionFilter.Margin = new Thickness(0, 0, 6, 8);
         var coverage = new ComboBox { Width = 132, Height = 36, Margin = new Thickness(0, 0, 8, 8), ToolTip = "Minimum percentage of the role's weighted attributes that must actually exist." };
         foreach (var value in new[] { "50% coverage", "60% coverage", "70% coverage", "80% coverage", "90% coverage", "100% coverage" }) coverage.Items.Add(value);
         coverage.SelectedIndex = 0;
@@ -43,6 +44,7 @@ public partial class MainWindow
         controls.Children.Add(FilterControl("MAX AGE", maximumAge, 82));
         controls.Children.Add(FilterControl("MIN CA", minimumCa, 82));
         controls.Children.Add(FilterControl("MIN PA", minimumPa, 82));
+        controls.Children.Add(FilterControl("POSITION", positionFilter, 124));
         controls.Children.Add(FilterControl("DATA COVERAGE", coverage, 138));
         controls.Children.Add(find); controls.Children.Add(cancel); controls.Children.Add(export);
         hs.Children.Add(controls);
@@ -95,6 +97,7 @@ public partial class MainWindow
                     MaximumAge: maxAge,
                     MinimumCurrentAbility: ReadOptionalInt(minimumCa, "Minimum CA", 200),
                     MinimumPotentialAbility: ReadOptionalInt(minimumPa, "Minimum PA", 200),
+                    PositionContains: positionFilter.Text.Trim(),
                     MinimumCoverage: 0.5 + Math.Clamp(coverage.SelectedIndex, 0, 5) * 0.1,
                     ResultLimit: 250);
             }
@@ -118,7 +121,7 @@ public partial class MainWindow
                     status.Text = "No players match these filters with enough source-backed attributes. Lower the coverage threshold or import a save copy with broader player attribute coverage.";
                 else
                     status.Text = $"{results.Count:N0} candidates ranked · top Atlas estimate {results[0].Score:0.00}/20 · source coverage shown per player. This is not the game's role rating; position familiarity and tactical instructions are not yet included.";
-                AtlasLog.Info($"Role Lab completed: {selected.Name} ({selected.Phase}), {results.Count} candidates; age={minAge}-{maxAge}; minCA={filters.MinimumCurrentAbility}; minPA={filters.MinimumPotentialAbility}; coverage={filters.MinimumCoverage:P0}.");
+                AtlasLog.Info($"Role Lab completed: {selected.Name} ({selected.Phase}), {results.Count} candidates; age={minAge}-{maxAge}; minCA={filters.MinimumCurrentAbility}; minPA={filters.MinimumPotentialAbility}; position={filters.PositionContains}; coverage={filters.MinimumCoverage:P0}.");
             }
             catch (OperationCanceledException)
             {

@@ -7,6 +7,7 @@ public sealed record RoleFitSearchFilters(
     int? MaximumAge = null,
     int? MinimumCurrentAbility = null,
     int? MinimumPotentialAbility = null,
+    string? PositionContains = null,
     double MinimumCoverage = 0.5,
     int ResultLimit = 250);
 public sealed record RoleFitScore(double Score, int AttributesAvailable, int AttributesExpected, double Coverage);

@@ -3143,6 +3143,7 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$maximumAge", (object?)selectedFilters.MaximumAge ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$minimumCurrentAbility", (object?)selectedFilters.MinimumCurrentAbility ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$minimumPotentialAbility", (object?)selectedFilters.MinimumPotentialAbility ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$positionContains", string.IsNullOrWhiteSpace(selectedFilters.PositionContains) ? DBNull.Value : "%" + selectedFilters.PositionContains.Trim() + "%");
         cmd.CommandText = $"""
             SELECT p.SourceId,p.Name,p.Club,p.Age,p.Position,p.CurrentAbility,p.PotentialAbility,a.AttributeName,a.AttributeValue
             FROM (
@@ -3153,6 +3154,7 @@ public sealed class ScoutDatabase
                   AND ($maximumAge IS NULL OR Age <= $maximumAge)
                   AND ($minimumCurrentAbility IS NULL OR CurrentAbility >= $minimumCurrentAbility)
                   AND ($minimumPotentialAbility IS NULL OR PotentialAbility >= $minimumPotentialAbility)
+                  AND ($positionContains IS NULL OR COALESCE(Position,'') LIKE $positionContains COLLATE NOCASE)
                 ORDER BY Name COLLATE NOCASE
                 LIMIT $limit
             ) p
