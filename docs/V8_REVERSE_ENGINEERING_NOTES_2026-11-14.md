@@ -318,3 +318,52 @@ The source and regression tests are committed, but a fresh Windows workflow must
 - Artifact: `FM-Atlas-V8-win-x64`, ID `14112889881`, size 68,896,831 bytes; SHA-256 `39846fd69868c36fa557d1c859bba63f90ef32b863354e44ff293da55e2e019c`; expires 28 November 2026.
 - The previous 83/84 failure was resolved by using isolated unpooled SQLite connections in the new test; no global pool clearing remains.
 - Manual Windows DPI/visual acceptance, real FM27 in-game position witness comparison and actual user-PC acceptance remain open. The build passing does not prove the FM27 source values match the in-game player profile.
+
+
+## Position-rating comparison and Wyscout/StatsBomb scouting architecture — continuation 14 November 2026
+
+### Fresh research reviewed
+
+- FMSuperScout current FM27/26 README and architecture: https://github.com/mavarobli/FMSuperScout
+- FM Dossier current product workflows and limitations: https://fmdossier.dev/
+- FM Dossier data-reading and read-only model: https://www.fmdossier.dev/how-it-works
+- FMLibreEditor v0.5.1 release notes: https://github.com/tozmoz/FMLibreEditor/releases
+- StatsBomb Open Data repository and data structure: https://github.com/hudl/open-data
+- Wyscout data model and advanced player-stat fields: https://github.com/withqwerty/football-docs/blob/main/docs/wyscout/data-model.md
+- StatsBomb-based multi-match analytics example: https://github.com/AlexandreMorel/Football-Analytics
+- Football analytics metric definitions and reference formulas: https://github.com/withqwerty/football-docs
+
+### Findings that affect the product design
+
+- FMSuperScout documents a full loaded-career extraction of 60,000+ players/staff in seconds, with real CA/PA, hidden attributes, position familiarity, role ratings, instant local filtering and up to three-player comparison. Its documentation is explicit that estimated market values and asking prices are estimates, not exact FM values.
+- FM Dossier provides a useful product pattern for separate Full, Scout and Moneyball lenses, every-role suitability, side-by-side comparison, recruitment suggestions and season-stat workflows. Its published FM27 caveats show why each feature needs a per-build support/coverage state rather than a blanket compatibility claim.
+- FMLibreEditor v0.5.1 added a scouting workflow with fit, estimated fee/wage, likely-to-join guidance, squad depth and release suggestions. Its save-change behaviour explicitly invalidates stale state until reload.
+- Wyscout's advanced-stat model includes a large set of pre-aggregated player metrics: xG-related fields, key/progressive passes, progressive runs, final-third passes, smart/through passes, crosses, dribbles, defensive/aerial duels, interceptions, recoveries, counterpressing recoveries, goalkeeper actions and accuracy splits.
+- StatsBomb Open Data is a different data shape: match event JSON with events, lineups and selected 360 frames. Event-level measures such as shot xG, pressure, carries, dribbles and pass locations require those event feeds, not merely a normal FM save player table.
+- Multi-match scouting should aggregate player-match or player-season rows, normalize counting metrics per 90 only when valid minutes exist, preserve sample sizes, and compare players within defensible position/league cohorts. A similarity score is a normalized metric-vector distance, not a claim of identical role or tactical function.
+
+### FM Atlas implementation in this continuation
+
+- Player Comparison now adds a dedicated Position suitability section for all 15 canonical FM position slots. Each compared player shows the imported numeric rating as n/20; missing values remain an em dash.
+- The comparison uses the same canonical mapping and 1–20 source-backed ratings as the existing Position Suitability and Advanced Search work. It does not infer a position rating from a player's primary position, natural/accomplished classification or role estimate.
+- Existing player attributes, radar, profile, CA/PA, value, shortlist and Advanced Search paths remain intact.
+- Change committed to rebuild/v8-full-product-rebuild as 58eef84f4ddadae702b12ffbbe05975ead3b6bca.
+
+### Wyscout/StatsBomb-style engine: implementation boundary
+
+FM Atlas should deliver the scouting workflow and metric analysis experience, while remaining honest about its data source:
+
+1. FM-native career layer: current ability/potential, attributes, position familiarity, role fit, contract, wages, value, squad context and whatever player-season/player-match statistics the imported save actually contains.
+2. Performance layer: source-aware metric catalogue, per-90 calculations, minimum minutes/sample controls, position and league cohorts, percentiles, trend snapshots, player comparison, similarity and value-gap screening.
+3. External event-data layer (future adapter): only when the user supplies or connects a lawful Wyscout/StatsBomb-compatible dataset. Keep provider, competition, season, match, event coverage and licence attribution with every imported record.
+4. Unavailable-data handling: do not display xG, xA, progressive carries, pressures, PPDA, shot maps or event-derived xT unless the relevant source fields/events are present. Missing event coverage must stay missing, not become zero.
+5. Model governance: document each metric's definition/version, numerator, denominator, time basis, sample floor, direction (higher/lower better), source, and whether it is source-provided or Atlas-derived. Similarity and value models must be labelled as Atlas estimates and export their method/coverage.
+
+The current Performance vs Value window already supports discovered save metrics, per-90, minimum minutes and sample size, overall/position/league percentiles, numeric FM position-rating cohort filtering, and CSV export. This continuation extends the side-by-side player comparison with source-backed position ratings. It does not claim that the complete Wyscout/StatsBomb event-data engine is finished; the external provider adapter, metric catalogue governance, season trend UI and event-data ingestion remain future work.
+
+### Verification and next gates
+
+- A fresh Windows workflow must validate commit 58eef84f4ddadae702b12ffbbe05975ead3b6bca; the previous 84/84 result predates this comparison change.
+- Test comparison rows for 2–4 players with partial position coverage, alias normalization and no fabricated values.
+- Check comparison window layout at 100%, 125% and 150% DPI.
+- Continue the Wyscout/StatsBomb adapter as an opt-in import path, separate from the FM live-memory reader. Do not scrape authenticated provider services or copy proprietary models.
