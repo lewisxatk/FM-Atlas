@@ -81,6 +81,7 @@ The current implementation checklist, architecture status and quick-start guidan
 - `58f9adac` — extend CA/PA search regression coverage to position filters.
 - `d2949e9a`, `17f0b800` — allow position-only searches and show the active position/CA/PA filter summary.
 - `8e864b67`, `46b95d21` — organise staff coaching, personality and contract facts into dedicated profile sections.
+- `019fd8dc` — update the in-app quick-start guidance for CA/PA and position-only people search.
 - The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
 
 ## Second reference/reverse-engineering batch
