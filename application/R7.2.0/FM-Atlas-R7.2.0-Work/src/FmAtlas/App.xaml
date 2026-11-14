@@ -25,8 +25,100 @@
             <Setter Property="MaxWidth" Value="340"/>
         </Style>
 
+        <!-- Shared Monolith Glass defaults for every secondary window and dialog. -->
+        <Style TargetType="{x:Type Window}">
+            <Setter Property="Background" Value="{DynamicResource Atlas.Background}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="UseLayoutRounding" Value="True"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+
         <Style TargetType="{x:Type Button}">
             <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Background" Value="{DynamicResource Atlas.SurfaceRaised}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="11,7"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+
+        <Style TargetType="{x:Type TextBox}">
+            <Setter Property="Background" Value="{DynamicResource Atlas.Surface}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource Atlas.Accent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="9,7"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+
+        <Style TargetType="{x:Type ComboBox}">
+            <Setter Property="Background" Value="{DynamicResource Atlas.Surface}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+
+        <Style TargetType="{x:Type CheckBox}">
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        </Style>
+        <Style TargetType="{x:Type RadioButton}">
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
+            <Setter Property="Margin" Value="4"/>
+        </Style>
+
+        <Style TargetType="{x:Type DataGrid}">
+            <Setter Property="Background" Value="{DynamicResource Atlas.Surface}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
+            <Setter Property="RowBackground" Value="{DynamicResource Atlas.Surface}"/>
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource Atlas.SurfaceRaised}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#303943"/>
+            <Setter Property="VerticalGridLinesBrush" Value="#303943"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="RowHeaderWidth" Value="0"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+        <Style TargetType="{x:Type DataGridColumnHeader}">
+            <Setter Property="Background" Value="{DynamicResource Atlas.SurfaceRaised}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Muted}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="9,8"/>
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style TargetType="{x:Type DataGridRow}">
+            <Setter Property="MinHeight" Value="31"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+        <Style TargetType="{x:Type TabControl}">
+            <Setter Property="Background" Value="{DynamicResource Atlas.Surface}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
+        </Style>
+        <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#F0181A1F"/>
+            <Setter Property="Foreground" Value="#F1F6FC"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="MaxWidth" Value="340"/>
         </Style>
     </Application.Resources>
 </Application>
