@@ -2336,7 +2336,8 @@ public sealed class ScoutDatabase
                    COALESCE((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.is_human_manager'),0)
             FROM LiveStaff s
             WHERE s.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
-              AND ($q='' OR s.StaffName LIKE $p OR CAST(s.StaffUid AS TEXT) LIKE $p)
+              AND ($q='' OR s.StaffName LIKE $p OR CAST(s.StaffUid AS TEXT) LIKE $p
+                   OR COALESCE((SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.club_name'),'') LIKE $p)
             ORDER BY CASE WHEN COALESCE((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.is_human_manager'),0)=1 THEN 0 ELSE 1 END,
                      s.StaffName COLLATE NOCASE LIMIT 5000;
             """;
