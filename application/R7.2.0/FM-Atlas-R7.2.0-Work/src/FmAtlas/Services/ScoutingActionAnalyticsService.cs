@@ -30,7 +30,7 @@ public sealed record PlayerEventAnalytics(
 
 /// <summary>
 /// Provider-neutral event-action model inspired by SPADL. The initial adapter is deliberately
-/// StatsBomb-specific; all coordinates are normalised to a 120x80 attacking-direction pitch.
+/// StatsBomb-specific; all coordinates are normalised to a 105x68 attacking-direction pitch.
 /// xT is fitted from the imported sample, not copied from an external model.
 /// </summary>
 public static class ScoutingActionAnalyticsService
