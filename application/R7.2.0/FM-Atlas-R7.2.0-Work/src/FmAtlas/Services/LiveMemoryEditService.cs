@@ -285,7 +285,7 @@ public static partial class LiveMemoryEditService
         ValueEncoding Encoding, int Minimum, int Maximum,
         string RecordKind = "Player", byte BitMask = 0);
 
-    /// <summary>Returns whether a player field has a defined, range-checked live preview mapping. Apply/Undo remains separately gated.</summary>
+    /// <summary>Returns whether a player field has a defined, range-checked live Apply/Undo mapping.</summary>
     public static bool SupportsPlayerFieldPreview(string fieldKey)
     {
         try { _ = ResolveWritableField(fieldKey); return true; }
