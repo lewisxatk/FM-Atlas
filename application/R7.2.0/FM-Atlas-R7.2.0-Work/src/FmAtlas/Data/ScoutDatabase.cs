@@ -1168,6 +1168,8 @@ public sealed class ScoutDatabase
                 else
                     SetStaffFact("preference.summary", null, "Several groups share the top score; no single preferred job assigned");
             }
+            foreach (var attribute in member.Attributes ?? new Dictionary<string, double>())
+                SetStaffFact("staff_attributes." + attribute.Key, attribute.Value);
         }
 
         var managers = staffRows.Where(x => x.IsHumanManager).ToArray();
