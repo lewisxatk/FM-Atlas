@@ -217,6 +217,26 @@ public static class LiveDataImporter
     public static string CreateFullPlayerIntelligenceSurvey(IReadOnlyList<string> selectedNames)
         => throw new NotSupportedException("The legacy full-player survey was retired because its fixed-build RVA profile is no longer maintained. Use profile-matched diagnostics only.");
 
+    private static int ScoreStaffName(nint handle, ulong address, int shift)
+    {
+        var score = 0;
+        try { if (IsNameLike(ReadLengthString(handle, U64(handle, (nint)(address + (ulong)(0x140 + shift))), 128))) score++; } catch { }
+        try { if (IsNameLike(ReadNameSub(handle, address + (ulong)(0x150 + shift)))) score++; } catch { }
+        try { if (IsNameLike(ReadNameSub(handle, address + (ulong)(0x158 + shift)))) score++; } catch { }
+        try { if (IsNameLike(ReadNameSub(handle, address + (ulong)(0x160 + shift)))) score++; } catch { }
+        return score;
+    }
+
+    private static bool IsNameLike(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var trimmed = value.Trim();
+        return trimmed.Length >= 2
+            && trimmed.Length <= 96
+            && trimmed.Any(char.IsLetter)
+            && trimmed.All(ch => char.IsLetter(ch) || char.IsWhiteSpace(ch) || ch is '-' or '\'' or '.');
+    }
+
     private static List<LiveStaffRecord> ReadStaff(
         nint handle,
         (ulong Data, int Count) bounds,
@@ -235,7 +255,13 @@ public static class LiveDataImporter
                 // the normal staff identity offsets. Other staff use shift 0.
                 var buffer = Read(handle, (nint)address, 0x540);
                 LiveStaffRecord? decoded = null;
-                foreach (var shift in new[] { 0, 0x340 })
+                var selectedShift = new[] { 0, 0x340 }
+                    .Select(shift => (Shift: shift, Score: ScoreStaffName(handle, address, shift)))
+                    .OrderByDescending(x => x.Score)
+                    .ThenBy(x => x.Shift)
+                    .First();
+                if (selectedShift.Score < 2) continue;
+                var shift = selectedShift.Shift;
                 {
                     var uidOffset = 0x10C + shift;
                     var uid = BitConverter.ToUInt32(buffer, uidOffset);
@@ -301,7 +327,6 @@ public static class LiveDataImporter
                     var age = gameDate.HasValue && dob.HasValue ? CalculateAge(dob.Value, gameDate.Value) : (int?)null;
                     decoded = new LiveStaffRecord(uid, name, i, address, isHuman, dob, age, nationName, nationUid,
                         clubName, clubUid, jobTitle, jobCode, ca, pa);
-                    break;
                 }
                 if (decoded is not null && seen.Add(decoded.Uid))
                     staff.Add(decoded);
