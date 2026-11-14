@@ -41,7 +41,7 @@ public static partial class LiveEntityMemoryEditService
         IReadOnlyList<PlannedValue> Values);
     public sealed record BatchReceipt(BatchPlan Plan, DateTime AppliedUtc, bool ReadBackVerified);
 
-    private enum Place { Object, Contract, SeniorTeam, ClubInfo, ClubFinance, Stadium }
+    private enum Place { Object, Contract, Concerns, SeniorTeam, ClubInfo, ClubFinance, Stadium }
     private enum EncodingKind { ScaledAttribute, DirectByte, UInt8, Int8, UInt16, Int16, UInt32, Int32, Date, Flag }
     private sealed record FieldSpec(
         string Key, string Label, EntityKind Entity, Place Place, ulong Offset, int Size,
@@ -310,6 +310,8 @@ public static partial class LiveEntityMemoryEditService
         {
             fields.Add(F("ability.current_ability", "Current Ability", entity, Place.Object, 0x264, 2, EncodingKind.UInt16, 1, 200));
             fields.Add(F("ability.potential_ability", "Potential Ability", entity, Place.Object, 0x266, 2, EncodingKind.Int16, 1, 200, -200, 200));
+            fields.Add(F("date_of_birth", "Date of Birth (YYYYMMDD)", entity, Place.Object, 0x310, 4, EncodingKind.Date,
+                19400101, 20201231, 19000101, 21001231, shifted: true));
             foreach (var a in PlayerAttributeSchema.Fields)
                 fields.Add(F("attribute." + a.Key, a.Label, entity, Place.Object, (ulong)a.Offset, 1, EncodingKind.ScaledAttribute, 1, 20, 0, 20));
             var positions = new[] { "gk","sw","dl","dc","dr","dm","ml","mc","mr","aml","amc","amr","st","wbl","wbr" };
@@ -341,6 +343,8 @@ public static partial class LiveEntityMemoryEditService
         {
             fields.Add(F("ability.current_ability","Current Ability",entity,Place.Object,0xDA,2,EncodingKind.UInt16,1,200,0,200));
             fields.Add(F("ability.potential_ability","Potential Ability",entity,Place.Object,0xDC,2,EncodingKind.Int16,1,200,-200,200));
+            fields.Add(F("date_of_birth","Date of Birth (YYYYMMDD)",entity,Place.Object,0x188,4,EncodingKind.Date,
+                19400101, 20201231, 19000101, 21001231, shifted:true));
             fields.Add(F("reputation.home","Home Reputation",entity,Place.Object,0xD4,2,EncodingKind.UInt16,0,10_000,0,10_000));
             fields.Add(F("reputation.current","Current Reputation",entity,Place.Object,0xD6,2,EncodingKind.UInt16,0,10_000,0,10_000));
             fields.Add(F("reputation.world","World Reputation",entity,Place.Object,0xD8,2,EncodingKind.UInt16,0,10_000,0,10_000));
@@ -401,6 +405,9 @@ public static partial class LiveEntityMemoryEditService
             fields.Add(F(prefix+"loyalty_bonus","Loyalty Bonus (GBP/week)",entity,Place.Contract,0x38,4,EncodingKind.Int32,0,10_000_000,0,int.MaxValue));
             fields.Add(F(prefix+"happiness","Contract Happiness",entity,Place.Contract,0x5A,1,EncodingKind.Int8,-100,100,sbyte.MinValue,sbyte.MaxValue));
             fields.Add(F(prefix+"playing_time_happiness","Playing Time Happiness",entity,Place.Contract,0x5C,1,EncodingKind.Int8,-100,100,sbyte.MinValue,sbyte.MaxValue));
+            if (entity == EntityKind.Player)
+                fields.Add(F(prefix+"unhappiness","Remove All Unhappiness",entity,Place.Concerns,0,4,
+                    EncodingKind.UInt32,0,0,0,64));
         }
     }
 
@@ -463,6 +470,8 @@ public static partial class LiveEntityMemoryEditService
         var year=BitConverter.ToUInt16(bytes,2);
         if(year==0||day==0)return 0;
         if(year<1901||year>2200)return -1;
+        var maximumDay = DateTime.IsLeapYear(year) ? 366 : 365;
+        if (day > maximumDay) return -1;
         var date=new DateTime(year,1,1).AddDays(day-1);
         return date.Year*10000+date.Month*100+date.Day;
     }
@@ -483,15 +492,16 @@ public static partial class LiveEntityMemoryEditService
             EncodingKind.Int16 => BitConverter.GetBytes(checked((short)value)),
             EncodingKind.UInt32 => BitConverter.GetBytes(checked((uint)value)),
             EncodingKind.Int32 => BitConverter.GetBytes(value),
-            EncodingKind.Date => EncodeDate(value),
+            EncodingKind.Date => EncodeDate(value, old),
             _ => throw new InvalidOperationException("Unsupported live field encoding.")
         };
     }
 
-    private static byte[] EncodeDate(int number)
+    private static byte[] EncodeDate(int number, byte[] old)
     {
         var date=DateOnly.ParseExact(number.ToString(CultureInfo.InvariantCulture),"yyyyMMdd",CultureInfo.InvariantCulture);
-        var day=checked((ushort)date.DayOfYear);
+        var oldDay = BitConverter.ToUInt16(old, 0);
+        var day = checked((ushort)((oldDay & 0xFE00) | date.DayOfYear));
         var year=checked((ushort)date.Year);
         var bytes=new byte[4];
         BitConverter.GetBytes(day).CopyTo(bytes,0);
@@ -578,6 +588,19 @@ public static partial class LiveEntityMemoryEditService
                 var owner=U64(handle,record+0x08);
                 if(owner!=target.Address+identityOffset+(ulong)target.Shift)
                     throw new InvalidOperationException("The contract's owner pointer does not match the selected entity. Live editing is blocked.");
+                break;
+            case Place.Concerns:
+                if (field.Entity != EntityKind.Player)
+                    throw new InvalidOperationException("Unhappiness concerns are a player contract record.");
+                var playerContract = U64(handle, target.Address + 0x330UL + (ulong)target.Shift);
+                if (!Pointer(playerContract) || U64(handle, playerContract + 0x08) != target.Address + 0x288UL + (ulong)target.Shift)
+                    throw new InvalidOperationException("The player's contract failed its owner back-reference check.");
+                record = U64(handle, playerContract + 0x30);
+                if (!Pointer(record))
+                    throw new InvalidOperationException("This player has no unhappiness record to clear.");
+                var concernCount = U64(handle, record);
+                if (concernCount > 64)
+                    throw new InvalidOperationException("The player's unhappiness record exceeds the FM27 validated entry limit.");
                 break;
             case Place.SeniorTeam:
                 var teams=U64(handle,target.Address+0x18);
