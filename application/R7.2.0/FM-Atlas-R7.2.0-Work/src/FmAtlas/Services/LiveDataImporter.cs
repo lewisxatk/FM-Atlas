@@ -21,7 +21,8 @@ public sealed record LiveStaffRecord(
     uint Uid, string Name, int ArrayIndex, ulong Address, bool IsHumanManager,
     DateTime? DateOfBirth, int? Age, string? NationName, uint? NationUid,
     string? ClubName, uint? ClubUid, string? JobTitle, int? JobCode,
-    int? CurrentAbility, int? PotentialAbility);
+    int? CurrentAbility, int? PotentialAbility,
+    StaffJobPreferenceResult? JobPreferences = null);
 // ModuleSha256 is retained as the database/API field name for schema compatibility. The profile-matched
 // importer stores the PE build fingerprint (SizeOfImage + TimeDateStamp) here, not a cryptographic file hash.
 public sealed record LiveImportPayload(
@@ -408,8 +409,9 @@ public static class LiveDataImporter
                     jobTitle = JobName(jobCode);
                     var isHuman = shift != 0;
                     var age = gameDate.HasValue && dob.HasValue ? CalculateAge(dob.Value, gameDate.Value) : (int?)null;
+                    var jobPreferences = ReadStaffJobPreferences(handle, address, shift);
                     decoded = new LiveStaffRecord(uid, name, i, address, isHuman, dob, age, nationName, nationUid,
-                        clubName, clubUid, jobTitle, jobCode, ca, pa);
+                        clubName, clubUid, jobTitle, jobCode, ca, pa, jobPreferences);
                 }
                 if (decoded is not null && seen.Add(decoded.Uid))
                     staff.Add(decoded);
@@ -420,6 +422,26 @@ public static class LiveDataImporter
         cancellationToken.ThrowIfCancellationRequested();
         reportProgress?.Invoke(bounds.Count, bounds.Count);
         return staff;
+    }
+
+    private static StaffJobPreferenceResult? ReadStaffJobPreferences(nint handle, ulong staffAddress, int identityShift)
+    {
+        // Independent FM27 observations place a pointer to 15 one-byte (1..20) preference
+        // scores at person+0xD0. The same class-scoped identity shift used for name decoding
+        // is applied here; an unreadable pointer or out-of-range byte leaves this field absent.
+        try
+        {
+            var pointerAddress = checked(staffAddress + (ulong)(0xD0 + identityShift));
+            var ratingsAddress = U64(handle, (nint)pointerAddress);
+            if (!Pointer(ratingsAddress)) return null;
+            var bytes = Read(handle, (nint)ratingsAddress, StaffJobPreferenceDecoder.JobGroupKeys.Count);
+            return StaffJobPreferenceDecoder.Decode(bytes);
+        }
+        catch
+        {
+            // Preferred-job data is optional. It must never invalidate an otherwise sound staff identity.
+            return null;
+        }
     }
 
     private static DateTime? TryReadDate(byte[] bytes, int offset)
