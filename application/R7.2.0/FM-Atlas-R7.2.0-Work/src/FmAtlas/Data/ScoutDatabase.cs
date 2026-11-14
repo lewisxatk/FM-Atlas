@@ -1154,6 +1154,18 @@ public sealed class ScoutDatabase
             if (!string.IsNullOrWhiteSpace(member.JobTitle)) SetStaffFact("identity.job_title", null, member.JobTitle);
             if (member.DateOfBirth.HasValue) SetStaffFact("identity.date_of_birth", null, member.DateOfBirth.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
             SetStaffFact("identity.is_human_manager", member.IsHumanManager ? 1 : 0);
+            if (member.JobPreferences is { } jobPreferences)
+            {
+                SetStaffFact("preference.highest_rating", jobPreferences.HighestRating);
+                foreach (var rating in jobPreferences.Ratings)
+                    SetStaffFact("preference." + rating.Key, rating.Value);
+                if (jobPreferences.PreferredJobs.Count > 0)
+                    SetStaffFact("preference.top_job", null, string.Join(", ", jobPreferences.PreferredJobs));
+                else if (jobPreferences.HighestRating < 10)
+                    SetStaffFact("preference.summary", null, "No clear preferred job (highest score below 10)");
+                else
+                    SetStaffFact("preference.summary", null, "Several groups share the top score; no single preferred job assigned");
+            }
         }
 
         var managers = staffRows.Where(x => x.IsHumanManager).ToArray();
