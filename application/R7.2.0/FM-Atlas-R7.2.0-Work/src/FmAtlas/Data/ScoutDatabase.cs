@@ -1357,10 +1357,13 @@ public sealed class ScoutDatabase
         var playerFactInsert = db.CreateCommand(); playerFactInsert.Transaction = (SqliteTransaction)tx;
         playerFactInsert.CommandText = "INSERT OR REPLACE INTO FmsavePlayerFacts(SnapshotId,PlayerSourceId,FactGroup,FieldKey,NumericValue,TextValue) VALUES($snapshot,$source,$group,$field,$number,$text);";
         playerFactInsert.Parameters.AddWithValue("$snapshot", snapshotId); playerFactInsert.Parameters.Add("$source", SqliteType.Text); playerFactInsert.Parameters.Add("$group", SqliteType.Text); playerFactInsert.Parameters.Add("$field", SqliteType.Text); playerFactInsert.Parameters.Add("$number", SqliteType.Real); playerFactInsert.Parameters.Add("$text", SqliteType.Text);
+        var clearSnapshotAttributes = db.CreateCommand(); clearSnapshotAttributes.Transaction = (SqliteTransaction)tx;
+        clearSnapshotAttributes.CommandText = "DELETE FROM PlayerAttributes WHERE SourceId=$id AND (Category LIKE 'attributes:%' OR Category='personality');";
+        clearSnapshotAttributes.Parameters.Add("$id", SqliteType.Text);
         var attributeInsert = db.CreateCommand(); attributeInsert.Transaction = (SqliteTransaction)tx;
         attributeInsert.CommandText = "INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc) VALUES($id,$name,$category,$value,$utc) ON CONFLICT(SourceId,AttributeName) DO UPDATE SET Category=excluded.Category,AttributeValue=excluded.AttributeValue,UpdatedUtc=excluded.UpdatedUtc;";
         attributeInsert.Parameters.Add("$id", SqliteType.Text); attributeInsert.Parameters.Add("$name", SqliteType.Text); attributeInsert.Parameters.Add("$category", SqliteType.Text); attributeInsert.Parameters.Add("$value", SqliteType.Real); attributeInsert.Parameters.Add("$utc", SqliteType.Text);
-        playerUpsert.Prepare(); rawPlayer.Prepare(); attributeInsert.Prepare();
+        playerUpsert.Prepare(); rawPlayer.Prepare(); playerFactInsert.Prepare(); clearSnapshotAttributes.Prepare(); attributeInsert.Prepare();
         var playerCount = 0;
         var scannedPlayers = 0;
         await foreach (var player in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "players", cancellationToken).ConfigureAwait(false))
@@ -1387,9 +1390,8 @@ public sealed class ScoutDatabase
             SetParameter(playerUpsert, "$utc", now);
             await playerUpsert.ExecuteNonQueryAsync();
             // Replace values for this external player key with the latest snapshot values so stale fields do not survive a later import.
-            var clearSnapshotAttributes = db.CreateCommand(); clearSnapshotAttributes.Transaction = (SqliteTransaction)tx;
-            clearSnapshotAttributes.CommandText = "DELETE FROM PlayerAttributes WHERE SourceId=$id AND (Category LIKE 'attributes:%' OR Category='personality');";
-            clearSnapshotAttributes.Parameters.AddWithValue("$id", sourceId); await clearSnapshotAttributes.ExecuteNonQueryAsync();
+            clearSnapshotAttributes.Parameters["$id"].Value = sourceId;
+            await clearSnapshotAttributes.ExecuteNonQueryAsync();
             rawPlayer.Parameters["$uid"].Value = saveUid; rawPlayer.Parameters["$source"].Value = sourceId; rawPlayer.Parameters["$raw"].Value = player.GetRawText(); await rawPlayer.ExecuteNonQueryAsync();
 
             foreach (var group in new[] { "attributes", "personality" })
@@ -1426,6 +1428,7 @@ public sealed class ScoutDatabase
         var staffInsert = db.CreateCommand(); staffInsert.Transaction = (SqliteTransaction)tx;
         staffInsert.CommandText = "INSERT OR REPLACE INTO FmsaveStaffDirectory(SnapshotId,StaffUid,Name,ClubName,JobTitle,Age,Nation,RawJson) VALUES($snapshot,$uid,$name,$club,$job,$age,$nation,$raw);";
         staffInsert.Parameters.AddWithValue("$snapshot", snapshotId); staffInsert.Parameters.Add("$uid", SqliteType.Text); staffInsert.Parameters.Add("$name", SqliteType.Text); staffInsert.Parameters.Add("$club", SqliteType.Text); staffInsert.Parameters.Add("$job", SqliteType.Text); staffInsert.Parameters.Add("$age", SqliteType.Integer); staffInsert.Parameters.Add("$nation", SqliteType.Text); staffInsert.Parameters.Add("$raw", SqliteType.Text);
+        staffInsert.Prepare();
         var staffCount = 0;
         var scannedStaff = 0;
         await foreach (var item in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "staff", cancellationToken).ConfigureAwait(false))
@@ -1446,6 +1449,7 @@ public sealed class ScoutDatabase
         var clubInsert = db.CreateCommand(); clubInsert.Transaction = (SqliteTransaction)tx;
         clubInsert.CommandText = "INSERT OR REPLACE INTO FmsaveClubDirectory(SnapshotId,ClubUid,Name,Nation,RawJson) VALUES($snapshot,$uid,$name,$nation,$raw);";
         clubInsert.Parameters.AddWithValue("$snapshot", snapshotId); clubInsert.Parameters.Add("$uid", SqliteType.Text); clubInsert.Parameters.Add("$name", SqliteType.Text); clubInsert.Parameters.Add("$nation", SqliteType.Text); clubInsert.Parameters.Add("$raw", SqliteType.Text);
+        clubInsert.Prepare();
         var clubCount = 0;
         var scannedClubs = 0;
         await foreach (var item in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "clubs", cancellationToken).ConfigureAwait(false))
@@ -1467,6 +1471,7 @@ public sealed class ScoutDatabase
         var extraInsert = db.CreateCommand(); extraInsert.Transaction = (SqliteTransaction)tx;
         extraInsert.CommandText = "INSERT INTO FmsaveExtraTables(SnapshotId,TableName,RowIndex,RawJson) VALUES($snapshot,$table,$index,$raw);";
         extraInsert.Parameters.AddWithValue("$snapshot", snapshotId); extraInsert.Parameters.Add("$table", SqliteType.Text); extraInsert.Parameters.Add("$index", SqliteType.Integer); extraInsert.Parameters.Add("$raw", SqliteType.Text);
+        extraInsert.Prepare();
         var statFactInsert = db.CreateCommand(); statFactInsert.Transaction = (SqliteTransaction)tx;
         statFactInsert.CommandText = "INSERT OR REPLACE INTO FmsaveStatFacts(SnapshotId,TableName,RowIndex,PlayerUid,PeriodKey,Minutes,FieldKey,NumericValue) VALUES($snapshot,$table,$index,$uid,$period,$minutes,$field,$value);";
         statFactInsert.Parameters.AddWithValue("$snapshot", snapshotId); statFactInsert.Parameters.Add("$table", SqliteType.Text); statFactInsert.Parameters.Add("$index", SqliteType.Integer);
