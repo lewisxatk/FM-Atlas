@@ -257,7 +257,7 @@ public static class LiveDataImporter
                         var worldRepRaw = BitConverter.ToUInt16(inline, 0x262);
                         int? worldRep = worldRepRaw <= 10_000 ? worldRepRaw : null;
                         var askingPriceRaw = BitConverter.ToInt32(inline, 0x238);
-                        int? askingPrice = askingPriceRaw is >= 0 and <= 2_000_000_000 ? askingPriceRaw : null;
+                        int? askingPrice = askingPriceRaw is >= -1 and <= 2_000_000_000 ? askingPriceRaw : null;
                         var capsRaw = BitConverter.ToUInt16(inline, 0x3BC);
                         int? internationalCaps = capsRaw <= 1_000 ? capsRaw : null;
                         var goalsRaw = BitConverter.ToUInt16(inline, 0x3BE);
