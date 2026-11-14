@@ -219,7 +219,8 @@ public static partial class LiveMemoryEditService
             BitConverter.GetBytes(history.End), BitConverter.GetBytes(history.Begin + (ulong)targetHistory.Length));
 
         var signature = string.Join("|", profile.Id, player.ToString("X"), team.ToString("X"), club.ToString("X"),
-            tactic.ToString("X"), record.ToString("X"), historyHeader.ToString("X"), personId.ToString());
+            tactic.ToString("X"), string.Join(",", options), gameDay.ToString(), record.ToString("X"),
+            historyHeader.ToString("X"), personId.ToString());
         if (patches.Count == 0) throw new InvalidOperationException("The player's Tactical Effectiveness values already match the staged maximum.");
         return new TacticalBuild(signature, patches);
     }
