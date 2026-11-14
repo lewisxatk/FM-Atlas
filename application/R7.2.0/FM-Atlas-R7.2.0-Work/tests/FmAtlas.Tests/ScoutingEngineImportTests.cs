@@ -32,12 +32,12 @@ public sealed class ScoutingEngineImportTests
             Assert.Equal("Alex Player", player.PlayerName);
             Assert.Equal("Test League", player.Competition);
             Assert.Equal("2025/26", player.Season);
-            Assert.Equal(90, player.MinutesPlayed);
+            Assert.Equal(90d, player.MinutesPlayed!.Value);
             Assert.Equal(1, player.Metrics["passes_attempted"]);
             Assert.Equal(1, player.Metrics["passes_completed"]);
             Assert.Equal(1, player.Metrics["key_passes"]);
             Assert.Equal(1, player.Metrics["goals"]);
-            Assert.Equal(.25, player.Metrics["xg"]);
+            Assert.Equal(.25d, player.Metrics["xg"]!.Value);
             Assert.Equal(1, player.Metrics["pressures"]);
             Assert.Equal(1, summary.MatchesImported);
         }
@@ -56,9 +56,9 @@ public sealed class ScoutingEngineImportTests
             var player = Assert.Single(await WyscoutCsvImporter.ImportAsync(path));
             Assert.Equal("Alex Player", player.PlayerName);
             Assert.Equal("Wyscout user CSV", player.SourceName);
-            Assert.Equal(4.1, player.Metrics["progressive_passes_90"]);
-            Assert.Equal(5_000_000, player.Metrics["market_value"]);
-            Assert.Equal(24, player.Metrics["age"]);
+            Assert.Equal(4.1d, player.Metrics["progressive_passes_90"]!.Value);
+            Assert.Equal(5_000_000d, player.Metrics["market_value"]!.Value);
+            Assert.Equal(24d, player.Metrics["age"]!.Value);
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
