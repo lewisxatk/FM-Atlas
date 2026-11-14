@@ -37,7 +37,7 @@ public partial class MainWindow
         cards.Children.Add(SearchEntryCard(
             "02 · ATTRIBUTES & PERSONALITY",
             "Attribute Search",
-            "Combine up to 60 minimum / maximum conditions across the 52 standard attribute fields and available personality fields. Missing values stay missing; only fields actually supplied by the source can match.",
+            "Combine up to 60 minimum / maximum conditions across available technical, mental, physical and personality fields. Missing values stay missing; only fields actually supplied by the source can match.",
             "Open attribute builder",
             async () => await NavigateAsync("Attribute Search")));
         cards.Children.Add(SearchEntryCard(
