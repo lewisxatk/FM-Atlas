@@ -8,7 +8,8 @@ public sealed record UnifiedSoccerAction(
     string? PossessionId, string? TeamId, string Team, string? PlayerId, string Player,
     string EventType, string ActionType, bool Successful, double? StartX, double? StartY,
     double? EndX, double? EndY, bool IsShot, bool IsGoal, double? Xg,
-    string Provider, string ProviderEventId, int Sequence);
+    string Provider, string ProviderEventId, int Sequence,
+    string? RecipientPlayerId = null, string? RecipientPlayer = null);
 
 public sealed record ExpectedThreatModel(
     int Columns, int Rows, double[] Values, string ModelName, string TrainingSource,
@@ -19,6 +20,7 @@ public sealed record PossessionChain(
     string MatchId, string Competition, string Season, string PossessionId, string Team,
     int StartMinute, int EndMinute, int ActionCount, int Passes, int Carries, int Shots,
     int Goals, double Xg, double XtAdded, string? FinalPlayer, string Outcome);
+public sealed record PassingNetworkEdge(string MatchId, string Team, string FromPlayer, string ToPlayer, int Passes, int CompletedPasses, double? AverageStartX, double? AverageStartY, double? AverageEndX, double? AverageEndY);
 public sealed record PlayerEventAnalytics(
     string PlayerId, string Player, string Team, int Minutes,
     int Passes, int CompletedPasses, int Carries, int Shots, int Goals,
@@ -134,7 +136,8 @@ public static class ScoutingActionAnalyticsService
                         Str(ev, "player", "id"), Str(ev, "player", "name") ?? "Unknown player",
                         eventType, actionType, outcome, location.X, location.Y, end.X, end.Y,
                         eventType == "Shot", shotOutcome == "Goal", xg,
-                        "StatsBomb Open Data", Str(ev, "id") ?? sequence.ToString(CultureInfo.InvariantCulture), sequence++));
+                        "StatsBomb Open Data", Str(ev, "id") ?? sequence.ToString(CultureInfo.InvariantCulture), sequence++,
+                        Str(detail, "recipient", "id"), Str(detail, "recipient", "name")));
                 }
                 matchCount++;
                 if (matchCount % 25 == 0) progress?.Report($"Unified {matchCount:N0} matches · {output.Count:N0} actions");
@@ -237,6 +240,28 @@ public static class ScoutingActionAnalyticsService
                 rows.Sum(x => x.XtAdded ?? 0), last.Player, outcome));
         }
         return chains.OrderBy(x => x.MatchId).ThenBy(x => x.StartMinute).ToList();
+    }
+
+    public static IReadOnlyList<PassingNetworkEdge> BuildPassingNetwork(IReadOnlyList<ValuedSoccerAction> actions)
+    {
+        return actions.Where(x => x.Action.ActionType == "pass" &&
+                !string.IsNullOrWhiteSpace(x.Action.PlayerId) &&
+                !string.IsNullOrWhiteSpace(x.Action.RecipientPlayerId))
+            .GroupBy(x => (x.Action.MatchId, x.Action.Team, From: x.Action.Player, To: x.Action.RecipientPlayer!))
+            .Select(g =>
+            {
+                var rows = g.ToList();
+                return new PassingNetworkEdge(g.Key.MatchId, g.Key.Team, g.Key.From, g.Key.To,
+                    rows.Count, rows.Count(x => x.Action.Successful),
+                    Mean(rows.Select(x => x.Action.StartX)), Mean(rows.Select(x => x.Action.StartY)),
+                    Mean(rows.Select(x => x.Action.EndX)), Mean(rows.Select(x => x.Action.EndY)));
+            }).OrderByDescending(x => x.CompletedPasses).ThenBy(x => x.FromPlayer).ToList();
+    }
+
+    private static double? Mean(IEnumerable<double?> values)
+    {
+        var present = values.Where(x => x.HasValue).Select(x => x!.Value).ToList();
+        return present.Count == 0 ? null : present.Average();
     }
 
     public static IReadOnlyList<PlayerEventAnalytics> AggregatePlayers(
