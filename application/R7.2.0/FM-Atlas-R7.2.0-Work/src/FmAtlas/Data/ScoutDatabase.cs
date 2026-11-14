@@ -3195,7 +3195,9 @@ public sealed class ScoutDatabase
         int minimumMinutes = 450,
         int limit = 2500,
         CancellationToken cancellationToken = default,
-        int minimumSampleSize = 1)
+        int minimumSampleSize = 1,
+        string? positionRatingCode = null,
+        int minimumPositionRating = 1)
     {
         if (string.IsNullOrWhiteSpace(metricKey))
             throw new ArgumentException("Choose a discovered statistical metric.", nameof(metricKey));
@@ -3208,6 +3210,10 @@ public sealed class ScoutDatabase
         var safeMinutes = Math.Clamp(minimumMinutes, 1, 10000);
         var safeSampleSize = Math.Clamp(minimumSampleSize, 1, 10000);
         var safeLimit = Math.Clamp(limit, 1, 5000);
+        var normalizedPositionCode = string.IsNullOrWhiteSpace(positionRatingCode) ? null : positionRatingCode.Trim().ToUpperInvariant();
+        if (normalizedPositionCode is not null && !PositionSuitabilityService.PositionCodes.Contains(normalizedPositionCode, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Choose one of the 15 supported FM position codes.", nameof(positionRatingCode));
+        var safePositionRating = Math.Clamp(minimumPositionRating, 1, 20);
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync(cancellationToken).ConfigureAwait(false);
 
@@ -3222,6 +3228,11 @@ public sealed class ScoutDatabase
         command.Parameters.AddWithValue("$metric", metricKey);
         command.Parameters.AddWithValue("$minimumMinutes", safeMinutes);
         command.Parameters.AddWithValue("$minimumSampleSize", safeSampleSize);
+        if (normalizedPositionCode is not null)
+        {
+            command.Parameters.AddWithValue("$positionCode", normalizedPositionCode.ToLowerInvariant());
+            command.Parameters.AddWithValue("$minimumPositionRating", safePositionRating);
+        }
         command.CommandText = """
             WITH source_priority AS (
                 SELECT ps.PlayerSourceId,
@@ -3275,6 +3286,14 @@ public sealed class ScoutDatabase
             FROM aggregated a
             INNER JOIN Players p ON p.SourceId=a.PlayerSourceId
             WHERE p.Value IS NOT NULL AND p.Value>0
+              AND ($positionCode IS NULL OR EXISTS (
+                  SELECT 1 FROM FmsavePlayerFacts pf
+                  WHERE pf.SnapshotId=$snapshot
+                    AND pf.PlayerSourceId=p.SourceId
+                    AND pf.FactGroup='positions'
+                    AND pf.FieldKey COLLATE NOCASE=$positionCode
+                    AND pf.NumericValue >= $minimumPositionRating
+              ))
             ORDER BY p.Name COLLATE NOCASE;
             """;
 
