@@ -488,3 +488,17 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - [x] Clear SQLite connection pools before deleting the temporary test database and sidecar files.
 - [ ] Re-run the complete Windows workflow and confirm all 84+ tests pass.
 - [ ] Publish and upload a fresh Windows x64 artifact after the full suite passes.
+
+
+## Final verification — integrated scouting cohort milestone — 14 November 2026
+
+- [x] Windows workflow 43593364372 passed all 12 steps on source commit b45ca350ce4c05a07ab07434e0d3cc39c408f2fd.
+- [x] Python adapter validation, fmsave reader verification and streaming bundle tests passed.
+- [x] .NET 8 restore and Release build passed.
+- [x] Full xUnit suite passed: 84 passed, 0 failed.
+- [x] Position-familiarity scouting cohort integration test passed, including unrestricted cohort path and temporary database cleanup.
+- [x] Self-contained Windows x64 publish and artifact upload passed.
+- [x] Artifact FM-Atlas-V8-win-x64, ID 14112889881, 68,896,831 bytes; SHA-256 39846fd69868c36fa557d1c859bba63f90ef32b863354e44ff293da55e2e019c; expires 28 November 2026.
+- [ ] Manually inspect Monolith Glass at 100%, 125% and 150% DPI.
+- [ ] Compare the same player's 15 position ratings against the FM27 in-game Positions page and capture the witness report.
+- [ ] Continue remaining scouting engine work: reusable metric profiles, deeper player reports, comparison workflow and value-gap shortlist integration.
