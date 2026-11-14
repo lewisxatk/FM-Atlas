@@ -41,6 +41,8 @@ FM Atlas implementation:
 
 The reference project describes its preference grouping as derived from a large FM27 staff population and checked against the in-game staff search UI. FM Atlas has not yet performed that user-side witness check on the user's installed build. Treat these fields as provisional until compared with FM27.
 
+FM Atlas also adapts the FMSuperScout-style quick discovery workflow without replacing the existing search system: the Players finder now has min/max CA and PA bounds, accepts signed PA ranges, and applies the same filters to offline and live indexes with matching count queries.
+
 ## 2. FMLibreEditor — identity layouts and reverse-engineering discipline
 
 Reference: https://github.com/tozmoz/FMLibreEditor
