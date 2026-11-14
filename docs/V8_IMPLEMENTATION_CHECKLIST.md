@@ -288,7 +288,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 11. Live career identity, staff and manager integration (2026-11-14)
 
-Implementation is deliberately separated from permission to scan a running FM process.
+The exact-profile read-only live scan is enabled for supported FM27 builds. Each scan is hard-limited to two minutes, cancellable from the toolbar, and monitored against the process/build/save-generation session.
 
 - [x] Add the profile-matched read-only staff extractor, including the distinct human-manager identity-block layout and class-scoped layout selection.
 - [x] Capture staff UID/name, DOB/age, CA/PA, nation UID/name, linked club UID/name and job code/title when the source exposes them.
@@ -297,16 +297,16 @@ Implementation is deliberately separated from permission to scan a running FM pr
 - [x] Include the live save-generation counter in career identity and reject a scan if the generation changes before completion.
 - [x] Expose live staff in the existing Staff directory and profile-facts panel; `LIVE:` IDs are normalised before querying live staff facts.
 - [x] Keep manager/club toolbar shortcuts tied to the current probe generation rather than stale prior-session identity.
-- [x] Fail closed for My Manager/My Club shortcuts while the full live-import gate is OFF, even if a cached save-load counter happens to match a newly detected session.
+- [x] Require the manager/club shortcuts to match the exact process ID, build profile and save-generation session that produced the committed live snapshot; a matching counter alone is insufficient.
 - [x] Add SQLite integration coverage for staff search, manager identity, CA/PA, age, nation, club, provisional facts and replacement on a new session.
 - [x] Extend the live staff search contract so name, club and numeric UID queries all work against live rows; add regressions for club and UID search.
 - [x] Keep live editing disabled.
-- [x] Keep full live entity-array scanning disabled by default. The 3-second monitor performs career/process/build/session detection only; it does not read the large player/staff/club arrays.
-- [ ] Run Windows Release build and the full .NET integration suite after the latest staff-search and safety-gate commits.
-- [ ] Run controlled FM27 PC acceptance: load career, change career/save generation, close/reopen FM, verify detection status and confirm no process-array scan occurs while the gate is off.
-- [ ] Profile FM CPU/RAM and responsiveness with FM at menu and during a match before considering any bounded live import re-enable.
+- [x] Bound live entity-array scanning to a two-minute deadline and check cancellation at entity batches; keep the monitor checking the session while the worker runs.
+- [ ] Run Windows Release build and the full .NET integration suite after the latest staff-search, bounded-scan and exact-session commits.
+- [ ] Run controlled FM27 PC acceptance: load career, verify the bounded scan and staff/manager identity, switch career during a scan, cancel manually, close/reopen FM and confirm no mixed-session snapshot is committed.
+- [ ] Profile FM CPU/RAM, scan duration and responsiveness at menu and during a match; confirm the two-minute deadline is sufficient for a real large career.
 - [ ] Validate every staff field and the human-manager object layout against the in-game UI and an independent source; keep all un-witnessed values provisional.
-- [ ] After the above gates pass, design a bounded/cancellable manual live import; do not re-enable automatic full scans as a side effect of the detector.
+- [ ] Keep the two-minute cap, cancellation and exact-session guards in place. Do not increase scan scope or enable live editing without independent field and rollback evidence.
 
 ## 12. Latest handover
 
@@ -314,7 +314,7 @@ Implementation is deliberately separated from permission to scan a running FM pr
 - Current release source remains the R7.2.0-based V8 WPF/.NET 8 application under `application/R7.2.0/FM-Atlas-R7.2.0-Work/`.
 - Advanced Search, Players search, paged results, profile tabs, deferred profile restoration and staff/club workspaces are retained. Do not replace these with a simplified new search or rebuild.
 - The Staff live-facts lookup already handles the `LIVE:` source-ID prefix in this branch. Do not reintroduce a numeric-ID-only lookup.
-- The live-memory import gate is OFF; career detection remains ON. Offline save import remains the current supported route for populating new career data until live scanning has passed performance and field-witness gates.
+- The read-only live-memory import is ON for exact supported profiles, with a two-minute deadline, toolbar cancellation and session-change cancellation. Offline save import remains available for extended history and match statistics. Live editing remains OFF.
 - No Windows build/test result is claimed for the latest commits until a fresh Actions run reports success. Historical green runs do not validate the latest edits.
 - User PC/runtime acceptance, actual FM27 save compatibility, full import throughput/peak-memory, and packaged release acceptance remain outstanding.
 - Canonical handover companion: `docs/V8_HANDOVER.md`.
