@@ -2901,78 +2901,46 @@ public partial class MainWindow : Window
         var panel = Card(new DockPanel(), 15); var dock = (DockPanel)panel.Child;
         var top = new StackPanel();
         top.Children.Add(Txt("AUDIT TRAIL", 9, true, Teal));
-        top.Children.Add(Txt("Edit history & guarded undo", 20, true, Ink));
+        top.Children.Add(Txt("Edit history & local undo", 20, true, Ink));
         top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM history entries are retained for audit purposes, but live Undo is disabled in V8.", 10, false, Muted, wrap: true));
         var dg = CreateGrid(); dg.SelectionMode = DataGridSelectionMode.Single;
         dg.Columns.Add(Column("ID", "Id", .35)); dg.Columns.Add(Column("PLAYER", "PlayerName", 1.1)); dg.Columns.Add(Column("FIELD", "FieldName", 1)); dg.Columns.Add(Column("OLD", "OldValue", .6)); dg.Columns.Add(Column("NEW", "NewValue", .6)); dg.Columns.Add(Column("CHANGED", "ChangedUtc", 1)); dg.Columns.Add(Column("SOURCE", "ChangeSource", 1));
         dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
-        top.Children.Add(SoftButton("Undo selected change", async (_, _) =>
+        top.Children.Add(SoftButton("Undo selected local change", async (_, _) =>
         {
-            if (dg.SelectedItem is not AtlasHistoryRecord selected) { MessageBox.Show(this, "Select an edit history row first.", "Undo edit"); return; }
+            if (dg.SelectedItem is not AtlasHistoryRecord selected)
+            {
+                MessageBox.Show(this, "Select an edit history row first.", "Undo edit");
+                return;
+            }
+
             var liveChange = selected.ChangeSource.Contains("FM27 live memory", StringComparison.OrdinalIgnoreCase);
-            if (!liveChange)
+            if (liveChange)
             {
-                var confirmLocal = MessageBox.Show(this, $"Undo local change #{selected.Id} for {selected.PlayerName}?\n\nThis changes the FM Atlas database only, not the live game.", "Confirm local undo", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (confirmLocal != MessageBoxResult.Yes) return;
-                try { await RunDatabaseAsync(() => _database.UndoLocalEditAsync(selected.Id)); AtlasLog.Info($"Local edit history item undone: id={selected.Id}."); }
-                catch (Exception ex) { AtlasLog.Error($"Local edit undo failed for history item {selected.Id}.", ex); MessageBox.Show(this, ex.Message, "Undo failed", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+                MessageBox.Show(this,
+                    "This is a historical live-game entry. Live Apply and Undo are disabled in V8; the record is retained for audit only. No Football Manager process will be written to.",
+                    "FM Atlas · Live undo disabled", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
             }
-            else
+
+            var confirmLocal = MessageBox.Show(this,
+                $"Undo local change #{selected.Id} for {selected.PlayerName}?\\n\\nThis changes the FM Atlas database only, not the live game or source career save.",
+                "Confirm local undo", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (confirmLocal != MessageBoxResult.Yes) return;
+
+            try
             {
-                if (!LiveMemoryEditingEnabled)
-                {
-                    MessageBox.Show(this,
-                        "Live Undo is disabled in FM Atlas V8. This entry is kept for audit/history only; Atlas will not write to the running Football Manager process.",
-                        "FM Atlas · Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                if (!selected.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) || !uint.TryParse(selected.SourceId[5..], out var uid))
-                { MessageBox.Show(this, "This history row is marked as a live edit but does not contain a valid LIVE:UID identity. Atlas will not guess which game player to modify.", "Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-                if (!double.TryParse(selected.NewValue, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var expected) || !double.TryParse(selected.OldValue, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var restore))
-                { MessageBox.Show(this, "The old and new values for this live edit are not both numeric. Atlas cannot safely create an inverse write.", "Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-                if (Math.Abs(expected - Math.Round(expected)) > 0.0001 || Math.Abs(restore - Math.Round(restore)) > 0.0001 || expected is < 1 or > 200 || restore is < 1 or > 200)
-                { MessageBox.Show(this, "This live undo value is outside the currently supported whole-number ability/attribute range.", "Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-                var fieldKey = selected.FieldName switch
-                {
-                    "CurrentAbility" => "ability.current_ability",
-                    "PotentialAbility" => "ability.potential_ability",
-                    _ => selected.FieldName
-                };
-                LiveMemoryEditService.BatchReceipt? receipt = null;
-                try
-                {
-                    var pid = await Task.Run(LiveMemoryEditService.FindSupportedProcessId);
-                    var plan = await Task.Run(() => LiveMemoryEditService.StageBatch(pid, uid, selected.PlayerName,
-                        new[] { new LiveMemoryEditService.Change(fieldKey, (int)Math.Round(expected), (int)Math.Round(restore)) }));
-                    var confirmLive = MessageBox.Show(this,
-                        $"LIVE FM27 UNDO PREVIEW\n\n{selected.PlayerName} · {plan.ProfileId}\n{selected.FieldName}: {expected:0.##} → {restore:0.##}\n\nAtlas has re-resolved the player UID and confirmed that FM currently contains the value recorded as NEW. It will also check that the same career has stayed loaded, then write and read back the old value. Back up your career and use offline single-player only.\n\nApply this inverse write to Football Manager?",
-                        "FM Atlas · Guarded live undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (confirmLive != MessageBoxResult.Yes) return;
-                    receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(plan));
-                    try
-                    {
-                        await RunDatabaseAsync(() => _database.UndoLocalEditAsync(selected.Id));
-                        var factKey = selected.FieldName switch
-                        {
-                            "CurrentAbility" => "ability.current_ability",
-                            "PotentialAbility" => "ability.potential_ability",
-                            _ => "attributes." + selected.FieldName
-                        };
-                        await RunDatabaseAsync(() => _database.UpdateLivePlayerFactAsync(uid, factKey, restore));
-                    }
-                    catch
-                    {
-                        await Task.Run(() => LiveMemoryEditService.UndoBatch(receipt));
-                        throw;
-                    }
-                    AtlasLog.Info($"Guarded live FM27 undo read-back verified: historyId={selected.Id}; uid={uid}; field={fieldKey}; profile={plan.ProfileId}.");
-                    MessageBox.Show(this, "Football Manager accepted the inverse write and Atlas read the restored value back. Press Continue in FM to refresh derived displays, then save the career if you wish to keep the restoration.", "Live undo verified", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex) { AtlasLog.Error($"Guarded live undo failed for history item {selected.Id}.", ex); MessageBox.Show(this, ex.Message, "Live undo failed or blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+                await RunDatabaseAsync(() => _database.UndoLocalEditAsync(selected.Id));
+                AtlasLog.Info($"Local edit history item undone: id={selected.Id}.");
+                dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
+                await RefreshPlayerResultsAsync();
+                if (_selectedPlayer is not null) await ShowPlayerProfileAsync(_selectedPlayer);
             }
-            dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
-            await RefreshPlayerResultsAsync();
-            if (_selectedPlayer is not null) await ShowPlayerProfileAsync(_selectedPlayer);
+            catch (Exception ex)
+            {
+                AtlasLog.Error($"Local edit undo failed for history item {selected.Id}.", ex);
+                MessageBox.Show(this, ex.Message, "Undo failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }));
         DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top); dock.Children.Add(dg); return panel;
     }
