@@ -101,7 +101,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add league, nationality, home-grown, contract and staff filters when available in source data.
 - [ ] Ensure missing/undecoded values are never silently treated as zero or as a failed filter match.
 - [ ] Add test fixtures for filter semantics, combined logic, paging, sorting and 40k+ player datasets.
-- [x] Windows .NET integration tests passed on Actions run #168: valid NDJSON commit, manifest-count mismatch rollback, malformed extra-table rollback, and preservation of a previously committed snapshot. Cancellation injected at every table, WAL contention and broader relationship checks remain outstanding.
+- [x] Four baseline Windows .NET integration tests passed on Actions run #168: valid NDJSON commit, manifest-count mismatch rollback, malformed extra-table rollback, and preservation of a previously committed snapshot.
+- [~] Two additional Windows .NET integration tests are now committed: cancellation immediately before commit must roll back all new rows, and skipped staff rows must leave reconciliation warnings persisted in `WarningsJson`. The latest Windows run #172 includes both tests; their result is not confirmed yet. WAL contention and broader relationship checks remain outstanding.
 
 ## 6. Player profiles and development
 
@@ -152,7 +153,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 ## 11. Quality gates, performance and testing
 
 - [x] Restore and compile full solution using .NET 8 on a hosted Windows runner (GitHub Actions run #79, commit `18d32e2d`).
-- [~] All compile errors found in the first run were fixed and the Release build now passes; review remaining non-fatal compiler warnings before declaring warning-clean.
+- [~] All compiler errors have been fixed and the Release build passed on run #168. Removed twelve unused legacy fields, replaced compile-time live-memory `const false` gates with non-constant fail-closed properties, and wrapped deferred profile restoration in an explicit error handler (`c1f5c153`). Run #172 will check whether the known CS0162/CS0169/CS4014 warnings have reduced; any remaining warnings need a fresh review.
 - [ ] Add unit tests for data mapping, identity joins, filter logic, calculations and validation.
 - [ ] Add integration tests for import staging, rollback, SQLite contention, cancellation and retry.
 - [ ] Add performance benchmarks at 40k+ players, 28k+ clubs and large stats tables.
@@ -203,6 +204,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Accurate bulk shortlist counts | `c1aeaa96`, `377b55e7` | The transactional insert ignores existing player/shortlist pairs and returns only newly added records; the UI reports new versus already-present counts. |
 | 2026-11-14 | Strict NDJSON row-count integrity | `ef1c87b5` | The C# importer verifies every physical table stream against its manifest count before commit, distinguishes raw rows read from valid records indexed, and rolls back missing/truncated bundles; compiled and integration tested in run #168. |
 | 2026-11-14 | Isolated C# import integration test project | `8856a3f4`, `c32b3ad6`, `6c848f83`, `84a4da28`, `e8cbd5da` | Added an injectable per-test SQLite path, a Windows xUnit test project in the solution and CI `dotnet test` stage. Four tests cover commit, manifest mismatch rollback, malformed NDJSON rollback and preservation of the prior committed snapshot. CI execution pending. |
+| 2026-11-14 | Cancellation/warning integration tests and compiler warning cleanup | `955f2c9e`, `c1f5c153` | Added tests for cancellation immediately before commit and for persisted row-skipping warnings. Removed 12 unused legacy fields, changed the live-memory gates to non-constant fail-closed properties, and added a guarded async profile-restoration wrapper. Windows run #172 is checking the six-test suite and warning changes. |
 | 2026-11-14 | Successful integrated V8 build and package | GitHub Actions run [#157](https://github.com/lewisxatk/FM-Atlas/actions/runs/43536598003), artifact `14090820119` | Python adapter regression tests, .NET 8 restore, Release build, self-contained win-x64 publish and ZIP upload all passed for commit `77ec4364`. Product ZIP SHA-256: `2dc76b11ede85de9f28debc61322374292bfbaf88b272b690a12e44a3bff7eaf`. Later folder-safety, shortlist-count and strict row-count code commits need a fresh compile before their own validation can be ticked.
 | 2026-11-14 | Successful integrated V8 build and import tests | GitHub Actions run [#168](https://github.com/lewisxatk/FM-Atlas/actions/runs/43537353738), artifact `14090511809`, commit `e8cbd5da` | Python adapter syntax/regression tests, .NET 8 restore, Release build, all 4 C# import integration tests, self-contained win-x64 publish and ZIP upload all passed. Product ZIP SHA-256: `775bb48f8e61a0080f379075a07732e01eec21e4fe32e746d5e4f57602753c98`. This validates source/build/import fixtures, not the app’s real Windows startup or a large real FM save import.
 | 2026-11-14 | First Windows Release compile and fixes | `80b4160d`, `b35432d8` | First attempt exposed 7 errors (four event-handler signatures, three WPF/System.IO Path ambiguities). Fixed callback signatures and added an explicit System.IO.Path alias. |
