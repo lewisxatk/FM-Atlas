@@ -98,6 +98,25 @@ public sealed class ScoutingEngineImportTests
         Assert.All(found, x => Assert.Contains("65%", x.Explanation));
     }
 
+
+    [Fact]
+    public void ProviderSuppliedPer90ValuesStillRespectMinimumMinutes()
+    {
+        var players = new[]
+        {
+            new ScoutingPlayerSeason("a", "A", "Club A", "League", "2025/26", "Defender", 300,
+                new Dictionary<string, double?> { ["metric_90"] = 4 }, "Wyscout user CSV", "CSV", false),
+            new ScoutingPlayerSeason("b", "B", "Club B", "League", "2025/26", "Defender", 900,
+                new Dictionary<string, double?> { ["metric_90"] = 5 }, "Wyscout user CSV", "CSV", false)
+        };
+        var ranked = ScoutingAnalyticsService.RankMetric(players,
+            new ScoutingMetricDefinition("metric_90", "Metric / 90", "per 90", false, true, 450),
+            minimumCohortSize: 2);
+        var result = Assert.Single(ranked);
+        Assert.Equal("b", result.SourceId);
+        Assert.Null(result.Percentile);
+    }
+
     private static ScoutingPlayerSeason Make(string name, double a, double b) =>
         new(name, name, "Atlas FC", "Test League", "2025/26", "Defender", 900,
             new Dictionary<string, double?> { ["a"] = a, ["b"] = b },
