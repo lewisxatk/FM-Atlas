@@ -190,7 +190,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add integration tests for import staging, rollback, SQLite contention, cancellation and retry.
 - [ ] Add performance benchmarks at 40k+ players, 28k+ clubs and large stats tables.
 - [ ] Record startup, navigation, query, profile-open and import timings against R7.2.0 baseline.
-- [ ] Verify no FM slowdown/crash during the enabled bounded scan on the user's real PC; use the toolbar Cancel action and confirm the two-minute ceiling before treating it as release-ready.
+- [ ] Verify no FM slowdown/crash during the enabled bounded scan on the user's real PC; use the toolbar Cancel action and confirm the two-minute ceiling before treating it as release-ready. The scan is already enabled in source; this is a release acceptance gate, not a prerequisite for the source path to run.
 - [ ] Test backup/restore, offline use, permissions, missing dependencies and corrupted cache.
 - [ ] Run full Windows acceptance checklist against a disposable career-save copy.
 - [ ] Only declare V8 release-ready after build, automated tests and PC acceptance gates pass.
