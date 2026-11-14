@@ -293,3 +293,10 @@ This batch is source-implemented and regression tests are added, but it is not y
 - Small cohorts without a valid percentile are excluded from the corresponding chart view; the result table still shows the missing cohort percentile as an em dash.
 - FM position familiarity is shown in the grid, tooltip and export only when a numeric position cohort is selected.
 - Added a regression assertion for the unrestricted search path. Build/test verification is pending a non-cancelled Windows workflow.
+
+
+### CI correction in progress
+
+- The first integrated Windows run compiled successfully but the xUnit suite ended 83 passed / 1 failed. The failing new test reached its cleanup block, where Windows refused to delete a SQLite file still held by Microsoft.Data.Sqlite's connection pool.
+- The SQL assertions themselves completed; the failure was temporary database cleanup. The test now clears all Microsoft.Data.Sqlite pools before deleting the file and its WAL/SHM sidecars.
+- Fresh CI is required. The previous run did not publish an artifact, and this batch must not be described as fully verified until the corrected test suite, publish and artifact upload pass.
