@@ -24,7 +24,7 @@ At integration commit `5f8dc334485d71ca39215d427921c5f6ddf1242d`, Windows workfl
 - The complete xUnit suite passed: 106/106.
 - Self-contained Windows x64 publish completed and the `FM-Atlas-V10-win-x64` artifact was uploaded.
 
-Follow-up commits add a live-write service gate, regression tests, diagnostics corrections, updated V10 test documents and a workflow path correction. Workflow run #605 was triggered for the latest handover commit and must be checked for a final result before claiming that those follow-up changes passed CI. Use the newest successful artifact after this run; older artifact #585 is not the current build of the hardening changes.
+The follow-up commits add a live-write service gate, three regression tests, diagnostics corrections, updated V10 test documents, a workflow path correction and a dispatcher-warning correction. Windows workflow **#605, attempt 2**, completed successfully: .NET Release build passed, xUnit **109/109**, self-contained win-x64 publish passed and the artifact upload succeeded. The verified application/test commit is `3e236ea9cd4d2b95c299b5ecd53a255b39a92658`; subsequent branch commits changed only root-level handover/roadmap documentation. Current artifact: `FM-Atlas-V10-win-x64`, artifact ID `14126731937`, SHA-256 `3d02aec66ad6a9fe3ccdfe553637095bc78c75619dca36bde5f52623ff86368c`.
 
 A successful CI run verifies compilation, automated tests and packaging. It does not verify a launch on the user's Windows PC, actual FM27 field meanings, Steam/Game Pass attachment, visual acceptance or installer behaviour.
 
