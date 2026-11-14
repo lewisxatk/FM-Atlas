@@ -22,7 +22,7 @@ public sealed class PlayerComparisonWindow : Window
         public string Value3 { get; init; } = "—";
     }
 
-    private PlayerComparisonWindow(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes)
+    private PlayerComparisonWindow(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes, IReadOnlyDictionary<string, IReadOnlyList<PositionSuitabilityEntry>> positionRatings)
     {
         Title = "FM Atlas · Player Comparison";
         Width = 1320;
@@ -64,7 +64,7 @@ public sealed class PlayerComparisonWindow : Window
             var property = "Value" + i.ToString(CultureInfo.InvariantCulture);
             grid.Columns.Add(new DataGridTextColumn { Header = label, Binding = new Binding(property), Width = new DataGridLength(1.2, DataGridLengthUnitType.Star) });
         }
-        grid.ItemsSource = BuildRows(players, attributes);
+        grid.ItemsSource = BuildRows(players, attributes, positionRatings);
 
         var radarData = PlayerComparisonRadarService.Build(
             players.Select(x => x.Name).ToList(), attributes);
@@ -91,7 +91,7 @@ public sealed class PlayerComparisonWindow : Window
         window.ShowDialog();
     }
 
-    private static List<ComparisonRow> BuildRows(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes)
+    private static List<ComparisonRow> BuildRows(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes, IReadOnlyDictionary<string, IReadOnlyList<PositionSuitabilityEntry>> positionRatings)
     {
         var rows = new List<ComparisonRow>();
         void AddCore(string group, string field, Func<PlayerRecord, string> selector)
@@ -104,6 +104,20 @@ public sealed class PlayerComparisonWindow : Window
         AddCore("Profile", "Home-grown at club", x => x.DisplayHomeGrownClub);
         AddCore("Profile", "Home-grown in nation", x => x.DisplayHomeGrownNation);
         AddCore("Profile", "Position", x => x.Position ?? "—");
+
+        // Compare every canonical FM position side by side, not just the displayed
+        // primary position. This exposes versatility and specialist suitability.
+        foreach (var position in PositionSuitabilityService.PositionCodes)
+        {
+            var values = players.Select(player =>
+            {
+                if (!positionRatings.TryGetValue(player.SourceId, out var entries)) return "—";
+                var rating = entries.FirstOrDefault(x => x.Code.Equals(position, StringComparison.OrdinalIgnoreCase))?.Rating;
+                return rating.HasValue ? rating.Value.ToString("0.#", CultureInfo.InvariantCulture) + "/20" : "—";
+            }).ToArray();
+            if (values.Any(x => x != "—"))
+                rows.Add(CreateRow("Position suitability · source 1–20", position, values));
+        }
         AddCore("Ability", "Current ability", x => x.CurrentAbility?.ToString(CultureInfo.InvariantCulture) ?? "—");
         AddCore("Ability", "Potential ability", x => x.PotentialAbility?.ToString(CultureInfo.InvariantCulture) ?? "—");
         AddCore("Value", "Market value · source units", x => x.Value?.ToString("N0", CultureInfo.InvariantCulture) ?? "—");
