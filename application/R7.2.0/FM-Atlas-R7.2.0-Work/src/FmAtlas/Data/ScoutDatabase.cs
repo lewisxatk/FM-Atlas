@@ -835,10 +835,8 @@ public sealed class ScoutDatabase
             var command = db.CreateCommand();
             command.Transaction = (SqliteTransaction)transaction;
             command.CommandText = """
-                INSERT INTO Shortlists(SourceId, ShortlistName, Notes, AddedUtc)
-                VALUES($id, $name, $notes, $date)
-                ON CONFLICT(SourceId, ShortlistName)
-                DO UPDATE SET Notes=COALESCE(excluded.Notes,Shortlists.Notes);
+                INSERT OR IGNORE INTO Shortlists(SourceId, ShortlistName, Notes, AddedUtc)
+                VALUES($id, $name, $notes, $date);
                 """;
             command.Parameters.Add("$id", SqliteType.Text);
             command.Parameters.AddWithValue("$name", name);
@@ -846,16 +844,17 @@ public sealed class ScoutDatabase
             command.Parameters.Add("$date", SqliteType.Text);
             await command.PrepareAsync().ConfigureAwait(false);
 
+            var added = 0;
             foreach (var player in uniquePlayers)
             {
                 command.Parameters["$id"].Value = player.SourceId;
                 command.Parameters["$notes"].Value = (object?)notes ?? DBNull.Value;
                 command.Parameters["$date"].Value = DateTime.UtcNow.ToString("O");
-                await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+                added += await command.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
 
             await transaction.CommitAsync().ConfigureAwait(false);
-            return uniquePlayers.Count;
+            return added;
         }
         finally
         {
