@@ -315,7 +315,7 @@ public static class LiveMemoryEditService
         var scalarFields = new Dictionary<string, WritableField>(StringComparer.OrdinalIgnoreCase)
         {
             ["height"] = new("height", "Height (cm)", 0x22E, 2, ValueEncoding.UInt16, 140, 220),
-            ["asking_price"] = new("asking_price", "Asking Price (GBP)", 0x238, 4, ValueEncoding.Int32, 0, 2_000_000_000),
+            ["asking_price"] = new("asking_price", "Asking Price (GBP)", 0x238, 4, ValueEncoding.Int32, -1, 2_000_000_000),
             ["condition"] = new("condition", "Condition (0–10000)", 0x25C, 2, ValueEncoding.UInt16, 0, 10_000),
             ["match_sharpness"] = new("match_sharpness", "Match Sharpness (0–10000)", 0x258, 2, ValueEncoding.UInt16, 3_500, 10_000),
             ["jadedness"] = new("jadedness", "Jadedness", 0x25A, 2, ValueEncoding.Int16, -500, 1_000),
@@ -335,9 +335,23 @@ public static class LiveMemoryEditService
 
     private static void ValidateValue(WritableField field, int current, int target)
     {
-        if (current < field.Minimum || current > field.Maximum || target < field.Minimum || target > field.Maximum)
+        var currentMinimum = field.Minimum;
+        var currentMaximum = field.Maximum;
+        // Some FM values have valid pre-existing sentinel/progress states outside the
+        // range we permit users to write: random PA is negative, sharpness may be low
+        // for a new player, and jadedness can exceed the normal edit ceiling.
+        if (field.Key.Equals("ability.potential_ability", StringComparison.OrdinalIgnoreCase))
+        { currentMinimum = -200; currentMaximum = 200; }
+        else if (field.Key.Equals("match_sharpness", StringComparison.OrdinalIgnoreCase))
+        { currentMinimum = 0; currentMaximum = 10_000; }
+        else if (field.Key.Equals("jadedness", StringComparison.OrdinalIgnoreCase))
+        { currentMinimum = -500; currentMaximum = short.MaxValue; }
+        else if (field.Key.Equals("asking_price", StringComparison.OrdinalIgnoreCase))
+        { currentMinimum = -1; currentMaximum = int.MaxValue; }
+
+        if (current < currentMinimum || current > currentMaximum || target < field.Minimum || target > field.Maximum)
             throw new ArgumentOutOfRangeException(nameof(target),
-                $"{field.DisplayName} must be between {field.Minimum:N0} and {field.Maximum:N0} in this field's FM27 storage units.");
+                $"{field.DisplayName}: current value must be {currentMinimum:N0}–{currentMaximum:N0}; target must be {field.Minimum:N0}–{field.Maximum:N0} in FM27 storage units.");
     }
 
     private static int DecodeValue(WritableField field, byte[] bytes)
