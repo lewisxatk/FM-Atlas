@@ -146,8 +146,8 @@ public static class GameModuleDiagnostics
         foreach (var witness in PlayerWitnesses)
             safe = safe.Replace(witness.Name, "[redacted player]", StringComparison.OrdinalIgnoreCase);
         // Redact absolute paths, including install paths and user-profile paths.
-        safe = Regex.Replace(safe, @"(?i)\\\\[^\\\\r\\n]+", "[path redacted]");
-        safe = Regex.Replace(safe, @"(?i)\\b[A-Z]:\\\\[^\\r\\n]+", "[path redacted]");
+        safe = Regex.Replace(safe, @"(?i)\\\\[^\r\n]+", "[path redacted]");
+        safe = Regex.Replace(safe, @"(?i)\b[A-Z]:\\[^\r\n]+", "[path redacted]");
         return safe;
     }
 
