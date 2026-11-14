@@ -1454,7 +1454,7 @@ public sealed class ScoutDatabase
         cmd.CommandText = """
             SELECT COUNT(*) FROM Players
             WHERE SourceId NOT LIKE 'LIVE:%'
-              AND ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p)
+              AND ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p OR COALESCE(League,'') LIKE $p OR COALESCE(Position,'') LIKE $p OR SourceId LIKE $p)
               AND ($minCa IS NULL OR CurrentAbility >= $minCa)
               AND ($maxCa IS NULL OR CurrentAbility <= $maxCa)
               AND ($minPa IS NULL OR PotentialAbility >= $minPa)
