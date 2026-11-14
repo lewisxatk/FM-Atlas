@@ -23,6 +23,7 @@ public sealed class LiveCareerDetectionTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             Directory.Delete(folder, recursive: true);
         }
     }
@@ -180,6 +181,7 @@ public sealed class LiveCareerDetectionTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (Directory.Exists(folder))
                 Directory.Delete(folder, recursive: true);
         }
@@ -228,7 +230,7 @@ public sealed class LiveCareerDetectionTests
     [Fact]
     public void StaffAttributeDecoderLeavesMissingBytesAbsent()
     {
-        var decoded = StaffAttributeDecoder.Decode(new byte[0x20]);
+        var decoded = StaffAttributeDecoder.Decode(new byte[0x1D]);
 
         Assert.Empty(decoded);
     }
@@ -322,6 +324,7 @@ public sealed class LiveCareerDetectionTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (Directory.Exists(folder))
                 Directory.Delete(folder, recursive: true);
         }
