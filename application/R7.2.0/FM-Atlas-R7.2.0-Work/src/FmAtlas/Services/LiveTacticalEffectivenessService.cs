@@ -375,7 +375,7 @@ public static partial class LiveEntityMemoryEditService
                 var shapeWords = Read(handle, (nint)shapeHeader, 24);
                 var shapeList = shapeWords.All(x => x == 0) ? null : ReadTacticalList(handle, shapeHeader, 16, 64);
                 if (shapeList is not null && !ValidShapeEntries(shapeList.Bytes)) continue;
-                players.Add(new TacticalPlayer(uid, address, shift, record, areaLists, shapeList));
+                players.Add(new TacticalPlayer(uid, address, shift, record, person, areaLists, shapeList));
             }
             catch { }
         }
@@ -389,11 +389,11 @@ public static partial class LiveEntityMemoryEditService
     {
         var manager = U64(handle, moduleBase + profile.TacticsManagerRva);
         if (!Pointer(manager)) throw new InvalidOperationException("The FM27 Tactics Manager could not be resolved.");
-        var list = Read(handle, (nint)(manager + 0x20), 24);
+        // FM27 stores this manager's tactic-map pointers as a pair (begin, end), not a capacity triple.
+        var list = Read(handle, (nint)(manager + 0x20), 16);
         var begin = BitConverter.ToUInt64(list, 0);
         var end = BitConverter.ToUInt64(list, 8);
-        var cap = BitConverter.ToUInt64(list, 16);
-        if (!Pointer(begin) || end < begin || cap < end || (end - begin) % 8 != 0 || (end - begin) > 8 * 64)
+        if (!Pointer(begin) || end < begin || (end - begin) % 8 != 0 || (end - begin) > 8 * 64)
             throw new InvalidOperationException("The Tactics Manager list failed validation.");
         for (var at = begin; at < end; at += 8)
         {
