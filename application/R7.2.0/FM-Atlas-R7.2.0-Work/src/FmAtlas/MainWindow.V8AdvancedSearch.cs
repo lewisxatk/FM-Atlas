@@ -49,6 +49,8 @@ public partial class MainWindow
         Button nextPageButton = null!;
         TextBlock pageStatus = null!;
         DataGrid grid = null!;
+        Button compareSelectedButton = null!;
+        Button similarSelectedButton = null!;
 
         var content = new StackPanel { Margin = new Thickness(2, 0, 2, 18) };
         var introduction = Card(new StackPanel(), 18, new Thickness(0, 0, 0, 12));
@@ -99,8 +101,8 @@ public partial class MainWindow
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
         searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
         var shortlistSelectedButton = SoftButton("Add selected to shortlist", async (_, _) => await AddSelectedToShortlistAsync());
-        var compareSelectedButton = SoftButton("Compare selected (2–4)", async (_, _) => await CompareSelectedPlayersAsync());
-        var similarSelectedButton = SoftButton("Find similar players", async (_, _) => await FindSimilarForSelectedAsync());
+        compareSelectedButton = SoftButton("Compare selected (2–4)", async (_, _) => await CompareSelectedPlayersAsync());
+        similarSelectedButton = SoftButton("Find similar players", async (_, _) => await FindSimilarForSelectedAsync());
         cancelSearchButton = SoftButton("Cancel search", (_, _) => activeSearchCancellation?.Cancel());
         cancelSearchButton.IsEnabled = false;
         var resetButton = SoftButton("Reset filters", (_, _) => ResetFilters());

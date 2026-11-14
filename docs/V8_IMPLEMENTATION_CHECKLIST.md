@@ -116,7 +116,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 ## 7. Recruitment, Moneyball and analytics
 
 - [x] Indexed statistic search pushes each metric's numeric threshold into SQLite's indexed candidate predicate, evaluates ALL/ANY with per-condition aggregation, applies per-90/minutes filters before materialisation, groups qualifying player-period rows server-side, and resolves only candidate player identities.
-- [ ] Verify indexed metric-search correctness against a real imported FM27 career and benchmark query latency on large stat tables.
+- [~] Add a 5,000-player / 10,000-fact synthetic regression and latency smoke test for indexed ALL/ANY search. Real FM27 career verification and 40k+ import/query/peak-memory benchmarks remain open.
 - [x] Centralise the weighted Role Fit calculation in `RoleFitService.CalculateScore`; only finite source-provided 1–20 attributes contribute, and the score returns separate available/expected counts and coverage. It remains explicitly an Atlas estimate, not the game's hidden role formula or star rating.
 - [x] Upgrade Role Fit Lab with minimum/maximum age, minimum CA, minimum PA, position-contains and minimum attribute-coverage filters. Candidate predicates are applied in SQLite before candidate limiting; role-coverage thresholds are applied before ranking/result limiting.
 - [x] Add cancellation through Role Fit database reading and scoring; a cancelled search keeps the last completed result set.
@@ -127,11 +127,12 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Correct Role Fit Lab compile-time closure issues in the cancellation control and age-filter logging scope discovered by Windows CI run #179; a fresh Windows build is required to confirm the repair.
 - [ ] Benchmark metric search, import throughput and peak memory using 40k+ player / large-stat fixtures.
 
+- [~] Add side-by-side comparison for up to four selected players and source-backed similar-player discovery based on shared non-hidden 1–20 attribute vectors. Windows verification is pending.
 - [ ] Complete recruitment workspace and reusable role templates.
-- [ ] Add performance-vs-value scatter plot using comparable real season data.
+- [~] Add a performance-versus-value percentile scatter view using source metric rows, a minimum-minutes floor, source value units, sample count and period freshness. Windows verification pending; competition-strength adjustment is not available in the imported metric index.
 - [ ] Add per-90, percentiles and position/role-specific metrics only when source supports them.
 - [ ] Show sample size, minutes, competition strength, freshness and data coverage.
-- [ ] Add similar players, recruitment pipeline and explainable recommendation factors.
+- [~] Similar-player ranking is implemented with explicit similarity score, shared-attribute count and anchor coverage; recruitment pipeline and broader recommendation factors remain open.
 - [ ] Build interactive analytics charts with filtering, hover values, zoom/range where useful and export.
 - [ ] Validate metrics against source rows and independent calculations.
 
@@ -191,6 +192,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Traceable and safer Role Fit export | `2a6bfc80` | CSV now includes stable player Source IDs and available/expected attribute counts; untrusted text cells are guarded against spreadsheet formula injection. Windows verification pending. |
 | 2026-11-14 | Role Fit explainability and normalized-key hardening | `57b08fba` | Each ranked player now carries per-attribute weighted evidence, shown in the results grid and CSV; database search combines normalized aliases before building SQL parameters; added regression coverage for weighted breakdowns and duplicate normalized keys. Windows verification pending. |
 | 2026-11-14 | Role Fit Windows compile repair | `4d10811d` | Fixed the cancellation button's definite-assignment issue and retained age-filter values outside validation scope for completion logging; corrected regression expectations for normalized duplicate attributes. Verified by successful Windows Actions run #182. |
+| 2026-11-14 | Performance vs Value percentile analysis | `bdbbc9a0` | Added metric-to-value percentile comparison using the best available source table (season stats, then season history, then match stats), minutes-weighted per-90 for eligible counting metrics, career-wide percentiles, source-value units, sample count, latest period, coverage and an interactive scatter view. CI pending. |
+| 2026-11-14 | Player comparison, similar-player discovery and scale verification | `73c4092e` | Added side-by-side comparison for up to four players, attribute-vector similarity from source-backed non-hidden 1–20 footballing attributes, explained coverage and a synthetic 5,000-player/10,000-fact ALL/ANY metric-search fixture. Windows build exposed one Advanced Search button definite-assignment issue; fix is being committed. |
 | 2026-11-14 | Indexed metric-search pushdown | `6f6193aa` | Added SQLite-side ALL/ANY evaluation using aggregated per-condition predicates, per-90/minutes filtering, candidate-row grouping, a composite fact-search index, lazy player identity resolution and an import/search regression fixture. Windows build, integration tests and package passed in run #176; real-career correctness and large-table benchmarks remain outstanding. |
 | 2026-11-14 | Atlas Liquid top toolbar, collapsible navigation, theme cycling, tooltips and responsive navigation | `2ccbbcc5`, `1447e6f7`, `5c1090b0` | Initial shell and deferred profile restoration committed; keyboard/tooltips/DPI acceptance not yet verified. |
 | 2026-11-14 | Blue accent mapping and system-aware workspace transition | `846b98af`, `2fc2e2e0` | Removed legacy lime accent mapping in favour of the Atlas Liquid blue palette; transition respects Windows client-area animation preference. |
