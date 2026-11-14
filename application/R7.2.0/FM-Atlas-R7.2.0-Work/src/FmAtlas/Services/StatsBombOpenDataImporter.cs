@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 
@@ -97,7 +98,7 @@ public static class StatsBombOpenDataImporter
                             {
                                 var from = Minute(Str(pos, "from"));
                                 var to = Minute(Str(pos, "to")) ?? 90;
-                                if (from.HasValue && to >= from.Value) minutes += to.Value - from.Value;
+                                if (from.HasValue && to >= from.Value) minutes += to - from.Value;
                                 agg.Position ??= Str(pos, "position");
                             }
                             agg.Minutes = Math.Max(agg.Minutes, minutes);
