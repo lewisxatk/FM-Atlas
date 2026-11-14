@@ -1071,41 +1071,126 @@ public partial class MainWindow : Window
         detailCard.Child = detailGrid;
         profilePanel.Children.Add(detailCard);
 
+        var profileTabs = new TabControl
+        {
+            Margin = new Thickness(0, 0, 0, 12),
+            MinHeight = 500
+        };
+        StackPanel AddProfileTab(string title)
+        {
+            var content = new StackPanel { Margin = new Thickness(12, 10, 12, 14) };
+            profileTabs.Items.Add(new TabItem { Header = title, Content = content });
+            return content;
+        }
+
+        var overviewTab = AddProfileTab("Overview");
+        var attributesTab = AddProfileTab("Attributes");
+        var positionsTab = AddProfileTab("Positions & Roles");
+        var contractTab = AddProfileTab("Contract");
+        var performanceTab = AddProfileTab("Performance");
+        var developmentTab = AddProfileTab("Development");
+        var historyTab = AddProfileTab("History");
+        var evidenceTab = AddProfileTab("Source & Evidence");
+        profilePanel.Children.Add(profileTabs);
+
+        AddProfileFactsSection(overviewTab, "PERSONAL & GENERAL INFORMATION", generalFacts, 30);
+        AddProfileFactsSection(overviewTab, "CONDITION & STATUS", stateFacts, 30);
+        AddProfileFactsSection(overviewTab, "PLAYER TRAITS", traits, 24);
+        overviewTab.Children.Add(Txt(
+            "Profile values are source-backed. A dash means the imported source did not provide the field; Atlas does not substitute zero or infer a rating.",
+            9, false, Muted, wrap: true));
+
+        AddAttributeRadar(attributesTab, attributes);
+        AddOrderedAttributeSections(attributesTab, attributes);
+        if (attributes.Count == 0)
+            attributesTab.Children.Add(Txt("No player attribute rows were supplied by the selected source.", 10, false, Muted, wrap: true));
+
+        AddPositionSuitabilityMap(positionsTab, positionFacts, liveFacts);
+        AddProfileFactsSection(positionsTab, "POSITION SUITABILITY · SOURCE VALUES", positionFacts, 36);
+        positionsTab.Children.Add(Txt(
+            "Role Fit scores are Atlas estimates based on available 1–20 attributes, not Football Manager's hidden role rating. Open Role Lab for the selected role profiles and coverage explanation.",
+            9, false, Muted, wrap: true));
+
+        AddProfileFactsSection(contractTab, "CONTRACT & REGISTRATION", contractFacts, 30);
+        if (contractFacts.Count == 0)
+            contractTab.Children.Add(Txt("No contract or registration facts were retained for this player in the selected snapshot.", 9, false, Muted, wrap: true));
+
+        if (performanceFacts.Count == 0)
+            performanceTab.Children.Add(Txt(
+                "PERFORMANCE DATA · No player-season, career-history or match-stat rows for this player were supplied by the latest import. Re-import a save snapshot with those tables or add an FM View Exporter CSV.",
+                9, false, Muted, wrap: true));
+        else
+        {
+            performanceTab.Children.Add(Txt($"PERFORMANCE INTELLIGENCE · {performanceFacts.Count:N0} numeric source facts retained",
+                9, true, Teal) is var performanceHeading ? Configure(performanceHeading, new Thickness(0, 0, 0, 6)) : new TextBlock());
+            foreach (var group in performanceFacts.GroupBy(x => x.Group).OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                performanceTab.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal) is var statsHeading
+                    ? Configure(statsHeading, new Thickness(0, 9, 0, 4)) : new TextBlock());
+                var statsGrid = new UniformGrid { Columns = 2 };
+                foreach (var fact in group) AddDetailRow(statsGrid, fact.Field, fact.Value ?? "—");
+                performanceTab.Children.Add(statsGrid);
+            }
+        }
+
+        AddDevelopmentHistorySection(developmentTab, developmentHistory);
+
+        if (developmentHistory.Count == 0)
+            historyTab.Children.Add(Txt("No dated player snapshots are available for this record. History appears only when the imported save contains a valid in-game date and comparable CA, PA or value evidence.",
+                9, false, Muted, wrap: true));
+        else
+        {
+            historyTab.Children.Add(Txt(
+                $"{developmentHistory.Count:N0} dated source snapshot(s) · original game dates and import/source evidence are retained.",
+                9, false, Muted, wrap: true));
+            foreach (var snapshot in developmentHistory.OrderByDescending(x => x.GameDate).ThenByDescending(x => x.SnapshotId))
+            {
+                var card = Card(new StackPanel(), 12, new Thickness(0, 7, 0, 7));
+                var cardContent = (StackPanel)card.Child;
+                cardContent.Children.Add(Txt(snapshot.GameDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture), 12, true, Ink));
+                AddDetailRow(cardContent, "Snapshot ID", snapshot.SnapshotId.ToString(CultureInfo.InvariantCulture));
+                AddDetailRow(cardContent, "Imported", snapshot.ImportedUtc);
+                AddDetailRow(cardContent, "Source file", snapshot.SourceFileName);
+                AddDetailRow(cardContent, "CA", snapshot.CurrentAbility?.ToString("0.#", CultureInfo.InvariantCulture) ?? "—");
+                AddDetailRow(cardContent, "PA", snapshot.PotentialAbility?.ToString("0.#", CultureInfo.InvariantCulture) ?? "—");
+                AddDetailRow(cardContent, "Value · source units", snapshot.Value?.ToString("N0", CultureInfo.InvariantCulture) ?? "—");
+                historyTab.Children.Add(card);
+            }
+        }
+
         if (player.SourceId.StartsWith("FMSAVE:", StringComparison.Ordinal))
-            profilePanel.Children.Add(Txt("DATA QUALITY NOTE · CA/PA, attributes and several FM27 save fields are currently parser-derived and not independently verified for every game build. Values are shown only when the imported snapshot actually contains them; confirm critical edits in Football Manager.", 10, false, Brush("#8B622C"), wrap: true));
+            evidenceTab.Children.Add(Txt(
+                "DATA QUALITY NOTE · CA/PA, attributes and several FM27 save fields are parser-derived and not independently verified for every game build. Values are shown only when the imported snapshot actually contains them; confirm critical edits in Football Manager.",
+                10, false, Brush("#8B622C"), wrap: true));
         var liveStatus = player.SourceId.StartsWith("LIVE:", StringComparison.Ordinal)
             ? (liveFacts.Count == 0
                 ? "LIVE DATA COVERAGE · No live fact rows are stored for this player yet. Refresh the live read after loading a career."
                 : $"LIVE DATA COVERAGE · {liveFacts.Count:N0} profile facts stored. CA, PA, 52 player attributes and position ratings are provisional layout reads until checked against the Football Manager UI; unverified facts are labelled and are not treated as independent proof.")
             : "";
-        if (!string.IsNullOrWhiteSpace(liveStatus)) profilePanel.Children.Add(Txt(liveStatus, 10, true, Brush("#84612B"), wrap: true));
+        if (!string.IsNullOrWhiteSpace(liveStatus))
+            evidenceTab.Children.Add(Txt(liveStatus, 10, true, Brush("#84612B"), wrap: true));
 
-        AddAttributeRadar(profilePanel, attributes);
-        AddDevelopmentHistorySection(profilePanel, developmentHistory);
-        AddOrderedAttributeSections(profilePanel, attributes);
-        AddPositionSuitabilityMap(profilePanel, positionFacts, liveFacts);
-        AddProfileFactsSection(profilePanel, "POSITION SUITABILITY · SOURCE VALUES", positionFacts, 36);
-        AddProfileFactsSection(profilePanel, "PERSONAL & GENERAL INFORMATION", generalFacts, 30);
-        AddProfileFactsSection(profilePanel, "CONTRACT & REGISTRATION", contractFacts, 30);
-        AddProfileFactsSection(profilePanel, "CONDITION & STATUS", stateFacts, 30);
-        AddProfileFactsSection(profilePanel, "PLAYER TRAITS", traits, 24);
-        AddProfileFactsSection(profilePanel, "REPUTATION · FIELD MEANINGS UNCONFIRMED", reputationFacts, 30);
-        if (performanceFacts.Count == 0)
-            profilePanel.Children.Add(Txt("PERFORMANCE DATA · No player-season, career-history or match-stat rows for this player were supplied by the latest import. Re-import a save snapshot with those tables or add an FM View Exporter CSV.", 9, false, Muted, wrap: true));
-        else
+        AddProfileFactsSection(evidenceTab, "REPUTATION · FIELD MEANINGS UNCONFIRMED", reputationFacts, 30);
+        evidenceTab.Children.Add(Txt("DATA PROVENANCE", 9, true, Teal) is var sourceTitle
+            ? Configure(sourceTitle, new Thickness(0, 18, 0, 5)) : new TextBlock());
+        evidenceTab.Children.Add(Txt(
+            $"Record: {player.SourceId}\nOrigin: {player.DataOrigin}\nGenerated-player status: {player.RegenStatus} · {player.RegenConfidence}",
+            9, false, Muted, wrap: true));
+        if (liveFacts.Count > 0)
         {
-            profilePanel.Children.Add(Txt($"PERFORMANCE INTELLIGENCE · {performanceFacts.Count:N0} numeric source facts retained", 9, true, Teal) is var performanceHeading ? Configure(performanceHeading, new Thickness(0, 18, 0, 6)) : new TextBlock());
-            foreach (var group in performanceFacts.GroupBy(x => x.Group).OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
-            {
-                profilePanel.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal) is var statsHeading ? Configure(statsHeading, new Thickness(0, 9, 0, 4)) : new TextBlock());
-                var statsGrid = new UniformGrid { Columns = 2 };
-                foreach (var fact in group) AddDetailRow(statsGrid, fact.Field, fact.Value ?? "—");
-                profilePanel.Children.Add(statsGrid);
-            }
+            evidenceTab.Children.Add(Txt("LIVE FIELD EVIDENCE · VALUE AND VALIDATION STATUS", 9, true, Teal)
+                is var liveTitle ? Configure(liveTitle, new Thickness(0, 15, 0, 5)) : new TextBlock());
+            var liveGrid = CreateGrid();
+            liveGrid.MinHeight = 180;
+            liveGrid.MaxHeight = 340;
+            liveGrid.Columns.Add(Column("FIELD", "FieldKey", 1.2));
+            liveGrid.Columns.Add(Column("NUMERIC", "NumericValue", .7));
+            liveGrid.Columns.Add(Column("TEXT", "TextValue", 1.0));
+            liveGrid.Columns.Add(Column("VALIDATION", "ValidationStatus", 1.2));
+            liveGrid.ItemsSource = liveFacts.OrderBy(x => x.FieldKey, StringComparer.OrdinalIgnoreCase).ToList();
+            evidenceTab.Children.Add(liveGrid);
         }
 
-        profilePanel.Children.Add(Txt("DATA PROVENANCE", 9, true, Teal) is var sourceTitle ? Configure(sourceTitle, new Thickness(0, 18, 0, 5)) : new TextBlock());
-        profilePanel.Children.Add(Txt($"Record: {player.SourceId}\nOrigin: {player.DataOrigin}\nGenerated-player status: {player.RegenStatus} · {player.RegenConfidence}", 9, false, Muted, wrap: true));
     }
 
     private static Border ProfileMetric(string label, string value, string note)

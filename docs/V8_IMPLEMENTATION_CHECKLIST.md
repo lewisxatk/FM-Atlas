@@ -106,8 +106,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 6. Player profiles and development
 
-- [ ] Complete player profile tabs: Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence.
-- [ ] Add validated position/role fit, attribute radar and comparison visualisations.
+- [~] Add source-backed player profile tabs for Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence. Existing profile facts, dated snapshots, live validation warnings and source provenance are retained in their relevant tabs; Windows build and visual acceptance pending.
+- [~] Add a source-backed five-axis attribute radar and side-by-side player comparison; position/role suitability remains constrained to imported source ratings and transparent Atlas estimates. Windows visual acceptance pending.
 - [~] Add dated CA/PA/value history from source player snapshots with source-file/import evidence; a chart appears only after two distinct in-game dates and does not project or interpolate missing values. Windows verification pending.
 - [~] Add longitudinal CA/PA trends only where at least two dated comparable save snapshots exist. Attribute-by-attribute history still requires a stable dated attribute snapshot source.
 - [ ] Add player comparison and similar-player discovery with explainable ranking.
@@ -190,6 +190,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
+| 2026-11-14 | Tabbed player profile workspace | Pending CI | Split the existing profile data into Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source & Evidence tabs. Preserved existing profile loading, attribute radar, role/position facts, source-only dated development snapshots, live-validation warnings and source provenance. Windows build and visual acceptance pending. |
 | 2026-11-14 | Advanced Search cross-source regression coverage | Pending CI | Added an integration fixture combining core player fields, imported 1–20 attributes and latest-snapshot contract facts; verifies ALL/ANY semantics, missing-value exclusion, deterministic paging and rejection beyond 60 conditions. The existing Advanced Search workspace, saved profiles and result actions remain unchanged. Windows verification pending. |
 | 2026-11-14 | Similar-player recruitment shortlist action | Pending CI | Similar Player Discovery can add selected candidates to a named shortlist with source-ID de-duplication and a clear new/already-present summary; added integration coverage for duplicate IDs, invalid IDs, repeat-add counts and note preservation. Windows verification pending. |
 | 2026-11-14 | Local shortlist recruitment pipeline | Pending CI | Added in-place migration for Stage, Priority, target fee/wage, next action and review date; legacy shortlist rows remain intact with Identified/Normal defaults. The workspace supports stage/priority filters, due-review/high-priority/target-fee summary, editable metadata and formula-safe CSV export. Similar Player Discovery can add up to 50 selected candidates to a named shortlist with source-ID de-duplication and repeat-add note preservation. Tests cover migration, round-trip, validation and bulk-add behaviour. Windows verification pending. |
