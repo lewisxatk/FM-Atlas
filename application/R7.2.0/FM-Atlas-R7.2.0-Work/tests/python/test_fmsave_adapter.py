@@ -174,5 +174,24 @@ class FmsaveAdapterStreamingTests(unittest.TestCase):
             self.assertNotIn("summary_strings", manifest)
 
 
+    def test_existing_output_folder_is_never_deleted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            save_copy = root / "career-copy.fm"
+            save_copy.write_bytes(b"read-only fixture")
+            output = root / "existing-user-folder"
+            output.mkdir()
+            sentinel = output / "keep-me.txt"
+            sentinel.write_text("user data must survive", encoding="utf-8")
+
+            argv = ["Export-FMAtlas-Fmsave.py", str(save_copy), str(output)]
+            with patch.object(sys, "argv", argv):
+                result = ADAPTER.main()
+
+            self.assertEqual(result, 2)
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "user data must survive")
+            self.assertEqual(sorted(p.name for p in output.iterdir()), ["keep-me.txt"])
+
+
 if __name__ == "__main__":
     unittest.main()
