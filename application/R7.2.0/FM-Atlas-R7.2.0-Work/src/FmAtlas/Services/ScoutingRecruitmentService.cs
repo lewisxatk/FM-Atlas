@@ -102,8 +102,10 @@ public static class ScoutingRecruitmentService
         foreach (var metric in metrics)
         {
             if (!player.Metrics.TryGetValue(metric.Key, out var raw) || !raw.HasValue || !double.IsFinite(raw.Value)) continue;
+            if (metric.MinimumSampleMinutes > 0 &&
+                (!player.MinutesPlayed.HasValue || player.MinutesPlayed.Value < metric.MinimumSampleMinutes)) continue;
             var value = metric.IsRatePer90
-                ? player.MinutesPlayed is > 0 && player.MinutesPlayed >= metric.MinimumSampleMinutes ? raw.Value * 90d / player.MinutesPlayed.Value : double.NaN
+                ? player.MinutesPlayed is > 0 ? raw.Value * 90d / player.MinutesPlayed.Value : double.NaN
                 : raw.Value;
             if (double.IsFinite(value)) values[metric.Key] = value;
         }
