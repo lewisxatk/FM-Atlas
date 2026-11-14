@@ -257,6 +257,8 @@ public sealed class LiveCareerImportTests
         Assert.Equal(-6, currentSquad.PotentialAbility);
         var liveCounts = await database.GetLiveDatabaseCountsAsync();
         Assert.Equal((1, 1, 1), liveCounts);
+        Assert.Equal(1, await database.CountLocalPlayersAsync());
+        Assert.Equal(1, await database.CountLivePlayersAsync());
 
         var offline = Assert.Single(await database.SearchAsync(
             "Offline Local Prospect", null, null, null, null, null, null, limit: 10));
