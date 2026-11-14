@@ -1558,7 +1558,7 @@ public partial class MainWindow : Window
         panel.Children.Add(Txt("TACTICAL EFFECTIVENESS · LIVE FM27", 9, true, Teal));
         panel.Children.Add(Txt("Match Exposure", 18, true, Ink));
         panel.Children.Add(Txt(
-            "These are the team's six tactical Match Exposure areas plus Position / Role Shapes. Changes are applied to players' live familiarity records for the tactic currently selected in FM. Training Contribution is calculated by FM from the training history and is not a direct numeric field.",
+            "These are the team's six tactical Match Exposure areas plus Position / Role Shapes. Changes are applied to players' live familiarity records for the tactic currently selected in FM. FM27's four headline gauges (Tactical Understanding, Player Ability, Player Buy-In and Next Match Information) are derived from game state, not independent percentage fields. Training Contribution is calculated from player training histories; the Max action rewrites those validated history records rather than setting a synthetic score.",
             9, false, Muted, wrap: true));
 
         if (!_editorEnabled)
