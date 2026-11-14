@@ -1,6 +1,6 @@
 # FM Atlas V8 — Live Career, People Search and Monolith Glass
 
-> **Current safety override (2026-11-14):** Full live entity-array import is OFF by default. The monitor detects process/build/session generation only. The automatic-import items in earlier notes describe implemented extractor/transaction capabilities, not permission to run a full scan. Offline read-only save import remains the current data-population route until bounded cancellation, FM performance and field-witness checks pass.
+> **Current safety state (2026-11-14):** The read-only scan is enabled for exact supported profiles, with a two-minute hard deadline, toolbar cancellation and save-generation cancellation. Live Apply/Undo remains disabled. Real FM performance and field-witness acceptance are still outstanding.
 
 **Working branch:** `rebuild/v8-full-product-rebuild`  
 **Status:** source implementation committed; fresh Windows build and real FM27 acceptance still required.  
@@ -18,8 +18,8 @@
 - [x] Include process ID, storefront profile and save-load counter in the session key.
 - [x] Re-check the same save-load counter before and after the scan.
 - [x] Discard the snapshot if the career changes while Atlas is reading it.
-- [x] Detect and report a changed career generation without reading the entity arrays. Full automatic entity-array rescan remains OFF until the safety gates below pass.
-- [x] Detect a supported FM process/build when Atlas opens while a career is already loaded; do not automatically import it.
+- [x] Detect and report a changed career generation; cancel an active scan if the process/build/session key changes.
+- [x] Detect a supported FM process/build when Atlas opens while a career is already loaded and begin the bounded read-only import.
 - [x] Keep a toolbar action that explains the paused import gate; it does not initiate a memory scan.
 - [x] Keep the original local Atlas database and offline save-import path intact.
 
@@ -27,11 +27,11 @@
 
 - [ ] Confirm the Steam and Game Pass profiles match the exact FM27 build installed on the user's PC.
 - [ ] Confirm the monitor sees the career only after FM has finished loading it.
-- [ ] Confirm detection-only monitoring does not materially affect FM CPU/RAM or responsiveness.
-- [x] Keep full entity-array scans disabled by default and avoid repeated import attempts on each monitor tick.
-- [ ] Load a second save without closing Atlas and confirm the detector reports the new generation without importing a snapshot.
+- [ ] Confirm the bounded scan does not materially affect FM CPU/RAM or responsiveness; record elapsed time and peak memory.
+- [x] Limit each scan to two minutes, report progress, and avoid repeated import attempts while a scan is active.
+- [ ] Load a second save without closing Atlas and confirm the active scan cancels, the partial snapshot is discarded and a new scan starts for the new generation.
 - [ ] After a bounded scanner is implemented and enabled for controlled testing, confirm a save switch during a scan discards that scan.
-- [ ] Measure detection-only CPU/memory use on a real career; separately benchmark any future bounded import.
+- [ ] Measure CPU/memory and scan duration on a real career; confirm the two-minute cap is adequate for the full player/staff/club arrays.
 
 ## 2. Human manager, club and nation
 
@@ -128,7 +128,7 @@ Reference code and profile files are subject to their own licences. Atlas does n
 - [ ] All xUnit and Python adapter tests pass on that exact commit.
 - [ ] Self-contained Windows x64 artifact is produced.
 - [ ] Atlas launches and initializes without changing/deleting the user's existing database.
-- [ ] Detection-only monitor correctly identifies supported Steam or Game Pass process/build/session; do not require live entity-array import for this gate.
+- [ ] Detection-only monitor correctly identifies supported Steam or Game Pass process/build/session; confirm the full bounded read completes and the user can cancel it safely.
 - [ ] Manager/club/nation are correct.
 - [ ] Player and staff search, CA/PA and profile facts are correct.
 - [ ] A second career load triggers a new clean snapshot.
