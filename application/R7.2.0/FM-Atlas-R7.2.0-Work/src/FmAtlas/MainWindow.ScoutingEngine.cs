@@ -235,7 +235,7 @@ public partial class MainWindow
                 .Where(m => !new[] { "age", "market_value", "minutes_played" }.Contains(m.Key, StringComparer.OrdinalIgnoreCase))
                 .Where(m => a.Metrics.ContainsKey(m.Key) && b.Metrics.ContainsKey(m.Key))
                 .Select(m => (Definition: m, Ranked: ScoutingAnalyticsService.RankMetric(cohort, m, a.Competition, a.Season, a.PositionGroup, 3)))
-                .Where(x => x.Ranked.Count >= 3 && x.Ranked.Any(r => r.Percentile.HasValue))
+                .Where(x => x.Ranked.Count >= 3 && x.Ranked.Any(r => r.SourceId == a.SourceId && r.Percentile.HasValue) && x.Ranked.Any(r => r.SourceId == b.SourceId && r.Percentile.HasValue))
                 .Take(6).ToList();
             if (rankedMetrics.Count < 3)
             {
