@@ -26,13 +26,16 @@ public partial class MainWindow
         var title = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 12));
         var titleStack = (StackPanel)title.Child;
         titleStack.Children.Add(Txt("PERFORMANCE INTELLIGENCE", 9, true, Teal));
-        titleStack.Children.Add(Txt("Statistical Search Lab", 25, true, Ink));
-        titleStack.Children.Add(Txt("Build multi-condition searches across every numeric field discovered in the imported FM career snapshot. Grouped by role-relevant area, with optional per-90 normalisation and minutes thresholds. Fields only appear when the reader actually supplied them.", 11, false, Muted, wrap: true));
+        titleStack.Children.Add(Txt("Scouting Matrix", 25, true, Ink));
+        titleStack.Children.Add(Txt("A reusable recruitment workspace: combine multiple performance metrics, normalise eligible counting stats per 90, enforce a minutes floor, save scouting profiles and reuse them against the current imported career. Only source-present fields are offered.", 11, false, Muted, wrap: true));
         stack.Children.Add(title);
 
         var metricFields = await RunDatabaseAsync(() => _database.GetSeasonMetricCatalogAsync());
         var filterRows = new List<StatFilterUiRow>();
         var resultRows = new List<StatSearchResult>();
+        var savedProfiles = ScoutingProfileStore.LoadAll().ToList();
+        var profileName = Input("Scouting profile name"); profileName.Width = 190;
+        var profilePicker = new ComboBox { Width = 220, Height = 34, Margin = new Thickness(3), ItemsSource = savedProfiles, DisplayMemberPath = nameof(ScoutingProfile.Name), IsTextSearchEnabled = true, ToolTip = "Reusable multi-metric scouting profiles stored locally." };
         Button findButton = null!;
         Button importViewButton = null!;
         DataGrid grid = null!;
@@ -62,6 +65,11 @@ public partial class MainWindow
         var performanceValueButton = SoftButton("Performance vs Value", async (_, _) =>
             await PerformanceValueAnalysisWindow.ShowAsync(this, _database, metricFields));
         options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton); options.Children.Add(performanceValueButton);
+        options.Children.Add(profileName);
+        options.Children.Add(profilePicker);
+        options.Children.Add(SoftButton("Save profile", (_, _) => SaveCurrentProfile()));
+        options.Children.Add(SoftButton("Load profile", (_, _) => LoadSelectedProfile()));
+        options.Children.Add(SoftButton("Delete profile", (_, _) => DeleteSelectedProfile()));
         controlStack.Children.Add(options);
         controlStack.Children.Add(Txt("CONDITIONS · CHOOSE WHETHER ALL OR ANY CONDITION MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
         controlStack.Children.Add(Txt("The catalogue combines every numeric metric found in the latest imported save plus any FM View Exporter CSV you import. To capture more columns, add them to an in-game player view before exporting; FM's own view export has a practical column ceiling.", 9, false, Muted, wrap: true));
@@ -141,6 +149,57 @@ public partial class MainWindow
             }
             catch (Exception ex) { AtlasLog.Error("Advanced stats search failed.", ex); status.Text = "Statistics search failed: " + ex.Message; }
             finally { findButton.IsEnabled = true; Mouse.OverrideCursor = null; }
+        }
+
+        void SaveCurrentProfile()
+        {
+            try
+            {
+                var requirements = new List<ScoutingMetricRequirement>();
+                foreach (var row in filterRows)
+                {
+                    if (row.Field.SelectedItem is not StatMetricField field) continue;
+                    var hasMin = double.TryParse(row.Minimum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var lower);
+                    var hasMax = double.TryParse(row.Maximum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var upper);
+                    if (!hasMin && !hasMax) continue;
+                    if (hasMin && hasMax && lower > upper) { status.Text = $"Minimum cannot exceed maximum for {field.DisplayName}."; return; }
+                    if (per90.IsChecked == true && !field.SupportsPer90) { status.Text = $"{field.DisplayName} cannot be normalised per 90."; return; }
+                    requirements.Add(new ScoutingMetricRequirement(field.Key, field.DisplayName, hasMin ? lower : null, hasMax ? upper : null, per90.IsChecked == true));
+                }
+                if (requirements.Count == 0) { status.Text = "Add at least one metric condition before saving a profile."; return; }
+                var name = profileName.Text.Trim();
+                if (name.Length == 0) { status.Text = "Enter a name for this scouting profile."; profileName.Focus(); return; }
+                var minutes = int.TryParse(minMinutes.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMinutes) ? Math.Clamp(parsedMinutes, 1, 10000) : 450;
+                var profile = new ScoutingProfile(Guid.NewGuid().ToString("N"), name, DateTime.UtcNow, requirements,
+                    ScoutingCohortBasis.Overall, MinimumMinutes: minutes, MinimumSampleSize: 1, MinimumDataCoverage: 0, ResultLimit: 500);
+                ScoutingProfileStore.Save(profile);
+                savedProfiles = ScoutingProfileStore.LoadAll().ToList();
+                profilePicker.ItemsSource = savedProfiles;
+                profilePicker.SelectedItem = savedProfiles.FirstOrDefault(x => x.Id == profile.Id);
+                status.Text = $"Saved '{profile.Name}' with {requirements.Count} metric requirement(s). Profiles are stored locally and can be reused in this career.";
+            }
+            catch (Exception ex) { status.Text = "Could not save scouting profile: " + ex.Message; }
+        }
+
+        void LoadSelectedProfile()
+        {
+            if (profilePicker.SelectedItem is not ScoutingProfile profile) { status.Text = "Choose a saved scouting profile first."; return; }
+            filterRows.Clear(); filterPanel.Children.Clear();
+            foreach (var requirement in profile.Requirements)
+                AddFilterRow(requirement.MetricKey, requirement.Minimum, requirement.Maximum);
+            per90.IsChecked = profile.Requirements.All(x => x.UsePer90);
+            minMinutes.Text = profile.MinimumMinutes.ToString("0", CultureInfo.InvariantCulture);
+            profileName.Text = profile.Name;
+            status.Text = $"Loaded '{profile.Name}'. Review the conditions, then run the search against the currently imported career snapshot.";
+        }
+
+        void DeleteSelectedProfile()
+        {
+            if (profilePicker.SelectedItem is not ScoutingProfile profile) { status.Text = "Choose a saved scouting profile first."; return; }
+            if (!ScoutingProfileStore.Delete(profile.Id)) { status.Text = "The selected profile could not be found on disk."; return; }
+            savedProfiles = ScoutingProfileStore.LoadAll().ToList();
+            profilePicker.ItemsSource = savedProfiles;
+            status.Text = $"Deleted local profile '{profile.Name}'.";
         }
 
         async Task ImportViewCsvAsync()
