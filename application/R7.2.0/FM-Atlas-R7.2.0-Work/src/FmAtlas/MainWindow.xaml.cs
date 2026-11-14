@@ -25,10 +25,9 @@ namespace FmAtlas;
 public partial class MainWindow : Window
 {
     private static string _themeMode = LoadThemeMode();
-    // Keep the full live-memory entity-array scan fail-closed until controlled FM27
-    // performance and field-witness acceptance is complete. Process/build/session detection
-    // remains active; offline read-only save import remains available.
-    // Automatic read-only indexing is bounded, cancellable and save-generation guarded. Live editing stays disabled.
+    // Automatic read-only indexing is enabled only for exact supported FM27 profiles.
+    // Scans are profile-bounded, cancellable, limited to two minutes and save-generation guarded.
+    // Live Apply/Undo remains disabled until field mappings and rollback are independently certified.
     private static bool LiveMemoryImportEnabled => true;
     private static bool LiveMemoryEditingEnabled => false;
     private static Brush Ink => Brush("#E8EEF4");
@@ -320,8 +319,8 @@ public partial class MainWindow : Window
     private void ShowLiveScanPaused()
     {
         MessageBox.Show(this,
-            "Live-memory scanning is paused in FM Atlas V8 while the large process scan is redesigned as a bounded, cancellable operation. This protects Football Manager from unnecessary cross-process reads.\n\nFor career data, import a COPY of your save using the offline read-only import.",
-            "FM Atlas · Live scan paused", MessageBoxButton.OK, MessageBoxImage.Information);
+            "The current FM27 session is not ready for indexing. Load a supported career and keep Atlas open; it will connect automatically. The read-only scan is limited to two minutes and can be cancelled from the toolbar.",
+            "FM Atlas · Career not ready", MessageBoxButton.OK, MessageBoxImage.Information);
     }
     private UIElement BuildSidebar()
     {
