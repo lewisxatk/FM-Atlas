@@ -86,7 +86,8 @@ public partial class MainWindow : Window
     private int _playerOffset;
     private const int PlayerPageSize = 250;
     private bool _navigationBusy;
-    private bool _editorEnabled; // Local edits and guarded live editing are OFF by default on every launch.
+    private bool _editorEnabled; // Atlas-local override editing; independent from live FM writes.
+    private bool _liveEditingEnabled; // Explicit live-memory opt-in; resets to OFF every launch.
     private string? _queuedNavigation;
     private string? _pendingClubSourceId;
     private string? _pendingStaffSourceId;
@@ -114,6 +115,9 @@ public partial class MainWindow : Window
         Loaded += WindowLoaded;
         Closed += (_, _) =>
         {
+            // Live memory writing is never left armed after the window closes.
+            _liveEditingEnabled = false;
+            LiveEntityMemoryEditService.SetLiveEditingEnabled(false);
             // Do not leave background work running after the WPF shell exits.
             // Cancellation is cooperative: active importers roll back unpublished
             // snapshots and retain the last committed database state.
@@ -1333,9 +1337,9 @@ public partial class MainWindow : Window
             "These values are read from the currently loaded FM27 career. Apply writes the selected, verified fields into the running game and reads each value back. Use a separate offline career copy for first testing, then save inside Football Manager to commit the changes to the career file.",
             9, false, Muted, wrap: true));
 
-        if (!_editorEnabled)
+        if (!_liveEditingEnabled)
         {
-            panel.Children.Add(Txt("Enable the Editor at the top of this profile to edit the live career. Atlas-local overrides remain separate.", 9, false, Muted, wrap: true));
+            panel.Children.Add(Txt("LIVE WRITES ARE OFF. Open Editor Studio and enable Live FM Editing for this session. Atlas-local overrides never change the Football Manager career.", 9, false, Muted, wrap: true));
             return panel;
         }
         if (!sourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase)
@@ -1354,14 +1358,18 @@ public partial class MainWindow : Window
             var catalogue = LiveEntityMemoryEditService.GetEditableFields(entityType);
             var current = await Task.Run(() => LiveEntityMemoryEditService.ReadCurrentValues(
                 processId, entityType, uid, displayName, catalogue.Select(x => x.Key).ToList()));
-            var descriptors = catalogue.Where(x => current.ContainsKey(x.Key)).ToList();
-            foreach (var field in descriptors.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            var descriptors = catalogue.Where(x => current.ContainsKey(x.Key))
+                .OrderBy(x => LiveEditorFieldGroup(entityType, x.Key), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase).ToList();
+            foreach (var field in descriptors)
             {
                 var value = current[field.Key];
                 rows.Add(new LiveEntityEditView
                 {
                     FieldKey = field.Key,
                     Label = field.Label,
+                    Group = LiveEditorFieldGroup(entityType, field.Key),
+                    AllowedRange = field.Minimum.ToString("N0", CultureInfo.InvariantCulture) + " – " + field.Maximum.ToString("N0", CultureInfo.InvariantCulture),
                     CurrentValue = value,
                     TargetValue = value.ToString(CultureInfo.InvariantCulture)
                 });
@@ -1374,12 +1382,29 @@ public partial class MainWindow : Window
             }
 
             status.Text = rows.Count.ToString("N0", CultureInfo.InvariantCulture)
-                + " live fields resolved · optional records omitted where FM does not provide them.";
+                + " live fields resolved · grouped by area · unsupported or absent records omitted.";
+            var fieldSearch = new TextBox
+            {
+                Height = 34,
+                MinWidth = 260,
+                MaxWidth = 440,
+                Margin = new Thickness(0, 8, 0, 8),
+                Padding = new Thickness(10, 6, 10, 6),
+                Background = Brush("#171D24"),
+                Foreground = Ink,
+                BorderBrush = Line,
+                BorderThickness = new Thickness(1),
+                ToolTip = "Filter by field name, group or FM field key."
+            };
+            panel.Children.Add(fieldSearch);
             var grid = CreateGrid();
             grid.IsReadOnly = false;
             grid.CanUserAddRows = false;
             grid.MinHeight = 180;
             grid.MaxHeight = 520;
+            var groupColumn = Column("GROUP", nameof(LiveEntityEditView.Group), .8);
+            groupColumn.IsReadOnly = true;
+            grid.Columns.Add(groupColumn);
             var fieldColumn = Column("FM27 FIELD", nameof(LiveEntityEditView.Label), 1.3);
             fieldColumn.IsReadOnly = true;
             grid.Columns.Add(fieldColumn);
@@ -1393,7 +1418,19 @@ public partial class MainWindow : Window
                     { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
                 Width = new DataGridLength(.7, DataGridLengthUnitType.Star)
             });
+            var rangeColumn = Column("VALID RANGE", nameof(LiveEntityEditView.AllowedRange), .8);
+            rangeColumn.IsReadOnly = true;
+            grid.Columns.Add(rangeColumn);
             grid.ItemsSource = rows;
+            fieldSearch.TextChanged += (_, _) =>
+            {
+                var query = fieldSearch.Text.Trim();
+                grid.ItemsSource = string.IsNullOrWhiteSpace(query)
+                    ? rows
+                    : rows.Where(row => row.Label.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        || row.Group.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        || row.FieldKey.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            };
             panel.Children.Add(grid);
 
             LiveEntityMemoryEditService.BatchPlan? stagedPlan = null;
@@ -1547,8 +1584,37 @@ public partial class MainWindow : Window
     {
         public string FieldKey { get; set; } = "";
         public string Label { get; set; } = "";
+        public string Group { get; set; } = "";
+        public string AllowedRange { get; set; } = "";
         public int CurrentValue { get; set; }
         public string TargetValue { get; set; } = "";
+    }
+
+    private static string LiveEditorFieldGroup(LiveEntityMemoryEditService.EntityKind entity, string key)
+    {
+        if (key.StartsWith("attribute.", StringComparison.OrdinalIgnoreCase))
+        {
+            var attributeKey = key["attribute.".Length..];
+            var playerField = PlayerAttributeSchema.Fields.FirstOrDefault(x =>
+                x.Key.Equals(attributeKey, StringComparison.OrdinalIgnoreCase));
+            if (playerField is not null) return playerField.Category;
+            return entity == LiveEntityMemoryEditService.EntityKind.Staff ? "Coaching & Staff" : "Attributes";
+        }
+        if (key.StartsWith("trait.", StringComparison.OrdinalIgnoreCase)) return "Preferred Moves";
+        if (key.StartsWith("position.", StringComparison.OrdinalIgnoreCase)) return "Position Suitability";
+        if (key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase)) return "Personality";
+        if (key.StartsWith("contract.", StringComparison.OrdinalIgnoreCase)) return "Contract";
+        if (key.StartsWith("loan.", StringComparison.OrdinalIgnoreCase)) return "Loans";
+        if (key.StartsWith("finance.", StringComparison.OrdinalIgnoreCase)) return "Finance";
+        if (key.StartsWith("facilities.", StringComparison.OrdinalIgnoreCase)) return "Facilities";
+        if (key.StartsWith("stadium.", StringComparison.OrdinalIgnoreCase)) return "Stadium";
+        if (key.StartsWith("supporters.", StringComparison.OrdinalIgnoreCase)) return "Supporters";
+        if (key.StartsWith("international.", StringComparison.OrdinalIgnoreCase)) return "International";
+        if (key.StartsWith("reputation", StringComparison.OrdinalIgnoreCase)) return "Reputation";
+        if (key.StartsWith("ability.", StringComparison.OrdinalIgnoreCase)) return "Ability";
+        if (key.StartsWith("club.", StringComparison.OrdinalIgnoreCase)) return "Club Information";
+        if (key.Equals("date_of_birth", StringComparison.OrdinalIgnoreCase)) return "Biography";
+        return "Other";
     }
 
 
@@ -1561,9 +1627,9 @@ public partial class MainWindow : Window
             "These are the team's six tactical Match Exposure areas plus Position / Role Shapes. Changes are applied to players' live familiarity records for the tactic currently selected in FM. FM27's four headline gauges (Tactical Understanding, Player Ability, Player Buy-In and Next Match Information) are derived from game state, not independent percentage fields. Training Contribution is calculated from player training histories; the Max action rewrites those validated history records rather than setting a synthetic score.",
             9, false, Muted, wrap: true));
 
-        if (!_editorEnabled)
+        if (!_liveEditingEnabled)
         {
-            panel.Children.Add(Txt("Enable Editor to stage and apply tactical changes.", 9, false, Muted));
+            panel.Children.Add(Txt("LIVE TACTICAL WRITES ARE OFF. Enable Live FM Editing in Editor Studio to stage and apply changes.", 9, false, Muted));
             return panel;
         }
         if (!sourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase)
@@ -2261,7 +2327,7 @@ public partial class MainWindow : Window
                 .ToList();
             profileEditorTab.Children.Add(await BuildLocalEntityFactEditorAsync(
                 "player", player.SourceId, player.Name, allPlayerFacts));
-            if (_editorEnabled && player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+            if (player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
                 profileEditorTab.Children.Add(await BuildLiveEntityEditorAsync(
                     LiveEntityMemoryEditService.EntityKind.Player, player.SourceId, player.Name));
         }
@@ -2862,7 +2928,7 @@ public partial class MainWindow : Window
             if (isLive)
                 stack.Children.Add(await BuildLiveEntityEditorAsync(
                     LiveEntityMemoryEditService.EntityKind.Club, club.SourceId, club.Name));
-            if (isLive && _editorEnabled)
+            if (isLive)
                 stack.Children.Add(await BuildLiveTacticalEffectivenessEditorAsync(club.SourceId, club.Name));
 
             stack.Children.Add(Txt("CLUB STAFF", 9, true, Teal) is var staffHeading ? Configure(staffHeading, new Thickness(0, 17, 0, 6)) : new TextBlock());
@@ -3743,16 +3809,20 @@ public partial class MainWindow : Window
         var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var header = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 10)); var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("EDITOR WORKSPACE", 9, true, Teal)); hs.Children.Add(Txt("Editor Studio", 23, true, Ink));
-        hs.Children.Add(Txt(_editorEnabled ? "Atlas Editor · ON for this session" : "Atlas Editor · OFF by default", 11, true, _editorEnabled ? Brush("#2D8A63") : Brush("#94652A")));
+        hs.Children.Add(Txt(_editorEnabled ? "ATLAS LOCAL EDITOR · ON" : "ATLAS LOCAL EDITOR · OFF", 10, true, _editorEnabled ? Brush("#2D8A63") : Brush("#94652A")));
         hs.Children.Add(_editorEnabled
-            ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
-            : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
+            ? SoftButton("Disable Local Editor", async (_, _) => { _editorEnabled = false; AtlasLog.Info("Atlas-local editing disabled for this session."); await NavigateAsync("Live Editor"); })
+            : SoftButton("Enable Local Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("Atlas-local editing enabled for this session."); await NavigateAsync("Live Editor"); }));
+        hs.Children.Add(Txt(_liveEditingEnabled ? "LIVE FM27 EDITING · ARMED FOR THIS SESSION" : "LIVE FM27 EDITING · OFF", 10, true, _liveEditingEnabled ? Brush("#2D8A63") : Brush("#94652A")));
+        hs.Children.Add(_liveEditingEnabled
+            ? SoftButton("Disable Live FM Editing", async (_, _) => { _liveEditingEnabled = false; LiveEntityMemoryEditService.SetLiveEditingEnabled(false); AtlasLog.Info("Live FM27 editing disarmed by user."); await NavigateAsync("Live Editor"); })
+            : PrimaryButton("Enable Live FM Editing", async (_, _) => { _liveEditingEnabled = true; LiveEntityMemoryEditService.SetLiveEditingEnabled(true); AtlasLog.Info("Live FM27 editing explicitly armed for this session."); await NavigateAsync("Live Editor"); }));
         var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
         alert.Child = Txt("FM Atlas now has a field-specific live writer for supported FM27 player, staff and club values, plus Tactical Match Exposure. Each change is staged, checks the exact game build and career session, verifies entity identity and original field bytes, then reads the written value back. Some pointer-backed collections and unverified ownership/debt fields remain unavailable; never test on your only career save.", 10, true, Brush("#E6C477"), wrap: true);
         hs.Children.Add(alert);
-        if (!_editorEnabled)
+        if (!_editorEnabled && !_liveEditingEnabled)
         {
-            hs.Children.Add(Txt("The editor is locked. Enable it above to access Atlas-local edits and the supported live FM27 editor panels in player, staff and club profiles. The switch resets to OFF when FM Atlas closes.", 11, false, Muted, wrap: true));
+            hs.Children.Add(Txt("Both editors are OFF. Enable Atlas Local Editor for private FM Atlas overrides, or enable Live FM Editing to change supported values in the running FM27 career. Live editing is session-only and turns OFF when Atlas closes.", 11, false, Muted, wrap: true));
             Grid.SetRow(header, 0); root.Children.Add(header); return root;
         }
         if (_selectedPlayer is null)
@@ -3771,6 +3841,11 @@ public partial class MainWindow : Window
             Grid.SetRow(livePanel, 1); root.Children.Add(livePanel); return root;
         }
 
+        if (!_editorEnabled)
+        {
+            hs.Children.Add(Txt("Atlas Local Editor is OFF. Enable it above to create local CA/PA and attribute overrides. Live FM editing is controlled separately.", 10, false, Muted, wrap: true));
+            Grid.SetRow(header, 0); root.Children.Add(header); return root;
+        }
         var editor = Card(new DockPanel(), 16); var dock = (DockPanel)editor.Child;
         var controls = new StackPanel(); controls.Children.Add(Txt("ABILITY VALUES", 9, true, Teal));
         var abilityRow = new WrapPanel { Margin = new Thickness(0, 7, 0, 9) };
