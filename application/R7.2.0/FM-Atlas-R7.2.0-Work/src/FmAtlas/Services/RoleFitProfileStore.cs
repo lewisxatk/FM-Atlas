@@ -13,7 +13,14 @@ public static class RoleFitProfileStore
         string Phase,
         string PositionGroup,
         string Description,
-        Dictionary<string, double> Weights);
+        Dictionary<string, double> Weights,
+        int? MinimumAge = null,
+        int? MaximumAge = null,
+        int? MinimumCurrentAbility = null,
+        int? MinimumPotentialAbility = null,
+        string? PositionContains = null,
+        double? MinimumCoverage = null,
+        int? ResultLimit = null);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -33,9 +40,7 @@ public static class RoleFitProfileStore
             ?? new List<StoredRoleFitProfile>();
         return stored
             .Where(x => !string.IsNullOrWhiteSpace(x.Name) && x.Weights is { Count: > 0 })
-            .Select(x => new RoleFitProfile(
-                x.Name.Trim(), x.Phase ?? "Both", x.PositionGroup ?? "Other",
-                x.Description ?? "", new Dictionary<string, double>(x.Weights, StringComparer.OrdinalIgnoreCase), true))
+            .Select(ToProfile)
             .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
@@ -52,6 +57,7 @@ public static class RoleFitProfileStore
             throw new ArgumentException("A custom role needs between 2 and 40 weighted attributes.", nameof(profile));
         if (profile.Weights.Any(x => string.IsNullOrWhiteSpace(x.Key) || !double.IsFinite(x.Value) || x.Value is <= 0 or > 20))
             throw new ArgumentException("Every selected attribute needs a finite weight greater than 0 and no greater than 20.", nameof(profile));
+        var filters = ValidateSavedFilters(profile.SavedFilters);
 
         var path = Path.GetFullPath(string.IsNullOrWhiteSpace(filePath) ? DefaultPath : filePath);
         var folder = Path.GetDirectoryName(path);
@@ -62,7 +68,10 @@ public static class RoleFitProfileStore
             .ToList();
         stored.Add(new StoredRoleFitProfile(
             name, profile.Phase, profile.PositionGroup.Trim(), profile.Description ?? "",
-            new Dictionary<string, double>(profile.Weights, StringComparer.OrdinalIgnoreCase)));
+            new Dictionary<string, double>(profile.Weights, StringComparer.OrdinalIgnoreCase),
+            filters?.MinimumAge, filters?.MaximumAge, filters?.MinimumCurrentAbility,
+            filters?.MinimumPotentialAbility, filters?.PositionContains,
+            filters?.MinimumCoverage, filters?.ResultLimit));
         var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
@@ -99,7 +108,48 @@ public static class RoleFitProfileStore
         return true;
     }
 
+    private static RoleFitSearchFilters? ValidateSavedFilters(RoleFitSearchFilters? filters)
+    {
+        if (filters is null) return null;
+        if (filters.MinimumAge is < 0 or > 120 || filters.MaximumAge is < 0 or > 120
+            || (filters.MinimumAge.HasValue && filters.MaximumAge.HasValue && filters.MinimumAge > filters.MaximumAge))
+            throw new ArgumentException("Saved template age filters are invalid.", nameof(filters));
+        if (filters.MinimumCurrentAbility is < 0 or > 200 || filters.MinimumPotentialAbility is < 0 or > 200)
+            throw new ArgumentException("Saved template CA/PA filters must be between 0 and 200.", nameof(filters));
+        if (!double.IsFinite(filters.MinimumCoverage) || filters.MinimumCoverage is < 0.5 or > 1)
+            throw new ArgumentException("Saved template coverage must be between 50% and 100%.", nameof(filters));
+        if (filters.ResultLimit is < 1 or > 5000)
+            throw new ArgumentException("Saved template result limit must be between 1 and 5,000.", nameof(filters));
+        var position = string.IsNullOrWhiteSpace(filters.PositionContains) ? null : filters.PositionContains.Trim();
+        if (position?.Length > 120) throw new ArgumentException("Saved position filter is too long.", nameof(filters));
+        return filters with { PositionContains = position };
+    }
+
+    private static RoleFitProfile ToProfile(StoredRoleFitProfile stored)
+    {
+        var hasSavedFilters = stored.MinimumAge.HasValue || stored.MaximumAge.HasValue
+            || stored.MinimumCurrentAbility.HasValue || stored.MinimumPotentialAbility.HasValue
+            || !string.IsNullOrWhiteSpace(stored.PositionContains)
+            || stored.MinimumCoverage.HasValue || stored.ResultLimit.HasValue;
+        RoleFitSearchFilters? filters = hasSavedFilters
+            ? new RoleFitSearchFilters(stored.MinimumAge, stored.MaximumAge, stored.MinimumCurrentAbility,
+                stored.MinimumPotentialAbility, stored.PositionContains, stored.MinimumCoverage ?? 0.5,
+                stored.ResultLimit ?? 250)
+            : null;
+        return new RoleFitProfile(
+            stored.Name.Trim(), stored.Phase ?? "Both", stored.PositionGroup ?? "Other",
+            stored.Description ?? "", new Dictionary<string, double>(stored.Weights, StringComparer.OrdinalIgnoreCase),
+            true, ValidateSavedFilters(filters));
+    }
+
     private static StoredRoleFitProfile ToStored(RoleFitProfile profile)
-        => new(profile.Name, profile.Phase, profile.PositionGroup, profile.Description,
-            new Dictionary<string, double>(profile.Weights, StringComparer.OrdinalIgnoreCase));
+    {
+        var filters = ValidateSavedFilters(profile.SavedFilters);
+        return new StoredRoleFitProfile(
+            profile.Name, profile.Phase, profile.PositionGroup, profile.Description,
+            new Dictionary<string, double>(profile.Weights, StringComparer.OrdinalIgnoreCase),
+            filters?.MinimumAge, filters?.MaximumAge, filters?.MinimumCurrentAbility,
+            filters?.MinimumPotentialAbility, filters?.PositionContains,
+            filters?.MinimumCoverage, filters?.ResultLimit);
+    }
 }
