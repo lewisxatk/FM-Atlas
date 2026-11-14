@@ -51,19 +51,55 @@ public static class ScoutingRecruitmentService
         ScoutingPlayerSeason target, IEnumerable<ScoutingPlayerSeason> candidates,
         IReadOnlyList<ScoutingMetricDefinition> metrics, int limit = 25, double minimumCoverage = .6)
     {
-        var targetValues = Normalized(target, metrics);
-        var output = new List<SimilarPlayerResult>();
-        foreach (var candidate in candidates.Where(x => x.SourceId != target.SourceId))
+        var pool = candidates.Where(x => x.SourceId != target.SourceId).ToList();
+        var rawTarget = RawValues(target, metrics);
+        var rawCandidates = pool.ToDictionary(x => x.SourceId, x => RawValues(x, metrics), StringComparer.Ordinal);
+        var ranges = metrics.ToDictionary(m => m.Key, m =>
         {
-            var values = Normalized(candidate, metrics);
-            var shared = targetValues.Keys.Intersect(values.Keys, StringComparer.OrdinalIgnoreCase).ToList();
+            var values = rawCandidates.Values.Where(v => v.ContainsKey(m.Key)).Select(v => v[m.Key]).ToList();
+            if (rawTarget.TryGetValue(m.Key, out var targetValue)) values.Add(targetValue);
+            return values.Count == 0 ? (Min: 0d, Max: 0d) : (Min: values.Min(), Max: values.Max());
+        }, StringComparer.OrdinalIgnoreCase);
+        var normalizedTarget = Normalize(rawTarget, ranges);
+        var output = new List<SimilarPlayerResult>();
+        foreach (var candidate in pool)
+        {
+            var values = Normalize(rawCandidates[candidate.SourceId], ranges);
+            var shared = normalizedTarget.Keys.Intersect(values.Keys, StringComparer.OrdinalIgnoreCase).ToList();
             var coverage = metrics.Count == 0 ? 0 : shared.Count / (double)metrics.Count;
             if (coverage < minimumCoverage || shared.Count < 2) continue;
-            var distance = Math.Sqrt(shared.Average(k => Math.Pow(targetValues[k] - values[k], 2)));
-            var similarity = Math.Clamp(100 * (1 - distance / 100), 0, 100);
+            var distance = Math.Sqrt(shared.Average(k => Math.Pow(normalizedTarget[k] - values[k], 2)));
+            var similarity = Math.Clamp(100 - distance, 0, 100);
             output.Add(new SimilarPlayerResult(candidate, similarity, coverage, shared));
         }
         return output.OrderByDescending(x => x.Similarity).ThenByDescending(x => x.Coverage).Take(Math.Clamp(limit, 1, 200)).ToList();
+    }
+
+    private static Dictionary<string, double> RawValues(ScoutingPlayerSeason player, IReadOnlyList<ScoutingMetricDefinition> metrics)
+    {
+        var values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var metric in metrics)
+        {
+            if (!player.Metrics.TryGetValue(metric.Key, out var raw) || !raw.HasValue || !double.IsFinite(raw.Value)) continue;
+            var value = metric.IsRatePer90
+                ? player.MinutesPlayed is > 0 && player.MinutesPlayed >= metric.MinimumSampleMinutes ? raw.Value * 90d / player.MinutesPlayed.Value : double.NaN
+                : raw.Value;
+            if (double.IsFinite(value)) values[metric.Key] = value;
+        }
+        return values;
+    }
+
+    private static Dictionary<string, double> Normalize(
+        IReadOnlyDictionary<string, double> values,
+        IReadOnlyDictionary<string, (double Min, double Max)> ranges)
+    {
+        var result = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in values)
+        {
+            var range = ranges[item.Key];
+            result[item.Key] = range.Max <= range.Min ? 50 : 100 * (item.Value - range.Min) / (range.Max - range.Min);
+        }
+        return result;
     }
 
     public static IReadOnlyList<UndervaluedPlayerResult> FindUndervalued(
