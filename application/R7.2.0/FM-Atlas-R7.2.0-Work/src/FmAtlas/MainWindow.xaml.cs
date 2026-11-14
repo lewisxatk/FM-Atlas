@@ -313,8 +313,12 @@ public partial class MainWindow : Window
         {
             Background = _themeMode == "Glass Light"
                 ? new SolidColorBrush(Color.FromArgb(232, 246, 250, 255))
-                : new SolidColorBrush(Color.FromArgb(218, 16, 27, 43)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(90, 160, 195, 230)),
+                : _themeMode == "Monolith Glass"
+                    ? new SolidColorBrush(Color.FromArgb(226, 24, 25, 29))
+                    : new SolidColorBrush(Color.FromArgb(218, 16, 27, 43)),
+            BorderBrush = _themeMode == "Monolith Glass"
+                ? new SolidColorBrush(Color.FromArgb(105, 226, 132, 80))
+                : new SolidColorBrush(Color.FromArgb(90, 160, 195, 230)),
             BorderThickness = new Thickness(0, 0, 1, 0)
         };
         var dock = new DockPanel { Margin = new Thickness(_navCollapsed ? 9 : 14, 15, _navCollapsed ? 9 : 14, 14) };
@@ -329,7 +333,7 @@ public partial class MainWindow : Window
         logoLine.Children.Add(logo);
         var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
         word.Children.Add(Txt("FM ATLAS", 16, true, Ink));
-        word.Children.Add(Txt("V8 · ATLAS LIQUID", 8, true, Muted));
+        word.Children.Add(Txt(_themeMode == "Monolith Glass" ? "MONOLITH GLASS" : "V8 · ATLAS LIQUID", 8, true, Muted));
         logoLine.Children.Add(word);
         Grid.SetColumn(logoLine, 0);
         brand.Children.Add(logoLine);
@@ -391,8 +395,12 @@ public partial class MainWindow : Window
         {
             Background = _themeMode == "Glass Light"
                 ? new SolidColorBrush(Color.FromArgb(220, 255, 255, 255))
-                : new SolidColorBrush(Color.FromArgb(110, 95, 125, 165)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(85, 175, 205, 235)),
+                : _themeMode == "Monolith Glass"
+                    ? new SolidColorBrush(Color.FromArgb(210, 27, 29, 33))
+                    : new SolidColorBrush(Color.FromArgb(110, 95, 125, 165)),
+            BorderBrush = _themeMode == "Monolith Glass"
+                ? new SolidColorBrush(Color.FromArgb(90, 226, 132, 80))
+                : new SolidColorBrush(Color.FromArgb(85, 175, 205, 235)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(15),
             Padding = new Thickness(11),
