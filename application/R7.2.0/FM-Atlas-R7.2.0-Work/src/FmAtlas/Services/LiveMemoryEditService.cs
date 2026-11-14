@@ -93,10 +93,13 @@ public static class LiveMemoryEditService
         if (profile.GameUiRva == 0) throw new InvalidOperationException("This game build has no verified save-load generation pointer in Atlas's profile. Live writing is disabled for this profile.");
         var saveLoadCounter = ReadSaveLoadCounter(handle.Value, moduleBase, profile);
         var playerAddress = ResolvePlayer(handle.Value, moduleBase, profile, playerUid, expectedPlayerName);
+        var personShift = DetectPlayerIdentityShift(handle.Value, playerAddress);
         var planRows = new List<PlannedChange>();
         foreach (var change in changes)
         {
             var field = ResolveWritableField(change.FieldKey);
+            if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
+                field = field with { Offset = field.Offset + personShift };
             ValidateValue(field, change.ExpectedCurrentValue, change.TargetValue);
             var current = Read(handle.Value, (nint)(playerAddress + (ulong)field.Offset), field.Size);
             var displayed = DecodeValue(field, current);
@@ -124,11 +127,14 @@ public static class LiveMemoryEditService
         if (profile.GameUiRva == 0 || ReadSaveLoadCounter(handle.Value, moduleBase, profile) != plan.SaveLoadCounter)
             throw new InvalidOperationException("Football Manager loaded or unloaded a career after the preview. No live values were written; reload the live player data and stage again.");
         var playerAddress = ResolvePlayer(handle.Value, moduleBase, profile, plan.PlayerUid, plan.PlayerName);
+        var personShift = DetectPlayerIdentityShift(handle.Value, playerAddress);
 
         // Preflight every field before the first write, so a changed/stale player causes a full abort.
         foreach (var change in plan.Changes)
         {
             var field = ResolveWritableField(change.FieldKey);
+            if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
+                field = field with { Offset = field.Offset + personShift };
             if (field.Offset != change.Offset || change.OriginalBytes.Length != field.Size || change.TargetBytes.Length != field.Size)
                 throw new InvalidOperationException($"Staged edit integrity check failed for {change.FieldKey}; the field mapping no longer matches the plan.");
             ValidateValue(field, change.ExpectedCurrentValue, change.TargetValue);
@@ -200,9 +206,12 @@ public static class LiveMemoryEditService
         if (profile.GameUiRva == 0 || ReadSaveLoadCounter(handle.Value, moduleBase, profile) != plan.SaveLoadCounter)
             throw new InvalidOperationException("Football Manager has loaded or unloaded a career since this edit. Live undo is blocked to protect the new save.");
         var playerAddress = ResolvePlayer(handle.Value, moduleBase, profile, plan.PlayerUid, plan.PlayerName);
+        var personShift = DetectPlayerIdentityShift(handle.Value, playerAddress);
         foreach (var change in plan.Changes)
         {
             var field = ResolveWritableField(change.FieldKey);
+            if (field.Key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase))
+                field = field with { Offset = field.Offset + personShift };
             if (field.Offset != change.Offset || field.Size != change.TargetBytes.Length || field.Size != change.OriginalBytes.Length)
                 throw new InvalidOperationException($"Undo integrity check failed for {change.FieldKey}.");
             var current = Read(handle.Value, (nint)(playerAddress + (ulong)change.Offset), change.TargetBytes.Length);
@@ -421,13 +430,16 @@ public static class LiveMemoryEditService
         {
             var address = U64(handle, data + i * 8);
             if (!Pointer(address)) continue;
+            int identityShift;
+            try { identityShift = DetectPlayerIdentityShift(handle, address); }
+            catch { continue; }
             uint candidateUid;
-            try { candidateUid = BitConverter.ToUInt32(Read(handle, (nint)(address + PlayerUidOffset), 4), 0); }
+            try { candidateUid = BitConverter.ToUInt32(Read(handle, (nint)(address + PlayerUidOffset + (ulong)identityShift), 4), 0); }
             catch { continue; }
             if (candidateUid != uid) continue;
-            var common = ReadNameSub(handle, address + PlayerCommonNameOffset);
-            var first = ReadNameSub(handle, address + PlayerFirstNameOffset);
-            var last = ReadNameSub(handle, address + PlayerLastNameOffset);
+            var common = ReadNameSub(handle, address + PlayerCommonNameOffset + (ulong)identityShift);
+            var first = ReadNameSub(handle, address + PlayerFirstNameOffset + (ulong)identityShift);
+            var last = ReadNameSub(handle, address + PlayerLastNameOffset + (ulong)identityShift);
             var display = !string.IsNullOrWhiteSpace(common) ? common : Join(first, last);
             if (!string.Equals(display, expectedName, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Player identity check failed for UID {uid}: the running game reports '{display ?? "unnamed"}', not '{expectedName}'. Reload the player list before editing.");
@@ -438,6 +450,26 @@ public static class LiveMemoryEditService
             ? $"Player UID {uid} was not found in the currently loaded FM save. Refresh the live player data."
             : $"Player UID {uid} appeared more than once; Atlas refuses an ambiguous edit.");
         return found;
+    }
+
+    private static int DetectPlayerIdentityShift(nint handle, ulong playerAddress)
+    {
+        static bool NameLike(string? value)
+            => !string.IsNullOrWhiteSpace(value) && value.Count(char.IsLetter) >= 2
+               && value.Length <= 96 && !value.Any(char.IsControl);
+        int Score(int shift)
+        {
+            var score = 0;
+            foreach (var offset in new[] { 0x2D8, 0x2E0, 0x2E8 })
+                if (NameLike(ReadNameSub(handle, playerAddress + (ulong)(offset + shift)))) score++;
+            return score;
+        }
+        var plain = Score(0);
+        var shifted = Score(0xF8);
+        // Require multiple name witnesses and a strictly better shifted score. If neither
+        // layout is distinguishable, use the standard block only; identity resolution still
+        // independently checks UID and display name before a staged change can be prepared.
+        return shifted >= 2 && shifted > plain ? 0xF8 : 0;
     }
 
     private static string? ReadNameSub(nint handle, ulong pointerAddress)
