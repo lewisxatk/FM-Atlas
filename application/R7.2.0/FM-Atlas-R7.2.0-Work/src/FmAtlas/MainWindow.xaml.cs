@@ -12,6 +12,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Path = System.IO.Path;
 using Microsoft.Win32;
 using FmAtlas.Data;
 using FmAtlas.Models;
