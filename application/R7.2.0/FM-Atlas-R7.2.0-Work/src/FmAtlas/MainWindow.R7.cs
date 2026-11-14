@@ -213,13 +213,14 @@ public partial class MainWindow
             if (double.TryParse(fact.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
                 sourceValues.Add(new KeyValuePair<string, double?>(fact.Field, value));
         }
-        // Provisional live reads are excluded. A live value is admitted only when its own
-        // field validation status explicitly contains "Verified".
-        foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue
-            && x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase)))
-        {
+        // The FM27 entity-array reader's position values are layout-matched but not yet
+        // independently witnessed. Display them as provisional source reads, never as verified.
+        var livePositions = liveFacts.Where(x => x.NumericValue.HasValue
+            && x.FieldKey.StartsWith("positions.", StringComparison.OrdinalIgnoreCase)
+            && (x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase)
+                || x.ValidationStatus.Contains("Provisional-ProfileMatched", StringComparison.OrdinalIgnoreCase))).ToList();
+        foreach (var fact in livePositions)
             sourceValues.Add(new KeyValuePair<string, double?>(fact.FieldKey, fact.NumericValue));
-        }
 
         var positions = PositionSuitabilityService.MapSourceRatings(sourceValues);
         var card = Card(new StackPanel(), 13, new Thickness(0, 0, 0, 12));
@@ -227,6 +228,8 @@ public partial class MainWindow
         stack.Children.Add(Txt("POSITION SUITABILITY MAP", 9, true, Teal));
         stack.Children.Add(Txt("FM position ratings · source 1–20 scale", 17, true, Ink));
         stack.Children.Add(Txt("All 15 position slots are shown. Colours are Atlas display bands over source ratings; zero and missing values remain unrated.", 9, false, Muted, wrap: true));
+        if (livePositions.Any(x => x.ValidationStatus.Contains("Provisional-ProfileMatched", StringComparison.OrdinalIgnoreCase)))
+            stack.Children.Add(Txt("Includes read-only FM27 live-memory values · provisional layout match · confirm against the in-game Positions screen. These are not verified editor values.", 9, true, Brush("#A06B24"), wrap: true));
 
         var compact = new UniformGrid { Columns = 5, Rows = 3, Margin = new Thickness(0, 5, 0, 5) };
         foreach (var position in positions)
@@ -259,7 +262,7 @@ public partial class MainWindow
         legend.Children.Add(Txt("   0 / missing · Unrated",9,true,Muted));
         stack.Children.Add(legend);
         if (positions.All(x => !x.Rating.HasValue))
-            stack.Children.Add(Txt("No valid numeric position ratings were supplied by this player's imported positions object or explicitly verified live fields. Missing values are not interpreted as zero.", 10, false, Muted, wrap: true));
+            stack.Children.Add(Txt("No valid numeric position ratings were supplied by this player's imported positions object or read-only live scan. Missing values are not interpreted as zero.", 10, false, Muted, wrap: true));
         panel.Children.Add(card);
     }
 
