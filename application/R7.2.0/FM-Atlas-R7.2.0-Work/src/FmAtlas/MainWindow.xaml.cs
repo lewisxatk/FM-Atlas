@@ -2267,7 +2267,9 @@ public partial class MainWindow : Window
             mapped = key switch
             {
                 "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" => "#E8EEF4",
-                "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#C6F36B",
+                "#C6F36B" => "#79BDEB",
+                "#D5E5C3" => "#B6DFFF",
+                "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#79BDEB",
                 "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9EADB9",
                 "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#303943",
                 "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#171F28",
