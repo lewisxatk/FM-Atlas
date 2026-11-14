@@ -174,8 +174,9 @@ public partial class MainWindow
         {
             if (grid.SelectedItem is not ScoutingGridRow selected || metric.SelectedItem is not MetricChoice choice)
             { status.Text = "Select a player in the results first."; return; }
-            var metrics = ScoutingRecruitmentService.MetricGroups.SelectMany(x => x.Metrics)
-                .Where(m => allRows.Any(p => p.Metrics.ContainsKey(m.Key))).ToList();
+            var metrics = metric.Items.Cast<MetricChoice>().Select(x => x.Definition)
+                .Where(m => !new[] { "age", "market_value", "minutes_played" }.Contains(m.Key, StringComparer.OrdinalIgnoreCase))
+                .ToList();
             var candidates = allRows.Where(p => p.Competition == selected.Record.Competition && p.Season == selected.Record.Season && p.PositionGroup == selected.Record.PositionGroup).ToList();
             var similarRows = ScoutingRecruitmentService.FindSimilar(selected.Record, candidates, metrics, 50, .35);
             results = similarRows.Select(x => new ScoutingGridRow(x.Player.PlayerName, x.Player.Club ?? "—",
