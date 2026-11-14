@@ -162,7 +162,6 @@ public static partial class LiveMemoryEditService
             throw new InvalidOperationException("The player has no shape familiarity entries. Atlas cannot safely invent formation identifiers.");
 
         var personId = BitConverter.ToUInt32(Read(handle, (nint)(player + PlayerPersonIdOffset + (ulong)personShift), 4), 0);
-        var trainingManager = U64(handle, moduleBase + profile.TrainingManagerRva);
         var keeper = FindTrainingKeeper(handle, moduleBase, profile, club);
         if (!Pointer(keeper)) throw new InvalidOperationException("No training-history keeper exists for the player's club. Tactical Effectiveness is read-only for this player.");
         var historyNode = FindHistoryNode(handle, keeper, personId);
@@ -195,7 +194,7 @@ public static partial class LiveMemoryEditService
                 var entry = new byte[RecordEntrySize];
                 var packed = ((uint)options[area] & 0x3F) << 14 | BestFamiliarity;
                 BinaryPrimitives.WriteUInt32LittleEndian(entry, packed);
-                if (list.Bytes.Length > 0) entry[3] = list.Bytes[^1];
+                if (list.Bytes.Length >= RecordEntrySize) entry[3] = list.Bytes[3];
                 var oldExtended = Read(handle, (nint)list.Begin, list.Bytes.Length + RecordEntrySize);
                 var newExtended = oldExtended.ToArray();
                 entry.CopyTo(newExtended, list.Bytes.Length);
