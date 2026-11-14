@@ -1249,10 +1249,13 @@ public sealed class ScoutDatabase
         var root = document.RootElement;
         if (GetString(root, "schema") != "fmatlas.fmsave.snapshot.v1")
             throw new InvalidDataException("This is not an FM Atlas fmsave snapshot. Re-export the save using tools/Export-FMAtlas-Fmsave.py.");
-        var players = GetArray(root, "players").ToList();
-        if (players.Count == 0) throw new InvalidDataException("The save reader returned no player records. No database changes were made.");
-        var staff = GetArray(root, "staff").ToList();
-        var clubs = GetArray(root, "clubs").ToList();
+        var players = GetArray(root, "players");
+        var playerTotal = GetArrayCount(root, "players");
+        if (playerTotal == 0) throw new InvalidDataException("The save reader returned no player records. No database changes were made.");
+        var staff = GetArray(root, "staff");
+        var staffTotal = GetArrayCount(root, "staff");
+        var clubs = GetArray(root, "clubs");
+        var clubTotal = GetArrayCount(root, "clubs");
         var warnings = GetArray(root, "warnings").Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() ?? "" : x.GetRawText()).Where(x => x.Length > 0).ToList();
         var tableCounts = new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);
         if (root.TryGetProperty("counts", out var countObject) && countObject.ValueKind == JsonValueKind.Object)
@@ -1304,7 +1307,7 @@ public sealed class ScoutDatabase
             if ((scannedPlayers++ % 250) == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                progress?.Report($"Indexing player records: {scannedPlayers:N0} / {players.Count:N0}");
+                progress?.Report($"Indexing player records: {scannedPlayers:N0} / {playerTotal:N0}");
             }
             if (player.ValueKind != JsonValueKind.Object) continue;
             var saveUid = GetString(player, "uid") ?? GetString(player, "id");
@@ -1369,7 +1372,7 @@ public sealed class ScoutDatabase
             if ((scannedStaff++ % 250) == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                progress?.Report($"Indexing staff records: {scannedStaff:N0} / {staff.Count:N0}");
+                progress?.Report($"Indexing staff records: {scannedStaff:N0} / {staffTotal:N0}");
             }
             var uid = GetString(item, "uid") ?? GetString(item, "unique_id") ?? GetString(item, "id");
             var name = GetString(item, "name"); if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(name)) continue;
@@ -1389,7 +1392,7 @@ public sealed class ScoutDatabase
             if ((scannedClubs++ % 250) == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                progress?.Report($"Indexing club records: {scannedClubs:N0} / {clubs.Count:N0}");
+                progress?.Report($"Indexing club records: {scannedClubs:N0} / {clubTotal:N0}");
             }
             var uid = GetString(item, "uid") ?? GetString(item, "club_uid") ?? GetString(item, "unique_id") ?? GetString(item, "id");
             var name = GetString(item, "name") ?? GetString(item, "club_name"); if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(name)) continue;
@@ -2769,7 +2772,22 @@ public sealed class ScoutDatabase
         return value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined ? null : value.ToString();
     }
     private static IEnumerable<JsonElement> GetArray(JsonElement element, string name)
-        => element.ValueKind==JsonValueKind.Object && element.TryGetProperty(name,out var value) && value.ValueKind==JsonValueKind.Array ? value.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
+    {
+        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Array)
+            return Array.Empty<JsonElement>();
+        return EnumerateArray(value);
+    }
+
+    private static IEnumerable<JsonElement> EnumerateArray(JsonElement array)
+    {
+        foreach (var item in array.EnumerateArray())
+            yield return item;
+    }
+
+    private static int GetArrayCount(JsonElement element, string name)
+        => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.GetArrayLength()
+            : 0;
     private static IEnumerable<(string Key, double? NumericValue, string? TextValue)> FlattenScalarFacts(JsonElement element, string prefix = "")
     {
         if (element.ValueKind == JsonValueKind.Object)
