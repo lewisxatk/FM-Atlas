@@ -1413,8 +1413,8 @@ public sealed class ScoutDatabase
         {
             cancellationToken.ThrowIfCancellationRequested();
             var tableRows = GetArray(root, tableName);
-            progress?.Report($"Indexing {tableName}: {tableRows.GetArrayLength():N0} rows");
-            foreach (var (row, index) in tableRows.EnumerateArray().Select((r,i)=>(r,i)))
+            progress?.Report($"Indexing {tableName} records…");
+            foreach (var (row, index) in tableRows.Select((r,i)=>(r,i)))
             {
                 if ((extraCount % 500) == 0) cancellationToken.ThrowIfCancellationRequested();
                 var rawJson = row.GetRawText();
