@@ -697,11 +697,13 @@ public partial class MainWindow
             moveUp.Height = 32;
             moveUp.Margin = new Thickness(2, 0, 2, 0);
             moveUp.ToolTip = "Move this condition earlier in the search.";
+            System.Windows.Automation.AutomationProperties.SetName(moveUp, "Move condition up");
             var moveDown = SoftButton("↓", (_, _) => MoveCondition(row, 1));
             moveDown.Width = 32;
             moveDown.Height = 32;
             moveDown.Margin = new Thickness(2, 0, 2, 0);
             moveDown.ToolTip = "Move this condition later in the search.";
+            System.Windows.Automation.AutomationProperties.SetName(moveDown, "Move condition down");
             var remove = SoftButton("×", (_, _) =>
             {
                 conditionPanel.Children.Remove(container);
@@ -712,6 +714,7 @@ public partial class MainWindow
             remove.Height = 32;
             remove.Margin = new Thickness(2, 0, 2, 0);
             remove.ToolTip = "Remove this condition.";
+            System.Windows.Automation.AutomationProperties.SetName(remove, "Remove condition");
 
             // Wrap controls instead of forcing a single horizontal strip. This keeps
             // the filter builder usable at narrower window widths and higher DPI scales.
