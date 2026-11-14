@@ -135,7 +135,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add per-90, percentiles and position/role-specific metrics only when source supports them.
 - [ ] Show sample size, minutes, competition strength, freshness and data coverage.
 - [~] Similar-player ranking is implemented with explicit similarity score, shared-attribute count and anchor coverage; recruitment pipeline and broader recommendation factors remain open.
-- [ ] Build interactive analytics charts with filtering, hover values, zoom/range where useful and export.
+- [~] Performance vs Value scatter now filters by metric, per-90 eligibility, minimum minutes, position and league; dots expose hover evidence and filtered rows export to CSV. Zoom/range controls and broader analytics-chart coverage remain open.
 - [ ] Validate metrics against source rows and independent calculations.
 
 ## 8. Squad, clubs, staff and tactics
@@ -190,7 +190,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
-| 2026-11-14 | Full-cohort Performance vs Value ranking | Pending CI | Removed the alphabetical pre-percentile SQL cap; overall, position and league cohort percentiles and coverage now use every eligible player in the imported snapshot, with the requested result limit applied only after ranking. Added a regression fixture where the strongest value-gap player is alphabetically outside the first two records. Windows verification pending. |
+| 2026-11-14 | Full-cohort Performance vs Value ranking | `af5f82d0` | Removed the alphabetical pre-percentile SQL cap; overall, position and league cohort percentiles and coverage now use every eligible player in the imported snapshot, with the requested result limit applied only after ranking. Added a regression fixture where the strongest value-gap player is alphabetically outside the first two records. Windows verification pending. |
+| 2026-11-14 | Performance vs Value cohort filters | Pending CI | Added position and league selectors plus a clear-filters action. Chart and CSV use the visible filtered rows while all overall and cohort percentiles remain anchored to the full eligible metric/value pool. Windows verification pending. |
 | 2026-11-14 | Role Fit scoring, recruitment filters and cancellation | `7d8cef6b`, `3e4acf28` | Extracted a reusable coverage-aware weighted score; added pre-limit age/CA/PA/position filters, adjustable minimum attribute coverage, cancellation, and regression tests for score math and database filters. Windows verification pending. |
 | 2026-11-14 | Traceable and safer Role Fit export | `2a6bfc80` | CSV now includes stable player Source IDs and available/expected attribute counts; untrusted text cells are guarded against spreadsheet formula injection. Windows verification pending. |
 | 2026-11-14 | Role Fit explainability and normalized-key hardening | `57b08fba` | Each ranked player now carries per-attribute weighted evidence, shown in the results grid and CSV; database search combines normalized aliases before building SQL parameters; added regression coverage for weighted breakdowns and duplicate normalized keys. Windows verification pending. |
