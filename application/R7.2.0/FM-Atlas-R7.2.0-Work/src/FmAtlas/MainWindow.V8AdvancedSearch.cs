@@ -539,6 +539,8 @@ public partial class MainWindow
                 }
             }
             ApplyVisibleColumns(profile.VisibleColumns);
+            grid.ItemsSource = null;
+            results.Clear();
             pageOffset = 0;
             lastSuccessfulOffset = 0;
             hasNextPage = false;
