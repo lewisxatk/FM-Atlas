@@ -77,3 +77,39 @@ The reviewed sources describe different FM27 build identifiers and release state
 3. Extend diagnostics with build/profile, import validation, database health and last scan/import result.
 4. Run current Windows Release build and tests; the current workflow run is queued and must not be reported as passed until completed.
 5. Keep UI, Advanced Search, player comparison, shortlists, performance analytics and existing database compatibility intact while extending the data pipeline.
+
+
+## FMRTE 27 and Genie Scout 27 — search and scouting interaction patterns (14 November 2026)
+
+Reviewed the current FMRTE 27 search documentation and Genie Scout 27 feature reference.
+
+- Keep Quick Search as a fast name/ID entry point; keep Advanced Search as the explicit multi-criteria workspace.
+- FMRTE separates player, coach and club search scopes, offers min/max ranges, reusable saved criteria and independent result-column configuration. Its position filters support both all-selected and any-selected matching, and zero means no criterion.
+- Genie Scout exposes all standard and hidden attributes, mental traits, position familiarity, positional and role ratings, searchable saved criteria, compare and similar-player flows. Its public feature descriptions distinguish current and projected potential data.
+- FM Atlas already preserves Quick Search/global search separately from its player Advanced Search, uses discovered source-backed fields, stores profiles and columns/sorts, and keeps compare/similar/export/shortlist actions. The present batch improves the filter-row ergonomics without replacing that model.
+- Do not copy proprietary formulas or infer hidden values. FM Atlas role scores remain explicitly labelled estimates until independently validated against FM's own displayed ratings or a documented formula.
+
+Reference links:
+- FMRTE 27 search guide: https://docs.fmrte.com/scouting/search/
+- FMRTE 27 product/release notes: https://www.fmrte.com/
+- Genie Scout 27 feature reference: https://geniescout.com/features/
+
+## FMLibreEditor — current FM27 source and safety patterns (14 November 2026)
+
+Reviewed the public `tozmoz/FMLibreEditor` repository and its development notes.
+
+- The project is an open-source, separate-process FM27 reader/editor supporting Windows Steam and Game Pass as well as macOS Steam.
+- Its documented architecture reads the native `game_plugin.dll` process memory rather than the Unity UI process; its README describes a read-only fallback for unsupported game versions and refusing writes until the game version has been checked.
+- Its public FM27 implementation provides a useful independent source for field-layout research, position-map presentation, search and save-generation safety. FM Atlas continues to keep its own profile fingerprints, range checks, source-confidence labels and cancellation/session guards.
+- Cross-checking the current staff decoder regression fixture found a test-only count error: the fixture seeds five valid nonzero ratings, one invalid rating (101) and leaves the rest zero. The decoder correctly omits missing/invalid bytes, so the expected dictionary count is five. Do not weaken the decoder's omission rules to satisfy a fixture count.
+
+Reference links:
+- Repository: https://github.com/tozmoz/FMLibreEditor
+- Development architecture notes: https://github.com/tozmoz/FMLibreEditor/blob/main/docs/DEVELOPING.md
+- Repository README and current implementation status: https://github.com/tozmoz/FMLibreEditor
+
+## Search Studio interaction update
+
+- Filter rows now wrap at narrow widths rather than forcing the entire category/field/value/action set onto one horizontal line.
+- Each condition can move up or down; visual order and criteria-capture order are updated together. Remove remains available.
+- This is a UI-only enhancement to the existing criteria/profile model. It does not alter query semantics, saved profile schema, field discovery, paging, sorting or the 60-condition limit.
