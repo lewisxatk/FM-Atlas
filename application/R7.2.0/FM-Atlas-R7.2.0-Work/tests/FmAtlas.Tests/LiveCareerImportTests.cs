@@ -221,9 +221,13 @@ public sealed class LiveCareerImportTests
         var next = CreatePayload() with
         {
             SaveLoadCounter = 43,
+            Clubs = new List<LiveClubRecord>
+            {
+                new(77, "Second Career FC", 0, 0x250000, false)
+            },
             Players = new List<LivePlayerRecord>
             {
-                new(7002, "Second Career Player", "0x220000", 55, 0, 0x230000,
+                new(7002, "Second Career Player", "0x220000", 77, 0, 0x230000,
                     true, true, new DateTime(2001, 6, 4), "Unknown",
                     "Second career test fixture.", 151, -6,
                     new Dictionary<string, double> { ["Finishing"] = 18 },
@@ -234,7 +238,7 @@ public sealed class LiveCareerImportTests
             {
                 new(9002, "Second Career Manager", 0, 0x240000, true,
                     new DateTime(1988, 3, 4), 38, "Scotland", 1651,
-                    "Fixture FC", 55, "Manager", 16, 128, 158)
+                    "Second Career FC", 77, "Manager", 16, 128, 158)
             }
         };
         await database.ImportLiveSnapshotAsync(next);
@@ -244,7 +248,10 @@ public sealed class LiveCareerImportTests
         Assert.Equal(151, current.CurrentAbility);
         Assert.Equal(-6, current.PotentialAbility);
 
-        var currentSquad = Assert.Single(await database.GetPlayersForClubAsync("55", liveSource: true));
+        Assert.Empty(await database.SearchLiveClubsAsync("Fixture FC"));
+        var activeClub = Assert.Single(await database.SearchLiveClubsAsync("Second Career FC"));
+        Assert.Equal(1, activeClub.LinkedPlayers);
+        var currentSquad = Assert.Single(await database.GetPlayersForClubAsync("77", liveSource: true));
         Assert.Equal("Second Career Player", currentSquad.Name);
         Assert.Equal(151, currentSquad.CurrentAbility);
         Assert.Equal(-6, currentSquad.PotentialAbility);
@@ -259,6 +266,7 @@ public sealed class LiveCareerImportTests
 
         var manager = Assert.Single(await database.SearchFmsaveStaffAsync("Second Career Manager"));
         Assert.Equal("Second Career Manager", manager.Name);
+        Assert.Equal("Second Career FC", manager.Club);
         Assert.Equal(43L, (await database.GetWorkspaceMetricsAsync()).LiveSaveLoadCounter);
     }
 
