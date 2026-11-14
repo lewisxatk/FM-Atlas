@@ -91,4 +91,21 @@ public sealed class ScoutingActionAnalyticsServiceTests
         Assert.Equal(50d, player.PassCompletionPct);
         Assert.Null(player.XtPer90);
     }
+
+    [Fact]
+    public void PassingNetworkUsesRecipientAndCountsCompletion()
+    {
+        var first = new UnifiedSoccerAction("M1","League","2025/26",1,1,0,"P1","T1","Home","P1","Player One",
+            "Pass","pass",true,10,10,30,20,false,false,null,"StatsBomb","E1",1,"P2","Player Two");
+        var second = first with { ProviderEventId = "E2", Sequence = 2, Successful = false };
+        var edges = ScoutingActionAnalyticsService.BuildPassingNetwork(new[]
+        {
+            new ValuedSoccerAction(first, .03), new ValuedSoccerAction(second, null)
+        });
+        var edge = Assert.Single(edges);
+        Assert.Equal("Player One", edge.FromPlayer);
+        Assert.Equal("Player Two", edge.ToPlayer);
+        Assert.Equal(2, edge.Passes);
+        Assert.Equal(1, edge.CompletedPasses);
+    }
 }
