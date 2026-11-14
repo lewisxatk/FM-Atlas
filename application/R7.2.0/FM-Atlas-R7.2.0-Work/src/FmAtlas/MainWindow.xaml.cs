@@ -652,6 +652,7 @@ public partial class MainWindow : Window
         AddNav("⌗", "Attribute Search");
         AddNav("∑", "Stats Search");
         AddNav("▦", "Scouting Matrix");
+        AddNav("↗", "Player Development");
         AddNav("▤", "Shortlists");
         AddNavGroup("SQUAD & ANALYSIS");
         AddNav("▥", "Squad Architect");
@@ -787,6 +788,7 @@ public partial class MainWindow : Window
                 "Squad Architect" => await SquadArchitectPageAsync(),
                 "Transfers" => await TransfersPageAsync(),
                 "Tactical Lab" => await TacticalLabPageAsync(),
+                "Player Development" => await PlayerDevelopmentPageAsync(),
                 "Role Lab" => await RoleLabPageAsync(),
                 "Shortlists" => await ShortlistsPageAsync(),
                 "Live Editor" => await LiveEditorPageAsync(),
@@ -901,6 +903,7 @@ public partial class MainWindow : Window
         "Mass Edit" => "Bulk local database edits · preview and audit before applying",
         "Transfers" => "Transfer candidate discovery from available player and contract data",
         "Tactical Lab" => "Tactical and role analysis · only where the source provides enough verified inputs",
+        "Player Development" => "CA/PA headroom screening · source-backed player snapshots, not predicted growth",
         "Role Lab" => "Transparent IP/OOP role-fit estimates from imported player attributes",
         "Tester & Logs" => "System checks · diagnostic export · application and build logs",
         "Shortlists" => "Manage your local recruitment lists",
@@ -2521,20 +2524,6 @@ public partial class MainWindow : Window
             return players.OrderByDescending(p => p.Value ?? 0).Take(1000).ToList();
         });
         grid.ItemsSource = ranked;
-        return root;
-    }
-
-    private async Task<UIElement> TacticalLabPageAsync()
-    {
-        var root = new Grid(); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var tactics = await RunDatabaseAsync(() => _database.GetFmsaveExtraTableCountsAsync());
-        var left = Card(new StackPanel(), 16); var s = (StackPanel)left.Child; s.Children.Add(Txt("TACTICAL INTELLIGENCE", 9, true, Teal)); s.Children.Add(Txt("Formation & role workspace", 21, true, Ink));
-        s.Children.Add(Txt("The local snapshot retains tactical, selection and training tables when exposed by the save reader. This version does not yet decode every tactic field into a trustworthy formation or role-rating model.", 10, false, Muted, wrap: true));
-        foreach (var t in tactics.Where(x => new[] { "tactics", "training", "selections", "set_pieces" }.Contains(x.TableName))) AddDetailRow(s, t.TableName.Replace('_', ' '), t.RowCount.ToString("N0") + " rows");
-        Grid.SetColumn(left, 0); root.Children.Add(left);
-        var right = Card(new StackPanel(), 16); var r = (StackPanel)right.Child; r.Children.Add(Txt("ROLE ANALYSIS", 9, true, Teal)); r.Children.Add(Txt("Explainable ratings only", 21, true, Ink));
-        r.Children.Add(Txt("Role fit should be calculated from official role attribute weights, exact position familiarity and relevant duties. Until the FM27 mappings are validated, FM Atlas will not present its own rough weighted score as the game's internal role rating.", 10, false, Muted, wrap: true));
-        AddDetailRow(r, "Inputs required", "Position ratings · attribute values · FM role weights"); AddDetailRow(r, "Current status", "Waiting for validated role schema"); Grid.SetColumn(right, 1); root.Children.Add(right);
         return root;
     }
 
