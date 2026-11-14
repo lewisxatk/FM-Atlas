@@ -213,7 +213,7 @@ public static class ScoutingActionAnalyticsService
         return actions.Select(a =>
         {
             double? value = null;
-            if (a.ActionType is "pass" or "carry" && a.Successful &&
+            if ((a.ActionType is "pass" or "carry") && a.Successful &&
                 a.StartX.HasValue && a.StartY.HasValue && a.EndX.HasValue && a.EndY.HasValue)
             {
                 var start = Zone(a.StartX.Value, a.StartY.Value);
