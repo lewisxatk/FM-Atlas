@@ -92,6 +92,38 @@ public sealed class LiveCareerImportTests
     }
 
     [Fact]
+    public async Task LiveStaffPreferredJobRatingsArePersistedAsProvisionalFacts()
+    {
+        using var temp = new TemporaryDirectory();
+        var database = new ScoutDatabase(Path.Combine(temp.Path, "scouting.db"));
+        await database.InitialiseAsync();
+
+        var ratings = new byte[15];
+        ratings[4] = 18;  // Scout
+        ratings[12] = 18; // Analyst (recruitment/performance group)
+        ratings[0] = 12;  // Manager
+        var decoded = StaffJobPreferenceDecoder.Decode(ratings);
+        Assert.NotNull(decoded);
+
+        var payload = CreatePayload();
+        var manager = Assert.Single(payload.Staff!);
+        await database.ImportLiveSnapshotAsync(payload with
+        {
+            Staff = new List<LiveStaffRecord> { manager with { JobPreferences = decoded } }
+        });
+
+        var facts = await database.GetFmsaveStaffFactsAsync("LIVE:9001");
+        Assert.Contains(facts, x => x.Field == "preference.scout" && x.Value == "18");
+        Assert.Contains(facts, x => x.Field == "preference.analyst_recruitment_or_performance" && x.Value == "18");
+        Assert.Contains(facts, x => x.Field == "preference.manager" && x.Value == "12");
+        Assert.Contains(facts, x => x.Field == "preference.highest_rating" && x.Value == "18");
+        Assert.Contains(facts, x => x.Field == "preference.top_job"
+            && x.Value == "scout, analyst_recruitment_or_performance");
+        Assert.All(facts.Where(x => x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)),
+            x => Assert.Contains("provisional", x.Group, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task StaffDirectoryDeduplicatesSamePersonAcrossOfflineAndLiveSources()
     {
         using var temp = new TemporaryDirectory();
