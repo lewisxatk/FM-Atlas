@@ -22,7 +22,7 @@ public sealed class PlayerComparisonWindow : Window
         public string Value3 { get; init; } = "—";
     }
 
-    private PlayerComparisonWindow(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes, IReadOnlyDictionary<string, IReadOnlyList<PositionSuitabilityEntry>> positionRatings)
+    private PlayerComparisonWindow(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes, IReadOnlyDictionary<string, IReadOnlyList<PositionSuitabilityEntry>> positionRatings, IReadOnlyList<List<AtlasFactRecord>> performanceFacts)
     {
         Title = "FM Atlas · Player Comparison";
         Width = 1320;
@@ -30,7 +30,7 @@ public sealed class PlayerComparisonWindow : Window
         MinWidth = 900;
         MinHeight = 600;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = new SolidColorBrush(Color.FromRgb(13, 17, 23));
+        Background = new SolidColorBrush(Color.FromRgb(21, 23, 25));
         Foreground = new SolidColorBrush(Color.FromRgb(232, 238, 244));
 
         var root = new DockPanel { Margin = new Thickness(18) };
@@ -39,7 +39,7 @@ public sealed class PlayerComparisonWindow : Window
         header.Children.Add(new TextBlock { Text = "Player comparison", FontSize = 26, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 4, 0, 2) });
         header.Children.Add(new TextBlock
         {
-            Text = $"Comparing {players.Count} players · imported values only · missing fields remain blank rather than being treated as zero.",
+            Text = $"Comparing {players.Count} players · attributes, 15 position ratings and imported performance facts · missing fields remain blank.",
             Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), FontSize = 11
         });
         DockPanel.SetDock(header, Dock.Top);
@@ -88,11 +88,12 @@ public sealed class PlayerComparisonWindow : Window
         if (selected.Count < 2) return;
         var attributeSets = await Task.WhenAll(selected.Select(x => database.GetPlayerAttributesAsync(x.SourceId)));
         var positionRatings = await database.GetImportedPositionSuitabilityAsync();
-        var window = new PlayerComparisonWindow(selected, attributeSets, positionRatings) { Owner = owner };
+        var performanceFacts = await Task.WhenAll(selected.Select(x => database.GetPlayerPerformanceFactsAsync(x.SourceId)));
+        var window = new PlayerComparisonWindow(selected, attributeSets, positionRatings, performanceFacts) { Owner = owner };
         window.ShowDialog();
     }
 
-    private static List<ComparisonRow> BuildRows(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes, IReadOnlyDictionary<string, IReadOnlyList<PositionSuitabilityEntry>> positionRatings)
+    private static List<ComparisonRow> BuildRows(IReadOnlyList<PlayerRecord> players, IReadOnlyList<Dictionary<string, double>> attributes, IReadOnlyDictionary<string, IReadOnlyList<PositionSuitabilityEntry>> positionRatings, IReadOnlyList<List<AtlasFactRecord>> performanceFacts)
     {
         var rows = new List<ComparisonRow>();
         void AddCore(string group, string field, Func<PlayerRecord, string> selector)
@@ -135,6 +136,25 @@ public sealed class PlayerComparisonWindow : Window
                     ? value.ToString("0.##", CultureInfo.InvariantCulture)
                     : "—").ToArray();
             rows.Add(CreateRow(CategoryFor(key), FieldFor(key), values));
+        }
+
+        // Imported season, match and FM View Exporter facts are shown alongside attributes.
+        // These are original source values; no per-90 conversion or event metric is inferred here.
+        var performanceKeys = performanceFacts.SelectMany(x => x)
+            .Select(x => (x.Group, x.Field))
+            .Distinct()
+            .OrderBy(x => x.Group, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Field, StringComparer.OrdinalIgnoreCase);
+        foreach (var key in performanceKeys)
+        {
+            var values = performanceFacts.Select(facts =>
+            {
+                var fact = facts.FirstOrDefault(x =>
+                    x.Group.Equals(key.Group, StringComparison.OrdinalIgnoreCase)
+                    && x.Field.Equals(key.Field, StringComparison.OrdinalIgnoreCase));
+                return fact?.Value ?? "—";
+            }).ToArray();
+            rows.Add(CreateRow("Performance · imported source values · " + key.Group, key.Field, values));
         }
         return rows;
     }
