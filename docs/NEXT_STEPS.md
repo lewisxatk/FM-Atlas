@@ -18,7 +18,7 @@
 - Artifact: `FM-Atlas-V10-win-x64`, run `43618498530`, artifact ID `14123521191`. The artifact expires on 28 November 2026.
 - These checks prove compilation, automated tests and packaging. They do **not** prove a WPF launch on the user's PC, an actual FM27 save's field meanings, a store-specific live attachment, visual acceptance or release readiness.
 
-The follow-up commits add an explicit V10 service-level hard gate around live-memory Apply/Undo, regression tests for the gate, corrected test instructions, a workflow path fix and a dispatcher-warning correction. Run the latest workflow after those commits; do not treat the earlier 106-test result as evidence for code added afterwards.
+The follow-up hard gate, three regression tests, diagnostics corrections, read-only test instructions, workflow path fix and dispatcher-warning correction were verified by Windows workflow **#605, attempt 2**, which completed successfully. The final xUnit result is **109 passed, 0 failed**; the self-contained win-x64 publish and artifact upload also passed. Verified application/test commit: `3e236ea9cd4d2b95c299b5ecd53a255b39a92658`. The branch subsequently received only root-level handover/roadmap documentation updates; application source and tests are unchanged. Current artifact: `FM-Atlas-V10-win-x64`, artifact ID `14126731937`, SHA-256 `3d02aec66ad6a9fe3ccdfe553637095bc78c75619dca36bde5f52623ff86368c`.
 
 ## Product foundations to preserve
 
