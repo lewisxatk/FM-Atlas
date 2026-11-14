@@ -39,6 +39,14 @@ public sealed class LiveMemoryWriteGateTests
         => Assert.False(LiveMemoryEditService.SupportsPlayerFieldPreview(field));
 
     [Fact]
+    public void TacticalAreaOptionDecoderMatchesTheFM27LibreGoldenFixture()
+    {
+        var decoded = LiveEntityMemoryEditService.DecodeTacticalAreaOptions(
+            0x8261_100A_108A_1088UL, 0x8064UL);
+        Assert.Equal(new[] { 5, 17, 10, 4, 20, 10 }, decoded);
+    }
+
+    [Fact]
     public void LatestSteamBuild26577676IsRegisteredForLiveEditingAndTactics()
     {
         var profile = Fm27BuildProfiles.Match(0x185FA000, 0x6AF38E5C);
