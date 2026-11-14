@@ -1,33 +1,76 @@
-# FM Atlas 27.1 — Test Report
+# FM Atlas V10 — Controlled Test Report
 
-Copy this template when reporting a problem. Do not include your original save file.
+Do not attach the original career save or the Atlas SQLite database.
 
-- Windows version:
-- FM27 edition: Game Pass / Steam / Other
-- FM27 game build shown in FM:
-- FM Atlas version:
-- Build status: success / failed
-- Page tested:
-- Action performed:
+## Test environment
+- Date/time:
+- Windows edition/version:
+- Display scaling/resolution:
+- FM27 edition: Steam / Game Pass / Other
+- Exact FM27 game build shown in game:
+- FM Atlas workflow run:
+- Artifact name:
+- FM Atlas app version:
+- Existing `%LOCALAPPDATA%\FmAtlas` backed up: yes / no
+
+## First launch and UI
+- Launch result:
+- Dashboard/Monolith result:
+- Navigation result:
+- Ctrl+K Global Search result:
+- Advanced Search result:
+- Player Comparison and position ratings result:
+- Scouting Matrix / shortlist result:
+- Tactical Lab / Player Development result:
+- Value Finder / Similar Players result:
+- DPI and window resize result:
+
+## Save bridge and FM27 data
+- Python version:
+- fmsave version:
+- Save bridge result:
+- Imported player/staff/club counts:
+- Retained table counts:
+- Warnings and unknown field/build labels:
+- FM Player Stats Explorer result:
+- FM League Explorer result:
+- FM Team Match Explorer result:
+- Cancellation/save-switch result:
+
+## Representative in-game comparisons
+For every mismatch, include the exact source key and enough context to reproduce it.
+
+| Player UID | Player | Field/source key | Competition/season | FM27 UI value | Atlas value | Source table |
+|---|---|---|---|---:|---:|---|
+
+## Safety check
+- Tester & Logs says live-memory write gate DISABLED: yes / no
+- Live Apply attempted: no
+- Live Undo attempted: no
+- Any unexpected memory-write control visible: yes / no
+- Any original/online/shared save used: no
+
+## Issue detail
+- Workspace/page:
+- Steps:
 - Expected result:
 - Actual result:
-- Exact error text:
-- Does it happen every time?:
-- Does it happen with a fresh Atlas launch?:
+- Exact error:
+- Frequency/reproducibility:
+- Screenshot attached: yes / no
+- Redacted support ZIP attached: yes / no
 
-## Files to attach
+## Classification
+- [ ] Actual application bug
+- [ ] FM27 source field not present in this save
+- [ ] Field meaning not yet verified against the in-game UI
+- [ ] Import coverage/reader limitation
+- [ ] Feature not implemented yet
+- [ ] UI/visual defect
+- [ ] Performance/stability issue
 
-- `build-logs\latest-build.log` for build errors.
-- Redacted Tester & Logs diagnostics or the exported support ZIP for app/runtime errors.
-- Screenshot of the issue if it helps, with any details you do not wish to share hidden.
-
-## Data checks
-
-- Save import player/staff/club counts:
-- Extra table counts or warnings:
-- Metric and season tested:
-- Minutes and FM Data Hub comparison for per-90:
-- Role profile and coverage checked:
-- Local editor / mass edit / undo result:
-
-R7.2.0 contains a narrow live writer for CA, PA and 47 visible standard player attributes on exact matched Windows FM27 profiles. It remains early test functionality, OFF by default, and must be validated on a copied offline single-player career. Hidden, personality, position, staff, club, contract, transfer and loan writes are not supported. A profile match is not proof every field mapping is correct.
+## Files supplied
+- [ ] Screenshot(s)
+- [ ] Redacted Tester & Logs support ZIP
+- [ ] `build-logs\latest-build.log` (only for local build failure)
+- [ ] No full career save or local database attached
