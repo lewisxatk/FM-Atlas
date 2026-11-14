@@ -2,7 +2,7 @@
 
 FM Atlas is a Windows desktop application for Football Manager scouting, career intelligence, recruitment, squad analysis, editing research and graphics tools.
 
-> **V8 status (14 November 2026):** The integrated V8 source rebuild is in progress on the isolated branch `rebuild/v8-full-product-rebuild`. Draft pull request [#4 — FM Atlas V8 · Atlas Liquid](https://github.com/lewisxatk/FM-Atlas/pull/4) is open against `fix/r7.2.0-release-build-integration`. It is **not merged or release-ready**. A clean Windows Release build, startup test, full feature regression and Football Manager acceptance tests are still required.
+> **V8 status (14 November 2026):** The integrated V8 source rebuild is on the isolated branch `rebuild/v8-full-product-rebuild`. Draft pull request [#4 — FM Atlas V8 · Atlas Liquid](https://github.com/lewisxatk/FM-Atlas/pull/4) is open against `fix/r7.2.0-release-build-integration`. A complete hosted Windows .NET 8 Release compile, self-contained x64 publish and artifact upload passed on commit `77ec4364` (Actions run [#157](https://github.com/lewisxatk/FM-Atlas/actions/runs/43536598003)). Later importer-safety, shortlist-count and C# integration-test changes are newer than that artifact and are undergoing a fresh build/test run. V8 remains **not merged or release-ready** pending the latest integrated tests and your PC/runtime acceptance.
 
 ## V8 design
 
@@ -23,10 +23,11 @@ The V8 branch preserves the R7.2.0 application and feature foundation while addi
 - A Windows .NET 8 Release and self-contained x64 build/package workflow.
 - Live-memory safety gates: the old full process scan and live Apply handlers are blocked in V8 until bounded scanning and field mappings pass independent validation.
 - SQLite writer coordination and a 30-second busy timeout.
-- Save import now streams individual tables into a temporary NDJSON bundle and imports each row incrementally in one SQLite transaction; progress, elapsed time and cancellation preserve the last committed snapshot. A Python mock-save streaming test passes on Windows CI; the C# build of this exact integration is in progress.
+- Save import now streams individual tables into a temporary NDJSON bundle and imports each row incrementally in one SQLite transaction; progress, elapsed time and cancellation preserve the last committed snapshot. Manifest row counts are checked for every table before commit, final warnings are persisted, and the adapter refuses to overwrite an existing output directory.
+- A Python regression test covers normalisation, table rows, manager-name privacy and preservation of an existing output folder. A new Windows .NET integration-test project covers successful import, truncated manifest counts, malformed NDJSON rollback and retention of the previous snapshot. Its first CI run is in progress.
 - SQLite write serialization and a 30-second lock timeout to address concurrent writer contention.
 
-**Do not equate source implementation with verification.** The new NDJSON adapter regression test passes, but the C# Release compile/package for the streaming importer is not yet confirmed and large real-save import behaviour still needs testing. Nested Advanced Search logic, multi-sort/multi-select comparison, full MVVM separation, deeper development/tactics/recruitment systems, runtime performance and Football Manager stability acceptance remain open. The durable checklist records the exact state.
+**Do not equate source implementation with verification.** The integrated V8 Release compile/package has passed at commit `77ec4364`; the newer C# integration-test project and later importer/shortlist safeguards are undergoing their own Windows CI run. No real FM career import or Windows runtime/Football Manager stability acceptance has been claimed. Nested Advanced Search logic, multi-sort/player comparison, full MVVM separation, deeper development/tactics/recruitment systems and runtime performance remain open. The durable checklist records the exact state.
 
 ## Durable progress and design documents
 
@@ -41,7 +42,7 @@ The V8 branch preserves the R7.2.0 application and feature foundation while addi
 - Use an extracted V8 folder separate from any existing FM Atlas installation. Existing local database and settings are preserved under `%LOCALAPPDATA%\\FmAtlas`; never delete that folder during testing.
 - For career data, import a **copy** of an FM save using the local read-only bridge.
 - The legacy live-memory scan and live Apply routes are deliberately disabled in this V8 source milestone. Do not try to use them or switch the gates on.
-- Build and package success must be confirmed by the Windows workflow and a clean Windows PC run. No successful V8 Windows build or runtime test is claimed by this README.
+- A hosted Windows Release build and package has passed for the previous integrated commit. The latest importer/test changes must pass their own CI run, followed by a clean PC startup, visual, database, save-import and Football Manager stability acceptance before V8 can be called release-ready.
 
 ## Historical source and research
 
