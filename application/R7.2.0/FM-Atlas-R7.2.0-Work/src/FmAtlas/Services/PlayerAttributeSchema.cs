@@ -3,8 +3,9 @@ namespace FmAtlas.Services;
 internal sealed record PlayerAttributeField(string Key, string Label, string Category, int Offset);
 internal static class PlayerAttributeSchema
 {
-    // Source: barak14/fm-editor docs/fm27/memory-layout.md and src/fields/fm27/player.rs.
-    // Upstream explicitly warns that fields not independently witnessed in FM27 remain inherited FM26 leads.
+    // Source: FMLibreEditor profiles/fm27/layout.toml [player.attributes], cross-checked with
+    // crates/fmlibre-core/src/details.rs ATTRIBUTE_GROUPS. The 52 mapped attributes (including
+    // the five hidden attributes) are present in the FM27 layout; feet are mapped separately.
     internal static readonly PlayerAttributeField[] Fields = new PlayerAttributeField[] {
         new("crossing", "Crossing", "Technical", 0x15F),
         new("dribbling", "Dribbling", "Technical", 0x160),

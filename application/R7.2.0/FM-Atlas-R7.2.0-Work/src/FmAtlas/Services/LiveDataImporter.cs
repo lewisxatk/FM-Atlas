@@ -16,7 +16,14 @@ public sealed record LivePlayerRecord(
     IReadOnlyDictionary<string, double>? Personality = null,
     IReadOnlyDictionary<string, double>? PositionRatings = null,
     string? NationName = null,
-    uint? NationUid = null);
+    uint? NationUid = null,
+    int? HeightCm = null, int? Condition = null, int? MatchSharpness = null,
+    int? Jadedness = null, int? Morale = null,
+    int? HomeReputation = null, int? CurrentReputation = null, int? WorldReputation = null,
+    int? AskingPrice = null,
+    int? InternationalCaps = null, int? InternationalGoals = null,
+    int? U21Caps = null, int? U21Goals = null,
+    int? LeftFoot = null, int? RightFoot = null);
 public sealed record LiveStaffRecord(
     uint Uid, string Name, int ArrayIndex, ulong Address, bool IsHumanManager,
     DateTime? DateOfBirth, int? Age, string? NationName, uint? NationUid,
@@ -230,7 +237,41 @@ public static class LiveDataImporter
                             var shown = inline[0x150 + pos];
                             if (shown is >= 1 and <= 20) positions[PositionKeys[pos]] = shown;
                         }
-                        players.Add(new LivePlayerRecord(uid, name, teamAddress, clubUid, i, address, true, relationshipVerified, dob, "Unknown", "No independently verified FM27 generated-player flag is currently mapped.", ca, pa, attributes, personality, positions, nationName, nationUid));
+
+                        // Additional scalar fields use the FM27 player layout documented by
+                        // FMLibreEditor. They remain provisional until compared with FM's UI.
+                        var heightRaw = BitConverter.ToUInt16(inline, 0x22E);
+                        int? heightCm = heightRaw is >= 140 and <= 220 ? heightRaw : null;
+                        var conditionRaw = BitConverter.ToUInt16(inline, 0x25C);
+                        int? condition = conditionRaw <= 10_000 ? conditionRaw : null;
+                        var sharpnessRaw = BitConverter.ToUInt16(inline, 0x258);
+                        int? sharpness = sharpnessRaw <= 10_000 ? sharpnessRaw : null;
+                        var jadednessRaw = BitConverter.ToInt16(inline, 0x25A);
+                        int? jadedness = jadednessRaw is >= -500 and <= 10_000 ? jadednessRaw : null;
+                        var moraleRaw = inline[0x26C];
+                        int? morale = moraleRaw is >= 1 and <= 20 ? moraleRaw : null;
+                        var homeRepRaw = BitConverter.ToUInt16(inline, 0x25E);
+                        int? homeRep = homeRepRaw <= 10_000 ? homeRepRaw : null;
+                        var currentRepRaw = BitConverter.ToUInt16(inline, 0x260);
+                        int? currentRep = currentRepRaw <= 10_000 ? currentRepRaw : null;
+                        var worldRepRaw = BitConverter.ToUInt16(inline, 0x262);
+                        int? worldRep = worldRepRaw <= 10_000 ? worldRepRaw : null;
+                        var askingPriceRaw = BitConverter.ToInt32(inline, 0x238);
+                        int? askingPrice = askingPriceRaw is >= -1 and <= 2_000_000_000 ? askingPriceRaw : null;
+                        var capsRaw = BitConverter.ToUInt16(inline, 0x3BC);
+                        int? internationalCaps = capsRaw <= 1_000 ? capsRaw : null;
+                        var goalsRaw = BitConverter.ToUInt16(inline, 0x3BE);
+                        int? internationalGoals = goalsRaw <= 1_000 ? goalsRaw : null;
+                        var u21Caps = inline[0x3C0];
+                        var u21Goals = inline[0x3C1];
+                        int? leftFoot = inline[0x177] is >= 1 and <= 20 ? inline[0x177] : null;
+                        int? rightFoot = inline[0x178] is >= 1 and <= 20 ? inline[0x178] : null;
+
+                        players.Add(new LivePlayerRecord(uid, name, teamAddress, clubUid, i, address, true, relationshipVerified,
+                            dob, "Unknown", "No independently verified FM27 generated-player flag is currently mapped.",
+                            ca, pa, attributes, personality, positions, nationName, nationUid,
+                            heightCm, condition, sharpness, jadedness, morale, homeRep, currentRep, worldRep,
+                            askingPrice, internationalCaps, internationalGoals, u21Caps, u21Goals, leftFoot, rightFoot));
                     }
                     catch (OperationCanceledException) { throw; }
                     catch { unnamed++; }

@@ -25,11 +25,10 @@ namespace FmAtlas;
 public partial class MainWindow : Window
 {
     private static string _themeMode = LoadThemeMode();
-    // Automatic read-only indexing is enabled only for exact supported FM27 profiles.
-    // Scans are profile-bounded, cancellable, limited to two minutes and save-generation guarded.
-    // Live Apply/Undo remains disabled until field mappings and rollback are independently certified.
+    // Automatic live indexing and the separately whitelisted live editor are enabled only
+    // for exact FM27 build profiles. Reads and writes are bounded, identity-checked and
+    // save-generation guarded; unsupported pointer-backed fields remain unavailable.
     private static bool LiveMemoryImportEnabled => true;
-    private static bool LiveMemoryEditingEnabled => false;
     private static Brush Ink => Brush("#E8EEF4");
     private static Brush Teal => Brush("#F08A42");
     private static Brush TealDark => Brush("#FFD0AA");
@@ -87,7 +86,8 @@ public partial class MainWindow : Window
     private int _playerOffset;
     private const int PlayerPageSize = 250;
     private bool _navigationBusy;
-    private bool _editorEnabled; // Local edits and guarded live editing are OFF by default on every launch.
+    private bool _editorEnabled; // Atlas-local override editing; independent from live FM writes.
+    private bool _liveEditingEnabled; // Explicit live-memory opt-in; resets to OFF every launch.
     private string? _queuedNavigation;
     private string? _pendingClubSourceId;
     private string? _pendingStaffSourceId;
@@ -115,6 +115,9 @@ public partial class MainWindow : Window
         Loaded += WindowLoaded;
         Closed += (_, _) =>
         {
+            // Live memory writing is never left armed after the window closes.
+            _liveEditingEnabled = false;
+            LiveEntityMemoryEditService.SetLiveEditingEnabled(false);
             // Do not leave background work running after the WPF shell exits.
             // Cancellation is cooperative: active importers roll back unpublished
             // snapshots and retain the last committed database state.
@@ -665,6 +668,7 @@ public partial class MainWindow : Window
         AddNav("◎", "Role Lab");
         AddNavGroup("EDITING");
         AddNav("✎", "Live Editor");
+        AddNav("▤", "World Editor");
         AddNav("▦", "Mass Edit");
         AddNav("◷", "Edit History");
         AddNavGroup("DATA & TOOLS");
@@ -697,7 +701,7 @@ public partial class MainWindow : Window
             stateRow.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
             stateRow.Children.Add(Txt("Automatic · read-only", 10, true, Ink));
             bottomStack.Children.Add(stateRow);
-            bottomStack.Children.Add(Txt("FM27 career detection and cancellable live indexing are active. Live editing remains disabled.", 8, false, Muted, wrap: true));
+            bottomStack.Children.Add(Txt("FM27 career detection and cancellable live indexing are active. Verified live editing is available from player, staff and club profiles.", 8, false, Muted, wrap: true));
         }
         else
         {
@@ -793,6 +797,7 @@ public partial class MainWindow : Window
                 "Role Lab" => await RoleLabPageAsync(),
                 "Shortlists" => await ShortlistsPageAsync(),
                 "Live Editor" => await LiveEditorPageAsync(),
+                "World Editor" => await WorldEditorPageAsync(),
                 "Edit History" => await EditHistoryPageAsync(),
                 "Atlas Assistant" => AssistantPage(),
                 "Settings" => await SettingsPageAsync(),
@@ -910,7 +915,8 @@ public partial class MainWindow : Window
         "Role Lab" => "Transparent IP/OOP role-fit estimates from imported player attributes",
         "Tester & Logs" => "System checks · diagnostic export · application and build logs",
         "Shortlists" => "Manage your local recruitment lists",
-        "Live Editor" => "Editing boundary · live game writing is not enabled in this build",
+        "Live Editor" => "Live FM27 profile editing · validated player, staff, club and tactical Match Exposure fields",
+        "World Editor" => "Explore every indexed FM save directory · edit source-backed scalar fields locally with audit and undo",
         "Edit History" => "Local FM Atlas data changes and audit trail",
         "Atlas Assistant" => "Search your local career snapshot using natural-language-style filters",
         "Settings" => "Data sources · save bridge · local storage · diagnostics",
@@ -1320,6 +1326,678 @@ public partial class MainWindow : Window
         if (_playerResultsGrid is not null) _playerResultsGrid.ItemsSource = _players;
     }
 
+
+
+    private async Task<UIElement> BuildLiveEntityEditorAsync(
+        LiveEntityMemoryEditService.EntityKind entityType, string sourceId, string displayName)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 16, 0, 10) };
+        panel.Children.Add(Txt("LIVE FM27 EDITOR · " + entityType.ToString().ToUpperInvariant(), 9, true, Teal));
+        panel.Children.Add(Txt(
+            "These values are read from the currently loaded FM27 career. Apply writes the selected, verified fields into the running game and reads each value back. Use a separate offline career copy for first testing, then save inside Football Manager to commit the changes to the career file.",
+            9, false, Muted, wrap: true));
+
+        if (!_liveEditingEnabled)
+        {
+            panel.Children.Add(Txt("LIVE WRITES ARE OFF. Open Editor Studio and enable Live FM Editing for this session. Atlas-local overrides never change the Football Manager career.", 9, false, Muted, wrap: true));
+            return panel;
+        }
+        if (!sourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase)
+            || !uint.TryParse(sourceId["LIVE:".Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var uid))
+        {
+            panel.Children.Add(Txt("This record is not linked to a live FM27 UID. Live writing is available only for the current loaded career, not an offline import.", 9, false, Muted, wrap: true));
+            return panel;
+        }
+
+        var rows = new ObservableCollection<LiveEntityEditView>();
+        var status = Txt("Reading the current FM27 values…", 9, false, Muted, wrap: true);
+        panel.Children.Add(status);
+        try
+        {
+            var processId = await Task.Run(() => LiveEntityMemoryEditService.FindSupportedProcessId());
+            var catalogue = LiveEntityMemoryEditService.GetEditableFields(entityType);
+            var current = await Task.Run(() => LiveEntityMemoryEditService.ReadCurrentValues(
+                processId, entityType, uid, displayName, catalogue.Select(x => x.Key).ToList()));
+            var descriptors = catalogue.Where(x => current.ContainsKey(x.Key))
+                .OrderBy(x => LiveEditorFieldGroup(entityType, x.Key), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(x => x.Label, StringComparer.OrdinalIgnoreCase).ToList();
+            foreach (var field in descriptors)
+            {
+                var value = current[field.Key];
+                rows.Add(new LiveEntityEditView
+                {
+                    FieldKey = field.Key,
+                    Label = field.Label,
+                    Group = LiveEditorFieldGroup(entityType, field.Key),
+                    AllowedRange = field.Minimum.ToString("N0", CultureInfo.InvariantCulture) + " – " + field.Maximum.ToString("N0", CultureInfo.InvariantCulture),
+                    CurrentValue = value,
+                    TargetValue = value.ToString(CultureInfo.InvariantCulture)
+                });
+            }
+
+            if (rows.Count == 0)
+            {
+                status.Text = "No editable live fields could be resolved for this record. It may lack a contract, full finance record, or a verified stadium object.";
+                return panel;
+            }
+
+            status.Text = rows.Count.ToString("N0", CultureInfo.InvariantCulture)
+                + " live fields resolved · grouped by area · unsupported or absent records omitted.";
+            var fieldSearch = new TextBox
+            {
+                Height = 34,
+                MinWidth = 260,
+                MaxWidth = 440,
+                Margin = new Thickness(0, 8, 0, 8),
+                Padding = new Thickness(10, 6, 10, 6),
+                Background = Brush("#171D24"),
+                Foreground = Ink,
+                BorderBrush = Line,
+                BorderThickness = new Thickness(1),
+                ToolTip = "Filter by field name, group or FM field key."
+            };
+            panel.Children.Add(fieldSearch);
+            var grid = CreateGrid();
+            grid.IsReadOnly = false;
+            grid.CanUserAddRows = false;
+            grid.MinHeight = 180;
+            grid.MaxHeight = 520;
+            var groupColumn = Column("GROUP", nameof(LiveEntityEditView.Group), .8);
+            groupColumn.IsReadOnly = true;
+            grid.Columns.Add(groupColumn);
+            var fieldColumn = Column("FM27 FIELD", nameof(LiveEntityEditView.Label), 1.3);
+            fieldColumn.IsReadOnly = true;
+            grid.Columns.Add(fieldColumn);
+            var currentColumn = Column("CURRENT", nameof(LiveEntityEditView.CurrentValue), .55);
+            currentColumn.IsReadOnly = true;
+            grid.Columns.Add(currentColumn);
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "TARGET",
+                Binding = new Binding(nameof(LiveEntityEditView.TargetValue))
+                    { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(.7, DataGridLengthUnitType.Star)
+            });
+            var rangeColumn = Column("VALID RANGE", nameof(LiveEntityEditView.AllowedRange), .8);
+            rangeColumn.IsReadOnly = true;
+            grid.Columns.Add(rangeColumn);
+            grid.ItemsSource = rows;
+            fieldSearch.TextChanged += (_, _) =>
+            {
+                var query = fieldSearch.Text.Trim();
+                grid.ItemsSource = string.IsNullOrWhiteSpace(query)
+                    ? rows
+                    : rows.Where(row => row.Label.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        || row.Group.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        || row.FieldKey.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            };
+            panel.Children.Add(grid);
+
+            LiveEntityMemoryEditService.BatchPlan? stagedPlan = null;
+            LiveEntityMemoryEditService.BatchReceipt? appliedReceipt = null;
+            Button? applyButton = null;
+            Button? undoButton = null;
+            var stageButton = PrimaryButton("Stage live changes", async (_, _) =>
+            {
+                grid.CommitEdit(DataGridEditingUnit.Cell, true);
+                grid.CommitEdit(DataGridEditingUnit.Row, true);
+                var changes = new List<LiveEntityMemoryEditService.TargetValue>();
+                foreach (var row in rows)
+                {
+                    if (!int.TryParse(row.TargetValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target))
+                    {
+                        MessageBox.Show(this, "Enter a whole number for " + row.FieldKey + ".", "FM27 live editor", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    if (target != row.CurrentValue)
+                        changes.Add(new LiveEntityMemoryEditService.TargetValue(row.FieldKey, target));
+                }
+                if (changes.Count == 0)
+                {
+                    MessageBox.Show(this, "There are no changed target values to stage.", "FM27 live editor", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    stagedPlan = await Task.Run(() => LiveEntityMemoryEditService.StageBatch(
+                        processId, entityType, uid, displayName, changes));
+                    status.Text = "STAGED · " + stagedPlan.Values.Count.ToString("N0", CultureInfo.InvariantCulture)
+                        + " field(s) · " + stagedPlan.ProfileId + " · no memory written";
+                    applyButton!.IsEnabled = true;
+                    undoButton!.IsEnabled = false;
+                    var preview = string.Join(Environment.NewLine, stagedPlan.Values.Take(30).Select(x =>
+                        x.FieldKey + ": " + x.CurrentValue.ToString(CultureInfo.InvariantCulture)
+                        + " → " + x.TargetValue.ToString(CultureInfo.InvariantCulture)));
+                    if (stagedPlan.Values.Count > 30)
+                        preview += Environment.NewLine + "… and " + (stagedPlan.Values.Count - 30).ToString(CultureInfo.InvariantCulture) + " more fields.";
+                    MessageBox.Show(this,
+                        "Live edit staged for " + displayName + "." + Environment.NewLine + Environment.NewLine
+                        + "Build: " + stagedPlan.ProfileId + Environment.NewLine
+                        + "Fields: " + stagedPlan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                        + Environment.NewLine + Environment.NewLine + preview
+                        + Environment.NewLine + Environment.NewLine
+                        + "No FM values have been changed yet.",
+                        "FM Atlas · Live edit staged", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    stagedPlan = null;
+                    applyButton!.IsEnabled = false;
+                    status.Text = "STAGE BLOCKED · " + ex.Message;
+                    AtlasLog.Warning("Live entity edit staging was blocked: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Stage blocked", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+
+            applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
+            {
+                if (stagedPlan is null) return;
+                var answer = MessageBox.Show(this,
+                    "This writes directly into the currently loaded Football Manager career in memory." + Environment.NewLine
+                    + Environment.NewLine + "Make sure this is an offline career and you have a separate backup copy. "
+                    + "Changes become part of the career file when you save inside Football Manager." + Environment.NewLine
+                    + Environment.NewLine + "Apply " + stagedPlan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                    + " field(s) to " + displayName + "?",
+                    "Confirm live FM27 edit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    appliedReceipt = await Task.Run(() => LiveEntityMemoryEditService.ApplyBatch(stagedPlan));
+                    foreach (var row in rows)
+                    {
+                        var item = stagedPlan.Values.FirstOrDefault(x => x.FieldKey.Equals(row.FieldKey, StringComparison.OrdinalIgnoreCase));
+                        if (item is null) continue;
+                        row.CurrentValue = item.TargetValue;
+                        row.TargetValue = item.TargetValue.ToString(CultureInfo.InvariantCulture);
+                    }
+                    status.Text = "LIVE WRITE VERIFIED · " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                        + " field(s) written and read back from FM memory. Save the career inside FM to persist to disk.";
+                    stagedPlan = null;
+                    applyButton!.IsEnabled = false;
+                    undoButton!.IsEnabled = true;
+                    AtlasLog.Info("Live FM27 write verified for " + entityType + " " + uid + " · fields=" + appliedReceipt.Plan.Values.Count);
+                    MessageBox.Show(this,
+                        "FM27 accepted " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                        + " change(s) for " + displayName + ". Every field passed read-back verification." + Environment.NewLine
+                        + Environment.NewLine + "Save the career in Football Manager to persist the changes to the save file. Undo remains available in this profile while the same career session is loaded.",
+                        "FM Atlas · Live changes applied", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    status.Text = "APPLY BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Error("Live entity Apply failed for " + entityType + " " + uid, ex);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Live Apply failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            applyButton.IsEnabled = false;
+            undoButton = SoftButton("Undo last live batch", async (_, _) =>
+            {
+                if (appliedReceipt is null) return;
+                var answer = MessageBox.Show(this,
+                    "Restore the original values in Football Manager for the last applied batch? Undo is allowed only while every field still contains the value Atlas wrote and the same career remains loaded.",
+                    "Confirm live Undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    await Task.Run(() => LiveEntityMemoryEditService.UndoBatch(appliedReceipt));
+                    foreach (var row in rows)
+                    {
+                        var item = appliedReceipt.Plan.Values.FirstOrDefault(x => x.FieldKey.Equals(row.FieldKey, StringComparison.OrdinalIgnoreCase));
+                        if (item is null) continue;
+                        row.CurrentValue = item.CurrentValue;
+                        row.TargetValue = item.CurrentValue.ToString(CultureInfo.InvariantCulture);
+                    }
+                    status.Text = "LIVE UNDO VERIFIED · original values restored in the same FM career session.";
+                    AtlasLog.Info("Live FM27 undo verified for " + entityType + " " + uid);
+                    appliedReceipt = null;
+                    undoButton!.IsEnabled = false;
+                }
+                catch (Exception ex)
+                {
+                    status.Text = "UNDO BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Error("Live entity Undo failed for " + entityType + " " + uid, ex);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Live Undo failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            undoButton.IsEnabled = false;
+            var buttons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+            buttons.Children.Add(stageButton);
+            buttons.Children.Add(applyButton);
+            buttons.Children.Add(undoButton);
+            panel.Children.Add(buttons);
+        }
+        catch (Exception ex)
+        {
+            status.Text = "LIVE FIELDS UNAVAILABLE · " + ex.Message;
+            AtlasLog.Warning("Live entity editor could not load " + entityType + " " + uid + ": " + ex.Message);
+        }
+        return panel;
+    }
+
+    private sealed class LiveEntityEditView
+    {
+        public string FieldKey { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string Group { get; set; } = "";
+        public string AllowedRange { get; set; } = "";
+        public int CurrentValue { get; set; }
+        public string TargetValue { get; set; } = "";
+    }
+
+    private static string LiveEditorFieldGroup(LiveEntityMemoryEditService.EntityKind entity, string key)
+    {
+        if (key.StartsWith("attribute.", StringComparison.OrdinalIgnoreCase))
+        {
+            var attributeKey = key["attribute.".Length..];
+            var playerField = PlayerAttributeSchema.Fields.FirstOrDefault(x =>
+                x.Key.Equals(attributeKey, StringComparison.OrdinalIgnoreCase));
+            if (playerField is not null) return playerField.Category;
+            return entity == LiveEntityMemoryEditService.EntityKind.Staff ? "Coaching & Staff" : "Attributes";
+        }
+        if (key.StartsWith("trait.", StringComparison.OrdinalIgnoreCase)) return "Preferred Moves";
+        if (key.StartsWith("position.", StringComparison.OrdinalIgnoreCase)) return "Position Suitability";
+        if (key.StartsWith("personality.", StringComparison.OrdinalIgnoreCase)) return "Personality";
+        if (key.StartsWith("contract.", StringComparison.OrdinalIgnoreCase)) return "Contract";
+        if (key.StartsWith("loan.", StringComparison.OrdinalIgnoreCase)) return "Loans";
+        if (key.StartsWith("finance.", StringComparison.OrdinalIgnoreCase)) return "Finance";
+        if (key.StartsWith("facilities.", StringComparison.OrdinalIgnoreCase)) return "Facilities";
+        if (key.StartsWith("stadium.", StringComparison.OrdinalIgnoreCase)) return "Stadium";
+        if (key.StartsWith("supporters.", StringComparison.OrdinalIgnoreCase)) return "Supporters";
+        if (key.StartsWith("international.", StringComparison.OrdinalIgnoreCase)) return "International";
+        if (key.StartsWith("reputation", StringComparison.OrdinalIgnoreCase)) return "Reputation";
+        if (key.StartsWith("ability.", StringComparison.OrdinalIgnoreCase)) return "Ability";
+        if (key.StartsWith("club.", StringComparison.OrdinalIgnoreCase)) return "Club Information";
+        if (key.Equals("date_of_birth", StringComparison.OrdinalIgnoreCase)) return "Biography";
+        return "Other";
+    }
+
+
+    private async Task<UIElement> BuildLiveTacticalEffectivenessEditorAsync(string sourceId, string clubName)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 16, 0, 10) };
+        panel.Children.Add(Txt("TACTICAL EFFECTIVENESS · LIVE FM27", 9, true, Teal));
+        panel.Children.Add(Txt("Match Exposure", 18, true, Ink));
+        panel.Children.Add(Txt(
+            "These are the team's six tactical Match Exposure areas plus Position / Role Shapes. Changes are applied to players' live familiarity records for the tactic currently selected in FM. FM27's four headline gauges (Tactical Understanding, Player Ability, Player Buy-In and Next Match Information) are derived from game state, not independent percentage fields. Training Contribution is calculated from player training histories; the Max action rewrites those validated history records rather than setting a synthetic score.",
+            9, false, Muted, wrap: true));
+
+        if (!_liveEditingEnabled)
+        {
+            panel.Children.Add(Txt("LIVE TACTICAL WRITES ARE OFF. Enable Live FM Editing in Editor Studio to stage and apply changes.", 9, false, Muted));
+            return panel;
+        }
+        if (!sourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase)
+            || !uint.TryParse(sourceId["LIVE:".Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var clubUid))
+        {
+            panel.Children.Add(Txt("Tactical live editing is available only for clubs linked to a currently loaded FM27 career.", 9, false, Muted, wrap: true));
+            return panel;
+        }
+
+        var status = Txt("Reading active team tactic and player familiarity records…", 9, false, Muted, wrap: true);
+        panel.Children.Add(status);
+        try
+        {
+            var processId = await Task.Run(() => LiveEntityMemoryEditService.FindSupportedProcessId());
+            var snapshot = await Task.Run(() =>
+                LiveEntityMemoryEditService.ReadTacticalSnapshot(processId, clubUid, clubName));
+            var rows = new ObservableCollection<LiveTacticalAreaView>(snapshot.Areas.Select(x => new LiveTacticalAreaView
+            {
+                AreaKey = x.Key,
+                Area = x.Label,
+                CurrentValue = x.MatchExposure,
+                TargetValue = x.MatchExposure.ToString(CultureInfo.InvariantCulture),
+                TrainingContribution = x.TrainingContribution
+            }));
+            status.Text = snapshot.ProfileId + " · " + snapshot.PlayersWithFamiliarity.ToString(CultureInfo.InvariantCulture)
+                + " players with readable familiarity records · tactic resolved from FM's active selection.";
+
+            var grid = CreateGrid();
+            grid.IsReadOnly = false;
+            grid.CanUserAddRows = false;
+            grid.MinHeight = 180;
+            grid.MaxHeight = 320;
+            var areaColumn = Column("TACTICAL AREA", nameof(LiveTacticalAreaView.Area), 1.25);
+            areaColumn.IsReadOnly = true;
+            grid.Columns.Add(areaColumn);
+            var currentColumn = Column("CURRENT %", nameof(LiveTacticalAreaView.CurrentValue), .55);
+            currentColumn.IsReadOnly = true;
+            grid.Columns.Add(currentColumn);
+            var trainingColumn = Column("TRAINING CONTRIBUTION", nameof(LiveTacticalAreaView.TrainingContribution), 1.15);
+            trainingColumn.IsReadOnly = true;
+            grid.Columns.Add(trainingColumn);
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "TARGET %",
+                Binding = new Binding(nameof(LiveTacticalAreaView.TargetValue))
+                    { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(.65, DataGridLengthUnitType.Star)
+            });
+            grid.ItemsSource = rows;
+            panel.Children.Add(grid);
+
+            var trainingNote = Txt(
+                "TRAINING CONTRIBUTION · HISTORY-BASED" + Environment.NewLine
+                + "FM calculates this from each player's saved training history. Use the separate Max Training Contribution action to rewrite those history entries for the active tactic; this is not a synthetic percentage field.",
+                9, false, Muted, wrap: true);
+            trainingNote.Margin = new Thickness(0, 7, 0, 7);
+            panel.Children.Add(trainingNote);
+
+            LiveEntityMemoryEditService.TacticalBatchPlan? staged = null;
+            LiveEntityMemoryEditService.TacticalBatchReceipt? applied = null;
+            List<LiveEntityMemoryEditService.TacticalTargetValue>? stagedTargets = null;
+            var maxTrainingRequested = false;
+            Button? applyButton = null;
+            Button? undoButton = null;
+            var stageButton = PrimaryButton("Stage tactical changes", async (_, _) =>
+            {
+                grid.CommitEdit(DataGridEditingUnit.Cell, true);
+                grid.CommitEdit(DataGridEditingUnit.Row, true);
+                var targets = new List<LiveEntityMemoryEditService.TacticalTargetValue>();
+                foreach (var row in rows)
+                {
+                    if (!int.TryParse(row.TargetValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target)
+                        || target is < 0 or > 100)
+                    {
+                        MessageBox.Show(this, row.Area + " must be a whole-number percentage from 0 to 100.",
+                            "Tactical Effectiveness", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    if (target != row.CurrentValue)
+                        targets.Add(new LiveEntityMemoryEditService.TacticalTargetValue(row.AreaKey, target));
+                }
+                if (maxTrainingRequested)
+                    targets.Add(new LiveEntityMemoryEditService.TacticalTargetValue("training_contribution", 100));
+                if (targets.Count == 0)
+                {
+                    MessageBox.Show(this, "Change at least one target percentage before staging.", "Tactical Effectiveness",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    staged = await Task.Run(() => LiveEntityMemoryEditService.StageTacticalExposureBatch(
+                        processId, clubUid, clubName, targets));
+                    stagedTargets = targets;
+                    status.Text = "TACTICAL CHANGES STAGED · " + staged.Changes.Count.ToString(CultureInfo.InvariantCulture)
+                        + " player-area lists · " + staged.ProfileId + " · no memory written";
+                    applyButton!.IsEnabled = true;
+                    undoButton!.IsEnabled = false;
+                    var preview = string.Join(Environment.NewLine, targets.Select(x =>
+                        x.AreaKey.Equals("training_contribution", StringComparison.OrdinalIgnoreCase)
+                            ? "Max Training Contribution · rebuild FM training-history entries"
+                            : x.AreaKey + " → " + x.Value + "%"));
+                    MessageBox.Show(this,
+                        "Staged tactical Match Exposure for " + clubName + "." + Environment.NewLine
+                        + "Player-area list writes: " + staged.Changes.Count.ToString(CultureInfo.InvariantCulture)
+                        + Environment.NewLine + "Targets:" + Environment.NewLine + preview
+                        + Environment.NewLine + Environment.NewLine + "No FM values have been changed yet.",
+                        "FM Atlas · Tactical preview", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    staged = null;
+                    applyButton!.IsEnabled = false;
+                    status.Text = "TACTICAL STAGE BLOCKED · " + ex.Message;
+                    AtlasLog.Warning("Tactical Match Exposure stage was blocked: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "Tactical Effectiveness · Stage blocked",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+
+            var maxButton = SoftButton("Set all Match Exposure targets to 100%", (_, _) =>
+            {
+                foreach (var row in rows) row.TargetValue = "100";
+                grid.Items.Refresh();
+            });
+            var maxTrainingButtonText = Txt("Training contribution max not selected", 8, true, Muted, wrap: true);
+            var maxTrainingButton = PrimaryButton("Max Training Contribution for active tactic", (_, _) =>
+            {
+                maxTrainingRequested = !maxTrainingRequested;
+                maxTrainingButtonText.Text = maxTrainingRequested
+                    ? "MAX TRAINING CONTRIBUTION · WILL APPLY"
+                    : "Training contribution max not selected";
+                status.Text = maxTrainingRequested
+                    ? "Max Training Contribution queued · rewrites existing FM training-history lists for the active tactic."
+                    : "Max Training Contribution removed from the next staged batch.";
+            });
+            panel.Children.Add(maxTrainingButtonText);
+            applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
+            {
+                if (staged is null) return;
+                var answer = MessageBox.Show(this,
+                    "This changes Tactical Match Exposure in the currently loaded FM27 career for " + clubName + "." + Environment.NewLine
+                    + Environment.NewLine + "Use a separate offline career backup. Apply " + staged.Changes.Count.ToString(CultureInfo.InvariantCulture)
+                    + " player-area list changes? Save inside FM afterwards to persist them to disk.",
+                    "Confirm live Tactical Effectiveness edit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    applied = await Task.Run(() => LiveEntityMemoryEditService.ApplyTacticalExposureBatch(staged));
+                    var didMaxTraining = stagedTargets?.Any(x => x.AreaKey.Equals("training_contribution", StringComparison.OrdinalIgnoreCase)) == true;
+                    maxTrainingRequested = false;
+                    try
+                    {
+                        var refreshedAfterApply = await Task.Run(() =>
+                            LiveEntityMemoryEditService.ReadTacticalSnapshot(processId, clubUid, clubName));
+                        foreach (var row in rows)
+                        {
+                            var value = refreshedAfterApply.Areas.FirstOrDefault(x => x.Key.Equals(row.AreaKey, StringComparison.OrdinalIgnoreCase));
+                            if (value is null) continue;
+                            row.CurrentValue = value.MatchExposure;
+                            row.TargetValue = value.MatchExposure.ToString(CultureInfo.InvariantCulture);
+                            row.TrainingContribution = value.TrainingContribution;
+                        }
+                    }
+                    catch (Exception refreshError)
+                    {
+                        AtlasLog.Warning("Tactical after-Apply summary refresh was unavailable: " + refreshError.Message);
+                        foreach (var row in rows)
+                        {
+                            var target = stagedTargets?.FirstOrDefault(x =>
+                                x.AreaKey.Equals(row.AreaKey, StringComparison.OrdinalIgnoreCase));
+                            if (target is not null)
+                            {
+                                row.CurrentValue = target.Value;
+                                row.TargetValue = target.Value.ToString(CultureInfo.InvariantCulture);
+                            }
+                        }
+                    }
+                    maxTrainingButtonText.Text = didMaxTraining
+                        ? "MAX TRAINING CONTRIBUTION · APPLIED"
+                        : "Training contribution max not selected";
+                    maxTrainingButtonText.Foreground = didMaxTraining ? Brush("#2D8A63") : Muted;
+                    grid.Items.Refresh();
+                    status.Text = "LIVE TACTICAL EXPOSURE WRITTEN · " + applied.Changes.Count.ToString(CultureInfo.InvariantCulture)
+                        + " player-area lists · read-back verified. Save the career in FM to persist.";
+                    staged = null;
+                    applyButton!.IsEnabled = false;
+                    undoButton!.IsEnabled = true;
+                    AtlasLog.Info("Live FM27 tactical Match Exposure applied for club " + clubUid
+                        + " · list changes=" + applied.Changes.Count);
+                    MessageBox.Show(this,
+                        "FM27 accepted the tactical Match Exposure changes. Every updated list and header passed read-back verification."
+                        + Environment.NewLine + Environment.NewLine + "Save the career inside FM to persist the changes to the save file.",
+                        "FM Atlas · Tactical changes applied", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    status.Text = "TACTICAL APPLY BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Error("Tactical Match Exposure Apply failed for club " + clubUid, ex);
+                    MessageBox.Show(this, ex.Message, "Tactical Effectiveness · Apply failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            applyButton.IsEnabled = false;
+            undoButton = SoftButton("Undo last tactical batch", async (_, _) =>
+            {
+                if (applied is null) return;
+                var answer = MessageBox.Show(this,
+                    "Restore the original Tactical Match Exposure lists? Undo requires the same FM build, career, active tactic and unchanged player records.",
+                    "Confirm Tactical Effectiveness Undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    await Task.Run(() => LiveEntityMemoryEditService.UndoTacticalExposureBatch(applied));
+                    var refreshed = await Task.Run(() =>
+                        LiveEntityMemoryEditService.ReadTacticalSnapshot(processId, clubUid, clubName));
+                    foreach (var row in rows)
+                    {
+                        var value = refreshed.Areas.FirstOrDefault(x => x.Key.Equals(row.AreaKey, StringComparison.OrdinalIgnoreCase));
+                        if (value is null) continue;
+                        row.CurrentValue = value.MatchExposure;
+                        row.TargetValue = value.MatchExposure.ToString(CultureInfo.InvariantCulture);
+                        row.TrainingContribution = value.TrainingContribution;
+                    }
+                    maxTrainingButtonText.Text = "Training Contribution restored from original history";
+                    maxTrainingButtonText.Foreground = Muted;
+                    grid.Items.Refresh();
+                    status.Text = "TACTICAL UNDO VERIFIED · original player familiarity records restored.";
+                    AtlasLog.Info("Live FM27 tactical Match Exposure undo verified for club " + clubUid);
+                    applied = null;
+                    undoButton!.IsEnabled = false;
+                }
+                catch (Exception ex)
+                {
+                    status.Text = "TACTICAL UNDO BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Error("Tactical Match Exposure Undo failed for club " + clubUid, ex);
+                    MessageBox.Show(this, ex.Message, "Tactical Effectiveness · Undo failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            undoButton.IsEnabled = false;
+            var buttons = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+            buttons.Children.Add(stageButton);
+            buttons.Children.Add(maxButton);
+            buttons.Children.Add(maxTrainingButton);
+            buttons.Children.Add(applyButton);
+            buttons.Children.Add(undoButton);
+            panel.Children.Add(buttons);
+        }
+        catch (Exception ex)
+        {
+            status.Text = "TACTICAL EDITOR UNAVAILABLE · " + ex.Message;
+            AtlasLog.Warning("Tactical Effectiveness editor could not load " + clubName + ": " + ex.Message);
+        }
+        return panel;
+    }
+
+    private sealed class LiveTacticalAreaView
+    {
+        public string AreaKey { get; set; } = "";
+        public string Area { get; set; } = "";
+        public int CurrentValue { get; set; }
+        public string TargetValue { get; set; } = "";
+        public string TrainingContribution { get; set; } = "";
+    }
+
+    private async Task<UIElement> BuildLocalEntityFactEditorAsync(
+        string entityType, string sourceId, string displayName, IReadOnlyList<AtlasFactRecord> sourceFacts)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 14, 0, 10) };
+        panel.Children.Add(Txt("LOCAL FIELD EDITOR · " + entityType.ToUpperInvariant(), 9, true, Teal));
+        panel.Children.Add(Txt(
+            "Every scalar field supplied by the current FM save/live import is exposed below. The source value is preserved separately; saving creates an Atlas-only override and an audit entry. It does not write to Football Manager.",
+            9, false, Muted, wrap: true));
+
+        var imported = sourceFacts
+            .Where(x => !string.IsNullOrWhiteSpace(x.Group) && !string.IsNullOrWhiteSpace(x.Field))
+            .GroupBy(x => x.Group.Trim() + "\u001f" + x.Field.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .OrderBy(x => x.Group, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Field, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (imported.Count == 0)
+        {
+            panel.Children.Add(Txt("No source-backed scalar fields were imported for this record. Atlas will not invent editable fields; import a richer save or connect to a supported live career.", 9, false, Muted, wrap: true));
+            return panel;
+        }
+
+        var existing = await RunDatabaseAsync(() => _database.GetLocalEntityOverridesAsync(entityType, sourceId));
+        var overrideByKey = existing.ToDictionary(
+            x => x.Group + "\u001f" + x.Field, x => x, StringComparer.OrdinalIgnoreCase);
+        var rows = new ObservableCollection<EditableEntityFactView>();
+        foreach (var fact in imported)
+        {
+            var original = fact.Value ?? string.Empty;
+            var key = fact.Group.Trim() + "\u001f" + fact.Field.Trim();
+            overrideByKey.TryGetValue(key, out var prior);
+            rows.Add(new EditableEntityFactView
+            {
+                Group = fact.Group, Field = fact.Field,
+                OriginalValue = prior?.OriginalValue ?? original,
+                InitialValue = prior?.OverrideValue ?? original,
+                Value = prior?.OverrideValue ?? original,
+                SourceLabel = prior?.SourceLabel ?? fact.Group
+            });
+        }
+
+        var grid = CreateGrid();
+        grid.IsReadOnly = false;
+        grid.CanUserAddRows = false;
+        grid.MinHeight = 220;
+        grid.MaxHeight = 480;
+        var groupColumn = Column("SOURCE GROUP", nameof(EditableEntityFactView.Group), 1.0); groupColumn.IsReadOnly = true; grid.Columns.Add(groupColumn);
+        var fieldColumn = Column("FIELD", nameof(EditableEntityFactView.Field), 1.2); fieldColumn.IsReadOnly = true; grid.Columns.Add(fieldColumn);
+        var sourceColumn = Column("IMPORTED VALUE", nameof(EditableEntityFactView.OriginalValue), 1.0); sourceColumn.IsReadOnly = true; grid.Columns.Add(sourceColumn);
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "LOCAL OVERRIDE",
+            Binding = new Binding(nameof(EditableEntityFactView.Value)) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+            Width = new DataGridLength(1.25, DataGridLengthUnitType.Star), MinWidth = 140
+        });
+        grid.ItemsSource = rows;
+        panel.Children.Add(Txt($"{rows.Count:N0} source-backed fields · {existing.Count:N0} existing local overrides", 8, true, Muted));
+        panel.Children.Add(grid);
+        panel.Children.Add(PrimaryButton("Save changed local fields", async (_, _) =>
+        {
+            grid.CommitEdit(DataGridEditingUnit.Cell, true);
+            grid.CommitEdit(DataGridEditingUnit.Row, true);
+            var changed = rows.Where(x => !string.Equals(x.Value, x.InitialValue, StringComparison.Ordinal)).ToList();
+            if (changed.Count == 0)
+            {
+                MessageBox.Show(this, "No local field changes to save.", "FM Atlas local editor", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            try
+            {
+                await RunDatabaseAsync(() => _database.SaveLocalEntityOverridesAsync(
+                    entityType, sourceId, displayName,
+                    changed.Select(x => new AtlasLocalEntityEdit(x.Group, x.Field, x.OriginalValue, x.Value, x.SourceLabel)).ToList()));
+                foreach (var item in changed) item.InitialValue = item.Value;
+                AtlasLog.Info($"Saved {changed.Count:N0} local {entityType} overrides for {displayName}.");
+                MessageBox.Show(this,
+                    $"Saved {changed.Count:N0} local {entityType} field overrides for {displayName}. The original imported facts are preserved and Football Manager was not changed.",
+                    "Atlas local overrides saved", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error($"Local {entityType} editor save failed for {displayName}.", ex);
+                MessageBox.Show(this, ex.Message, "FM Atlas local editor", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+        return panel;
+    }
+
+    private sealed class EditableEntityFactView
+    {
+        public string Group { get; set; } = "";
+        public string Field { get; set; } = "";
+        public string OriginalValue { get; set; } = "";
+        public string InitialValue { get; set; } = "";
+        public string Value { get; set; } = "";
+        public string SourceLabel { get; set; } = "";
+    }
+
     private async Task ShowPlayerProfileAsync(PlayerRecord player)
     {
         if (_profileTabs is null) return;
@@ -1438,6 +2116,13 @@ public partial class MainWindow : Window
         _profileExpandButton = SoftButton(_profileExpanded ? "Show search results" : "Expand full profile", (_, _) => ToggleProfileExpanded(!_profileExpanded));
         actions.Children.Add(_profileExpandButton);
         actions.Children.Add(SoftButton("Open in Editor Studio", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
+        actions.Children.Add(SoftButton(_editorEnabled ? "Profile Editor · ON" : "Enable Profile Editor", async (_, _) =>
+        {
+            _editorEnabled = !_editorEnabled;
+            _selectedPlayer = player;
+            profilePanel.Children.Clear();
+            await ShowPlayerProfileAsync(player);
+        }));
         Grid.SetColumn(actions, 2); heroGrid.Children.Add(actions); hero.Child = heroGrid; profilePanel.Children.Add(hero);
 
         var ability = new UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 12) };
@@ -1490,6 +2175,7 @@ public partial class MainWindow : Window
         var developmentTab = AddProfileTab("Development");
         var historyTab = AddProfileTab("History");
         var evidenceTab = AddProfileTab("Source & Evidence");
+        var profileEditorTab = AddProfileTab("Editor");
         profilePanel.Children.Add(profileTabs);
 
         AddProfileFactsSection(overviewTab, "PERSONAL & GENERAL INFORMATION", generalFacts, 30);
@@ -1501,6 +2187,150 @@ public partial class MainWindow : Window
 
         AddAttributeRadar(attributesTab, attributes);
         AddOrderedAttributeSections(attributesTab, attributes);
+
+        // Profile-wide local editor: every source-backed FM27 player attribute is editable
+        // from the profile itself. Writes remain local until the live writer has passed
+        // independent field-witness and disposable-save acceptance.
+        profileEditorTab.Children.Add(Txt("PROFILE EDITOR", 9, true, Teal));
+        profileEditorTab.Children.Add(Txt(
+            "Edit the values shown on this player profile. Save writes to the FM Atlas database and edit history; it does not change the running Football Manager career.",
+            9, false, Muted, wrap: true));
+        if (!_editorEnabled)
+        {
+            profileEditorTab.Children.Add(Txt("Enable Profile Editor from the player header to unlock the editable fields.", 10, false, Muted, wrap: true));
+        }
+        else
+        {
+            var abilityEditor = new WrapPanel { Margin = new Thickness(0, 8, 0, 10) };
+            var profileCaInput = Input("Current Ability"); profileCaInput.Width = 115; profileCaInput.Text = player.CurrentAbility?.ToString(CultureInfo.InvariantCulture) ?? "";
+            var profilePaInput = Input("Potential Ability"); profilePaInput.Width = 115; profilePaInput.Text = player.PotentialAbility?.ToString(CultureInfo.InvariantCulture) ?? "";
+            abilityEditor.Children.Add(FieldLabel("CA")); abilityEditor.Children.Add(profileCaInput);
+            abilityEditor.Children.Add(FieldLabel("PA")); abilityEditor.Children.Add(profilePaInput);
+            abilityEditor.Children.Add(PrimaryButton("Save CA / PA locally", async (_, _) =>
+            {
+                if (!int.TryParse(profileCaInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ca) ||
+                    !int.TryParse(profilePaInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pa) ||
+                    ca is < 0 or > 200 || pa is < 0 or > 200)
+                {
+                    MessageBox.Show(this, "Enter CA and PA as whole numbers from 0 to 200.", "Profile editor");
+                    return;
+                }
+                try
+                {
+                    await RunDatabaseAsync(() => _database.SaveLocalAbilitiesAsync(player.SourceId, player.Name, ca, pa));
+                    MessageBox.Show(this, "CA and PA saved to the FM Atlas database only. Football Manager itself has not been changed.", "Local edit saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await RefreshPlayerResultsAsync();
+                }
+                catch (Exception ex) { MessageBox.Show(this, ex.Message, "Profile editor", MessageBoxButton.OK, MessageBoxImage.Warning); }
+            }));
+            profileEditorTab.Children.Add(abilityEditor);
+
+            var editableRows = new ObservableCollection<EditableAttributeView>();
+            foreach (var field in PlayerAttributeSchema.Fields)
+            {
+                var current = attributes.FirstOrDefault(x => x.Key.Equals(field.Key, StringComparison.OrdinalIgnoreCase));
+                if (current.Key is null) continue;
+                editableRows.Add(new EditableAttributeView
+                {
+                    AttributeName = field.Key,
+                    Category = field.Category,
+                    OriginalValue = current.Value,
+                    Value = current.Value
+                });
+            }
+            if (player.LeftFoot.HasValue)
+                editableRows.Add(new EditableAttributeView { AttributeName = "left_foot", Category = "Foot", OriginalValue = player.LeftFoot.Value, Value = player.LeftFoot.Value });
+            if (player.RightFoot.HasValue)
+                editableRows.Add(new EditableAttributeView { AttributeName = "right_foot", Category = "Foot", OriginalValue = player.RightFoot.Value, Value = player.RightFoot.Value });
+            foreach (var fact in positionFacts)
+            {
+                if (!double.TryParse(fact.Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var positionValue) ||
+                    positionValue is < 1 or > 20) continue;
+                var key = fact.Field;
+                if (editableRows.Any(x => x.AttributeName.Equals(key, StringComparison.OrdinalIgnoreCase))) continue;
+                editableRows.Add(new EditableAttributeView
+                {
+                    AttributeName = key,
+                    Category = "Positions",
+                    OriginalValue = positionValue,
+                    Value = positionValue
+                });
+            }
+            foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue &&
+                (x.FieldKey.StartsWith("personality.", StringComparison.OrdinalIgnoreCase) ||
+                 x.FieldKey.StartsWith("positions.", StringComparison.OrdinalIgnoreCase))))
+            {
+                var key = fact.FieldKey[(fact.FieldKey.IndexOf('.') + 1)..];
+                if (editableRows.Any(x => x.AttributeName.Equals(key, StringComparison.OrdinalIgnoreCase))) continue;
+                var category = fact.FieldKey.StartsWith("personality.", StringComparison.OrdinalIgnoreCase) ? "Personality" : "Positions";
+                editableRows.Add(new EditableAttributeView
+                {
+                    AttributeName = key,
+                    Category = category,
+                    OriginalValue = fact.NumericValue!.Value,
+                    Value = fact.NumericValue.Value
+                });
+            }
+
+            var profileEditorGrid = CreateGrid();
+            profileEditorGrid.IsReadOnly = false;
+            profileEditorGrid.CanUserAddRows = false;
+            var profileNameColumn = Column("FIELD", "AttributeName", 1.25); profileNameColumn.IsReadOnly = true; profileEditorGrid.Columns.Add(profileNameColumn);
+            var profileGroupColumn = Column("GROUP", "Category", .8); profileGroupColumn.IsReadOnly = true; profileEditorGrid.Columns.Add(profileGroupColumn);
+            profileEditorGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "VALUE / 20",
+                Binding = new Binding(nameof(EditableAttributeView.Value)) { StringFormat = "0.#", UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(.65, DataGridLengthUnitType.Star)
+            });
+            profileEditorGrid.ItemsSource = editableRows;
+            profileEditorGrid.MinHeight = 260;
+            profileEditorTab.Children.Add(profileEditorGrid);
+            profileEditorTab.Children.Add(PrimaryButton("Save all changed profile attributes locally", async (_, _) =>
+            {
+                profileEditorGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+                profileEditorGrid.CommitEdit(DataGridEditingUnit.Row, true);
+                var changed = editableRows.Where(x => Math.Abs(x.Value - x.OriginalValue) > 0.0001).ToList();
+                if (changed.Count == 0)
+                {
+                    MessageBox.Show(this, "No changes to save.", "Profile editor");
+                    return;
+                }
+                if (changed.Any(x => x.Value < 1 || x.Value > 20 || !double.IsFinite(x.Value)))
+                {
+                    MessageBox.Show(this, "Attributes, personality and position ratings must be between 1 and 20.", "Profile editor");
+                    return;
+                }
+                try
+                {
+                    foreach (var item in changed)
+                        await RunDatabaseAsync(() => _database.SavePlayerAttributeAsync(
+                            player.SourceId, player.Name, item.AttributeName, item.Category, item.Value,
+                            "FM Atlas profile editor · local database only"));
+                    foreach (var item in changed) item.OriginalValue = item.Value;
+                    AtlasLog.Info($"Profile editor saved {changed.Count:N0} local fields for {player.Name}.");
+                    MessageBox.Show(this, $"Saved {changed.Count:N0} fields to the FM Atlas database and edit history. No live Football Manager values were written.", "Local edits saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    AtlasLog.Error("Profile-wide local edit failed.", ex);
+                    MessageBox.Show(this, ex.Message, "Profile editor", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }));
+            if (editableRows.Count == 0)
+                profileEditorTab.Children.Add(Txt("No source-backed editable attribute values were imported for this player. Import a supported FM27 save or connect to a supported live career first.", 9, false, Muted, wrap: true));
+            var allPlayerFacts = generalFacts.Concat(positionFacts).Concat(reputationFacts)
+                .Concat(stateFacts).Concat(contractFacts).Concat(traits)
+                .Concat(liveFacts.Select(x => new AtlasFactRecord(
+                    "Live FM27 · " + (x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase) ? "verified" : "provisional"),
+                    x.FieldKey, x.NumericValue?.ToString("0.########", CultureInfo.InvariantCulture) ?? x.TextValue)))
+                .ToList();
+            profileEditorTab.Children.Add(await BuildLocalEntityFactEditorAsync(
+                "player", player.SourceId, player.Name, allPlayerFacts));
+        }
+        if (player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+            profileEditorTab.Children.Add(await BuildLiveEntityEditorAsync(
+                LiveEntityMemoryEditService.EntityKind.Player, player.SourceId, player.Name));
         if (attributes.Count == 0)
             attributesTab.Children.Add(Txt("No player attribute rows were supplied by the selected source.", 10, false, Muted, wrap: true));
 
@@ -2073,6 +2903,11 @@ public partial class MainWindow : Window
             else clubLogo.Child = Txt("CLUB", 9, true, Teal);
             clubHero.Children.Add(clubLogo); clubHero.Children.Add(Txt(club.Name, 23, true, Ink, wrap: true));
             stack.Children.Add(clubHero);
+            stack.Children.Add(SoftButton(_editorEnabled ? "Local club editor · ON" : "Enable local club editor", async (_, _) =>
+            {
+                _editorEnabled = !_editorEnabled;
+                await ShowClubSummaryAsync(club);
+            }));
             AddDetailRow(stack, "Nation", club.Nation ?? "Not decoded");
             AddDetailRow(stack, "Linked players", club.PlayerCount.ToString("N0"));
             AddDetailRow(stack, "Source", club.DataSource);
@@ -2086,6 +2921,15 @@ public partial class MainWindow : Window
                 stack.Children.Add(Txt(group.Key.Replace('_', ' ').ToUpperInvariant(), 8, true, Teal));
                 foreach (var fact in group.Take(80)) AddDetailRow(stack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
             }
+            if (_editorEnabled)
+                stack.Children.Add(await BuildLocalEntityFactEditorAsync("club", club.SourceId, club.Name, facts));
+            else
+                stack.Children.Add(Txt("Enable the local club editor above to create auditable overrides for every imported club, finance, facility and stadium fact. These changes remain inside Atlas.", 9, false, Muted, wrap: true));
+            if (isLive)
+                stack.Children.Add(await BuildLiveEntityEditorAsync(
+                    LiveEntityMemoryEditService.EntityKind.Club, club.SourceId, club.Name));
+            if (isLive)
+                stack.Children.Add(await BuildLiveTacticalEffectivenessEditorAsync(club.SourceId, club.Name));
 
             stack.Children.Add(Txt("CLUB STAFF", 9, true, Teal) is var staffHeading ? Configure(staffHeading, new Thickness(0, 17, 0, 6)) : new TextBlock());
             if (isLive)
@@ -2238,6 +3082,11 @@ public partial class MainWindow : Window
             var facts = await RunDatabaseAsync(() => _database.GetFmsaveStaffFactsAsync(person.SourceId));
             if (requestVersion != staffProfileVersion) return;
             profileStack.Children.Clear(); profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt(person.Name, 22, true, Ink));
+            profileStack.Children.Add(SoftButton(_editorEnabled ? "Local staff editor · ON" : "Enable local staff editor", async (_, _) =>
+            {
+                _editorEnabled = !_editorEnabled;
+                await ShowStaffAsync(person);
+            }));
             AddDetailRow(profileStack, "Role", person.Job); AddDetailRow(profileStack, "Club", person.Club); AddDetailRow(profileStack, "Age", person.Age?.ToString()); AddDetailRow(profileStack, "Nation", person.Nation); AddDetailRow(profileStack, "Current ability", person.CurrentAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Potential ability", person.PotentialAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Human manager", person.IsHumanManager ? "Yes" : "No / not identified"); AddDetailRow(profileStack, "Source / confidence", person.ValidationStatus); AddDetailRow(profileStack, "Record ID", person.SourceId);
             var preferenceFacts = facts.Where(x => x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)).ToList();
             if (preferenceFacts.Count > 0)
@@ -2304,6 +3153,13 @@ public partial class MainWindow : Window
                 profileStack.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal));
                 foreach (var fact in group.Take(50)) AddDetailRow(profileStack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
             }
+            if (_editorEnabled)
+                profileStack.Children.Add(await BuildLocalEntityFactEditorAsync("staff", person.SourceId, person.Name, facts));
+            else
+                profileStack.Children.Add(Txt("Enable the local staff editor above to create auditable overrides for every imported staff fact. These changes remain inside Atlas.", 9, false, Muted, wrap: true));
+            if (person.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+                profileStack.Children.Add(await BuildLiveEntityEditorAsync(
+                    LiveEntityMemoryEditService.EntityKind.Staff, person.SourceId, person.Name));
         }
 
         dg.SelectionChanged += async (_, _) =>
@@ -2796,21 +3652,177 @@ public partial class MainWindow : Window
         return root;
     }
 
+
+    private async Task<UIElement> WorldEditorPageAsync()
+    {
+        var root = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(330) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var directory = Card(new DockPanel(), 14, new Thickness(0, 0, 10, 0));
+        var directoryDock = (DockPanel)directory.Child;
+        var controls = new StackPanel();
+        controls.Children.Add(Txt("WORLD EDITOR", 9, true, Teal));
+        controls.Children.Add(Txt("FM save directories", 20, true, Ink));
+        controls.Children.Add(Txt("This workspace indexes every extra directory exported by the read-only FM save bridge. Select a table and record to inspect its actual imported fields. No values are invented.", 9, false, Muted, wrap: true));
+
+        var tables = await RunDatabaseAsync(() => _database.GetFmsaveExtraTableNamesAsync());
+        var tablePicker = new ComboBox
+        {
+            ItemsSource = tables,
+            DisplayMemberPath = nameof(FmsaveExtraTableSummary.TableName),
+            Height = 36,
+            Margin = new Thickness(0, 10, 0, 6),
+            IsEditable = false
+        };
+        controls.Children.Add(FieldLabel("SOURCE TABLE"));
+        controls.Children.Add(tablePicker);
+        var search = Input("Search names, IDs or imported values");
+        search.Margin = new Thickness(0, 6, 0, 6);
+        controls.Children.Add(search);
+        var tableStatus = Txt($"{tables.Count:N0} imported directories available", 8, true, Muted);
+        controls.Children.Add(tableStatus);
+        DockPanel.SetDock(controls, Dock.Top);
+        directoryDock.Children.Add(controls);
+
+        var rowsGrid = CreateGrid();
+        rowsGrid.IsReadOnly = true;
+        rowsGrid.SelectionMode = DataGridSelectionMode.Single;
+        rowsGrid.Columns.Add(Column("RECORD", nameof(FmsaveExtraRowRecord.Label), 1.1));
+        rowsGrid.Columns.Add(Column("ROW", nameof(FmsaveExtraRowRecord.RowIndex), .45));
+        rowsGrid.ItemsSource = new ObservableCollection<FmsaveExtraRowRecord>();
+        directoryDock.Children.Add(rowsGrid);
+        Grid.SetColumn(directory, 0);
+        root.Children.Add(directory);
+
+        var detail = Card(new DockPanel(), 14);
+        var detailDock = (DockPanel)detail.Child;
+        var detailHeader = new StackPanel();
+        detailHeader.Children.Add(Txt("ENTITY EDITOR", 9, true, Teal));
+        detailHeader.Children.Add(Txt("Choose a record", 22, true, Ink));
+        detailHeader.Children.Add(Txt("The editor exposes all scalar properties in the selected raw save record, including nested objects and indexed array elements. Pointer/list operations are not silently converted into numeric writes.", 9, false, Muted, wrap: true));
+        var toggle = _editorEnabled
+            ? SoftButton("Disable local editor", async (_, _) => { _editorEnabled = false; await NavigateAsync("World Editor"); })
+            : PrimaryButton("Enable local editor", async (_, _) => { _editorEnabled = true; await NavigateAsync("World Editor"); });
+        detailHeader.Children.Add(toggle);
+        var editorMessage = Txt("Select a row on the left. Enable the local editor to change its imported values and save an auditable Atlas override.", 10, false, Muted, wrap: true);
+        detailHeader.Children.Add(editorMessage);
+        DockPanel.SetDock(detailHeader, Dock.Top);
+        detailDock.Children.Add(detailHeader);
+        var detailScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        var detailStack = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
+        detailScroll.Content = detailStack;
+        detailDock.Children.Add(detailScroll);
+        Grid.SetColumn(detail, 1);
+        root.Children.Add(detail);
+
+        async Task RefreshWorldRowsAsync()
+        {
+            if (tablePicker.SelectedItem is not FmsaveExtraTableSummary selectedTable) return;
+            try
+            {
+                var results = await RunDatabaseAsync(() => _database.SearchFmsaveExtraRowsAsync(selectedTable.TableName, search.Text, 1_000));
+                rowsGrid.ItemsSource = new ObservableCollection<FmsaveExtraRowRecord>(results);
+                tableStatus.Text = $"{selectedTable.Count:N0} rows in source · showing {results.Count:N0}";
+                detailStack.Children.Clear();
+                editorMessage.Text = "Select a record from the refreshed list.";
+            }
+            catch (Exception ex)
+            {
+                tableStatus.Text = "Directory search failed · " + ex.Message;
+                AtlasLog.Error("World Editor directory search failed.", ex);
+            }
+        }
+        // Declare the event handler only after all captured controls have been initialised.
+        var searchButton = PrimaryButton("Search selected directory", async (_, _) => await RefreshWorldRowsAsync());
+        controls.Children.Add(searchButton);
+
+        rowsGrid.SelectionChanged += async (_, _) =>
+        {
+            if (rowsGrid.SelectedItem is not FmsaveExtraRowRecord selectedRow) return;
+            try
+            {
+                var facts = await RunDatabaseAsync(() => _database.GetFmsaveExtraRowFactsAsync(
+                    selectedRow.SnapshotId, selectedRow.TableName, selectedRow.RowIndex));
+                detailStack.Children.Clear();
+                detailStack.Children.Add(Txt(selectedRow.TableName.ToUpperInvariant(), 9, true, Teal));
+                detailStack.Children.Add(Txt(selectedRow.Label, 19, true, Ink, wrap: true));
+                AddDetailRow(detailStack, "Source row", selectedRow.RowIndex.ToString(CultureInfo.InvariantCulture));
+                AddDetailRow(detailStack, "Source ID", selectedRow.SourceId);
+                AddDetailRow(detailStack, "Imported scalar fields", facts.Count.ToString("N0", CultureInfo.InvariantCulture));
+                if (_editorEnabled)
+                {
+                    detailStack.Children.Add(await BuildLocalEntityFactEditorAsync(
+                        selectedRow.TableName.ToLowerInvariant(), selectedRow.SourceId, selectedRow.Label, facts));
+                    editorMessage.Text = "Local editor enabled · changes are stored separately from the source save snapshot and can be undone in Edit History.";
+                }
+                else
+                {
+                    detailStack.Children.Add(Txt("Enable the local editor above to change every imported scalar value in this record. The original save snapshot remains untouched.", 10, false, Muted, wrap: true));
+                    detailStack.Children.Add(AddFactsReadOnlyPanel(facts));
+                }
+            }
+            catch (Exception ex)
+            {
+                detailStack.Children.Clear();
+                detailStack.Children.Add(Txt("RECORD COULD NOT BE READ", 10, true, Brush("#A54E55")));
+                detailStack.Children.Add(Txt(ex.Message, 10, false, Muted, wrap: true));
+            }
+        };
+
+        tablePicker.SelectionChanged += async (_, _) => await RefreshWorldRowsAsync();
+        if (tables.Count == 0)
+        {
+            tablePicker.IsEnabled = false;
+            searchButton.IsEnabled = false;
+            tableStatus.Text = "No extra save tables have been imported yet.";
+            detailStack.Children.Add(Txt("Import a supported FM27 career save through Settings. The World Editor will then list the fields the save bridge actually returns.", 10, false, Muted, wrap: true));
+        }
+        else
+        {
+            tablePicker.SelectedIndex = 0;
+            await RefreshWorldRowsAsync();
+        }
+
+        return root;
+    }
+
+    private static UIElement AddFactsReadOnlyPanel(IReadOnlyList<AtlasFactRecord> facts)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
+        if (facts.Count == 0)
+        {
+            panel.Children.Add(Txt("No scalar fields were present in this record.", 9, false, Muted));
+            return panel;
+        }
+        foreach (var group in facts.GroupBy(x => x.Group).OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            panel.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal));
+            foreach (var fact in group.Take(100))
+                AddDetailRow(panel, fact.Field, fact.Value ?? "—");
+        }
+        return panel;
+    }
+
     private async Task<UIElement> LiveEditorPageAsync()
     {
         var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var header = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 10)); var hs = (StackPanel)header.Child;
         hs.Children.Add(Txt("EDITOR WORKSPACE", 9, true, Teal)); hs.Children.Add(Txt("Editor Studio", 23, true, Ink));
-        hs.Children.Add(Txt(_editorEnabled ? "Atlas Editor · ON for this session" : "Atlas Editor · OFF by default", 11, true, _editorEnabled ? Brush("#2D8A63") : Brush("#94652A")));
+        hs.Children.Add(Txt(_editorEnabled ? "ATLAS LOCAL EDITOR · ON" : "ATLAS LOCAL EDITOR · OFF", 10, true, _editorEnabled ? Brush("#2D8A63") : Brush("#94652A")));
         hs.Children.Add(_editorEnabled
-            ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
-            : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
+            ? SoftButton("Disable Local Editor", async (_, _) => { _editorEnabled = false; AtlasLog.Info("Atlas-local editing disabled for this session."); await NavigateAsync("Live Editor"); })
+            : SoftButton("Enable Local Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("Atlas-local editing enabled for this session."); await NavigateAsync("Live Editor"); }));
+        hs.Children.Add(Txt(_liveEditingEnabled ? "LIVE FM27 EDITING · ARMED FOR THIS SESSION" : "LIVE FM27 EDITING · OFF", 10, true, _liveEditingEnabled ? Brush("#2D8A63") : Brush("#94652A")));
+        hs.Children.Add(_liveEditingEnabled
+            ? SoftButton("Disable Live FM Editing", async (_, _) => { _liveEditingEnabled = false; LiveEntityMemoryEditService.SetLiveEditingEnabled(false); AtlasLog.Info("Live FM27 editing disarmed by user."); await NavigateAsync("Live Editor"); })
+            : PrimaryButton("Enable Live FM Editing", async (_, _) => { _liveEditingEnabled = true; LiveEntityMemoryEditService.SetLiveEditingEnabled(true); AtlasLog.Info("Live FM27 editing explicitly armed for this session."); await NavigateAsync("Live Editor"); }));
         var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
-        alert.Child = Txt("Atlas local edits are separate from Football Manager. In this V8 build, Editor Studio saves changes to the FM Atlas database only. Live Apply/Undo is hard-disabled; no game-memory writes are exposed. Live editing will remain blocked until exact-build identity, field mappings, in-game witnesses, read-back, rollback and Windows acceptance are independently verified.", 10, true, Brush("#E6C477"), wrap: true);
+        alert.Child = Txt("FM Atlas now has a field-specific live writer for supported FM27 player, staff and club values, plus Tactical Match Exposure. Each change is staged, checks the exact game build and career session, verifies entity identity and original field bytes, then reads the written value back. Some pointer-backed collections and unverified ownership/debt fields remain unavailable; never test on your only career save.", 10, true, Brush("#E6C477"), wrap: true);
         hs.Children.Add(alert);
-        if (!_editorEnabled)
+        if (!_editorEnabled && !_liveEditingEnabled)
         {
-            hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas database edits only. The switch resets to OFF when FM Atlas closes; Football Manager itself is never changed.", 11, false, Muted, wrap: true));
+            hs.Children.Add(Txt("Both editors are OFF. Enable Atlas Local Editor for private FM Atlas overrides, or enable Live FM Editing to change supported values in the running FM27 career. Live editing is session-only and turns OFF when Atlas closes.", 11, false, Muted, wrap: true));
             Grid.SetRow(header, 0); root.Children.Add(header); return root;
         }
         if (_selectedPlayer is null)
@@ -2821,7 +3833,19 @@ public partial class MainWindow : Window
         }
         hs.Children.Add(Txt($"Selected player · {_selectedPlayer.Name} · {_selectedPlayer.Club ?? "Club unavailable"}", 11, true, Ink));
         Grid.SetRow(header, 0); root.Children.Add(header);
+        if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+        {
+            var liveContent = await BuildLiveEntityEditorAsync(
+                LiveEntityMemoryEditService.EntityKind.Player, _selectedPlayer.SourceId, _selectedPlayer.Name);
+            var livePanel = Card(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = liveContent }, 16);
+            Grid.SetRow(livePanel, 1); root.Children.Add(livePanel); return root;
+        }
 
+        if (!_editorEnabled)
+        {
+            hs.Children.Add(Txt("Atlas Local Editor is OFF. Enable it above to create local CA/PA and attribute overrides. Live FM editing is controlled separately.", 10, false, Muted, wrap: true));
+            Grid.SetRow(header, 0); root.Children.Add(header); return root;
+        }
         var editor = Card(new DockPanel(), 16); var dock = (DockPanel)editor.Child;
         var controls = new StackPanel(); controls.Children.Add(Txt("ABILITY VALUES", 9, true, Teal));
         var abilityRow = new WrapPanel { Margin = new Thickness(0, 7, 0, 9) };
@@ -2879,16 +3903,116 @@ public partial class MainWindow : Window
             catch (Exception ex) { AtlasLog.Error("Local player attribute edit failed.", ex); MessageBox.Show(this, ex.Message, "Local editor", MessageBoxButton.OK, MessageBoxImage.Warning); }
         });
         saveAttributes.Margin = new Thickness(0, 9, 0, 0); DockPanel.SetDock(saveAttributes, Dock.Bottom); dock.Children.Add(saveAttributes);
+        if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase)
+            && long.TryParse(_selectedPlayer.SourceId["LIVE:".Length..], out var livePlayerUid))
+        {
+            var liveFacts = await RunDatabaseAsync(() => _database.GetLivePlayerFactsAsync(livePlayerUid));
+            var stageRows = new ObservableCollection<LiveFieldStageView>();
+            foreach (var fact in liveFacts)
+            {
+                if (!fact.NumericValue.HasValue || !double.IsFinite(fact.NumericValue.Value)
+                    || Math.Abs(fact.NumericValue.Value - Math.Round(fact.NumericValue.Value)) > 0.0001
+                    || !LiveMemoryEditService.SupportsPlayerFieldPreview(fact.FieldKey))
+                    continue;
+                var currentValue = checked((int)Math.Round(fact.NumericValue.Value));
+                stageRows.Add(new LiveFieldStageView
+                {
+                    FieldKey = fact.FieldKey,
+                    CurrentValue = currentValue,
+                    TargetValue = currentValue.ToString(CultureInfo.InvariantCulture)
+                });
+            }
+
+            var stagePanel = new StackPanel { Margin = new Thickness(0, 12, 0, 10) };
+            stagePanel.Children.Add(Txt("LIVE FIELD PREVIEW · READ ONLY", 9, true, Teal));
+            stagePanel.Children.Add(Txt(
+                "The FM27 field catalogue currently supports staged previews for player attributes, positions, personality, foot ratings, CA/PA, height, condition, match sharpness, jadedness, morale, reputation, asking price and international statistics. This reads the current player again, checks the build and save session, and prepares a change plan. Apply/Undo remains hard-disabled.",
+                9, false, Muted, wrap: true));
+            var stageGrid = CreateGrid();
+            stageGrid.IsReadOnly = false;
+            stageGrid.CanUserAddRows = false;
+            stageGrid.MinHeight = 150;
+            stageGrid.MaxHeight = 260;
+            var stageFieldColumn = Column("FM FIELD KEY", nameof(LiveFieldStageView.FieldKey), 1.5); stageFieldColumn.IsReadOnly = true; stageGrid.Columns.Add(stageFieldColumn);
+            var stageCurrentColumn = Column("CURRENT", nameof(LiveFieldStageView.CurrentValue), .6); stageCurrentColumn.IsReadOnly = true; stageGrid.Columns.Add(stageCurrentColumn);
+            stageGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "TARGET",
+                Binding = new Binding(nameof(LiveFieldStageView.TargetValue)) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(.7, DataGridLengthUnitType.Star)
+            });
+            stageGrid.ItemsSource = stageRows;
+            stagePanel.Children.Add(Txt($"{stageRows.Count:N0} live values have a supported, range-checked preview mapping.", 8, true, Muted));
+            stagePanel.Children.Add(stageGrid);
+            var stageStatus = Txt("No live preview staged.", 9, false, Muted, wrap: true);
+            stagePanel.Children.Add(PrimaryButton("Stage read-only live preview", async (_, _) =>
+            {
+                stageGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+                stageGrid.CommitEdit(DataGridEditingUnit.Row, true);
+                var changes = new List<LiveMemoryEditService.Change>();
+                foreach (var row in stageRows)
+                {
+                    if (!int.TryParse(row.TargetValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target))
+                    {
+                        MessageBox.Show(this, $"Enter a whole-number target for {row.FieldKey}.", "Live preview", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                    if (target == row.CurrentValue) continue;
+                    changes.Add(new LiveMemoryEditService.Change(row.FieldKey, row.CurrentValue, target));
+                }
+                if (changes.Count == 0)
+                {
+                    MessageBox.Show(this, "Change at least one target value before staging a preview.", "Live preview", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    var plan = await Task.Run(() =>
+                    {
+                        var processId = LiveMemoryEditService.FindSupportedProcessId();
+                        return LiveMemoryEditService.StageBatch(processId, checked((uint)livePlayerUid), _selectedPlayer.Name, changes);
+                    });
+                    stageStatus.Text = $"PREVIEW READY · {plan.Changes.Count:N0} field(s) · {plan.ProfileId} · no writes made";
+                    var preview = string.Join("\n", plan.Changes.Take(24).Select(x =>
+                        $"{x.FieldKey}: {x.ExpectedCurrentValue:N0} → {x.TargetValue:N0}  (offset 0x{x.Offset:X})"));
+                    if (plan.Changes.Count > 24) preview += $"\n…and {plan.Changes.Count - 24:N0} more field(s).";
+                    MessageBox.Show(this,
+                        $"A read-only live preview was staged for {_selectedPlayer.Name}.\n\nBuild: {plan.ProfileId}\nFields: {plan.Changes.Count:N0}\n\n{preview}\n\nNo memory was written. Apply and Undo remain disabled.",
+                        "FM Atlas · Preview only", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    stageStatus.Text = "PREVIEW BLOCKED · " + ex.Message;
+                    AtlasLog.Warning("Live player-field preview was blocked: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Live preview blocked", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            }));
+            stagePanel.Children.Add(stageStatus);
+            var disabledApply = SoftButton("Apply live changes · disabled pending acceptance", (_, _) => { });
+            disabledApply.IsEnabled = false;
+            disabledApply.ToolTip = "Live writes remain hard-disabled until the exact field witnesses, disposable-save checks and rollback acceptance are complete.";
+            stagePanel.Children.Add(disabledApply);
+            DockPanel.SetDock(stagePanel, Dock.Bottom); dock.Children.Add(stagePanel);
+        }
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            var liveAttributeApply = SoftButton("Live attribute Apply disabled in V8", (_, _) => { });
+            var liveAttributeApply = SoftButton("Live attribute Apply disabled in V10", (_, _) => { });
             liveAttributeApply.IsEnabled = false;
-            liveAttributeApply.ToolTip = "Live memory writes are hard-disabled. The enabled editor saves changes to the FM Atlas database only.";
+            liveAttributeApply.ToolTip = "Live memory writes are hard-disabled. Save local edits or prepare a read-only preview only.";
             liveAttributeApply.Margin = new Thickness(0, 8, 0, 0);
             DockPanel.SetDock(liveAttributeApply, Dock.Bottom);
             dock.Children.Add(liveAttributeApply);
         }
         Grid.SetRow(editor, 1); root.Children.Add(editor); return root;
+    }
+
+    private sealed class LiveFieldStageView
+    {
+        public string FieldKey { get; set; } = "";
+        public int CurrentValue { get; set; }
+        public string TargetValue { get; set; } = "";
     }
 
     private sealed class EditableAttributeView

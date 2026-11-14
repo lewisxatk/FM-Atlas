@@ -1,9 +1,13 @@
 name: FM Atlas V10 — Windows Release Build
+# Editor parity branch acceptance: importer checks, Windows build, xUnit and publish.
 
 on:
   push:
     branches:
       - feature/v9-all-roadmap
+      - feature/fm27-fmrte-parity-editor
+      - feature/fm27-live-editor-write-parity
+      - feature/fm27-live-editor-activation
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
