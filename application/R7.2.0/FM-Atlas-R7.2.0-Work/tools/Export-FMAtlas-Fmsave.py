@@ -323,10 +323,19 @@ def main() -> int:
     if not save_path.is_file():
         print(f"Save file not found: {save_path}", file=sys.stderr)
         return 2
+    # The bridge receives a fresh GUID-based path from the desktop app. Never
+    # recursively delete a caller-supplied existing folder: it could contain user data.
     if output_folder.exists():
-        import shutil
-        shutil.rmtree(output_folder)
-    output_folder.mkdir(parents=True, exist_ok=True)
+        print(
+            "Output bundle folder already exists. Choose a new empty path; the adapter will not delete existing data.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        output_folder.mkdir(parents=True, exist_ok=False)
+    except OSError as exc:
+        print(f"Could not create output bundle folder: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
     try:
         import fmsave
     except Exception as exc:
