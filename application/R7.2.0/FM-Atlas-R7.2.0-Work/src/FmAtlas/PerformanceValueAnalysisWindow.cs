@@ -380,7 +380,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
                 Fill = new SolidColorBrush(Color.FromRgb(86, 176, 218)),
                 Stroke = new SolidColorBrush(Color.FromRgb(220, 235, 245)),
                 StrokeThickness = .6,
-                ToolTip = $"{item.Player.Name}\n{metricName}: {item.PerformanceValue:0.00}\nPerformance percentile: {item.PerformancePercentile:0.0}\nValue percentile: {item.ValuePercentile:0.0}\nValue gap: {item.ValueGap:+0.0;-0.0;0.0}\nMinutes: {item.TotalMinutes:N0} · sample: {item.SampleSize}\nLatest period: {item.LatestPeriod}\nTransfer value: {item.Player.Value:N0} source units"
+                ToolTip = $"{item.Player.Name}\n{metricName}: {item.PerformanceValue:0.00}\nPerformance percentile: {item.PerformancePercentile:0.0}\nValue percentile: {item.ValuePercentile:0.0}\nValue gap: {item.ValueGap:+0.0;-0.0;0.0}\n{item.DisplayPositionRating} · position cohort P{item.DisplayPositionPercentile}\nMinutes: {item.TotalMinutes:N0} · sample: {item.SampleSize}\nLatest period: {item.LatestPeriod}\nTransfer value: {item.Player.Value:N0} source units"
             };
             dot.MouseLeftButtonDown += (_, _) =>
             {
@@ -410,10 +410,10 @@ public sealed class PerformanceValueAnalysisWindow : Window
         var dialog = new SaveFileDialog { Title = "Export Performance vs Value", FileName = "FM-Atlas-performance-vs-value.csv", Filter = "CSV files (*.csv)|*.csv" };
         if (dialog.ShowDialog(this) != true) return;
         static string Q(string? value) => CsvExportSafety.QuoteText(value);
-        var lines = new List<string> { "Player,SourceId,Club,Position,League,Metric,Performance,PerformancePercentile,ValuePercentile,PositionPerformancePercentile,LeaguePerformancePercentile,ValueGap,Minutes,SampleSize,LatestPeriod,TransferValueSourceUnits" };
+        var lines = new List<string> { "Player,SourceId,Club,Position,FMPositionRating,League,Metric,Performance,PerformancePercentile,ValuePercentile,PositionPerformancePercentile,LeaguePerformancePercentile,ValueGap,Minutes,SampleSize,LatestPeriod,TransferValueSourceUnits" };
         lines.AddRange(_results.Select(x => string.Join(",", new[]
         {
-            Q(x.Player.Name),Q(x.Player.SourceId),Q(x.Player.Club),Q(x.Player.Position),Q(x.Player.League),Q(x.MetricName),
+            Q(x.Player.Name),Q(x.Player.SourceId),Q(x.Player.Club),Q(x.Player.Position),Q(x.DisplayPositionRating),Q(x.Player.League),Q(x.MetricName),
             Q(x.PerformanceValue.ToString("0.0000",CultureInfo.InvariantCulture)),
             Q(x.PerformancePercentile.ToString("0.0",CultureInfo.InvariantCulture)),
             Q(x.ValuePercentile.ToString("0.0",CultureInfo.InvariantCulture)),
