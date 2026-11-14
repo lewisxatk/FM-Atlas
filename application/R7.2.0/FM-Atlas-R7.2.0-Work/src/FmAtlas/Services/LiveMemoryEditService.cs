@@ -362,6 +362,8 @@ public static partial class LiveMemoryEditService
         // layout and edit schema. Dynamic pointers/collections are intentionally excluded.
         var scalarFields = new Dictionary<string, WritableField>(StringComparer.OrdinalIgnoreCase)
         {
+            ["date_of_birth"] = new("date_of_birth", "Date of Birth (YYYYMMDD)", 0x310, 4, ValueEncoding.FmDate, 19000101, 21001231),
+            ["transfer_value"] = new("transfer_value", "Transfer Value (£)", 0x234, 4, ValueEncoding.Int32, 0, 2_000_000_000),
             ["height"] = new("height", "Height (cm)", 0x22E, 2, ValueEncoding.UInt16, 140, 220),
             ["asking_price"] = new("asking_price", "Asking Price (GBP)", 0x238, 4, ValueEncoding.Int32, -1, 2_000_000_000),
             ["condition"] = new("condition", "Condition (0–10000)", 0x25C, 2, ValueEncoding.UInt16, 0, 10_000),
