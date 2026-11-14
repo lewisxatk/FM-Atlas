@@ -29,16 +29,18 @@ The full entity-array live-memory import gate is OFF by default. The monitor may
 - `2107cc99` — integration test now checks staff club search, job and age.
 - `4980a746` — live career detection/import safety gate and help text updated.
 - `470dcaf2` — live staff UID search regression added.
-- `b503ae78`, `03778f45` — made detection-only status explicit and prevented stale cached manager/club data from being treated as the current career while live import is disabled.
+- `b503ae78`, `03778f45` — clarified detection status and career monitor behaviour.
+- `edd568cc` — manager/club shortcuts now require the exact imported process/profile/save-generation session, not just a matching counter.
+- The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
 
 ## Verification still required
 
 1. Fresh Windows Release build.
 2. Full .NET integration suite, including the live staff fixture tests and Advanced Search regressions.
-3. Confirm monitor detects load/unload/new-generation changes while the entity-array import gate is OFF.
+3. Confirm monitor detects load/unload/new-generation changes during the bounded scan and cancels the worker when the session changes.
 4. Confirm the Staff directory searches by name, club and UID; select a live staff fixture and verify CA/PA, nation, job, club and all stored live facts.
-5. Confirm the manager shortcut refuses stale or non-current generation data.
+5. Confirm the manager shortcut refuses stale data from a previous FM process even if the save-load counter is identical.
 6. Windows PC test of Advanced Search preservation, Players pagination, profile tabs and navigation restoration.
-7. FM27 real-save compatibility, performance/peak-memory testing and package acceptance.
+7. FM27 real-save compatibility, two-minute scan duration, CPU/RAM/peak-memory testing and package acceptance.
 
 Do not mark a verification item complete based only on source inspection or a historical Actions run.
