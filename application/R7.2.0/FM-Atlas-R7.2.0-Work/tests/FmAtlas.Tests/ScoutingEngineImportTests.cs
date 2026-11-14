@@ -52,7 +52,7 @@ public sealed class ScoutingEngineImportTests
         {
             await File.WriteAllTextAsync(path,
                 "Player,Player ID,Team,Competition,Season,Position,Minutes played,Age,Market value,Progressive passes / 90,Goals / 90\n" +
-                "Alex Player,77,Atlas FC,Test League,2025/26,CB,\\"1,800\\",24,€5m,4.1,0.2\n");
+                "Alex Player,77,Atlas FC,Test League,2025/26,CB,\"1,800\",24,€5m,4.1,0.2\n");
             var player = Assert.Single(await WyscoutCsvImporter.ImportAsync(path));
             Assert.Equal("Alex Player", player.PlayerName);
             Assert.Equal("Wyscout user CSV", player.SourceName);
@@ -85,11 +85,9 @@ public sealed class ScoutingEngineImportTests
         var players = Enumerable.Range(0, 6).Select(i =>
         {
             var p = Make("p" + i, i * 10, 900);
-            var metrics = p.Metrics.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase)
-            {
-                ["market_value"] = (i + 1) * 100_000,
-                ["age"] = 20 + i
-            };
+            var metrics = p.Metrics.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
+            metrics["market_value"] = (i + 1) * 100_000;
+            metrics["age"] = 20 + i;
             return p with { Metrics = metrics };
         }).ToList();
         var found = ScoutingRecruitmentService.FindUndervalued(players,
