@@ -30,6 +30,25 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public async Task Fm27ContextTablesArePreservedInTheCareerSnapshot()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "fm27-context", playerManifestCount: 1, includeContractRow: false,
+            includeTeamMatchStatsRow: true, includeLeagueContextRows: true);
+
+        var result = await database.ImportFmsaveSnapshotAsync(bundle);
+
+        Assert.Equal(4, result.ExtraRowsImported);
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='team_match_stats';"));
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='fixtures';"));
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='league_tables';"));
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='officials';"));
+    }
+
+    [Fact]
     public async Task PlayerManifestCountMismatchRollsBackNewSnapshot()
     {
         using var temp = new TemporaryFolder();
@@ -1505,7 +1524,9 @@ public sealed class FmsaveNdjsonImportTests
         bool includeSeasonStatsRow = false,
         int currentAbility = 120,
         int potentialAbility = 150,
-        string gameDate = "2026-11-14")
+        string gameDate = "2026-11-14",
+        bool includeTeamMatchStatsRow = false,
+        bool includeLeagueContextRows = false)
     {
         var folder = Path.Combine(root, name);
         Directory.CreateDirectory(folder);
@@ -1516,7 +1537,11 @@ public sealed class FmsaveNdjsonImportTests
             ["staff"] = includeInvalidStaffRow ? 1 : 0,
             ["clubs"] = 0,
             ["contracts"] = includeContractRow ? 1 : 0,
-            ["player_season_stats"] = includeSeasonStatsRow ? 1 : 0
+            ["player_season_stats"] = includeSeasonStatsRow ? 1 : 0,
+            ["team_match_stats"] = includeTeamMatchStatsRow ? 1 : 0,
+            ["fixtures"] = includeLeagueContextRows ? 1 : 0,
+            ["league_tables"] = includeLeagueContextRows ? 1 : 0,
+            ["officials"] = includeLeagueContextRows ? 1 : 0
         };
         var manifest = new
         {
@@ -1578,6 +1603,20 @@ public sealed class FmsaveNdjsonImportTests
                 assists = 8
             };
             File.WriteAllText(Path.Combine(folder, "player_season_stats.ndjson"), JsonSerializer.Serialize(stats) + Environment.NewLine);
+        }
+
+        if (includeTeamMatchStatsRow)
+            File.WriteAllText(Path.Combine(folder, "team_match_stats.ndjson"),
+                JsonSerializer.Serialize(new { team_uid = "club-10", competition_id = 77, home_team_id = 10, away_team_id = 11,
+                    date = "2026-11-01", shots = 14, possession = 57.2, expected_goals = 1.65 }) + Environment.NewLine);
+        if (includeLeagueContextRows)
+        {
+            File.WriteAllText(Path.Combine(folder, "fixtures.ndjson"),
+                JsonSerializer.Serialize(new { competition_id = 77, home_team_id = 10, away_team_id = 11, date = "2026-11-01" }) + Environment.NewLine);
+            File.WriteAllText(Path.Combine(folder, "league_tables.ndjson"),
+                JsonSerializer.Serialize(new { competition_id = 77, team_uid = "club-10", position = 1, points = 30 }) + Environment.NewLine);
+            File.WriteAllText(Path.Combine(folder, "officials.ndjson"),
+                JsonSerializer.Serialize(new { uid = "ref-1", name = "Fixture Official" }) + Environment.NewLine);
         }
 
         return folder;
