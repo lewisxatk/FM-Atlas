@@ -22,6 +22,8 @@ public sealed class LiveMemoryWriteGateTests
     [InlineData("morale")]
     [InlineData("reputation.world")]
     [InlineData("asking_price")]
+    [InlineData("transfer_value")]
+    [InlineData("date_of_birth")]
     [InlineData("international.caps")]
     [InlineData("international.u21_goals")]
     public void ExtendedPlayerFieldsHaveAValidatedPreviewMapping(string field)
