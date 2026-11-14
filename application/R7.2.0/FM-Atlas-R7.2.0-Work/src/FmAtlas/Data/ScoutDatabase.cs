@@ -1076,6 +1076,19 @@ public sealed class ScoutDatabase
         run.Parameters.AddWithValue("$s", now); run.Parameters.AddWithValue("$p", payload.PlayerSlots); run.Parameters.AddWithValue("$c", payload.Clubs.Count);
         var runId = Convert.ToInt32(await run.ExecuteScalarAsync());
 
+        // Replace only the active live snapshot inside this transaction. If any later
+        // import step fails, rollback restores the prior live view. Offline save rows,
+        // local/CSV scouting records, projects and import-run history remain untouched.
+        var clearLiveSnapshot = db.CreateCommand(); clearLiveSnapshot.Transaction = (SqliteTransaction)tx;
+        clearLiveSnapshot.CommandText = """
+            DELETE FROM PlayerAttributes WHERE SourceId LIKE 'LIVE:%';
+            DELETE FROM Players WHERE SourceId LIKE 'LIVE:%';
+            DELETE FROM LivePlayerFacts;
+            DELETE FROM LiveStaffFacts;
+            DELETE FROM LiveClubFacts;
+            """;
+        await clearLiveSnapshot.ExecuteNonQueryAsync();
+
         foreach (var club in payload.Clubs)
         {
             var cmd = db.CreateCommand(); cmd.Transaction = (SqliteTransaction)tx;
@@ -1240,7 +1253,7 @@ public sealed class ScoutDatabase
             ("Club", "Uid", "Club UID", "+0x0C", "UInt32", "ProfileMatched-Provisional", "Club-array entries decoded under an exact module fingerprint; individual club identity still needs UI comparison."),
             ("Club", "Name", "Club name", "+0xC0", "LengthPrefixedUtf8", "ProfileMatched-Provisional", "Club name pointers decoded under the exact module profile; user-visible name matching remains a validation step."),
             ("Player", "CurrentAbility", "Current Ability", "+0x264", "UInt16", "ProfileMatched-Provisional", "Candidate live field from the FM27 field-layout cross-reference; must be checked against an independent editor before treating as verified."),
-            ("Player", "PotentialAbility", "Potential Ability", "+0x266", "Int16", "ProfileMatched-Provisional", "Candidate live field from the FM27 field-layout cross-reference; negative PA ranges are not imported as a scalar value."),
+            ("Player", "PotentialAbility", "Potential Ability", "+0x266", "Int16", "ProfileMatched-Provisional", "Signed PA candidate retained, including negative random-potential ranges; field meaning still needs an in-game UI witness."),
             ("Player", "Attributes", "Player attributes 1–20", "0x15F–0x194 field-specific", "EncodedByte", "ProfileMatched-Provisional", "Candidate attributes decoded as (raw+2)/5; field-level in-game UI witnesses are still required before writing."),
             ("Player", "PositionRatings", "Position ratings 1–20", "+0x150–0x15E", "UInt8", "ProfileMatched-Provisional", "Position field candidates retained for scouting display only; not currently write-enabled.")
         };
@@ -2249,8 +2262,10 @@ public sealed class ScoutDatabase
         }
         var managerQuery = db.CreateCommand();
         managerQuery.CommandText = "SELECT RawJson FROM FmsaveStaffDirectory WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) ORDER BY Name LIMIT 10000;";
-        if (string.IsNullOrWhiteSpace(currentManager))
+        if (string.IsNullOrWhiteSpace(currentManager) && !liveSaveLoadCounter.HasValue)
         {
+            // Do not fall back to a manager from an older offline save after a live career
+            // has connected but its manager could not be uniquely identified.
             await using (var managerReader = await managerQuery.ExecuteReaderAsync())
             {
                 while (await managerReader.ReadAsync())
