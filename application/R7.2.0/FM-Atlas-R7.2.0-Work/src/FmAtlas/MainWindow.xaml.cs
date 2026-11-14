@@ -1978,9 +1978,49 @@ public partial class MainWindow : Window
                     AddDetailRow(profileStack, fact.Field["preference.".Length..].Replace('_', ' '), fact.Value + " / 20");
                 profileStack.Children.Add(Txt("FM27 stores broad role groups; analyst preference combines recruitment and performance analysis, and one group remains unresolved. Scores are not a guarantee of job suitability.", 9, false, Muted, wrap: true));
             }
+            var coachingFacts = facts.Where(x => x.Field.StartsWith("staff_attributes.", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Field, StringComparer.OrdinalIgnoreCase).ToList();
+            if (coachingFacts.Count > 0)
+            {
+                profileStack.Children.Add(Txt("COACHING ATTRIBUTES · PROVISIONAL", 9, true, Teal) is var coachingHeader ? Configure(coachingHeader, new Thickness(0, 17, 0, 6)) : new TextBlock());
+                foreach (var fact in coachingFacts)
+                    AddDetailRow(profileStack, fact.Field["staff_attributes.".Length..].Replace('_', ' '), fact.Value is null ? "—" : fact.Value + " / 20");
+            }
+
+            var personalityFacts = facts.Where(x => x.Field.StartsWith("staff_personality.", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Field, StringComparer.OrdinalIgnoreCase).ToList();
+            if (personalityFacts.Count > 0)
+            {
+                profileStack.Children.Add(Txt("PERSONALITY · PROVISIONAL", 9, true, Teal) is var personalityHeader ? Configure(personalityHeader, new Thickness(0, 17, 0, 6)) : new TextBlock());
+                foreach (var fact in personalityFacts)
+                    AddDetailRow(profileStack, fact.Field["staff_personality.".Length..].Replace('_', ' '), fact.Value is null ? "—" : fact.Value + " / 20");
+            }
+
+            var contractFacts = facts.Where(x => x.Field.StartsWith("contract.", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Field, StringComparer.OrdinalIgnoreCase).ToList();
+            if (contractFacts.Count > 0)
+            {
+                profileStack.Children.Add(Txt("CONTRACT DETAILS · SOURCE VALUES", 9, true, Teal) is var contractHeader ? Configure(contractHeader, new Thickness(0, 17, 0, 6)) : new TextBlock());
+                foreach (var fact in contractFacts)
+                {
+                    var field = fact.Field["contract.".Length..].Replace('_', ' ');
+                    var value = fact.Field.Equals("contract.wage_per_week_gbp", StringComparison.OrdinalIgnoreCase)
+                        && decimal.TryParse(fact.Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var wage)
+                            ? "£" + wage.ToString("N0", CultureInfo.InvariantCulture) + " / week"
+                            : fact.Value;
+                    AddDetailRow(profileStack, field, value);
+                }
+            }
+
+            var remainingFacts = facts.Where(x =>
+                !x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)
+                && !x.Field.StartsWith("staff_attributes.", StringComparison.OrdinalIgnoreCase)
+                && !x.Field.StartsWith("staff_personality.", StringComparison.OrdinalIgnoreCase)
+                && !x.Field.StartsWith("contract.", StringComparison.OrdinalIgnoreCase)).ToList();
             profileStack.Children.Add(Txt("IMPORTED STAFF FACTS", 9, true, Teal) is var h ? Configure(h, new Thickness(0, 17, 0, 6)) : new TextBlock());
-            if (facts.Count == 0) profileStack.Children.Add(Txt("No additional staff facts were imported.", 10, false, Muted));
-            foreach (var group in facts.Where(x => !x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)).GroupBy(x => x.Group))
+            if (remainingFacts.Count == 0 && coachingFacts.Count == 0 && personalityFacts.Count == 0 && contractFacts.Count == 0)
+                profileStack.Children.Add(Txt("No additional staff facts were imported.", 10, false, Muted));
+            foreach (var group in remainingFacts.GroupBy(x => x.Group))
             {
                 profileStack.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal));
                 foreach (var fact in group.Take(50)) AddDetailRow(profileStack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
