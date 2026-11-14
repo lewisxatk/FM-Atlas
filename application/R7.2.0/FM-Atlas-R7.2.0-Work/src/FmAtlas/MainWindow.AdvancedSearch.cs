@@ -107,8 +107,17 @@ public partial class MainWindow
             field.GroupStyle.Add(new GroupStyle { HeaderTemplate = new DataTemplate { VisualTree = groupHeader } });
             var min = Input("Min"); min.Width = 90; min.Height = 34; min.Margin = new Thickness(0, 0, 7, 0);
             var max = Input("Max"); max.Width = 90; max.Height = 34; max.Margin = new Thickness(0, 0, 7, 0);
-            if (key is not null) field.SelectedItem = metricFields.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
-            if (field.SelectedIndex < 0) field.SelectedIndex = 0;
+            if (key is not null)
+            {
+                var matchingField = metricFields.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+                if (matchingField is null)
+                {
+                    status.Text = $"Saved metric '{key}' is not present in the currently imported career. It has not been replaced with a different field.";
+                    return;
+                }
+                field.SelectedItem = matchingField;
+            }
+            else field.SelectedIndex = 0;
             if (minValue.HasValue) min.Text = minValue.Value.ToString(CultureInfo.InvariantCulture);
             if (maxValue.HasValue) max.Text = maxValue.Value.ToString(CultureInfo.InvariantCulture);
             var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
@@ -212,7 +221,7 @@ public partial class MainWindow
                 importViewButton.IsEnabled = false;
                 var imported = await RunDatabaseAsync(() => _database.ImportFmViewExporterCsvAsync(dialog.FileName));
                 AtlasLog.Info($"FM View Exporter CSV imported: import={imported.ImportId}; rows={imported.RowsImported}; players={imported.PlayersCreated}; {imported.Note}.");
-                await NavigateAsync("Stats Search");
+                await NavigateAsync("Scouting Matrix");
             }
             catch (Exception ex)
             {
