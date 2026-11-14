@@ -120,6 +120,8 @@ The following is the product-scope target, not a claim that all features are alr
 - Generic local field editors are added to player, staff and club profiles. They expose all scalar facts the selected source actually imported, not invented fields.
 - Generic field saves write to Atlas only and create audit-history entries.
 - The local undo path understands these entity override records and restores the previous override or removes the first override.
+- A dedicated **World Editor** page lists every table present in the current `FmsaveExtraTables` snapshot, including contracts, suspensions, finances, sponsorships, facilities, stadiums, affiliations, stages, competitions, fixtures, competition rules, transfer windows, nations, officials, injuries, training, mentoring, tactics, set pieces and selections.
+- World Editor lets the user search records, inspect all flattened scalar fields (including nested object and array elements) and save local overrides against the exact snapshot/table/row identity. The raw imported JSON and source snapshot are preserved. Unsupported structured operations are not silently treated as scalar memory edits.
 - Live FM27 player import now retains additional scalar facts: height, condition, match sharpness, jadedness, morale, reputation, asking price, senior/U21 caps and goals, left/right foot, in addition to CA/PA, attributes, personality, positions, nationality and birth date.
 - The live player staging catalogue now has range/type-aware previews for the mapped player fields, with current-vs-target checking. It includes supported attributes, position ratings (excluding Sweeper), personality, feet, CA/PA, height, condition, match sharpness, jadedness, morale, reputation, asking price and international statistics.
 - A read-only live preview panel is wired into Editor Studio for a selected live player. It re-resolves the process/build/player and stages only changed fields. It does not write memory.
@@ -148,10 +150,10 @@ For every entity type and field group:
 
 ## Immediate remaining build areas
 
-1. Add proper editor pages for competitions, nations, stadiums, cities, awards and officials, reusing the local override engine.
-2. Extend the save importer so those pages receive the full scalar/structured facts actually present in the source.
-3. Implement field-specific live readers for staff and club first, then contract/finance/stadium sub-records. Keep arrays and pointer changes out until allocator/capacity handling is proven.
-4. Add field dictionaries and value pickers for enums/flags instead of expecting users to edit numeric codes or internal IDs manually.
+1. Add directory-specific labels, filters and linked navigation for competitions, nations, stadiums, cities, awards and officials on top of World Editor.
+2. Add field dictionaries and value pickers for enums/flags instead of expecting users to edit numeric codes or internal IDs manually.
+3. Implement field-specific live readers and staged writers for staff and club first, then contract/finance/stadium sub-records. Keep arrays and pointer changes out until allocator/capacity handling is proven.
+4. Add structured editing workflows for transfers, loans, relationships, promises, permits, affiliations, debts and tactical blocks.
 5. Add mass-edit plans with filters, before/after review, per-entity preflight and atomic undo groups.
 6. Add exact-build calibration fixtures and automated test cases for every supported field. Do not switch the live-write hard gate on until the fixtures pass on a disposable save.
 
