@@ -1717,16 +1717,39 @@ public partial class MainWindow : Window
                 {
                     Mouse.OverrideCursor = Cursors.Wait;
                     applied = await Task.Run(() => LiveEntityMemoryEditService.ApplyTacticalExposureBatch(staged));
-                    foreach (var row in rows)
+                    var didMaxTraining = stagedTargets?.Any(x => x.AreaKey.Equals("training_contribution", StringComparison.OrdinalIgnoreCase)) == true;
+                    maxTrainingRequested = false;
+                    try
                     {
-                        var target = stagedTargets?.FirstOrDefault(x =>
-                            x.AreaKey.Equals(row.AreaKey, StringComparison.OrdinalIgnoreCase));
-                        if (target is not null)
+                        var refreshedAfterApply = await Task.Run(() =>
+                            LiveEntityMemoryEditService.ReadTacticalSnapshot(processId, clubUid, clubName));
+                        foreach (var row in rows)
                         {
-                            row.CurrentValue = target.Value;
-                            row.TargetValue = target.Value.ToString(CultureInfo.InvariantCulture);
+                            var value = refreshedAfterApply.Areas.FirstOrDefault(x => x.Key.Equals(row.AreaKey, StringComparison.OrdinalIgnoreCase));
+                            if (value is null) continue;
+                            row.CurrentValue = value.MatchExposure;
+                            row.TargetValue = value.MatchExposure.ToString(CultureInfo.InvariantCulture);
+                            row.TrainingContribution = value.TrainingContribution;
                         }
                     }
+                    catch (Exception refreshError)
+                    {
+                        AtlasLog.Warning("Tactical after-Apply summary refresh was unavailable: " + refreshError.Message);
+                        foreach (var row in rows)
+                        {
+                            var target = stagedTargets?.FirstOrDefault(x =>
+                                x.AreaKey.Equals(row.AreaKey, StringComparison.OrdinalIgnoreCase));
+                            if (target is not null)
+                            {
+                                row.CurrentValue = target.Value;
+                                row.TargetValue = target.Value.ToString(CultureInfo.InvariantCulture);
+                            }
+                        }
+                    }
+                    maxTrainingButtonText.Text = didMaxTraining
+                        ? "MAX TRAINING CONTRIBUTION · APPLIED"
+                        : "Training contribution max not selected";
+                    maxTrainingButtonText.Foreground = didMaxTraining ? Brush("#2D8A63") : Muted;
                     grid.Items.Refresh();
                     status.Text = "LIVE TACTICAL EXPOSURE WRITTEN · " + applied.Changes.Count.ToString(CultureInfo.InvariantCulture)
                         + " player-area lists · read-back verified. Save the career in FM to persist.";
@@ -1768,7 +1791,10 @@ public partial class MainWindow : Window
                         if (value is null) continue;
                         row.CurrentValue = value.MatchExposure;
                         row.TargetValue = value.MatchExposure.ToString(CultureInfo.InvariantCulture);
+                        row.TrainingContribution = value.TrainingContribution;
                     }
+                    maxTrainingButtonText.Text = "Training Contribution restored from original history";
+                    maxTrainingButtonText.Foreground = Muted;
                     grid.Items.Refresh();
                     status.Text = "TACTICAL UNDO VERIFIED · original player familiarity records restored.";
                     AtlasLog.Info("Live FM27 tactical Match Exposure undo verified for club " + clubUid);
