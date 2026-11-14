@@ -18,6 +18,9 @@ public static partial class LiveEntityMemoryEditService
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern nint VirtualAllocEx(nint process, nint address, nuint size, uint allocationType, uint protect);
 
+    public static ulong? GetMeasuredTacticalBufferBlockSize(ulong capacity)
+        => TacticalBlockSizeForCapacity(capacity);
+
     private static ulong? TacticalBlockSizeForCapacity(ulong bytes)
     {
         if (bytes == 0 || bytes > TacticalLargestKnownBlock) return null;
