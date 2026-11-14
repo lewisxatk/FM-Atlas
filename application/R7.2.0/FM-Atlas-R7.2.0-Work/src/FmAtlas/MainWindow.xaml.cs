@@ -1885,6 +1885,11 @@ public partial class MainWindow : Window
             return (merged, label);
         });
 
+        // Load source evidence once; the view never synthesizes ratings or wage units.
+        var positionRatingsBySource = await RunDatabaseAsync(() => _database.GetImportedPositionSuitabilityAsync());
+        var wageBySource = await RunDatabaseAsync(() => _database.GetLatestPlayerWageFactsAsync());
+        var canonicalPositions = PositionSuitabilityService.MapSourceRatings(Array.Empty<KeyValuePair<string, double?>>());
+
         var header = Card(new Grid(), 15, new Thickness(0, 0, 0, 10));
         var headerGrid = (Grid)header.Child;
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1915,7 +1920,7 @@ public partial class MainWindow : Window
         var rosterTitle = new StackPanel(); rosterTitle.Children.Add(Txt("SQUAD ROSTER", 9, true, Teal)); rosterTitle.Children.Add(Txt("Current registered players", 17, true, Ink));
         DockPanel.SetDock(rosterTitle, Dock.Top); rosterDock.Children.Add(rosterTitle);
         var roster = CreateGrid();
-        roster.Columns.Add(Column("PLAYER", "Name", 1.3)); roster.Columns.Add(Column("POSITION", "Position", .8)); roster.Columns.Add(Column("AGE", "Age", .45)); roster.Columns.Add(Column("CA", "DisplayAbility", .45)); roster.Columns.Add(Column("PA", "DisplayPotential", .45));
+        roster.Columns.Add(Column("PLAYER", "Name", 1.12)); roster.Columns.Add(Column("POSITION", "Position", .68)); roster.Columns.Add(Column("LEAGUE", "League", .82)); roster.Columns.Add(Column("AGE", "Age", .4)); roster.Columns.Add(Column("CA", "DisplayAbility", .38)); roster.Columns.Add(Column("PA", "DisplayPotential", .38)); roster.Columns.Add(Column("HOME-GROWN", "DisplayHomeGrownClub", .62));
         rosterDock.Children.Add(roster); Grid.SetColumn(rosterCard, 0); Grid.SetRow(rosterCard, 0); body.Children.Add(rosterCard);
 
         var insightCard = Card(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = new StackPanel() }, 15);
@@ -1939,6 +1944,27 @@ public partial class MainWindow : Window
                 var pas = squad.Where(x => x.PotentialAbility.HasValue).Select(x => (double)x.PotentialAbility!.Value).ToList();
                 var positions = squad.GroupBy(x => string.IsNullOrWhiteSpace(x.Position) ? "Unspecified" : x.Position!)
                     .Select(g => (Position: g.Key, Count: g.Count())).OrderByDescending(x => x.Count).ThenBy(x => x.Position).ToList();
+                var suitability = canonicalPositions.Select(slot =>
+                {
+                    var ratings = squad
+                        .Where(player => positionRatingsBySource.ContainsKey(player.SourceId))
+                        .SelectMany(player => positionRatingsBySource[player.SourceId])
+                        .Where(entry => entry.Code.Equals(slot.Code, StringComparison.OrdinalIgnoreCase) && entry.Rating.HasValue)
+                        .Select(entry => entry.Rating!.Value)
+                        .ToList();
+                    return (slot.Code, slot.Label, RatedPlayers: ratings.Count,
+                        CompetentPlus: ratings.Count(value => value >= 10),
+                        Average: ratings.Count == 0 ? (double?)null : ratings.Average());
+                }).ToList();
+                var wageRows = squad
+                    .Where(player => wageBySource.ContainsKey(player.SourceId))
+                    .Select(player => wageBySource[player.SourceId])
+                    .Where(value => double.IsFinite(value) && value > 0)
+                    .ToList();
+                var homeGrownClubYes = squad.Count(player => player.HomeGrownClub == true);
+                var homeGrownClubNo = squad.Count(player => player.HomeGrownClub == false);
+                var homeGrownNationYes = squad.Count(player => player.HomeGrownNation == true);
+                var homeGrownNationNo = squad.Count(player => player.HomeGrownNation == false);
                 var bands = new[]
                 {
                     (Label: "U21", Min: 0, Max: 20), (Label: "21–24", Min: 21, Max: 24),
@@ -1946,7 +1972,11 @@ public partial class MainWindow : Window
                 }.Select(b => (b.Label, Count: squad.Count(x => x.Age.HasValue && x.Age.Value >= b.Min && x.Age.Value <= b.Max))).ToList();
                 return (Squad: ordered, AverageAge: ages.Count == 0 ? (double?)null : ages.Average(),
                     AverageCa: cas.Count == 0 ? (double?)null : cas.Average(), AveragePa: pas.Count == 0 ? (double?)null : pas.Average(),
-                    Positions: positions, AgeBands: bands);
+                    Positions: positions, Suitability: suitability, AgeBands: bands,
+                    WageCount: wageRows.Count, WageTotal: wageRows.Count == 0 ? (double?)null : wageRows.Sum(),
+                    WageAverage: wageRows.Count == 0 ? (double?)null : wageRows.Average(),
+                    HomeGrownClubYes: homeGrownClubYes, HomeGrownClubNo: homeGrownClubNo,
+                    HomeGrownNationYes: homeGrownNationYes, HomeGrownNationNo: homeGrownNationNo);
             });
             roster.ItemsSource = snapshot.Squad;
             metrics.Children.Clear();
@@ -1956,7 +1986,21 @@ public partial class MainWindow : Window
             metrics.Children.Add(MetricCard("AVERAGE PA", snapshot.AveragePa?.ToString("0.0") ?? "—", "Parser values · unconfirmed", "⌁"));
             insight.Children.Clear();
             insight.Children.Add(Txt("POSITIONAL COVER", 9, true, Teal)); insight.Children.Add(Txt("Imported primary-position counts", 18, true, Ink));
-            foreach (var position in snapshot.Positions) AddDetailRow(insight, position.Position, position.Count.ToString("N0") + " players");
+            foreach (var position in snapshot.Positions) AddDetailRow(insight, position.Position, position.Count.ToString("N0") + " primary-position labels");
+            insight.Children.Add(Txt("SOURCE-BACKED POSITION SUITABILITY", 9, true, Teal) is var suitabilityTitle ? Configure(suitabilityTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
+            insight.Children.Add(Txt("Imported explicit 1–20 position ratings only. Competent+ is 10/20 or higher; missing ratings are left unrated.", 9, false, Muted, wrap: true));
+            foreach (var position in snapshot.Suitability)
+            {
+                var value = position.RatedPlayers == 0
+                    ? "No imported ratings"
+                    : $"{position.RatedPlayers:N0} rated · {position.CompetentPlus:N0} competent+ · Avg {position.Average:0.0}/20";
+                AddDetailRow(insight, $"{position.Code} · {position.Label}", value);
+            }
+            insight.Children.Add(Txt("CONTRACT & HOME-GROWN DATA", 9, true, Teal) is var contractTitle ? Configure(contractTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
+            AddDetailRow(insight, "Recorded wage field", snapshot.WageCount == 0 ? "Unreported" : $"{snapshot.WageCount:N0} records · source units");
+            AddDetailRow(insight, "Wage total / mean", snapshot.WageTotal.HasValue ? $"{snapshot.WageTotal.Value:N0} / {snapshot.WageAverage!.Value:N0} source units" : "Unavailable");
+            AddDetailRow(insight, "Home-grown at club", $"{snapshot.HomeGrownClubYes:N0} yes · {snapshot.HomeGrownClubNo:N0} no · {Math.Max(0, snapshot.Squad.Count - snapshot.HomeGrownClubYes - snapshot.HomeGrownClubNo):N0} unknown");
+            AddDetailRow(insight, "Home-grown in nation", $"{snapshot.HomeGrownNationYes:N0} yes · {snapshot.HomeGrownNationNo:N0} no · {Math.Max(0, snapshot.Squad.Count - snapshot.HomeGrownNationYes - snapshot.HomeGrownNationNo):N0} unknown");
             insight.Children.Add(Txt("AGE PROFILE", 9, true, Teal) is var ageTitle ? Configure(ageTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
             foreach (var band in snapshot.AgeBands) AddDetailRow(insight, band.Label, band.Count.ToString("N0"));
             insight.Children.Add(Txt("SOURCE & LIMITS", 9, true, Teal) is var limits ? Configure(limits, new Thickness(0, 16, 0, 5)) : new TextBlock());

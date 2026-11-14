@@ -1243,6 +1243,51 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public async Task SquadArchitectPositionSuitabilityAndWagesUseExplicitLatestSnapshotFacts()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "squad-position-wage-facts", playerManifestCount: 1, includeContractRow: false);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+        var snapshotId = await ScalarIntAsync(databasePath, "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;");
+
+        await using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            var insert = db.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO FmsavePlayerFacts
+                    (SnapshotId,PlayerSourceId,FactGroup,FieldKey,NumericValue,TextValue)
+                VALUES
+                    ($snapshot,$source,'positions','central_attacking_midfielder',17,NULL),
+                    ($snapshot,$source,'positions','position_stc',20,NULL),
+                    ($snapshot,$source,'positions','goalkeeper',0,NULL),
+                    ($snapshot,$source,'positions','sweeper',21,NULL),
+                    ($snapshot,$source,'natural_positions','gk',20,NULL),
+                    ($snapshot,$source,'positions','unknown_slot',18,NULL);
+                """;
+            insert.Parameters.AddWithValue("$snapshot", snapshotId);
+            insert.Parameters.AddWithValue("$source", "FMSAVE:FM27:test-db:1001");
+            await insert.ExecuteNonQueryAsync();
+        }
+
+        var map = await database.GetImportedPositionSuitabilityAsync();
+        var ratings = map["FMSAVE:FM27:test-db:1001"];
+        Assert.Equal(15, ratings.Count);
+        Assert.Equal(17d, Assert.Single(ratings.Where(x => x.Code == "AMC")).Rating);
+        Assert.Equal(PositionSuitabilityBand.Strong, Assert.Single(ratings.Where(x => x.Code == "AMC")).Band);
+        Assert.Equal(20d, Assert.Single(ratings.Where(x => x.Code == "STC")).Rating);
+        Assert.Equal(PositionSuitabilityBand.Natural, Assert.Single(ratings.Where(x => x.Code == "STC")).Band);
+        Assert.Null(Assert.Single(ratings.Where(x => x.Code == "GK")).Rating);
+        Assert.Null(Assert.Single(ratings.Where(x => x.Code == "SW")).Rating);
+
+        var wages = await database.GetLatestPlayerWageFactsAsync();
+        Assert.Equal(10000d, wages["FMSAVE:FM27:test-db:1001"]);
+    }
+
+    [Fact]
     public void PositionSuitabilityMapsAllFifteenSourceSlotsAndFiveBands()
     {
         var source = new Dictionary<string, double?>

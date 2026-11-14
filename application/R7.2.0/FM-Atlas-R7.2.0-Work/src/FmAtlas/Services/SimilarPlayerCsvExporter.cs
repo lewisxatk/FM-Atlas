@@ -31,7 +31,7 @@ public static class SimilarPlayerCsvExporter
                 Q(candidate.SimilarityScore.ToString("0.0", CultureInfo.InvariantCulture), false),
                 Q(candidate.AttributesCompared.ToString(CultureInfo.InvariantCulture), false),
                 Q(candidate.ReferenceAttributes.ToString(CultureInfo.InvariantCulture), false),
-                Q(candidate.AttributeCoverage.ToString("P1", CultureInfo.InvariantCulture), false),
+                Q((candidate.AttributeCoverage * 100d).ToString("0.0", CultureInfo.InvariantCulture) + "%", false),
                 Q(candidate.EvidenceSummary)
             };
             lines.Add(string.Join(",", cells));

@@ -1803,6 +1803,81 @@ public sealed class ScoutDatabase
         return rows;
     }
 
+    /// <summary>
+    /// Returns source-backed 1–20 position ratings from the latest imported save snapshot.
+    /// Only explicit positions ratings are considered; natural/accomplished flags and
+    /// missing values are never converted into fabricated suitability.
+    /// </summary>
+    public async Task<Dictionary<string, IReadOnlyList<PositionSuitabilityEntry>>> GetImportedPositionSuitabilityAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT PlayerSourceId,FieldKey,NumericValue
+            FROM FmsavePlayerFacts
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND FactGroup='positions'
+              AND NumericValue IS NOT NULL
+              AND NumericValue BETWEEN 1 AND 20
+            ORDER BY PlayerSourceId,FieldKey;
+            """;
+
+        var facts = new Dictionary<string, List<KeyValuePair<string, double?>>>(StringComparer.OrdinalIgnoreCase);
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var sourceId = reader.GetString(0);
+                if (!facts.TryGetValue(sourceId, out var rows))
+                {
+                    rows = new List<KeyValuePair<string, double?>>();
+                    facts[sourceId] = rows;
+                }
+                rows.Add(new KeyValuePair<string, double?>(reader.GetString(1), reader.GetDouble(2)));
+            }
+        }
+
+        return facts.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<PositionSuitabilityEntry>)PositionSuitabilityService.MapSourceRatings(pair.Value),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Returns only explicitly imported numeric wage facts from the current save snapshot.
+    /// Values stay in source units because currency and pay period are not inferred here.
+    /// </summary>
+    public async Task<Dictionary<string, double>> GetLatestPlayerWageFactsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT PlayerSourceId,NumericValue
+            FROM FmsavePlayerFacts
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND FactGroup='contract'
+              AND LOWER(FieldKey)='wage'
+              AND NumericValue IS NOT NULL
+              AND NumericValue>0
+            ORDER BY PlayerSourceId;
+            """;
+        var results = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var value = reader.GetDouble(1);
+            if (double.IsFinite(value) && value > 0)
+                results[reader.GetString(0)] = value;
+        }
+        return results;
+    }
+
     public async Task<List<AtlasFactRecord>> GetFmsavePlayerFactsAsync(string sourceId, string group)
     {
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false);
