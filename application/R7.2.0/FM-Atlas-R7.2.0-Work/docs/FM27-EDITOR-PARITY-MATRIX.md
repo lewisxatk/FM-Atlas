@@ -1,6 +1,6 @@
 # FM27 Editor Parity Matrix — FMRTE / FMLibreEditor / FM27 Editor
 
-Status: research and implementation map for the FM Atlas V10 pre-testing branch `feature/fm27-fmrte-parity-editor`.
+Status: research and implementation map for the active FM Atlas V10 live-write branch `feature/fm27-live-editor-write-parity`.
 
 This is an independently authored implementation plan and field catalogue. It records what the public tools document, what the current Atlas code imports or edits, and what remains unsafe or unimplemented. It does not copy source code from the reference projects.
 
@@ -12,7 +12,7 @@ The safest architecture is therefore three explicit states:
 
 1. **Imported source fact** — a value read from a supported FM27 game process or a read-only save snapshot. Source and confidence stay intact.
 2. **Atlas local override** — an independently stored, editable value for planning, experimentation and analysis. It never mutates the imported career snapshot or FM process.
-3. **Live FM27 change** — a field-specific staged change. It is unavailable until the exact build, field layout, entity identity, UI witness, range, write/read-back and rollback checks have passed. The global Apply/Undo hard gate remains OFF in this branch.
+3. **Live FM27 change** — the active branch now enables staged live Apply/Undo for its explicitly mapped player, staff and club scalar fields, plus tactical Match Exposure lists. Every field is independently whitelisted and must pass exact-build, entity, sub-record, value, stale-byte, save-generation, read-back and rollback checks. Unsupported structures remain blocked.
 
 ## Reference projects and research
 
@@ -58,8 +58,9 @@ The inspected Libre field catalogue includes these writable primitive or bounded
 | Positions | Position ratings; Sweeper is intentionally not offered because the game no longer uses it and the stored rating is always 1 |
 | Personality | Adaptability, ambition, loyalty, pressure, professionalism, sportsmanship, temperament, controversy |
 | Traits | 64 individual trait bits in the player trait mask |
-| Contract | Wage, expiry, squad number, squad status, transfer-listed, loan-listed, loyalty bonus, happiness, playing-time happiness |
+| Market / contract | Transfer value, asking price; wage, signed/expiry/joined dates, contract type, squad number/status, transfer-listed, loan-listed, loyalty bonus, happiness and playing-time happiness |
 | Loans | Loan expiry and option-to-buy fee where the loan-term record is present |
+| Other | Remove-all-unhappiness operation; no arbitrary concern-record creation or pointer editing |
 | Unhappiness | The editor's supported operation is “remove all” (clear the list); the record is not rebuilt or expanded |
 
 The layout also identifies pointers/lists for contracts, injuries/absences, relationships, clauses, competition bonuses and other structures. A pointer being documented is not by itself a safe write recipe. Variable-size lists need capacity management and the target object's correct allocator/ownership rules.
@@ -83,7 +84,8 @@ The inspected Libre field catalogue includes:
 - Senior-team reputation.
 - Training, youth facilities, youth coaching and youth recruitment.
 - Corporate facilities.
-- Club balance, transfer budget, wage budget and total wage budget.
+- Season-ticket count, social-media followers, six supporter-mix percentages and six supporter traits.
+- Club balance, transfer budget, wage budget, total wage budget and average ticket price.
 - Stadium capacity, seating, used capacity and expansion capacity.
 
 The FM27 layout also identifies separate club, club-info, club-finance, senior-team and stadium records. Finance values are not necessarily present for every club: clubs outside the playable leagues may use a smaller finance class. Stadium seating cannot exceed capacity. Those are structural invariants, not just display rules.
@@ -113,27 +115,34 @@ The following is the product-scope target, not a claim that all features are alr
 
 ## What this Atlas branch implements
 
-### Completed in this branch
+### Live player, staff and club scalar writer
 
-- Player profile editor remains intact, including CA/PA and source-backed player attributes.
-- The editor now has a generic `LocalEntityOverrides` store keyed by entity type, source ID, group and field. This keeps original value, override value, source label and timestamp.
-- Generic local field editors are added to player, staff and club profiles. They expose all scalar facts the selected source actually imported, not invented fields.
-- Generic field saves write to Atlas only and create audit-history entries.
-- The local undo path understands these entity override records and restores the previous override or removes the first override.
-- A dedicated **World Editor** page lists every table present in the current `FmsaveExtraTables` snapshot, including contracts, suspensions, finances, sponsorships, facilities, stadiums, affiliations, stages, competitions, fixtures, competition rules, transfer windows, nations, officials, injuries, training, mentoring, tactics, set pieces and selections.
-- World Editor lets the user search records, inspect all flattened scalar fields (including nested object and array elements) and save local overrides against the exact snapshot/table/row identity. The raw imported JSON and source snapshot are preserved. Unsupported structured operations are not silently treated as scalar memory edits.
-- Live FM27 player import now retains additional scalar facts: height, condition, match sharpness, jadedness, morale, reputation, asking price, senior/U21 caps and goals, left/right foot, in addition to CA/PA, attributes, personality, positions, nationality and birth date.
-- The live player staging catalogue now has range/type-aware previews for the mapped player fields, with current-vs-target checking. It includes supported attributes, position ratings (excluding Sweeper), personality, feet, CA/PA, height, condition, match sharpness, jadedness, morale, reputation, asking price and international statistics.
-- A read-only live preview panel is wired into Editor Studio for a selected live player. It re-resolves the process/build/player and stages only changed fields. It does not write memory.
+The active branch `feature/fm27-live-editor-write-parity` uses `LiveEntityMemoryEditService` for the current FM27 process. It is distinct from the older preview-only `LiveMemoryEditService`, whose hard gate remains off and which is no longer the UI's live writer.
 
-### Explicitly not live-editable yet
+- **Player:** CA/PA; all 52 mapped football and hidden attributes; 14 writable position ratings (Sweeper remains intentionally excluded); eight personality values; both feet; 64 preferred-move bits; date of birth; height; condition; sharpness; jadedness; morale; reputation; transfer value and asking price; international caps/goals; player contract wage, signed/expiry/joined dates, type, squad status/number, listing flags, loyalty bonus and contract happiness; loan expiry and option fee; clear-all-unhappiness operation.
+- **Staff:** staff-specific CA/PA, reputation, birth date, 19 scaled coaching/knowledge/medical ratings, Authority, Working With Youngsters, eight personality values and contract wage. Staff contract dates are intentionally omitted: FM27 has BASIC_CONTRACT records only 0x28 bytes long for some staff, so a date write at the FULL_CONTRACT offset could overwrite the next packed record unless the contract class is resolved first.
+- **Club:** senior-team reputation; season tickets; social-media followers; six supporter-mix percentages; six supporter traits; training/youth/corporate facilities; balance, transfer budget, total wage budget, wage budget, average ticket price; stadium capacity, seating, used capacity and expansion.
+- Every field is resolved to the right record (person object, contract, loan, concerns, senior team, club info, finance or stadium). Optional record absence omits only that field. Club finance and stadium record classes are detected and checked before access.
+- Apply and Undo are enabled through the profile editor. They re-resolve the entity and active save, compare original bytes, validate cross-field constraints, verify every write by read-back and attempt guarded rollback if a batch fails. The user must save the career inside FM to persist process-memory edits to disk.
+- The live editor requires a separate offline test career and an FM27 build in the exact fingerprint registry. It is not a promise that every FM27 patch or storefront is supported.
 
-- The global hard gate in `LiveMemoryEditService` remains `false`. Apply and Undo are deliberately unavailable.
-- Hidden attributes remain blocked from live preview until their FM27 mapping is independently witnessed.
-- Staff, club, competition, nation, city and stadium live writers are not yet implemented in Atlas.
-- Player contracts, loans, transfer clauses, relationships, promises, work permits, injuries/bans and variable-length collections are not yet live-writable.
-- Club debts, sugar-daddy ownership, kits, club vision, tactical blocks and player tactical-effectiveness values are not enabled as live writes without the required evidence.
-- Player season/performance data stays read-only/scouting intelligence. A stat surfaced by FMRTE is not automatically an editable game field.
+### Tactical Effectiveness
+
+- The active senior-team tactic is resolved from FM's Tactics Manager rather than guessed from a saved tactic name.
+- The editor reads six player Match Exposure areas (Line of Engagement, Pressing Intensity, Passing Style, Chance Creation, Build Up, Pressing Trap) and Position / Role Shapes.
+- Match Exposure edits stage and apply to each selected senior-team player's existing familiarity list. The writer verifies list bounds, active tactic identity, player identity, save generation and original list bytes; it blocks any operation that needs an unsupported allocation/growth.
+- Training Contribution is derived from the player's FM training-history records, not a directly stored score. The current experimental Max Training Contribution action rewrites validated 12-byte history entries for the current tactic; this is a history operation, not a direct 100% score write, and still requires disposable-save verification.
+- FM27's four high-level gauges (Tactical Understanding, Player Ability, Player Buy-In and Next Match Information) and Tactical Complexity are derived systems. Atlas currently edits underlying Match Exposure / shape familiarity, not arbitrary direct percentages for those four gauges.
+
+### Still not implemented as live edits
+
+- Player/staff names, nationality pointers, birthplace, language/knowledge relations, secondary nationality/work-permit ties, player-to-player relationships, injury and ban records, retirement plans, dynamic clauses/bonuses, arbitrary promises, future transfers and transfer-offer workflows.
+- Staff department moves, manager appointment/release and contract-class-aware staff date edits.
+- Club debts/loans, sponsorships, affiliations, ownership / sugar-daddy status, club vision, kits/colours and arbitrary stadium name/owner/location changes.
+- Competition, nation, city, stadium, award, referee/official and injury-type live editors.
+- Tactic role/formation/team-instruction editing. Match Exposure is a different data structure from the tactic block.
+- Mass-edit plans across arbitrary filters, freeze/hold tools and complete FMRTE preset parity.
+- Player season statistics and scouting performance metrics remain read-only data; an FMRTE stats panel does not mean those match statistics are editable game fields.
 
 ## Acceptance gate before any live Apply is enabled
 
@@ -150,12 +159,13 @@ For every entity type and field group:
 
 ## Immediate remaining build areas
 
-1. Add directory-specific labels, filters and linked navigation for competitions, nations, stadiums, cities, awards and officials on top of World Editor.
-2. Add field dictionaries and value pickers for enums/flags instead of expecting users to edit numeric codes or internal IDs manually.
-3. Implement field-specific live readers and staged writers for staff and club first, then contract/finance/stadium sub-records. Keep arrays and pointer changes out until allocator/capacity handling is proven.
-4. Add structured editing workflows for transfers, loans, relationships, promises, permits, affiliations, debts and tactical blocks.
-5. Add mass-edit plans with filters, before/after review, per-entity preflight and atomic undo groups.
-6. Add exact-build calibration fixtures and automated test cases for every supported field. Do not switch the live-write hard gate on until the fixtures pass on a disposable save.
+1. Expand field dictionaries and value pickers for enums/flags and replace numeric codes with meaningful choices.
+2. Add contract-class-aware staff date editing and richer staff job / department operations.
+3. Research and implement dynamic player records: clauses, bonuses, promises, permits, nationality/relations, injuries, bans and retirement.
+4. Research club debts, loans, sponsorship, ownership, affiliations and club vision. Debt list growth is explicitly untested in Libre's research.
+5. Add competition, nation, city, stadium, award, referee and injury-type live editors.
+6. Validate Tactical Effectiveness history operations on a disposable save, then extend the four derived gauge readers and role/tactic editing without conflating the underlying data structures.
+7. Add mass-edit plans, freeze tools, full edit history and per-field automated fixtures.
 
 ## Source links
 
