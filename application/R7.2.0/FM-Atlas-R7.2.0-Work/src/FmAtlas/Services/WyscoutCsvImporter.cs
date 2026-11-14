@@ -28,7 +28,7 @@ public static class WyscoutCsvImporter
         var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8, cancellationToken);
         if (lines.Length < 2) throw new InvalidDataException("The Wyscout CSV must contain a header and at least one player row.");
         var delimiter = lines[0].Count(c => c == ';') > lines[0].Count(c => c == ',') ? ';' : ',';
-        var headers = Parse(lines[0], delimiter);
+        var headers = Parse(lines[0], delimiter).Select(x => x.Trim().TrimStart('\uFEFF')).ToArray();
         string? Find(string[] row, string key)
         {
             var aliases = Aliases[key];
@@ -94,8 +94,16 @@ public static class WyscoutCsvImporter
     private static double? ParseNumber(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
-        var cleaned = value.Replace("%", "").Replace(" ", "").Replace(",", ".");
-        return double.TryParse(cleaned, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) && double.IsFinite(n) ? n : null;
+        var cleaned = value.Trim().Replace("%", "").Replace("€", "").Replace("£", "").Replace("$", "")
+            .Replace(" ", "").Replace("\u00A0", "");
+        var multiplier = 1d;
+        if (cleaned.EndsWith("bn", StringComparison.OrdinalIgnoreCase)) { multiplier = 1_000_000_000d; cleaned = cleaned[..^2]; }
+        else if (cleaned.EndsWith("m", StringComparison.OrdinalIgnoreCase)) { multiplier = 1_000_000d; cleaned = cleaned[..^1]; }
+        else if (cleaned.EndsWith("k", StringComparison.OrdinalIgnoreCase)) { multiplier = 1_000d; cleaned = cleaned[..^1]; }
+        if (cleaned.Contains('.') && cleaned.Contains(',')) cleaned = cleaned.Replace(",", "");
+        else if (cleaned.Contains(',')) cleaned = cleaned.Replace(",", ".");
+        return double.TryParse(cleaned, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) && double.IsFinite(n)
+            ? n * multiplier : null;
     }
     private static string? PositionGroup(string? position)
     {
