@@ -474,6 +474,8 @@ Only mark a feature complete when the source change exists on this branch and it
 - [x] Added a migration-safe SQLite composite index on `PlayerAttributes(SourceId, AttributeName COLLATE NOCASE, AttributeValue)`. Existing databases receive it during normal database initialisation; no table rebuild or data deletion is required.
 - [x] Changed the multi-attribute predicate to use a case-insensitive equality expression that matches the new index, replacing the previous `lower(AttributeName)=lower(parameter)` expression that prevented the ordinary composite lookup from being used efficiently.
 - [x] Added an integration regression test that verifies the query plan selects the new index and that lowercase criteria still match stored mixed-case attribute names.
+
+- [x] Extended the regression coverage with a synthetic 40,286-player / 120,858-attribute fixture. The test checks a three-condition Advanced Search query returns only the intended player at this scale; it uses a single SQLite transaction and prepared inserts to keep fixture setup representative without making test setup needlessly expensive.
 - [ ] Windows .NET 8 Release build and full MSTest workflow must pass before this optimisation is marked verified.
 - [ ] Benchmark against a representative large imported database (including 40k+ players and a larger attribute fact table); record before/after timings for 1, 5, 20 and 60 criteria.
 - No changes to `main`; work remains on `overhaul/monolith-full-platform`. No user database or save was accessed or modified.
