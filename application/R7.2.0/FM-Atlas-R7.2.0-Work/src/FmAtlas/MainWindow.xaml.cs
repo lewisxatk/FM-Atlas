@@ -212,7 +212,7 @@ public partial class MainWindow : Window
         _cancelImportButton.IsEnabled = _saveImportCancellation is not null || _liveScanCancellation is not null;
         _cancelImportButton.Visibility = _saveImportCancellation is not null || _liveScanCancellation is not null ? Visibility.Visible : Visibility.Collapsed;
         actions.Children.Add(_cancelImportButton);
-        actions.Children.Add(ToolbarIcon("◷", "Activity Centre — view the active live scan or save import, elapsed time and cancellation controls.", (_, _) => ShowActivityCenter()));
+        actions.Children.Add(ToolbarIcon("\uE823", "Activity Centre — view the active live scan or save import, elapsed time and cancellation controls.", (_, _) => ShowActivityCenter()));
         actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
         actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
         actions.Children.Add(ToolbarIcon("\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
@@ -794,7 +794,8 @@ public partial class MainWindow : Window
                 _ => DashboardPageFallback()
             };
             _pageHost.Content = content;
-            ApplyGlassControlTheme(content);
+            try { ApplyGlassControlTheme(content); }
+            catch (Exception themeEx) { AtlasLog.Warning("Workspace glass-control styling was skipped: " + themeEx.Message); }
             if (SystemParameters.ClientAreaAnimation)
             {
                 _pageHost.Opacity = 0;
