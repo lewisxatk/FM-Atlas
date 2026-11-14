@@ -3464,6 +3464,108 @@ public partial class MainWindow : Window
             undoButton.IsEnabled = false;
             stagePanel.Children.Add(undoButton);
             DockPanel.SetDock(stagePanel, Dock.Bottom); dock.Children.Add(stagePanel);
+
+            LiveMemoryEditService.TacticalPlan? tacticalPlan = null;
+            LiveMemoryEditService.TacticalReceipt? tacticalReceipt = null;
+            var tacticalPanel = new StackPanel { Margin = new Thickness(0, 10, 0, 10) };
+            tacticalPanel.Children.Add(Txt("TACTICAL EFFECTIVENESS · EIGHT AREAS", 9, true, Teal));
+            tacticalPanel.Children.Add(Txt(
+                "FM27 stores Tactical Effectiveness as six tactical-option familiarity areas plus in/out-of-possession formation familiarity, backed by a player's record and the club training manager's history. This action stages the current team tactic at maximum familiarity. It only proceeds when the existing game-owned lists and spare capacity validate; it will not invent formation IDs or allocate replacement buffers.",
+                9, false, Muted, wrap: true));
+            Button applyTactical = null!;
+            Button undoTactical = null!;
+            var tacticalStatus = Txt("No tactical edit staged.", 9, false, Muted, wrap: true);
+            tacticalPanel.Children.Add(PrimaryButton("Stage maximum Tactical Effectiveness", async (_, _) =>
+            {
+                try
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    var processId = await Task.Run(() => LiveMemoryEditService.FindSupportedProcessId());
+                    var plan = await Task.Run(() => LiveMemoryEditService.StageMaxTacticalEffectiveness(
+                        processId, checked((uint)livePlayerUid), _selectedPlayer.Name));
+                    tacticalPlan = plan;
+                    tacticalReceipt = null;
+                    applyTactical.IsEnabled = true;
+                    undoTactical.IsEnabled = false;
+                    tacticalStatus.Text = $"READY · {plan.Patches.Count:N0} verified memory patches · {plan.ProfileId} · all eight areas target 100";
+                    MessageBox.Show(this,
+                        $"A Tactical Effectiveness preview is ready for {_selectedPlayer.Name}.\n\nThe plan targets all eight areas for the current team tactic. {plan.Patches.Count:N0} bounded memory patches are staged.\n\nNo values have been written yet.",
+                        "FM Atlas · Tactical preview", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    tacticalPlan = null;
+                    applyTactical.IsEnabled = false;
+                    tacticalStatus.Text = "TACTICAL PREVIEW BLOCKED · " + ex.Message;
+                    AtlasLog.Warning("Tactical Effectiveness preview blocked: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Tactical preview blocked", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                finally { Mouse.OverrideCursor = null; }
+            }));
+            applyTactical = PrimaryButton("Apply maximum Tactical Effectiveness", async (_, _) =>
+            {
+                var plan = tacticalPlan;
+                if (plan is null) return;
+                var answer = MessageBox.Show(this,
+                    $"This writes {plan.Patches.Count:N0} tactical familiarity patches for {_selectedPlayer.Name} into the running FM27 process.\n\nBack up your career first. Save inside Football Manager to persist the result. Continue?",
+                    "Confirm Tactical Effectiveness edit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    applyTactical.IsEnabled = false;
+                    tacticalStatus.Text = "APPLYING · checking tactic, training history, career identity and original bytes…";
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    var receipt = await Task.Run(() => LiveMemoryEditService.ApplyMaxTacticalEffectiveness(plan));
+                    tacticalReceipt = receipt;
+                    undoTactical.IsEnabled = true;
+                    tacticalStatus.Text = $"APPLIED · {receipt.Plan.Patches.Count:N0} patches read-back verified · save the career in FM";
+                    MessageBox.Show(this,
+                        "FM Atlas updated the current tactic's eight Tactical Effectiveness areas and verified the memory writes. Save the career in Football Manager to keep the changes. Live Undo is available until the game changes those records.",
+                        "FM Atlas · Tactical Effectiveness applied", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    tacticalStatus.Text = "TACTICAL APPLY BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Warning("Tactical Effectiveness apply failed: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Tactical edit failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                    applyTactical.IsEnabled = tacticalPlan is not null;
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            applyTactical.IsEnabled = false;
+            tacticalPanel.Children.Add(applyTactical);
+            undoTactical = SoftButton("Undo Tactical Effectiveness edit", async (_, _) =>
+            {
+                var receipt = tacticalReceipt;
+                if (receipt is null) return;
+                var answer = MessageBox.Show(this,
+                    $"Restore the previous Tactical Effectiveness data for {_selectedPlayer.Name}? Undo is blocked if FM has changed any of the edited records since Apply.",
+                    "Confirm tactical Undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (answer != MessageBoxResult.Yes) return;
+                try
+                {
+                    undoTactical.IsEnabled = false;
+                    tacticalStatus.Text = "UNDOING · verifying tactic identity and all written bytes…";
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    await Task.Run(() => LiveMemoryEditService.UndoMaxTacticalEffectiveness(receipt));
+                    tacticalReceipt = null;
+                    tacticalPlan = null;
+                    applyTactical.IsEnabled = false;
+                    tacticalStatus.Text = "UNDONE · original tactical data restored and verified";
+                }
+                catch (Exception ex)
+                {
+                    tacticalStatus.Text = "TACTICAL UNDO BLOCKED / FAILED · " + ex.Message;
+                    AtlasLog.Warning("Tactical Effectiveness undo failed: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "FM Atlas · Tactical Undo failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                    undoTactical.IsEnabled = tacticalReceipt is not null;
+                }
+                finally { Mouse.OverrideCursor = null; }
+            });
+            undoTactical.IsEnabled = false;
+            tacticalPanel.Children.Add(undoTactical);
+            tacticalPanel.Children.Add(tacticalStatus);
+            DockPanel.SetDock(tacticalPanel, Dock.Bottom); dock.Children.Add(tacticalPanel);
         }
         Grid.SetRow(editor, 1); root.Children.Add(editor); return root;
     }
