@@ -759,6 +759,7 @@ public partial class MainWindow : Window
         var listHeader = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         listHeader.Children.Add(Txt("PLAYER RESULTS", 9, true, Teal));
         listHeader.Children.Add(Txt("Select a row to open its profile tab · double-click to focus", 10, false, Muted));
+        listHeader.Children.Add(Txt("SOURCE / CONFIDENCE is shown on each row; profile-matched live CA/PA and fields remain provisional until checked against the FM UI.", 9, false, Brush("#A06B24"), wrap: true));
         DockPanel.SetDock(listHeader, Dock.Top); listDock.Children.Add(listHeader);
 
         _playerResultsGrid = CreateGrid();
@@ -779,6 +780,7 @@ public partial class MainWindow : Window
         _playerResultsGrid.Columns.Add(Column("NATION", "Nation", .7));
         _playerResultsGrid.Columns.Add(Column("HOME-GROWN · CLUB", "DisplayHomeGrownClub", .72));
         _playerResultsGrid.Columns.Add(Column("HOME-GROWN · NATION", "DisplayHomeGrownNation", .72));
+        _playerResultsGrid.Columns.Add(Column("SOURCE / CONFIDENCE", "DataOrigin", .95));
         _playerResultsGrid.ItemsSource = _players;
         _playerResultsGrid.SelectionChanged += async (_, _) =>
         {
@@ -2829,6 +2831,7 @@ public partial class MainWindow : Window
 
     private async Task OpenMyManagerAsync()
     {
+        _currentLiveProbe = await Task.Run(LiveCareerMonitor.Probe);
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
         if (!IsCurrentLiveCareer(metrics))
         {
@@ -2846,6 +2849,7 @@ public partial class MainWindow : Window
 
     private async Task OpenMyClubAsync()
     {
+        _currentLiveProbe = await Task.Run(LiveCareerMonitor.Probe);
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
         if (!IsCurrentLiveCareer(metrics))
         {
