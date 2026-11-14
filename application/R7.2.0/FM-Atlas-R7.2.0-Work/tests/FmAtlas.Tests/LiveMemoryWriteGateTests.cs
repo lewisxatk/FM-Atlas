@@ -60,6 +60,17 @@ public sealed class LiveMemoryWriteGateTests
         => Assert.False(LiveMemoryEditService.SupportsPlayerFieldPreview(field));
 
     [Fact]
+    public void NovemberSteamAndGamePassProfilesExposeTacticalEffectiveness()
+    {
+        Assert.True(LiveMemoryEditService.SupportsTacticalEffectiveness(
+            Fm27BuildProfiles.All.Single(x => x.Id == "steam-26385295")));
+        Assert.True(LiveMemoryEditService.SupportsTacticalEffectiveness(
+            Fm27BuildProfiles.All.Single(x => x.Id == "gamepass-0.9.2435.0")));
+        Assert.False(LiveMemoryEditService.SupportsTacticalEffectiveness(
+            Fm27BuildProfiles.All.Single(x => x.Id == "steam-26227640")));
+    }
+
+    [Fact]
     public void ExpiredPlansAreRejectedBeforeAnyProcessIsOpened()
     {
         var plan = CreatePlan() with { CreatedUtc = DateTime.UtcNow.AddMinutes(-3) };
