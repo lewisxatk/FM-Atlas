@@ -79,7 +79,7 @@ public sealed class LiveMemoryWriteGateTests
     [Fact]
     public void MaxTrainingContributionPreservesKnownShapesAndAddsBothShapeAreas()
     {
-        var oldHistory = new byte[12];
+        var oldHistory = new byte[24];
         BitConverter.GetBytes((ushort)200).CopyTo(oldHistory, 0);
         BitConverter.GetBytes((ushort)0x1234).CopyTo(oldHistory, 2);
         oldHistory[4] = 6;
@@ -88,6 +88,13 @@ public sealed class LiveMemoryWriteGateTests
         oldHistory[9] = 20;
         oldHistory[10] = 20;
         oldHistory[11] = 156;
+        BitConverter.GetBytes((ushort)210).CopyTo(oldHistory, 12);
+        BitConverter.GetBytes((ushort)0x5678).CopyTo(oldHistory, 14);
+        oldHistory[16] = 7;
+        oldHistory[18] = 1;
+        oldHistory[21] = 20;
+        oldHistory[22] = 20;
+        oldHistory[23] = 156;
 
         var built = LiveEntityMemoryEditService.BuildMaxTrainingContributionHistory(
             oldHistory, new[] { 5, 17, 10, 4, 20, 10 }, 250);
@@ -95,7 +102,7 @@ public sealed class LiveMemoryWriteGateTests
         Assert.Equal(18 * 8 * 12, built.Length);
         Assert.Equal((ushort)0x1234, BitConverter.ToUInt16(built, 2 + 6 * 12));
         Assert.Equal((byte)1, built[8 + 6 * 12]);
-        Assert.Equal((ushort)0x1234, BitConverter.ToUInt16(built, 2 + 7 * 12));
+        Assert.Equal((ushort)0x5678, BitConverter.ToUInt16(built, 2 + 7 * 12));
         Assert.Equal((byte)1, built[8 + 7 * 12]);
     }
 
@@ -189,10 +196,8 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Theory]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.type")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.signed")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.joined")]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.type")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "club.season_tickets")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "club.social_media")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "supporters.mix.core")]
@@ -210,6 +215,7 @@ public sealed class LiveMemoryWriteGateTests
 
     [Theory]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "transfer_value")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.type")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.release_clause")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Staff, "attribute.potential_pa")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "ownership.sugar_daddy")]
