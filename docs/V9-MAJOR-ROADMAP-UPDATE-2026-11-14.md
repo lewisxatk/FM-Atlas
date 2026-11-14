@@ -107,3 +107,22 @@ The first Stage 2 code slice adds `ScoutingAnalyticsService` and dedicated xUnit
 6. Regression and fixture tests for every importer, metric definition, per-90 conversion, cohort boundary, missing-data case and percentile tie.
 
 The first code slice is an analytics foundation, not a completed Wyscout/StatsBomb feature. Event-level metrics remain unavailable until a real event dataset is imported and mapped.
+
+
+## Stage 2 — Wyscout / StatsBomb scouting analytics implementation
+
+The new Scouting Analytics workspace is routed into the main navigation and keeps the existing FM Scouting Matrix available as a separate source family.
+
+Implemented in this branch:
+- StatsBomb Open Data folder importer for competition/season match files, event JSON and lineups. Player-season rows are separated by competition, season and team, with lineup-derived minutes and provider provenance.
+- Event-derived counts for passing, shots/xG, dribbles/carries, pressures, duels/aerials, defensive actions, goalkeeper actions, fouls, discipline and ball-security events where the provider supplies those events/tags.
+- Derived pass completion, dribble success and aerial win percentages.
+- Wyscout player-season CSV adapter with source column preservation, per-90 recognition, minutes, age and market-value parsing. This is for user-owned exports; it is not a Wyscout API client.
+- Position-specific role presets, competition/season/position percentiles, per-90 conversion and minimum-minute gates.
+- Similar-player discovery using normalized shared metric scales and explicit coverage.
+- Same-cohort player comparison and percentile radar.
+- Explainable undervalued discovery score (65% performance percentile, 20% age, 15% relative value) when required source fields exist.
+- Local persistence, import progress/cancellation, CSV export and an FM Scouting Matrix handoff.
+- Dedicated regression tests for StatsBomb event/lineup import, Wyscout CSV parsing, sample gates, ranking, similarity and undervalued discovery.
+
+Research notes and current limitations are documented in `docs/SCOUTING-ANALYTICS-ENGINE.md`. The engine deliberately does not claim progressive passes/runs, PPDA, xT, VAEP or tracking metrics until their provider-specific action definitions, possession handling and model validation are implemented. Wyscout import currently supports user-owned player-season CSV exports, not direct API/event-feed access.
