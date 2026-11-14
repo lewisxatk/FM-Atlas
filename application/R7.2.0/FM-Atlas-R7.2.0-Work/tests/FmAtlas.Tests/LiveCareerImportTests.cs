@@ -55,6 +55,9 @@ public sealed class LiveCareerImportTests
         Assert.Equal("Fixture Manager", byClub.Name);
         Assert.Equal("Fixture FC", byClub.Club);
 
+        var byUid = Assert.Single(await database.SearchFmsaveStaffAsync("9001"));
+        Assert.Equal("Fixture Manager", byUid.Name);
+
         var facts = await database.GetFmsaveStaffFactsAsync(staff.SourceId);
         Assert.Contains(facts, fact => fact.Field.Contains("is_human_manager", StringComparison.OrdinalIgnoreCase)
             && fact.Value == "1");
