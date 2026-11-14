@@ -196,6 +196,8 @@ public static partial class LiveEntityMemoryEditService
         foreach (var change in plan.Values)
         {
             var field = ResolveField(plan.Entity, change.FieldKey);
+            if (plan.Entity == EntityKind.Player && field.Key.Equals("contract.squad_number", StringComparison.OrdinalIgnoreCase))
+                CheckSquadNumber(handle.Value, resolved, change.TargetValue);
             var address = ResolveFieldAddress(handle.Value, resolved, field, financeClass, stadiumClass);
             if (address != change.Address || change.OriginalBytes.Length != field.Size || change.TargetBytes.Length != field.Size)
                 throw new InvalidOperationException("The live record for " + field.Key + " changed after preview. No fields were written.");
