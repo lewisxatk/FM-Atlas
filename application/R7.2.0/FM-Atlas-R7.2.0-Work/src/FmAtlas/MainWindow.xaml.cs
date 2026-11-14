@@ -2327,10 +2327,10 @@ public partial class MainWindow : Window
                 .ToList();
             profileEditorTab.Children.Add(await BuildLocalEntityFactEditorAsync(
                 "player", player.SourceId, player.Name, allPlayerFacts));
-            if (player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
-                profileEditorTab.Children.Add(await BuildLiveEntityEditorAsync(
-                    LiveEntityMemoryEditService.EntityKind.Player, player.SourceId, player.Name));
         }
+        if (player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+            profileEditorTab.Children.Add(await BuildLiveEntityEditorAsync(
+                LiveEntityMemoryEditService.EntityKind.Player, player.SourceId, player.Name));
         if (attributes.Count == 0)
             attributesTab.Children.Add(Txt("No player attribute rows were supplied by the selected source.", 10, false, Muted, wrap: true));
 
