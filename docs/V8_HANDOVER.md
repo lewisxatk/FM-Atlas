@@ -18,6 +18,8 @@ Continue the integrated V8 rebuild without replacing existing R7.2.0 functionali
 - `GetFmsaveStaffFactsAsync` already strips the `LIVE:` prefix before reading `LiveStaffFacts`; this is covered by the existing `StaffSearchProfileAndCareerIdentityUseTheConnectedLiveManager` integration test.
 - The live staff query now supports name, club and UID matching; the integration test covers the linked club and UID search paths.
 - FM27 preferred-job ratings are now modelled independently using the public 15-group layout: a class-scoped pointer at person+0xD0, 15 byte ratings, 1–20 validation, tie-aware top-group selection and provisional fact persistence. The Staff profile displays the ratings without changing existing directory/search behaviour.
+- FM27 staff coaching attributes now use the public FMLibreEditor layout: 19 raw 0–100 fields are converted with the documented `(raw + 2) / 5` display scale, while authority and working-with-youngsters are retained as direct 1–20 ratings. These are persisted as provisional `staff_attributes.*` facts and appear in the existing Staff profile.
+- The staff attribute decoder has regression tests for documented offsets, display conversion, direct ratings, out-of-range omission and missing bytes. These tests are committed but have not yet been run by a fresh Windows workflow.
 - Reference findings and limitations are recorded in `docs/architecture/FM-ATLAS-V8-REFERENCE-TOOL-MAPPING-NOTES.md`; the implementation deliberately keeps group 7 unresolved and recruitment/performance analyst preferences combined.
 - Players search is paged at 250 rows, merges local and live source rows before paging, prefers the most complete source row, and restores open profile tabs after navigation. Existing Advanced Search must remain intact.
 
@@ -47,6 +49,10 @@ The current implementation checklist, architecture status and quick-start guidan
 - `470dcaf2` — live staff UID search regression added.
 - `b503ae78`, `03778f45` — clarified detection status and career monitor behaviour.
 - `edd568cc` — manager/club shortcuts now require the exact imported process/profile/save-generation session, not just a matching counter.
+- `fdd5067b` — attach the documented FM27 staff coaching-attribute decoder to live staff records.
+- `24119295` — add the standalone staff attribute decoder with 19 coaching fields and two direct ratings.
+- `e156c329` — persist staff coaching attributes as provisional profile facts.
+- `6bf0a216`, `f498d8f9` — add decoder regression tests and correct the invalid-value omission count.
 - The live career probe exposes `MatchesSession`, with a regression covering a new process reusing the same save counter.
 
 ## Current user workflow
@@ -65,6 +71,7 @@ The current implementation checklist, architecture status and quick-start guidan
 3. Confirm monitor detects load/unload/new-generation changes during the bounded scan and cancels the worker when the session changes.
 4. Confirm the Staff directory searches by name, club and UID; select a live staff fixture and verify CA/PA, nation, job, club and all stored live facts.
 5. Verify preferred-job ratings and tie/threshold handling against the in-game FM27 Staff Search UI; do not promote these values beyond provisional before that comparison.
+6. Verify the 19 staff coaching attributes plus authority/working-with-youngsters against the in-game staff profile; keep them provisional until witnessed.
 5. Confirm the manager shortcut refuses stale data from a previous FM process even if the save-load counter is identical.
 6. Windows PC test of Advanced Search preservation, Players pagination, profile tabs and navigation restoration.
 7. FM27 real-save compatibility, two-minute scan duration, CPU/RAM/peak-memory testing and package acceptance.
