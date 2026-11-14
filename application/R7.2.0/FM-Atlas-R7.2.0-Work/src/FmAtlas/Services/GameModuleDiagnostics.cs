@@ -148,7 +148,7 @@ public static class GameModuleDiagnostics
         // The read-only probe can decode names from player and club witnesses.
         // Redact every diagnostic string value that may contain a person/club name,
         // not only the hard-coded witnesses used to validate the layout.
-        safe = Regex.Replace(s, @"(?i)(common|first|last|display|joined|decoded|expected|full-name|short-name)='[^']*'", "$1='[redacted]'");
+        safe = Regex.Replace(safe, @"(?i)(common|first|last|display|joined|decoded|expected|full-name|short-name)='[^']*'", "$1='[redacted]'");
         safe = Regex.Replace(safe, @"(?i)(expected club:\\s*)[^)]+", "$1[redacted]");
         // Redact absolute paths, including install paths and user-profile paths.
         safe = Regex.Replace(safe, @"(?i)\\\\[^\r\n]+", "[path redacted]");
