@@ -16,7 +16,7 @@
 | Button feedback | Source implemented | Rounded controls include hover, pressed, keyboard-focus and disabled visual states. |
 | Workspace motion | Source implemented | 150 ms workspace fade-in is conditional on the Windows system animation setting; no continuous decorative animation. |
 | Keyboard search | Source implemented | Ctrl+K opens the existing Global Search window; Ctrl+F remains supported. |
-| Universal Advanced Search | Source implemented; latest build pending | One parameterized query combines whitelisted core player fields, PlayerAttributes and latest-save FmsavePlayerFacts with up to 60 typed ALL/AND or ANY/OR conditions. The UI includes dynamic categories/fields, local save/replace/load/delete profiles, saved visible-column selections, deterministic 250-row paging, and Cancel search wired through a CancellationToken to SQLite. Attribute and save-fact lookup indexes were added. Performance remains a separate player-period search; nested logic groups, multi-sort, multi-select/compare/shortlist actions and dedicated source-coverage badges remain open. The initial unified builder compile passed in run #101; current profile/paging/cancellation revision requires a fresh build. |
+| Universal Advanced Search | Source implemented; latest build pending | One parameterized query combines whitelisted core player fields, PlayerAttributes and latest-save FmsavePlayerFacts with up to 60 typed ALL/AND or ANY/OR conditions. The UI includes dynamic categories/fields, local save/replace/load/delete profiles, saved visible-column selections, deterministic 250-row paging, and Cancel search wired through a CancellationToken to SQLite. Attribute and save-fact lookup indexes were added. Performance remains a separate player-period search; nested logic groups, multi-sort, multi-select/compare/shortlist actions and dedicated source-coverage badges remain open. The initial unified builder compile passed in run #101; the saved-profile/paging/cancellation revision is under a fresh Windows build. |
 | Navigation responsiveness | Improved in source | Navigation buttons stay enabled while workspace construction runs; latest requested destination is queued. |
 | Player workspace activation | Improved in source | Previously open profiles are restored after the workspace is displayed rather than awaited during workspace construction. |
 | Live-memory scan safety | Blocked by default in V8 UI | The full legacy scan is behind a compile-time false gate and the toolbar action is disabled. |
@@ -59,10 +59,10 @@ A feature being present in source is not equivalent to verified completeness. Me
 
 ## Remaining V8 work before calling the rebuild complete
 
-1. Run and fix a clean Windows 10/11 .NET 8 Release build and WPF startup.
+1. Finish the current clean Windows 10/11 .NET 8 Release build, then verify WPF startup on a real Windows PC.
 2. Validate Glass Dark, Glass Light and Studio at 100%, 125% and 150% DPI and 1080p/1440p resolutions; check keyboard focus, contrast, clipping, tooltip text and the reduced-motion/system-animation path.
 3. Complete the MVVM/service-layer separation; the legacy MainWindow code-behind is still substantial.
-4. Replace the search hub and separate builders with the full general-purpose Advanced Search workspace: attribute/personality and performance-stat builders now support ALL/AND or ANY/OR matching, but a single cross-category filter library, nested logic groups, arbitrary core/contract filters, saved profiles and configurable result columns remain open.
+4. Continue Advanced Search beyond the new universal cross-category builder: expand verified field coverage, add nested logic groups, multi-sort, multi-select/compare/shortlist actions and dedicated source-coverage badges. Saved profiles, configurable visible columns, cancellation and stable 250-row paging are now implemented in source.
 5. Validate the new per-table NDJSON import path on real large saves. The adapter and C# importer now stream table rows one at a time, with a manifest and a single transaction; add manifest-to-import count reconciliation, relationship checks, malformed-row and cancellation rollback tests, lock retry policy, and measured memory/throughput benchmarks.
 6. Profile search, profile open, navigation, import and database contention on 40k+ player / 28k+ club fixtures.
 7. Implement the remaining roadmap areas only where source data and validation support them: development history, deeper tactical/match analysis, staff/club/contract coverage and explainable recruitment models.
@@ -72,7 +72,7 @@ A feature being present in source is not equivalent to verified completeness. Me
 ## Build and test
 
 - Python adapter syntax and mocked NDJSON bundle regression test passed on Windows Actions run #141 (commit `cf9559cfe91f278373ff56f012d8294155dcc396`).
-- The associated Windows .NET 8 restore/build/self-contained publish is still running at the time of this update; no compile or package result is claimed for the NDJSON integration yet.
+- The NDJSON integration and subsequent saved-profile, paging, cancellation and prepared-command revisions are being validated in fresh Windows workflows; no build/package result is claimed for the newest revision until its Release and publish steps complete.
 - A previous run #126 failed on a raw-string indentation issue in a then-current `ScoutDatabase.cs` revision; the offending SQL lines were corrected in subsequent source updates. The current run is the verification of the corrected branch state.
 
 
