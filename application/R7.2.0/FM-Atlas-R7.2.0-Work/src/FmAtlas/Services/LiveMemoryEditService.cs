@@ -267,8 +267,11 @@ public static class LiveMemoryEditService
 
     private static WritableField ResolveWritableField(string key)
     {
-        static string Normalize(string value) => value.Trim().Replace("positions.", "position.", StringComparison.OrdinalIgnoreCase);
-        var normalized = Normalize(key);
+        var normalized = key.Trim();
+        if (normalized.StartsWith("attributes.", StringComparison.OrdinalIgnoreCase))
+            normalized = normalized["attributes.".Length..];
+        if (normalized.StartsWith("positions.", StringComparison.OrdinalIgnoreCase))
+            normalized = "position." + normalized["positions.".Length..];
         if (normalized.Equals("ability.current_ability", StringComparison.OrdinalIgnoreCase) || normalized.Equals("CurrentAbility", StringComparison.OrdinalIgnoreCase))
             return new WritableField("ability.current_ability", "Current Ability", 0x264, 2, ValueEncoding.UInt16, 1, 200);
         if (normalized.Equals("ability.potential_ability", StringComparison.OrdinalIgnoreCase) || normalized.Equals("PotentialAbility", StringComparison.OrdinalIgnoreCase))
