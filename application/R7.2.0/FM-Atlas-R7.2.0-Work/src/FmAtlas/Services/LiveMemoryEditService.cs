@@ -42,10 +42,11 @@ public static class LiveMemoryEditService
     public sealed record BatchPlan(int ProcessId, uint PlayerUid, string PlayerName, string ProfileId, string ProfileFingerprint, ulong SaveLoadCounter, DateTime CreatedUtc, IReadOnlyList<PlannedChange> Changes);
     public sealed record BatchReceipt(BatchPlan Plan, DateTime AppliedUtc, bool ReadBackVerified);
 
-    // V10 is the first controlled, read-only acceptance build. Keep this hard gate false
-    // until exact-build field witnesses and disposable-save rollback checks are signed off.
-    private const bool AllowLiveWritesForThisBuild = false;
-    private const string LiveWritesDisabledMessage = "Live-memory Apply/Undo is hard-disabled in this FM Atlas V10 pre-testing build. The FM connection is read-only; do not attempt live edits.";
+    // Only the field catalogue with exact FM27 layout mappings, bounded values,
+    // identity re-resolution, stale-value preflight, read-back and rollback is enabled.
+    // Unsupported entity/field groups still fail closed in ResolveWritableField.
+    private const bool AllowLiveWritesForThisBuild = true;
+    private const string LiveWritesDisabledMessage = "Live writes are unavailable for this field or entity. Only the verified FM27 player-field catalogue is enabled.";
     public static bool LiveWritesEnabled => AllowLiveWritesForThisBuild;
 
     private static void EnsureLiveWritesEnabled()
