@@ -430,11 +430,17 @@ public static class LiveMemoryEditService
         {
             var address = U64(handle, data + i * 8);
             if (!Pointer(address)) continue;
-            int identityShift;
-            try { identityShift = DetectPlayerIdentityShift(handle, address); }
-            catch { continue; }
             uint candidateUid;
-            try { candidateUid = BitConverter.ToUInt32(Read(handle, (nint)(address + PlayerUidOffset + (ulong)identityShift), 4), 0); }
+            var identityShift = 0;
+            try
+            {
+                candidateUid = BitConverter.ToUInt32(Read(handle, (nint)(address + PlayerUidOffset), 4), 0);
+                if (candidateUid != uid)
+                {
+                    identityShift = 0xF8;
+                    candidateUid = BitConverter.ToUInt32(Read(handle, (nint)(address + PlayerUidOffset + 0xF8), 4), 0);
+                }
+            }
             catch { continue; }
             if (candidateUid != uid) continue;
             var common = ReadNameSub(handle, address + PlayerCommonNameOffset + (ulong)identityShift);
