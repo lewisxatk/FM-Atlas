@@ -5,6 +5,20 @@
 **Branch:** `rebuild/v8-full-product-rebuild`  
 **Application:** `application/R7.2.0/FM-Atlas-R7.2.0-Work/`
 
+## Full integrated continuation batch — 2026-11-14
+
+- Commit `e53f26e4`: added the toolbar Activity Centre for the existing live-career scan and offline save-import jobs. It shows active task name, live status, elapsed time, current cancellation availability and the previous task summary. It reuses the current cancellation tokens; it does not start duplicate import jobs.
+- Commit `e53f26e4`: standardised shared DataGrid row/header/cell styling for all workspaces, including hover and selected states.
+- Commit `e53f26e4`: replaced the Dashboard hero's legacy CoachPro label and flat surface with the Atlas Monolith Glass hero card, and added adaptive 4/2/1 metric-card columns.
+- Commit `d2d73758`: removed the clickable live Apply actions from Editor Studio. The editor in this V8 build is local Atlas database-only.
+- Commit `30a0110b`: fixed the shared Card helper to preserve its direct Child contract. Existing pages populate `Card(...).Child`; wrapping the child in an internal Grid would break those established callers. Also placed edit-history live Undo behind the same hard V8 live-write gate. Local undo remains available.
+- Commit `98df46a4`: applied theme-aware surfaces to TextBox, ComboBox, TabControl and ProgressBar controls after workspace creation, with a catch-and-log fallback if styling cannot be applied.
+- Commit `15efd8ed`: lowered the minimum WPF window bounds to 1000×680 so the dashboard can use its adaptive layout on smaller displays.
+- Commit `57e74111`: switched the Activity Centre toolbar icon to a Segoe MDL2 glyph and made theme application failures non-fatal to workspace navigation.
+- Commit `6f00241d`: updated the durable checklist with implementation and remaining verification states.
+
+**Verification boundary:** these are source commits, not a claim of successful Windows compilation, visual acceptance or real-game compatibility. The next gate is a fresh Windows Release build, all xUnit/Python adapter tests and self-contained x64 publish against the final branch head. Then manually inspect all four appearance modes, DataGrid/ComboBox/TabControl states and Dashboard layout at 100%, 125% and 150% DPI. Real FM27 process/session and player/staff field witnesses remain separate acceptance requirements. Live memory Apply/Undo remains blocked.
+
 ## Latest integrated continuation — 2026-11-14
 
 - Commit `91ea60ad`: closing the main WPF window now stops the live-career monitor and requests cooperative cancellation of any active read-only live scan or offline save import. The existing importer/database cancellation path is responsible for rolling back unpublished work and retaining the last committed snapshot.
