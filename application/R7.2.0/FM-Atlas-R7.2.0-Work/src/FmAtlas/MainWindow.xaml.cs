@@ -1207,8 +1207,8 @@ public partial class MainWindow : Window
                 TextAlignment = TextAlignment.Center,
                 Width = 104
             };
-            Canvas.SetLeft(label, centerX + Math.Cos(angle) * (radius + 48) - 52);
-            Canvas.SetTop(label, centerY + Math.Sin(angle) * (radius + 45) - 17);
+            System.Windows.Controls.Canvas.SetLeft(label, centerX + Math.Cos(angle) * (radius + 48) - 52);
+            System.Windows.Controls.Canvas.SetTop(label, centerY + Math.Sin(angle) * (radius + 45) - 17);
             canvas.Children.Add(label);
         }
         canvas.Children.Add(new Polygon
@@ -1228,8 +1228,8 @@ public partial class MainWindow : Window
                 StrokeThickness = 1
             });
             var dot = (Ellipse)canvas.Children[^1];
-            Canvas.SetLeft(dot, point.X - 3.5);
-            Canvas.SetTop(dot, point.Y - 3.5);
+            System.Windows.Controls.Canvas.SetLeft(dot, point.X - 3.5);
+            System.Windows.Controls.Canvas.SetTop(dot, point.Y - 3.5);
         }
         layout.Children.Add(canvas);
         host.Child = layout;

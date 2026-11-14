@@ -137,7 +137,7 @@ public partial class MainWindow
             var feedback = Txt("Select at least two attributes and give each a positive weight.", 9, false, Muted, wrap: true);
             DockPanel.SetDock(footer, Dock.Bottom);
             var cancelEditor = SoftButton("Cancel", (_, _) => editor.DialogResult = false);
-            var saveEditor = PrimaryButton("Save template", (_, _) => editor.DialogResult = true);
+            var saveEditor = PrimaryButton("Save template", (_, _) => { });
             footer.Children.Add(cancelEditor);
             footer.Children.Add(saveEditor);
             DockPanel.SetDock(feedback, Dock.Bottom);
