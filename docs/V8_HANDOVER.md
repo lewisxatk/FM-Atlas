@@ -166,3 +166,17 @@ The V8 glass treatment remains deliberately cross-version and does not depend on
 - Decision: retain the layered WPF glass material as the reliable Windows 10/11 baseline. Consider an optional, guarded Windows 11 Mica backdrop adapter only after the current WPF build and visual tests pass; always preserve the existing solid/translucent fallback for Windows 10, disabled transparency and unsupported systems. Do not add an undocumented Acrylic dependency or compromise window-drag/resize responsiveness for blur.
 
 This keeps the app's Windows 10 target intact while leaving a documented route to native Windows 11 material support.
+
+
+## Advanced Search Studio and verification correction — 2026-11-14
+
+- Commit `f48dfa71`: Advanced Search condition controls now wrap to the next line at narrow workspace widths instead of overflowing as one horizontal strip. Each condition has move-up/move-down controls; the visible order and captured query order move together. Existing field discovery, 60-condition limit, ALL/ANY logic, saved profile schema, server-side sorting, paging, cancellation, compare, similar-player, CSV and shortlist actions are retained.
+- Commit `57ba205b`: corrected a sparse-fixture assertion in `StaffAttributeDecoderUsesDocumentedFm27OffsetsAndDisplayScale`. The fixture seeds five valid ratings, one invalid raw value and leaves other offsets zero; the decoder intentionally omits zero/missing and out-of-range values. Expected decoded count is five. Decoder behaviour was not weakened.
+- Commit `8813b9d0`: recorded the FMRTE 27, Genie Scout 27 and FMLibreEditor research in the reverse-engineering ledger. Patterns are adopted as product guidance, not copied proprietary formulas.
+- Commit `c7cce367`: corrected local-variable initialization for the new condition reorder handlers before CI.
+
+The previous Windows run `43554026041` built Release successfully and passed the Python adapter tests, but the .NET suite reported 59/60 because the sparse decoder test expected 20 results instead of the five seeded valid facts. The x64 publish and artifact upload were skipped. The corrected branch head requires a fresh complete Windows run; no new build/test/publish pass is claimed yet.
+
+### Glass status
+
+The Monolith Glass source system now includes the shared glass-card material, themed toolbar/sidebar, shared DataGrid row/header/hover/selection styles, theme-aware TextBox/ComboBox/TabControl/progress styling, and the adaptive dashboard hero. This is implementation status, not visual acceptance. Dialog-specific polish, high-contrast accessibility, dropdown popup/scrollbar consistency, chart and empty/loading/error states, and 100%/125%/150% Windows DPI review remain open. Windows 10 fallback remains the baseline; native Windows 11 Mica is deferred until the cross-version build and visual pass are clean.
