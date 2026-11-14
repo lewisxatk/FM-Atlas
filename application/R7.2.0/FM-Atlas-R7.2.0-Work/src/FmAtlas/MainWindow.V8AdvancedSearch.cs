@@ -691,6 +691,7 @@ public partial class MainWindow
 
             var valueHost = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             Border container = null!;
+            AdvancedSearchUiRow row = null!;
             var moveUp = SoftButton("↑", (_, _) => MoveCondition(row, -1));
             moveUp.Width = 32;
             moveUp.Height = 32;
@@ -732,7 +733,7 @@ public partial class MainWindow
                 Child = rowPanel
             };
 
-            var row = new AdvancedSearchUiRow
+            row = new AdvancedSearchUiRow
             {
                 CategoryPicker = categoryPicker,
                 FieldPicker = fieldPicker,
