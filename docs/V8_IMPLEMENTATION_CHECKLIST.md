@@ -75,7 +75,10 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Persist the 15 staff preference ratings and qualified top-group summary as provisional `LiveStaffFacts`; display them in the existing Staff profile without replacing the Staff directory.
 - [x] Decode the 19 FM27 staff coaching attributes and two direct 1–20 ratings from the documented staff layout; keep these base offsets unchanged for the human-manager identity shift.
 - [x] Persist the decoded staff coaching/direct ratings as provisional `staff_attributes.*` facts and expose them automatically in the existing Staff profile fact groups.
+- [x] Decode the eight FM27 staff personality ratings using the identity-block shift (including the human-manager +0x340 layout) and persist them as provisional `staff_personality.*` facts.
+- [x] Read available staff contract facts from the documented contract object: weekly wage in GBP, signed date, expiry date and joined-club date; persist only range-valid/readable values.
 - [ ] Compare staff coaching attributes, authority and working-with-youngsters against the FM27 staff profile on the installed build before promoting any field beyond provisional.
+- [ ] Compare staff personality, weekly wage and contract dates against the in-game staff/contract screens before promoting any field beyond provisional.
 - [ ] Compare preferred-job ratings and top-group labels against FM27's Staff Search / staff profile on the user's installed build; keep the field provisional until witnessed.
 - [x] Fix live player search to resolve ability.current_ability and ability.potential_ability, including profile-matched provisional values and negative PA ranges, for display and CA/PA filtering. Include live nationality, primary position and CA/PA/personality/attribute/position filters in the existing player/Advanced Search data path.
 - [x] Display all available provisional live position ratings and the eight personality ratings on player profiles with explicit source-confidence warnings; show live nation and primary position in the player directory.
