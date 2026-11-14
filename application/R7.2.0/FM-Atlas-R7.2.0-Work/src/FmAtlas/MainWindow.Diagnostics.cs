@@ -69,7 +69,7 @@ public partial class MainWindow
         var reportTop = new StackPanel();
         reportTop.Children.Add(Txt("COPY & EXPORT", 9, true, Teal));
         reportTop.Children.Add(Txt("Support snapshot", 17, true, Ink));
-        sensitive = new CheckBox { Content = "Include personal details (player names, save filename and local database path)", IsChecked = false, Margin = new Thickness(0, 10, 0, 10), Foreground = Ink, FontSize = 10 };
+        sensitive = new CheckBox { Content = "Include personal details (player/club names, save filename and local database path)", IsChecked = false, Margin = new Thickness(0, 10, 0, 10), Foreground = Ink, FontSize = 10 };
         reportTop.Children.Add(sensitive);
         reportTop.Children.Add(PrimaryButton("Copy safe diagnostics to clipboard", async (_, _) =>
         {
