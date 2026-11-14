@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: fm-atlas-v11-windows-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: fm-atlas-v11-windows-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
