@@ -388,13 +388,16 @@ public partial class MainWindow
                 var valued = ScoutingActionAnalyticsService.ValueActions(actions, model);
                 var chains = ScoutingActionAnalyticsService.BuildPossessionChains(valued);
                 var players = ScoutingActionAnalyticsService.AggregatePlayers(valued);
+                var network = ScoutingActionAnalyticsService.BuildPassingNetwork(valued);
                 status.Text = $"Event Lab ready · {model.TrainingMatches:N0} matches · {actions.Count:N0} unified actions · {chains.Count:N0} possession chains · empirical {model.Columns}×{model.Rows} xT grid.";
                 var tabs = new TabControl { Margin = new Thickness(12) };
                 var playerGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = players, FrozenColumnCount = 2 };
                 var chainGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = chains, FrozenColumnCount = 2 };
+                var networkGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = network, FrozenColumnCount = 2 };
                 var actionGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = valued.Take(5000), FrozenColumnCount = 3 };
                 tabs.Items.Add(new TabItem { Header = "Player impact", Content = playerGrid });
                 tabs.Items.Add(new TabItem { Header = "Possession chains", Content = chainGrid });
+                tabs.Items.Add(new TabItem { Header = "Passing network", Content = networkGrid });
                 tabs.Items.Add(new TabItem { Header = "Unified actions (first 5,000)", Content = actionGrid });
                 var panel = new DockPanel();
                 var note = Txt($"ATLAS EMPIRICAL xT · {model.Columns} × {model.Rows} pitch grid\nTrained from {model.TrainingMatches:N0} matches and {model.TrainingActions:N0} event actions in this import. xT is the change in fitted zone threat for successful passes/carries; it does not value shots, failed actions or defensive actions. Model is dataset-specific and should be trained on a representative sample before cross-league comparisons.", 10, false, Muted, wrap: true);
