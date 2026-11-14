@@ -98,6 +98,7 @@ public partial class MainWindow
         toolbar.Children.Add(FilterControl("MATCH LOGIC", logic, 180));
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
         searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
+        var shortlistSelectedButton = SoftButton("Add selected to shortlist", async (_, _) => await AddSelectedToShortlistAsync());
         cancelSearchButton = SoftButton("Cancel search", (_, _) => activeSearchCancellation?.Cancel());
         cancelSearchButton.IsEnabled = false;
         var resetButton = SoftButton("Reset filters", (_, _) => ResetFilters());
@@ -108,6 +109,7 @@ public partial class MainWindow
         deleteProfileButton.IsEnabled = savedProfiles.Count > 0;
         toolbar.Children.Add(addButton);
         toolbar.Children.Add(searchButton);
+        toolbar.Children.Add(shortlistSelectedButton);
         toolbar.Children.Add(cancelSearchButton);
         toolbar.Children.Add(resetButton);
         toolbar.Children.Add(saveProfileButton);
@@ -158,6 +160,9 @@ public partial class MainWindow
         grid = CreateGrid();
         grid.MinHeight = 310;
         grid.MaxHeight = 560;
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.SelectionUnit = DataGridSelectionUnit.FullRow;
+        grid.ToolTip = "Select multiple players with Ctrl or Shift. Double-click a player to open their profile.";
         void AddResultColumn(string header, string property, double weight)
         {
             var column = Column(header, property, weight);
@@ -230,6 +235,72 @@ public partial class MainWindow
         };
         dock.Children.Add(grid);
         content.Children.Add(resultCard);
+
+        async Task AddSelectedToShortlistAsync()
+        {
+            var selected = grid.SelectedItems.OfType<PlayerRecord>()
+                .Where(x => !string.IsNullOrWhiteSpace(x.SourceId))
+                .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.First())
+                .ToList();
+            if (selected.Count == 0)
+            {
+                status.Text = "Select one or more player rows first. Use Ctrl or Shift for multi-select.";
+                return;
+            }
+
+            try
+            {
+                var names = await RunDatabaseAsync(() => _database.GetShortlistNamesAsync());
+                var picker = new ComboBox
+                {
+                    IsEditable = true,
+                    ItemsSource = names,
+                    Text = names.FirstOrDefault() ?? "My Shortlist",
+                    Height = 36,
+                    Margin = new Thickness(0, 8, 0, 14),
+                    FontSize = 12
+                };
+                var dialog = new Window
+                {
+                    Title = "Add selected players to shortlist",
+                    Owner = this,
+                    Width = 440,
+                    Height = 205,
+                    ResizeMode = ResizeMode.NoResize,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Background = Brush("#171F28"),
+                    Foreground = Ink
+                };
+                var panel = new StackPanel { Margin = new Thickness(18) };
+                panel.Children.Add(Txt($"Add {selected.Count:N0} selected players", 17, true, Ink));
+                panel.Children.Add(Txt("Choose an existing shortlist or type a new name. The player records and career save are not modified.", 10, false, Muted, wrap: true));
+                panel.Children.Add(picker);
+                var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+                actions.Children.Add(SoftButton("Cancel", (_, _) => dialog.DialogResult = false));
+                actions.Children.Add(PrimaryButton("Add players", (_, _) => dialog.DialogResult = true));
+                panel.Children.Add(actions);
+                dialog.Content = panel;
+
+                if (dialog.ShowDialog() != true) return;
+                var shortlistName = picker.Text.Trim();
+                if (shortlistName.Length == 0)
+                {
+                    status.Text = "Enter a shortlist name before adding players.";
+                    return;
+                }
+
+                var added = await RunDatabaseAsync(() => _database.AddPlayersToShortlistAsync(selected, shortlistName));
+                status.Text = $"{added:N0} selected players added to shortlist “{shortlistName}”.";
+                AtlasLog.Info($"Advanced Search shortlist batch: name={shortlistName}; players={added}.");
+                grid.SelectedItems.Clear();
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Could not add selected Advanced Search players to a shortlist.", ex);
+                status.Text = "Shortlist update failed: " + ex.Message;
+            }
+        }
 
         void UpdateValueControls(AdvancedSearchUiRow row)
         {
