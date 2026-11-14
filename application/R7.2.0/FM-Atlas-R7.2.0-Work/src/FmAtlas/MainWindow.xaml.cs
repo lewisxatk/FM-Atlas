@@ -2048,12 +2048,14 @@ public partial class MainWindow : Window
             SetImportStatus(message);
             AtlasLog.Info("Save import: " + message);
         });
+        string? temporarySnapshotPath = null;
 
         try
         {
             SetImportStatus("Starting read-only save inspection…");
             AtlasLog.Info("Starting read-only FM career save export/import.");
             var result = await FmsaveBridgeService.ExportAsync(open.FileName, cancellation.Token, progress);
+            temporarySnapshotPath = result.OutputJsonPath;
             cancellation.Token.ThrowIfCancellationRequested();
             SetImportStatus("Save inspection complete. Indexing the career snapshot into Atlas…");
             var imported = await RunDatabaseAsync(() => _database.ImportFmsaveSnapshotAsync(result.OutputJsonPath, cancellation.Token, progress));
@@ -2084,6 +2086,11 @@ public partial class MainWindow : Window
         finally
         {
             importTimer.Stop();
+            if (!string.IsNullOrWhiteSpace(temporarySnapshotPath))
+            {
+                try { if (File.Exists(temporarySnapshotPath)) File.Delete(temporarySnapshotPath); }
+                catch (Exception ex) { AtlasLog.Warning("Could not remove temporary save snapshot JSON: " + ex.Message); }
+            }
             if (_liveLoadProgress is not null)
             {
                 _liveLoadProgress.IsIndeterminate = false;
