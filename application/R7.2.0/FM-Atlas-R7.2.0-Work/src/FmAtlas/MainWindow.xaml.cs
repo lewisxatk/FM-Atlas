@@ -3385,32 +3385,108 @@ public partial class MainWindow : Window
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
     {
+        // Shared layered glass surface: a translucent vertical material, a fine inner
+        // edge and a restrained top reflection. Keep the content itself unblurred so
+        // tables, player data and small labels remain crisp and accessible.
         var light = _themeMode == "Glass Light";
-        var background = light
-            ? new SolidColorBrush(Color.FromArgb(226, 255, 255, 255))
-            : _themeMode == "Studio"
-                ? new SolidColorBrush(Color.FromArgb(226, 14, 16, 19))
-                : new SolidColorBrush(Color.FromArgb(198, 27, 29, 34));
-        var border = light
-            ? new SolidColorBrush(Color.FromArgb(172, 151, 188, 220))
-            : new SolidColorBrush(Color.FromArgb(112, 244, 155, 100));
+        var studio = _themeMode == "Studio";
+        var top = light
+            ? Color.FromArgb(242, 255, 255, 255)
+            : studio
+                ? Color.FromArgb(232, 22, 25, 31)
+                : _themeMode == "Monolith Glass"
+                    ? Color.FromArgb(222, 38, 39, 44)
+                    : Color.FromArgb(214, 25, 34, 45);
+        var bottom = light
+            ? Color.FromArgb(222, 239, 245, 251)
+            : studio
+                ? Color.FromArgb(224, 13, 16, 21)
+                : _themeMode == "Monolith Glass"
+                    ? Color.FromArgb(194, 22, 24, 28)
+                    : Color.FromArgb(190, 15, 24, 35);
+        var edgeTop = light
+            ? Color.FromArgb(205, 255, 255, 255)
+            : Color.FromArgb(150, 244, 155, 100);
+        var edgeBottom = light
+            ? Color.FromArgb(125, 151, 178, 205)
+            : Color.FromArgb(48, 244, 155, 100);
+        var innerHighlight = light
+            ? Color.FromArgb(150, 255, 255, 255)
+            : Color.FromArgb(76, 255, 255, 255);
+
+        var layers = new Grid();
+        layers.Children.Add(new Border
+        {
+            CornerRadius = new CornerRadius(radius),
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(top, 0),
+                    new GradientStop(bottom, 1)
+                },
+                new Point(0, 0),
+                new Point(0, 1))
+        });
+        layers.Children.Add(new Border
+        {
+            Margin = new Thickness(1),
+            CornerRadius = new CornerRadius(Math.Max(0, radius - 1)),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(1),
+            BorderBrush = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(innerHighlight, 0),
+                    new GradientStop(Color.FromArgb(12, 255, 255, 255), 0.55),
+                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 1)
+                },
+                new Point(0, 0),
+                new Point(0, 1)),
+            IsHitTestVisible = false
+        });
+        layers.Children.Add(new Border
+        {
+            Height = 1,
+            Margin = new Thickness(Math.Max(12, radius * 0.7), 1, Math.Max(12, radius * 0.7), 0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Top,
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 0),
+                    new GradientStop(innerHighlight, 0.5),
+                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 1)
+                },
+                new Point(0, 0),
+                new Point(1, 0)),
+            IsHitTestVisible = false
+        });
+        layers.Children.Add(child);
+
         return new Border
         {
-            Background = background,
-            BorderBrush = border,
+            Background = Brushes.Transparent,
+            BorderBrush = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(edgeTop, 0),
+                    new GradientStop(edgeBottom, 1)
+                },
+                new Point(0, 0),
+                new Point(0, 1)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(radius),
             Padding = new Thickness(15),
             Margin = margin ?? new Thickness(0),
             Effect = new DropShadowEffect
             {
-                Color = light ? Color.FromRgb(176, 104, 64) : Color.FromRgb(0, 0, 0),
-                BlurRadius = 22,
-                ShadowDepth = 4,
-                Opacity = light ? 0.10 : 0.24
+                Color = light ? Color.FromRgb(111, 126, 145) : Color.FromRgb(0, 0, 0),
+                BlurRadius = 24,
+                ShadowDepth = 5,
+                Opacity = light ? 0.12 : 0.28
             },
             SnapsToDevicePixels = true,
-            Child = child
+            Child = layers
         };
     }
 
