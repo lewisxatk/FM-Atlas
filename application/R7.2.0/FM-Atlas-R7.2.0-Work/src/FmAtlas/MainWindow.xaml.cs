@@ -1012,15 +1012,16 @@ public partial class MainWindow : Window
 
             _players.Clear();
             foreach (var item in results) _players.Add(item);
-            var abilitySummary = string.Join(" · ", new[]
+            var filterSummary = string.Join(" · ", new[]
             {
+                pos is null ? null : $"Position {pos}",
                 minCa.HasValue || maxCa.HasValue ? $"CA {minCa?.ToString() ?? "any"}–{maxCa?.ToString() ?? "any"}" : null,
                 minPa.HasValue || maxPa.HasValue ? $"PA {minPa?.ToString() ?? "any"}–{maxPa?.ToString() ?? "any"}" : null
             }.Where(x => x is not null));
             _playerCountText.Text = $"{total:N0} matching source records · {countLive:N0} live identities · {countLocal:N0} save/local records";
             _playerPageStatus!.Text = results.Count == 0
                 ? "No matches · adjust the search or filters"
-                : $"Showing {_playerOffset + 1:N0}–{_playerOffset + results.Count:N0} · {countLive:N0} live · {countLocal:N0} save/local{(abilitySummary.Length == 0 ? "" : " · " + abilitySummary)}";
+                : $"Showing {_playerOffset + 1:N0}–{_playerOffset + results.Count:N0} · {countLive:N0} live · {countLocal:N0} save/local{(filterSummary.Length == 0 ? "" : " · " + filterSummary)}";
             _previousPlayerPageButton!.IsEnabled = _playerOffset > 0;
             _nextPlayerPageButton!.IsEnabled = results.Count == PlayerPageSize && mergedHasMore;
 
