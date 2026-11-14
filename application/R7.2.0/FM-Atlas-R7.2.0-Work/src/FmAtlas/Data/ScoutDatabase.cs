@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using FmAtlas.Models;
 using FmAtlas.Services;
 
@@ -1247,18 +1248,19 @@ public sealed class ScoutDatabase
         await WriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-        await using var documentStream = File.OpenRead(jsonPath);
+        var isBundle = Directory.Exists(jsonPath);
+        var manifestPath = isBundle ? Path.Combine(jsonPath, "manifest.json") : jsonPath;
+        if (!File.Exists(manifestPath)) throw new FileNotFoundException("The FM Atlas save snapshot manifest is missing.", manifestPath);
+        await using var documentStream = File.OpenRead(manifestPath);
         using var document = await JsonDocument.ParseAsync(documentStream, new JsonDocumentOptions { MaxDepth = 128 }, cancellationToken);
         var root = document.RootElement;
-        if (GetString(root, "schema") != "fmatlas.fmsave.snapshot.v1")
-            throw new InvalidDataException("This is not an FM Atlas fmsave snapshot. Re-export the save using tools/Export-FMAtlas-Fmsave.py.");
-        var players = GetArray(root, "players");
-        var playerTotal = GetArrayCount(root, "players");
+        var schema = GetString(root, "schema");
+        if (isBundle ? schema != "fmatlas.fmsave.snapshot.ndjson.v1" : schema != "fmatlas.fmsave.snapshot.v1")
+            throw new InvalidDataException("This is not a supported FM Atlas save snapshot or NDJSON bundle. Re-export the save using the bundled fmsave bridge.");
+        var playerTotal = isBundle ? GetManifestTableCount(root, "players") : GetArrayCount(root, "players");
+        var staffTotal = isBundle ? GetManifestTableCount(root, "staff") : GetArrayCount(root, "staff");
+        var clubTotal = isBundle ? GetManifestTableCount(root, "clubs") : GetArrayCount(root, "clubs");
         if (playerTotal == 0) throw new InvalidDataException("The save reader returned no player records. No database changes were made.");
-        var staff = GetArray(root, "staff");
-        var staffTotal = GetArrayCount(root, "staff");
-        var clubs = GetArray(root, "clubs");
-        var clubTotal = GetArrayCount(root, "clubs");
         var warnings = GetArray(root, "warnings").Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() ?? "" : x.GetRawText()).Where(x => x.Length > 0).ToList();
         var tableCounts = new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);
         if (root.TryGetProperty("counts", out var countObject) && countObject.ValueKind == JsonValueKind.Object)
@@ -1305,7 +1307,7 @@ public sealed class ScoutDatabase
         playerUpsert.Prepare(); rawPlayer.Prepare(); attributeInsert.Prepare();
         var playerCount = 0;
         var scannedPlayers = 0;
-        foreach (var player in players)
+        await foreach (var player in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "players", cancellationToken).ConfigureAwait(false))
         {
             if ((scannedPlayers++ % 250) == 0)
             {
@@ -1370,7 +1372,7 @@ public sealed class ScoutDatabase
         staffInsert.Parameters.AddWithValue("$snapshot", snapshotId); staffInsert.Parameters.Add("$uid", SqliteType.Text); staffInsert.Parameters.Add("$name", SqliteType.Text); staffInsert.Parameters.Add("$club", SqliteType.Text); staffInsert.Parameters.Add("$job", SqliteType.Text); staffInsert.Parameters.Add("$age", SqliteType.Integer); staffInsert.Parameters.Add("$nation", SqliteType.Text); staffInsert.Parameters.Add("$raw", SqliteType.Text);
         var staffCount = 0;
         var scannedStaff = 0;
-        foreach (var item in staff.Where(x => x.ValueKind == JsonValueKind.Object))
+        await foreach (var item in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "staff", cancellationToken).ConfigureAwait(false))
         {
             if ((scannedStaff++ % 250) == 0)
             {
@@ -1390,7 +1392,7 @@ public sealed class ScoutDatabase
         clubInsert.Parameters.AddWithValue("$snapshot", snapshotId); clubInsert.Parameters.Add("$uid", SqliteType.Text); clubInsert.Parameters.Add("$name", SqliteType.Text); clubInsert.Parameters.Add("$nation", SqliteType.Text); clubInsert.Parameters.Add("$raw", SqliteType.Text);
         var clubCount = 0;
         var scannedClubs = 0;
-        foreach (var item in clubs.Where(x => x.ValueKind == JsonValueKind.Object))
+        await foreach (var item in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "clubs", cancellationToken).ConfigureAwait(false))
         {
             if ((scannedClubs++ % 250) == 0)
             {
@@ -1418,13 +1420,14 @@ public sealed class ScoutDatabase
         foreach (var tableName in extraNames)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var tableRows = GetArray(root, tableName);
             progress?.Report($"Indexing {tableName} records…");
-            foreach (var (row, index) in tableRows.Select((r,i)=>(r,i)))
+            var rowIndex = 0;
+            await foreach (var row in ReadSnapshotRowsAsync(jsonPath, root, isBundle, tableName, cancellationToken).ConfigureAwait(false))
             {
+                var currentIndex = rowIndex++;
                 if ((extraCount % 500) == 0) cancellationToken.ThrowIfCancellationRequested();
                 var rawJson = row.GetRawText();
-                extraInsert.Parameters["$table"].Value = tableName; extraInsert.Parameters["$index"].Value = index; extraInsert.Parameters["$raw"].Value = rawJson;
+                extraInsert.Parameters["$table"].Value = tableName; extraInsert.Parameters["$index"].Value = currentIndex; extraInsert.Parameters["$raw"].Value = rawJson;
                 await extraInsert.ExecuteNonQueryAsync(); extraCount++;
                 if ((tableName is "player_season_stats" or "player_season_history" or "player_match_stats") && row.ValueKind == JsonValueKind.Object)
                 {
@@ -1432,7 +1435,7 @@ public sealed class ScoutDatabase
                     if (!string.IsNullOrWhiteSpace(uid))
                     {
                         var period = tableName == "player_match_stats"
-                            ? GetFirstJsonString(row, "fixture_uid", "match_uid", "fixture_id", "match_id", "date", "match_date") ?? $"Match #{index + 1}"
+                            ? GetFirstJsonString(row, "fixture_uid", "match_uid", "fixture_id", "match_id", "date", "match_date") ?? $"Match #{currentIndex + 1}"
                             : GetFirstJsonString(row, "season", "season_name", "year") ?? "Season unavailable";
                         double? minutes = null;
                         foreach (var key in new[] { "minutes_played", "playing_time_minutes", "minutes", "mins_played", "total_minutes", "minutes_on_pitch" })
@@ -1441,7 +1444,7 @@ public sealed class ScoutDatabase
                         {
                             var leaf = metric.Key.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? metric.Key;
                             if (IsAnalyticsIdentityKey(leaf) || IsNonMetricNumericField(leaf) || !double.IsFinite(metric.Value)) continue;
-                            statFactInsert.Parameters["$table"].Value = tableName; statFactInsert.Parameters["$index"].Value = index;
+                            statFactInsert.Parameters["$table"].Value = tableName; statFactInsert.Parameters["$index"].Value = currentIndex;
                             statFactInsert.Parameters["$uid"].Value = uid; statFactInsert.Parameters["$period"].Value = period;
                             statFactInsert.Parameters["$minutes"].Value = (object?)minutes ?? DBNull.Value;
                             statFactInsert.Parameters["$field"].Value = metric.Key; statFactInsert.Parameters["$value"].Value = metric.Value;
@@ -3031,6 +3034,55 @@ public sealed class ScoutDatabase
         if (value.ValueKind == JsonValueKind.Array) return string.Join(", ",value.EnumerateArray().Select(x=>x.ValueKind==JsonValueKind.String?x.GetString():x.ToString()).Where(x=>!string.IsNullOrWhiteSpace(x)));
         return value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined ? null : value.ToString();
     }
+    private static int GetManifestTableCount(JsonElement manifest, string tableName)
+    {
+        if (manifest.ValueKind != JsonValueKind.Object || !manifest.TryGetProperty("counts", out var counts) || counts.ValueKind != JsonValueKind.Object)
+            return 0;
+        return counts.TryGetProperty(tableName, out var value) && value.TryGetInt32(out var count) ? Math.Max(0, count) : 0;
+    }
+
+    private static async IAsyncEnumerable<JsonElement> ReadSnapshotRowsAsync(
+        string inputPath,
+        JsonElement legacyRoot,
+        bool isBundle,
+        string tableName,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!isBundle)
+        {
+            foreach (var row in GetArray(legacyRoot, tableName))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return row;
+            }
+            yield break;
+        }
+
+        var tablePath = Path.Combine(inputPath, tableName + ".ndjson");
+        if (!File.Exists(tablePath)) yield break;
+        using var reader = new StreamReader(tablePath, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            JsonDocument rowDocument;
+            try
+            {
+                rowDocument = JsonDocument.Parse(line, new JsonDocumentOptions { MaxDepth = 128 });
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"Invalid NDJSON row in {Path.GetFileName(tablePath)}: {ex.Message}", ex);
+            }
+            using (rowDocument)
+            {
+                yield return rowDocument.RootElement;
+            }
+        }
+    }
+
     private static IEnumerable<JsonElement> GetArray(JsonElement element, string name)
     {
         if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Array)
