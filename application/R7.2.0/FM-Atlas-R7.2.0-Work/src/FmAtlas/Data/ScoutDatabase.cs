@@ -1572,6 +1572,10 @@ public sealed class ScoutDatabase
             if (player.U21Goals.HasValue) SetLiveFact("international.u21_goals", player.U21Goals.Value);
             if (player.LeftFoot.HasValue) SetLiveFact("left_foot", player.LeftFoot.Value);
             if (player.RightFoot.HasValue) SetLiveFact("right_foot", player.RightFoot.Value);
+            foreach (var field in player.ContractFacts ?? new Dictionary<string, double>())
+                SetLiveFact(field.Key, field.Value);
+            foreach (var field in player.TraitFlags ?? new Dictionary<string, double>())
+                SetLiveFact(field.Key, field.Value);
             if (player.DateOfBirth.HasValue) SetLiveFact("date_of_birth", null, player.DateOfBirth.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
             if (player.NationUid.HasValue) SetLiveFact("identity.nation_uid", player.NationUid.Value);
             if (!string.IsNullOrWhiteSpace(player.NationName)) SetLiveFact("identity.nation_name", null, player.NationName);
