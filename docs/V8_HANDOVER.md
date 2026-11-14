@@ -285,3 +285,11 @@ This batch is source-implemented and regression tests are added, but it is not y
 - Code and a new SQLite integration test are committed to the development branch.
 - Fresh Windows Release build, full xUnit result, publish artifact, real-save SQL acceptance, in-game position witness comparison and DPI visual review are pending. Do not use the previous 9ec72cb artifact as if it contains this batch.
 - Existing Advanced Search, saved profiles, 15-position pitch display, player directories, shortlist and prior V8 work are preserved.
+
+
+### Follow-up refinement
+
+- Performance vs Value now allows the scatter plot's Y-axis to use overall, position-cohort or league-cohort performance percentile.
+- Small cohorts without a valid percentile are excluded from the corresponding chart view; the result table still shows the missing cohort percentile as an em dash.
+- FM position familiarity is shown in the grid, tooltip and export only when a numeric position cohort is selected.
+- Added a regression assertion for the unrestricted search path. Build/test verification is pending a non-cancelled Windows workflow.
