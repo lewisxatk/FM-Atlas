@@ -25,9 +25,10 @@ namespace FmAtlas;
 public partial class MainWindow : Window
 {
     private static string _themeMode = LoadThemeMode();
-    // Read-only entity-array scans are bounded by a two-minute deadline and can be cancelled
-    // from the toolbar. Live editing remains fail-closed until field-level write evidence passes.
-    private static bool LiveMemoryImportEnabled => true;
+    // Detection-only mode is intentional: the 3-second monitor may identify the process,
+    // supported build and save generation, but must not read large FM entity arrays until
+    // controlled performance and field-witness gates are passed. Live editing is also OFF.
+    private static bool LiveMemoryImportEnabled => false;
     private static bool LiveMemoryEditingEnabled => false;
     private static Brush Ink => Brush("#E8EEF4");
     private static Brush Teal => Brush("#F08A42");
@@ -204,7 +205,7 @@ public partial class MainWindow : Window
         actions.Children.Add(ToolbarIcon("\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
         actions.Children.Add(ToolbarIcon("\uE80F", "Open your human-manager profile in the Staff directory.", async (_, _) => await OpenMyManagerAsync()));
         actions.Children.Add(ToolbarIcon("\uE77B", "Open your current club in the Club directory.", async (_, _) => await OpenMyClubAsync()));
-        _liveLoadButton = ToolbarIcon("\uE72C", "Connect to or refresh the currently loaded FM27 career. Atlas also detects save changes automatically.", async (_, _) => await LoadLiveCareerAsync());
+        _liveLoadButton = ToolbarIcon("\uE72C", "Detect the active FM27 process and save generation. Full live data scanning is currently paused for safety.", async (_, _) => await LoadLiveCareerAsync());
         _liveLoadButton.IsEnabled = true;
         actions.Children.Add(_liveLoadButton);
         actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle Monolith Glass, Glass Dark, Glass Light and Studio.", async (_, _) => await CycleThemeAsync()));
@@ -654,7 +655,8 @@ public partial class MainWindow : Window
         heroGrid.Children.Add(heroLeft);
         var heroActions = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Width = 185 };
         heroActions.Children.Add(WhiteButton("Import career save", async (_, _) => await ImportCareerSaveAsync()));
-        var liveButton = new Button { Content = "Load live game", Margin = new Thickness(3), Padding = new Thickness(12, 9, 12, 9), Foreground = Brush("#0D1117"), Background = Brush("#C6F36B"), BorderBrush = Brush("#4BA6A8"), Template = RoundedButtonTemplate(12), FontWeight = FontWeights.SemiBold };
+        var liveButton = new Button { Content = "Detect live game", Margin = new Thickness(3), Padding = new Thickness(12, 9, 12, 9), Foreground = Brush("#0D1117"), Background = Brush("#C6F36B"), BorderBrush = Brush("#4BA6A8"), Template = RoundedButtonTemplate(12), FontWeight = FontWeights.SemiBold };
+        liveButton.ToolTip = "Detect the running FM27 career. Large live-memory scans are paused pending safety verification.";
         liveButton.Click += async (_, _) => await LoadLiveCareerAsync();
         heroActions.Children.Add(liveButton);
         Grid.SetColumn(heroActions, 1); heroGrid.Children.Add(heroActions); hero.Child = heroGrid; root.Children.Add(hero);
@@ -2772,8 +2774,8 @@ public partial class MainWindow : Window
     private void StartLiveCareerMonitor()
     {
         if (_liveCareerTimer is not null) return;
-        // Bounded check: one exact-profile probe every three seconds; the entity-array import
-        // starts only after the game's own save-load generation says a career is ready.
+        // Detection-only check: one exact-profile/session probe every three seconds.
+        // Do not start a player/staff/club array scan from this timer while the safety gate is OFF.
         _liveCareerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _liveCareerTimer.Tick += async (_, _) =>
         {
