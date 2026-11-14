@@ -43,9 +43,9 @@ public partial class MainWindow
             try
             {
                 checkStatus.Text = "Inspecting FM process and game_plugin.dll read-only…";
-                Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-                moduleReport = await Task.Run(() => GameModuleDiagnostics.CreateSupportReport(sensitive.IsChecked == true));
-                logView.Text = moduleReport;
+                System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+                moduleReport = await Task.Run(() => GameModuleDiagnostics.CreateReport());
+                logView.Text = GameModuleDiagnostics.RedactForSupport(moduleReport, sensitive.IsChecked == true);
                 checkStatus.Text = "Read-only module probe completed. No game memory was changed. Use Copy diagnostics or Export support ZIP to share it.";
                 AtlasLog.Info("Read-only FM module diagnostics completed.");
             }
@@ -55,7 +55,7 @@ public partial class MainWindow
                 checkStatus.Text = "Module probe failed: " + ex.GetType().Name + ". Export the support report and send it for investigation.";
                 MessageBox.Show(this, ex.Message, "FM Atlas · Module diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
-            finally { Mouse.OverrideCursor = null; }
+            finally { System.Windows.Input.Mouse.OverrideCursor = null; }
         }));
         checksTop.Children.Add(SoftButton("Open application log folder", (_, _) => OpenLogFolder()));
         DockPanel.SetDock(checksTop, Dock.Top); checksDock.Children.Add(checksTop);
@@ -73,10 +73,10 @@ public partial class MainWindow
         reportTop.Children.Add(sensitive);
         reportTop.Children.Add(PrimaryButton("Copy safe diagnostics to clipboard", async (_, _) =>
         {
-            try { Clipboard.SetText(await CreateDiagnosticsReportAsync(sensitive.IsChecked == true, moduleReport)); checkStatus.Text = "Diagnostics copied. Paste them into your FM Atlas support chat."; }
+            try { Clipboard.SetText(await CreateDiagnosticsReportAsync(sensitive.IsChecked == true, GameModuleDiagnostics.RedactForSupport(moduleReport, sensitive.IsChecked == true))); checkStatus.Text = "Diagnostics copied. Paste them into your FM Atlas support chat."; }
             catch (Exception ex) { AtlasLog.Error("Copy diagnostics failed.", ex); MessageBox.Show(this, ex.Message, "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }));
-        reportTop.Children.Add(SoftButton("Export support ZIP", async (_, _) => await ExportSupportPackAsync(sensitive.IsChecked == true, moduleReport)));
+        reportTop.Children.Add(SoftButton("Export support ZIP", async (_, _) => await ExportSupportPackAsync(sensitive.IsChecked == true, GameModuleDiagnostics.RedactForSupport(moduleReport, sensitive.IsChecked == true))));
         reportTop.Children.Add(SoftButton("Copy recent application log", (_, _) =>
         {
             Clipboard.SetText(AtlasLog.ReadRecent()); checkStatus.Text = "Recent application log copied to clipboard.";
