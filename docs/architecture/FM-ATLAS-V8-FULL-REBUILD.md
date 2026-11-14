@@ -90,15 +90,16 @@ Research references:
 
 Quick Search is a command/search overlay, not a permanently occupying global search text box. Navigation should be compact, collapsible and context-aware; users must be able to switch workspace while background jobs continue.
 
-## Atlas Liquid visual system — approved direction
+## Monolith Glass visual system — current direction
 
-The visual reference approved by the user is the attached three-layer Liquid Glass direction. This is a full redesign, not a recolour of the legacy dark/lime interface.
+The current product identity is Monolith Glass: graphite/charcoal surfaces, warm off-white typography, restrained amber-orange accents, translucent functional surfaces and minimal motion. Glass Dark, Glass Light and Studio remain selectable appearance modes. The first-run default is Monolith Glass. This is a full redesign, not a recolour of the legacy dark/lime interface.
 
 ### Three coordinated appearance modes
 
-1. **Glass Light** — bright, airy translucent navigation and controls over a soft neutral workspace; crisp dark text and restrained cool accents.
-2. **Glass Dark** — premium deep-navy/charcoal workspace with translucent glass controls, subtle edge lighting and high-contrast data. This is the recommended first-run default.
-3. **Studio** — the same component language and navigation, tuned for dense scouting, comparison tables, analytics and multi-panel workflows. It must not become a disconnected legacy-looking theme.
+1. **Monolith Glass** — first-run graphite/charcoal appearance with warm off-white text, amber-orange accents, translucent raised cards and restrained shadows.
+2. **Glass Light** — bright, airy workspace with crisp dark text and high-contrast data surfaces.
+3. **Glass Dark** — deeper charcoal/graphite surfaces with restrained glass borders and warm accents.
+4. **Studio** — the same component language and navigation, tuned for dense scouting, comparison tables, analytics and multi-panel workflows. It must not become a disconnected legacy-looking theme.
 
 All three modes share layout, component behaviour, iconography, spacing, typography and interaction states. Theme changes must not move or hide core controls.
 
@@ -149,7 +150,7 @@ The first integrated V8 source pass has now:
 - Added hover, pressed and disabled feedback to shared rounded button templates.
 - Kept navigation controls enabled during workspace construction and retained the latest requested destination for the next navigation.
 - Moved restoration of previously opened player profiles off the initial Players workspace construction path.
-- Blocked the old full live-memory scan and live Apply write actions through application-level V8 safety gates.
+- Blocked the old unbounded legacy full live-memory scan and live Apply write actions through application-level V8 safety gates. The current source replaces the legacy scan with an exact-profile, read-only player/staff/club index that starts automatically for a supported loaded career, reports progress, has a two-minute hard deadline, supports toolbar cancellation and is cancelled on save-generation/process changes. The SQLite publication receives the same token and checks it before commit. Live Apply/Undo remains blocked.
 - Versioned the desktop project metadata as 8.0.0 and added a Windows Release build/publish workflow.
 
 These are source changes, not a claim that a Windows build, UI render or Football Manager test has passed. The V8 code still uses the legacy large MainWindow code-behind and the existing save bridge; the deeper service/MVVM migration and streaming import redesign remain outstanding. See `FM-ATLAS-V8-IMPLEMENTATION-STATUS.md`.
@@ -169,7 +170,7 @@ These are source changes, not a claim that a Windows build, UI render or Footbal
 
 ## Reverse-engineering and mapping work
 
-- Preserve exact module fingerprint matching and read-only memory scanning.
+- Preserve exact module fingerprint matching, read-only profile-bounded scanning, the two-minute deadline, toolbar cancellation, monitor-driven session cancellation and cancellation-aware database publication.
 - Keep candidate offsets, inherited offsets, field names and UI-witnessed fields separate.
 - Build a mapping registry per game build/storefront with field type, source offset/schema, decoder, expected range, evidence, witness status, confidence and limitations.
 - Do not promote an offset merely because a value looks plausible. Cross-check against the in-game UI and independent save-reader values where comparable.
