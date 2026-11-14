@@ -36,6 +36,9 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [x] Initial Atlas Liquid application resource palette and shared tooltip styling committed.
 - [x] Initial glass top toolbar, side navigation, collapsible navigation and contextual hover descriptions committed.
+- [x] Shared workspace cards now use layered translucent gradients, a fine inner glass edge and a restrained top reflection; content remains sharp and unblurred.
+- [x] Sidebar and top toolbar now use coordinated diagonal/vertical glass gradients, subtle edge highlights and restrained elevation.
+- [ ] Run a fresh Windows Release build and full test suite against the updated branch head; visually inspect all four appearances at 100%, 125% and 150% DPI.
 - [x] Monolith Glass is the first-run default, with graphite/charcoal surfaces, restrained orange accents and persisted theme preference; Glass Dark, Glass Light and Studio remain selectable.
 - [x] Top toolbar Connect / Refresh action connects to the current supported FM27 career; automatic entity-array indexing runs after a valid save-load generation is detected.
 - [x] Ctrl+K search shortcut wired to existing global search.
