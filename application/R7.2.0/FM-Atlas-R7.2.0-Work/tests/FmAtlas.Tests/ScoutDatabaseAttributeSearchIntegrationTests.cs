@@ -93,6 +93,59 @@ public sealed class ScoutDatabaseAttributeSearchIntegrationTests
         await command.ExecuteNonQueryAsync();
     }
     [TestMethod]
+    public async Task SearchPlayerAttributeCriteriaAsync_UsesCaseInsensitiveCompositeIndex()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.AttributeIndex-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var databasePath = Path.Combine(folder, "scouting.db");
+
+        try
+        {
+            var database = new ScoutDatabase(databasePath, pooling: false);
+            await database.InitialiseAsync();
+
+            await using (var connection = new SqliteConnection(
+                new SqliteConnectionStringBuilder { DataSource = databasePath, Pooling = false }.ToString()))
+            {
+                await connection.OpenAsync();
+                await InsertPlayer(connection, "LOCAL:INDEX-1", "Indexed Player", "Index FC");
+                await InsertAttribute(connection, "LOCAL:INDEX-1", "Finishing", 18);
+
+                var plan = connection.CreateCommand();
+                plan.CommandText = """
+                    EXPLAIN QUERY PLAN
+                    SELECT 1 FROM PlayerAttributes
+                    WHERE SourceId=$source
+                      AND AttributeName=$key COLLATE NOCASE
+                      AND AttributeValue >= $minimum;
+                    """;
+                plan.Parameters.AddWithValue("$source", "LOCAL:INDEX-1");
+                plan.Parameters.AddWithValue("$key", "finishing");
+                plan.Parameters.AddWithValue("$minimum", 15);
+                var details = new List<string>();
+                await using var reader = await plan.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                    details.Add(reader.GetString(3));
+
+                Assert.IsTrue(
+                    details.Any(x => x.Contains("IX_PlayerAttributes_SourceNameNoCaseValue", StringComparison.Ordinal)),
+                    "The attribute criteria lookup should use the source/name/value composite index.");
+            }
+
+            var matches = await database.SearchPlayerAttributeCriteriaAsync(
+                null,
+                new[] { new AttributeSearchCriterion("finishing", "Finishing", 15, null) });
+
+            CollectionAssert.AreEqual(new[] { "LOCAL:INDEX-1" }, matches.Select(x => x.SourceId).ToArray());
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public async Task GetPlayerAttributeMapsAsync_BatchesRequestedPlayersAndKeepsCategoryLabels()
     {
         var folder = Path.Combine(Path.GetTempPath(), "FmAtlas.AttributeMaps-" + Guid.NewGuid().ToString("N"));
