@@ -51,6 +51,9 @@ For every mismatch, include the exact source key and enough context to reproduce
 - Any unexpected memory-write control visible: yes / no
 - Disposable offline backup career used: yes / no
 - Read-only FM module probe run: yes / no
+- Quick checks summary:
+- FM module probe summary (process/module/header/witness results):
+- Live editor field catalogue counts (players/staff/clubs):
 
 ## Issue detail
 - Workspace/page:
