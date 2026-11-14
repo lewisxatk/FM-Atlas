@@ -84,13 +84,12 @@ public partial class MainWindow
         }
         void ApplySavedFilters(RoleFitSearchFilters? filters)
         {
-            if (filters is null) return;
-            minimumAge.Text = filters.MinimumAge?.ToString(CultureInfo.InvariantCulture) ?? "";
-            maximumAge.Text = filters.MaximumAge?.ToString(CultureInfo.InvariantCulture) ?? "";
-            minimumCa.Text = filters.MinimumCurrentAbility?.ToString(CultureInfo.InvariantCulture) ?? "";
-            minimumPa.Text = filters.MinimumPotentialAbility?.ToString(CultureInfo.InvariantCulture) ?? "";
-            positionFilter.Text = filters.PositionContains ?? "";
-            coverage.SelectedIndex = Math.Clamp(
+            minimumAge.Text = filters?.MinimumAge?.ToString(CultureInfo.InvariantCulture) ?? "";
+            maximumAge.Text = filters?.MaximumAge?.ToString(CultureInfo.InvariantCulture) ?? "";
+            minimumCa.Text = filters?.MinimumCurrentAbility?.ToString(CultureInfo.InvariantCulture) ?? "";
+            minimumPa.Text = filters?.MinimumPotentialAbility?.ToString(CultureInfo.InvariantCulture) ?? "";
+            positionFilter.Text = filters?.PositionContains ?? "";
+            coverage.SelectedIndex = filters is null ? 0 : Math.Clamp(
                 (int)Math.Round((filters.MinimumCoverage - 0.5) * 10, MidpointRounding.AwayFromZero), 0, 5);
         }
         role.SelectionChanged += (_, _) =>

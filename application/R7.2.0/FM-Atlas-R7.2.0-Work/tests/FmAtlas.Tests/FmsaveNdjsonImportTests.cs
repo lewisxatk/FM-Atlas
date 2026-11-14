@@ -464,22 +464,62 @@ public sealed class FmsaveNdjsonImportTests
         await database.InitialiseAsync();
         var bundle = CreateBundle(temp.Path, "performance-value", playerManifestCount: 1, includeContractRow: false, includeSeasonStatsRow: true);
         await database.ImportFmsaveSnapshotAsync(bundle);
+        var snapshotId = await ScalarIntAsync(databasePath, "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;");
+
+        await using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            await using var transaction = await db.BeginTransactionAsync();
+            foreach (var candidate in new[]
+            {
+                (Uid: "value-uid-2", Source: "FMSAVE:FM27:value:2", Name: "Value Candidate 2", Position: "ST", Goals: 20d, Value: 1000000d, Row: 2),
+                (Uid: "value-uid-3", Source: "FMSAVE:FM27:value:3", Name: "Value Candidate 3", Position: "ST", Goals: 30d, Value: 2000000d, Row: 3),
+                (Uid: "value-uid-4", Source: "FMSAVE:FM27:value:4", Name: "Value Candidate 4", Position: "GK", Goals: 40d, Value: 3000000d, Row: 4)
+            })
+            {
+                var player = db.CreateCommand();
+                player.Transaction = (SqliteTransaction)transaction;
+                player.CommandText = "INSERT INTO Players(SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,DataOrigin,UpdatedUtc) VALUES($source,$name,21,'Value FC','England','Test League',$position,120,150,$value,'Synthetic value fixture','2026-11-14');";
+                player.Parameters.AddWithValue("$source", candidate.Source);
+                player.Parameters.AddWithValue("$name", candidate.Name);
+                player.Parameters.AddWithValue("$position", candidate.Position);
+                player.Parameters.AddWithValue("$value", candidate.Value);
+                await player.ExecuteNonQueryAsync();
+
+                var snapshot = db.CreateCommand();
+                snapshot.Transaction = (SqliteTransaction)transaction;
+                snapshot.CommandText = "INSERT INTO FmsavePlayerSnapshots(SnapshotId,PlayerUid,PlayerSourceId,RawJson) VALUES($snapshot,$uid,$source,'{}');";
+                snapshot.Parameters.AddWithValue("$snapshot", snapshotId);
+                snapshot.Parameters.AddWithValue("$uid", candidate.Uid);
+                snapshot.Parameters.AddWithValue("$source", candidate.Source);
+                await snapshot.ExecuteNonQueryAsync();
+
+                var fact = db.CreateCommand();
+                fact.Transaction = (SqliteTransaction)transaction;
+                fact.CommandText = "INSERT INTO FmsaveStatFacts(SnapshotId,TableName,RowIndex,PlayerUid,PeriodKey,Minutes,FieldKey,NumericValue) VALUES($snapshot,'player_season_stats',$row,$uid,'2026/27',900,'goals',$goals);";
+                fact.Parameters.AddWithValue("$snapshot", snapshotId);
+                fact.Parameters.AddWithValue("$row", candidate.Row);
+                fact.Parameters.AddWithValue("$uid", candidate.Uid);
+                fact.Parameters.AddWithValue("$goals", candidate.Goals);
+                await fact.ExecuteNonQueryAsync();
+            }
+            await transaction.CommitAsync();
+        }
 
         var results = await database.GetPerformanceValueCandidatesAsync("goals", per90: true, minimumMinutes: 450);
-
-        Assert.Single(results);
-        Assert.Equal("FMSAVE:FM27:test-db:1001", results[0].Player.SourceId);
-        Assert.Equal(1d, results[0].PerformanceValue, 5);
-        Assert.Equal(900d, results[0].TotalMinutes);
-        Assert.Equal(1, results[0].SampleSize);
-        Assert.Equal(50d, results[0].PerformancePercentile);
-        Assert.Equal(50d, results[0].ValuePercentile);
-        Assert.Null(results[0].PositionPerformancePercentile);
-        Assert.Equal(1, results[0].PositionCohortSize);
-        Assert.Null(results[0].LeaguePerformancePercentile);
-        Assert.Equal(1, results[0].LeagueCohortSize);
-        Assert.Equal(0d, results[0].ValueGap);
-        Assert.Equal(100d, results[0].DataCoverage);
+        Assert.Equal(4, results.Count);
+        var anchor = Assert.Single(results.Where(x => x.Player.SourceId == "FMSAVE:FM27:test-db:1001"));
+        Assert.Equal(1d, anchor.PerformanceValue, 5);
+        Assert.Equal(900d, anchor.TotalMinutes);
+        Assert.Equal(1, anchor.SampleSize);
+        Assert.Equal(0d, anchor.PerformancePercentile, 5);
+        Assert.Equal(100d / 3d, anchor.ValuePercentile, 5);
+        Assert.Equal(0d, anchor.PositionPerformancePercentile, 5);
+        Assert.Equal(3, anchor.PositionCohortSize);
+        Assert.Equal(0d, anchor.LeaguePerformancePercentile, 5);
+        Assert.Equal(4, anchor.LeagueCohortSize);
+        Assert.True(anchor.ValueGap < 0);
+        Assert.Equal(100d, anchor.DataCoverage);
     }
 
 
