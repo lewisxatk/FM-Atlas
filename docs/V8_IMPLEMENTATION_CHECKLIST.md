@@ -32,18 +32,18 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Verify clean install, upgrade path, uninstall and preservation of the user's existing Atlas database/settings.
 - [ ] Create a rollback package / previous-version recovery instructions.
 
-## 1. Application shell and Atlas Liquid design system
+## 1. Application shell and Monolith Glass design system
 
 - [x] Initial Atlas Liquid application resource palette and shared tooltip styling committed.
 - [x] Initial glass top toolbar, side navigation, collapsible navigation and contextual hover descriptions committed.
 - [x] Monolith Glass is the first-run default, with graphite/charcoal surfaces, restrained orange accents and persisted theme preference; Glass Dark, Glass Light and Studio remain selectable.
-- [x] Top toolbar live action reports the detected FM27 process/build/session; full entity-array import remains explicitly paused by the safety gate.
+- [x] Top toolbar Connect / Refresh action connects to the current supported FM27 career; automatic entity-array indexing runs after a valid save-load generation is detected.
 - [x] Ctrl+K search shortcut wired to existing global search.
 - [~] Reusable shared button states are implemented for default, hover, pressed, keyboard focus and disabled; selected navigation is styled. Busy-state templates remain outstanding.
 - [x] Add automation names/help text and keyboard focus support to icon-only toolbar controls.
 - [ ] Verify hover/focus tooltips are accurate, readable and stable on every toolbar/navigation action.
 - [~] Monolith Glass token mapping and principal navigation/glass surfaces are implemented; remaining hard-coded colours, dialog coverage and high-contrast refinements remain open.
-- [ ] Apply consistent Atlas Liquid surfaces to dialogs, tabs, filters, grids, charts and empty/loading/error states.
+- [ ] Apply consistent Monolith Glass surfaces to dialogs, tabs, filters, grids, charts and empty/loading/error states.
 - [~] Workspace fade-in honours the Windows client-area animation preference; an in-app Reduce Motion setting and full high-contrast pass remain outstanding.
 - [~] A 150 ms system-aware workspace fade-in is implemented; chart transitions and broader interaction motion remain outstanding.
 - [ ] Build and manually review shell at 100%, 125%, 150% Windows display scaling and common laptop/desktop resolutions.
@@ -65,11 +65,11 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [x] Add exact PE-fingerprint process detection for supported Windows FM27 Steam and Game Pass builds; unknown builds and duplicate supported processes fail closed.
 - [x] Add read-only GAME_UI save-load generation detection. A career connection is keyed by process, build profile and the in-game load counter, not by a remembered save-file path.
-- [x] Start automatic detection on application load; the monitor probes every three seconds and reports process/build/save-generation changes. It does not import a new career while the live-memory gate is OFF.
-- [x] Replace the legacy broad process-memory scan with profile-bounded player/staff/club array reads in the controlled extractor. The automatic monitor does not invoke the extractor while the safety gate is OFF.
+- [x] Start automatic live-career detection on application load; the monitor probes every three seconds and starts the profile-bounded read-only index when a supported career generation is loaded.
+- [x] Replace the legacy broad process-memory scan with profile-bounded player/staff/club array reads. The automatic monitor invokes the bounded extractor for a supported loaded career; it does not scan unknown builds or duplicate supported FM processes.
 - [x] Check the save-load generation before and after extraction; discard the partial snapshot if FM changes career while Atlas is reading.
-- [x] Keep bounded extraction cancellation, generation checks and retry handling in the controlled importer. Automatic extraction/retry is disabled while the live-memory safety gate is OFF.
-- [x] Implement transactional persistence for controlled live player/staff/club snapshots and uniquely identified manager club/nation context. Full live-memory scanning is not enabled for routine use.
+- [x] Keep bounded extraction cancellation, generation checks and retry handling in the automatic importer. Each scan has a two-minute deadline and toolbar Cancel; the monitor cancels it when the process/build/save-generation changes.
+- [x] Implement transactional persistence for automatic live player/staff/club snapshots and uniquely identified manager club/nation context. The database receives the scan cancellation token and checks it before commit; cancellation rolls back the new snapshot and retains the previous one.
 - [x] Surface live players and staff in the searchable Players/Staff directories. Player CA/PA, 52 mapped attributes, eight personality ratings, 15 position ratings and nationality/club links are read from the current identity block (including the documented player-coach +0xF8 shift) and remain explicitly provisional until an in-game UI witness is recorded.
 - [x] Fix live player search to resolve ability.current_ability and ability.potential_ability, including profile-matched provisional values and negative PA ranges, for display and CA/PA filtering. Include live nationality, primary position and CA/PA/personality/attribute/position filters in the existing player/Advanced Search data path.
 - [x] Display all available provisional live position ratings and the eight personality ratings on player profiles with explicit source-confidence warnings; show live nation and primary position in the player directory.
@@ -190,7 +190,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add integration tests for import staging, rollback, SQLite contention, cancellation and retry.
 - [ ] Add performance benchmarks at 40k+ players, 28k+ clubs and large stats tables.
 - [ ] Record startup, navigation, query, profile-open and import timings against R7.2.0 baseline.
-- [ ] Verify no FM slowdown/crash in controlled tests before enabling any live scanning.
+- [ ] Verify no FM slowdown/crash during the enabled bounded scan on the user's real PC; use the toolbar Cancel action and confirm the two-minute ceiling before treating it as release-ready.
 - [ ] Test backup/restore, offline use, permissions, missing dependencies and corrupted cache.
 - [ ] Run full Windows acceptance checklist against a disposable career-save copy.
 - [ ] Only declare V8 release-ready after build, automated tests and PC acceptance gates pass.
@@ -217,7 +217,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 |---|---|---|---|
 | 2026-11-14 | Automatic live FM27 career connection | `576add49`, `db2dc265`, `b0af2a0f` | Added an exact-profile, read-only process monitor using the game's GAME_UI save-load counter; bounded player/staff/club array extraction; human-manager/staff identity, CA/PA, nation/club/role capture; and transactional persistence. The manager's source remains provisional until a real-career UI comparison. |
 | 2026-11-14 | Live player search/profile and career identity integration | `9fe85f22`, `dfb52634`, `9e964fc0` | Corrected field-key/status handling so provisional live CA/PA and negative PA ranges appear in player search and CA/PA/attribute filters. Added the current save-load counter to workspace metrics and displayed provisional live position ratings in player profiles with a confidence warning. |
-| 2026-11-14 | Monolith Glass primary theme and automatic reconnect safeguards | `9d302ca8`, `8439bc3a` | Added Monolith Glass as the first-run theme while preserving Glass Dark/Light/Studio; added 30-second retry after a transient scan failure; cleared old career status when FM closes; and bound My Manager/My Club shortcuts to the active session generation. |
+| 2026-11-14 | Monolith Glass and automatic reconnect safeguards | `9d302ca8`, `8439bc3a` | Added Monolith Glass as the first-run theme while preserving Glass Dark/Light/Studio; clears old career status when FM closes; binds My Manager/My Club shortcuts to the active session generation. Transient live-scan failures now retry after a five-minute cooldown. |
 | 2026-11-14 | Live-career import/search regression fixtures | `ecfbc20e` | Added isolated SQLite tests for provisional live player CA/PA (including negative PA), CA/PA/attribute filters, live staff search/profile facts, manager nation/club and changing save-load generations. Windows CI and runtime results are pending. |
 | 2026-11-14 | Player profile field coverage and player-coach layout | `661a978c` | Added class-scoped player identity-block detection using decoded name witnesses; reads the correct player-coach-shifted UID, DOB, nation and eight personality ratings while keeping position/standard attribute offsets separate. |
 | 2026-11-14 | Live player search and nationality/position integration | `2e266675`, `7d28a048`, `20bda5af` | Persisted player nation and primary natural position, added position-rating filtering to the live search path, and passed the existing directory position selection through to live queries. |
@@ -295,7 +295,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 11. Live career identity, staff and manager integration (2026-11-14)
 
-The exact-profile read-only live scan is enabled for supported FM27 builds. Each scan is hard-limited to two minutes, cancellable from the toolbar, and monitored against the process/build/save-generation session.
+The exact-profile read-only live scan is enabled automatically for supported FM27 builds. Each scan is hard-limited to two minutes, reports progress, is cancellable from the toolbar, is monitored against process/build/save-generation and passes the same cancellation token into the SQLite publication so a cancelled session is not committed.
 
 - [x] Add the profile-matched read-only staff extractor, including the distinct human-manager identity-block layout and class-scoped layout selection.
 - [x] Capture staff UID/name, DOB/age, CA/PA, nation UID/name, linked club UID/name and job code/title when the source exposes them.
