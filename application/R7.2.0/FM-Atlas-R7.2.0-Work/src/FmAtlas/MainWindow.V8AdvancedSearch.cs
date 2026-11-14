@@ -44,6 +44,9 @@ public partial class MainWindow
         var columnChecks = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
         string[] defaultVisibleColumns = { "Name", "Age", "Club", "Position", "League", "Nation", "DisplayHomeGrownClub", "DisplayHomeGrownNation", "DisplayAbility", "DisplayPotential", "DisplayValue", "DataOrigin" };
         StackPanel conditionPanel = null!;
+        var positionInputs = new Dictionary<string, TextBox>(StringComparer.OrdinalIgnoreCase);
+        CheckBox positionAny = null!;
+        CheckBox positionAtLeast = null!;
         TextBlock status = null!;
         Button searchButton = null!;
         Button cancelSearchButton = null!;
@@ -227,6 +230,54 @@ public partial class MainWindow
         conditionPanel = new StackPanel();
         builderStack.Children.Add(Txt("CONDITIONS · CHOOSE A CATEGORY, FIELD AND VALUE", 8, true, Muted));
         builderStack.Children.Add(conditionPanel);
+
+        // Independent FMRTE-style position group: zero is a no-op; ALL/ANY never
+        // changes the existing global AND/OR logic.
+        var positionCard = Card(new StackPanel(), 14, new Thickness(0, 10, 0, 8));
+        var positionStack = (StackPanel)positionCard.Child;
+        positionStack.Children.Add(Txt("POSITION FAMILIARITY", 9, true, Teal));
+        positionStack.Children.Add(Txt("Set a 0–20 rating for any of the 15 FM positions", 15, true, Ink));
+        positionStack.Children.Add(Txt("Zero means no requirement. Exact matches are used by default; turn on At Least to treat each entered rating as a minimum.", 10, false, Muted, wrap: true));
+        var positionOptions = new WrapPanel { Margin = new Thickness(0, 8, 0, 5) };
+        positionAny = new CheckBox { Content = "Any of these", Foreground = Ink, FontSize = 10, Margin = new Thickness(0, 3, 18, 5), ToolTip = "A player needs to match at least one entered position. Otherwise every entered position must match." };
+        positionAtLeast = new CheckBox { Content = "At Least", Foreground = Ink, FontSize = 10, Margin = new Thickness(0, 3, 18, 5), ToolTip = "Treat each entered position rating as a minimum. Off means exact rating." };
+        positionOptions.Children.Add(positionAny);
+        positionOptions.Children.Add(positionAtLeast);
+        positionStack.Children.Add(positionOptions);
+        var positionTiles = new WrapPanel { Margin = new Thickness(0, 2, 0, 0) };
+        var positionLabels = new (string Code, string Label)[]
+        {
+            ("GK", "Goalkeeper"), ("SW", "Sweeper"), ("DL", "Left defender"), ("DC", "Centre back"), ("DR", "Right defender"),
+            ("WBL", "Left wing-back"), ("WBR", "Right wing-back"), ("DM", "Defensive midfield"), ("ML", "Left midfield"),
+            ("MC", "Central midfield"), ("MR", "Right midfield"), ("AML", "Left attack"), ("AMC", "Central attack"),
+            ("AMR", "Right attack"), ("STC", "Striker")
+        };
+        foreach (var position in positionLabels)
+        {
+            var tileStack = new StackPanel();
+            tileStack.Children.Add(Txt(position.Code, 11, true, Ink));
+            tileStack.Children.Add(Txt(position.Label, 8, false, Muted, wrap: true));
+            var rating = new TextBox
+            {
+                Text = "0", Width = 54, Height = 30, Margin = new Thickness(0, 5, 0, 0),
+                Padding = new Thickness(5, 3, 5, 3), FontSize = 11, FontWeight = FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
+                Background = Brush("#111820"), Foreground = Ink, BorderBrush = Line, BorderThickness = new Thickness(1),
+                ToolTip = position.Label + " familiarity · 0–20 · zero disables this requirement"
+            };
+            System.Windows.Automation.AutomationProperties.SetName(rating, position.Code + " position familiarity rating 0 to 20");
+            positionInputs[position.Code] = rating;
+            tileStack.Children.Add(rating);
+            positionTiles.Children.Add(new Border
+            {
+                Width = 118, Background = Brush("#171F28"), BorderBrush = Line, BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(9), Padding = new Thickness(9, 8, 9, 8),
+                Margin = new Thickness(0, 0, 7, 7), Child = tileStack
+            });
+        }
+        positionStack.Children.Add(positionTiles);
+        builderStack.Children.Add(positionCard);
+
         status = Txt(fields.Count == 0 ? "No fields are available yet. Import a career save copy or add local scouting data." : "Add one or more conditions, then run the search.", 10, false, Muted, wrap: true);
         status.Margin = new Thickness(2, 8, 2, 0);
         builderStack.Children.Add(status);
@@ -412,9 +463,11 @@ public partial class MainWindow
 
             var criteria = CaptureCriteria(out var error);
             if (error.Length > 0) { status.Text = error; return; }
-            if (criteria.Count == 0)
+            var positionFilter = CapturePositionFilter(out var positionError);
+            if (positionError.Length > 0) { status.Text = positionError; return; }
+            if (criteria.Count == 0 && positionFilter is null)
             {
-                status.Text = "Enter at least one complete condition before exporting all matching players.";
+                status.Text = "Enter at least one general condition or position rating before exporting matches.";
                 return;
             }
 
@@ -455,7 +508,7 @@ public partial class MainWindow
                     {
                         cancellation.Token.ThrowIfCancellationRequested();
                         var batch = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(
-                            query, criteria, matchAll, batchSize, offset, cancellation.Token, sorts));
+                            query, criteria, matchAll, batchSize, offset, cancellation.Token, sorts, positionFilter));
                         foreach (var player in batch)
                         {
                             cancellation.Token.ThrowIfCancellationRequested();
@@ -470,7 +523,7 @@ public partial class MainWindow
                     {
                         cancellation.Token.ThrowIfCancellationRequested();
                         var extra = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(
-                            query, criteria, matchAll, 1, maximumRows, cancellation.Token, sorts));
+                            query, criteria, matchAll, 1, maximumRows, cancellation.Token, sorts, positionFilter));
                         truncated = extra.Count > 0;
                     }
                     await writer.FlushAsync();
@@ -764,6 +817,7 @@ public partial class MainWindow
             conditionPanel.Children.Clear();
             searchText.Clear();
             logic.SelectedIndex = 0;
+            ApplyPositionFilter(null);
             ApplySorts(null);
             AddCondition();
             ApplyVisibleColumns(defaultVisibleColumns);
@@ -775,6 +829,36 @@ public partial class MainWindow
             status.Text = "Filters reset. Existing data and saved career snapshots are unchanged.";
             grid.ItemsSource = null;
             results.Clear();
+        }
+
+        void ApplyPositionFilter(AdvancedPositionFilter? saved)
+        {
+            foreach (var input in positionInputs.Values) input.Text = "0";
+            positionAny.IsChecked = saved?.MatchAny == true;
+            positionAtLeast.IsChecked = saved?.AtLeast == true;
+            foreach (var item in saved?.Positions ?? Array.Empty<AdvancedPositionCriterion>())
+                if (positionInputs.TryGetValue(item.PositionCode, out var input))
+                    input.Text = item.Rating.ToString(CultureInfo.InvariantCulture);
+        }
+
+        AdvancedPositionFilter? CapturePositionFilter(out string error)
+        {
+            error = "";
+            var selected = new List<AdvancedPositionCriterion>();
+            foreach (var pair in positionInputs)
+            {
+                var raw = pair.Value.Text.Trim();
+                if (raw.Length == 0) continue;
+                if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var rating) || rating is < 0 or > 20)
+                {
+                    error = pair.Key + " familiarity must be a whole number from 0 to 20. Use 0 for no requirement.";
+                    pair.Value.Focus();
+                    return null;
+                }
+                if (rating > 0) selected.Add(new AdvancedPositionCriterion(pair.Key, rating));
+            }
+            return AdvancedPositionFilterRules.Normalize(new AdvancedPositionFilter(
+                positionAny.IsChecked == true, positionAtLeast.IsChecked == true, selected));
         }
 
         List<AdvancedSearchCriterion> CaptureCriteria(out string error)
@@ -883,6 +967,9 @@ public partial class MainWindow
             var sameName = savedProfiles.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (sameName is not null && !MessageBox.Show(this, $"A search profile named '{name}' already exists. Replace it?", "FM Atlas · Replace profile", MessageBoxButton.YesNo, MessageBoxImage.Question).Equals(MessageBoxResult.Yes))
                 return;
+            var positionFilter = CapturePositionFilter(out var positionError);
+            if (positionError.Length > 0) { status.Text = positionError; return; }
+            if (criteria.Count == 0 && positionFilter is null) { status.Text = "Add at least one general or position condition before saving a profile."; return; }
             var profile = new AdvancedSearchProfile(
                 sameName?.Id ?? Guid.NewGuid().ToString("N"),
                 name,
@@ -891,7 +978,8 @@ public partial class MainWindow
                 logic.SelectedIndex == 0,
                 criteria,
                 resultColumns.Where(x => x.Value.Visibility == Visibility.Visible).Select(x => x.Key).ToList(),
-                CaptureSorts());
+                CaptureSorts(),
+                positionFilter);
             try
             {
                 AdvancedSearchProfileStore.Save(profile);
@@ -939,6 +1027,7 @@ public partial class MainWindow
                         break;
                 }
             }
+            ApplyPositionFilter(profile.PositionFilter);
             ApplyVisibleColumns(profile.VisibleColumns);
             grid.ItemsSource = null;
             results.Clear();
@@ -974,16 +1063,13 @@ public partial class MainWindow
         async Task RunSearchAsync(bool resetPage = true)
         {
             if (resetPage) pageOffset = 0;
-            if (rows.Count == 0)
-            {
-                status.Text = "Add at least one condition before searching.";
-                return;
-            }
             var criteria = CaptureCriteria(out var error);
             if (error.Length > 0) { status.Text = error; return; }
-            if (criteria.Count == 0)
+            var positionFilter = CapturePositionFilter(out var positionError);
+            if (positionError.Length > 0) { status.Text = positionError; return; }
+            if (criteria.Count == 0 && positionFilter is null)
             {
-                status.Text = "Enter a value for at least one condition. Blank conditions are ignored.";
+                status.Text = "Enter a value for at least one general condition or position rating. Blank conditions are ignored.";
                 return;
             }
 
@@ -1001,7 +1087,7 @@ public partial class MainWindow
             {
                 var activeSorts = CaptureSorts();
                 var pageRows = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(
-                    searchText.Text, criteria, matchAll, pageSize + 1, pageOffset, searchCancellation.Token, activeSorts));
+                    searchText.Text, criteria, matchAll, pageSize + 1, pageOffset, searchCancellation.Token, activeSorts, positionFilter));
                 searchCancellation.Token.ThrowIfCancellationRequested();
                 hasNextPage = pageRows.Count > pageSize;
                 if (hasNextPage) pageRows.RemoveAt(pageRows.Count - 1);
@@ -1015,7 +1101,7 @@ public partial class MainWindow
                     : $"Showing {pageOffset + 1:N0}–{pageOffset + results.Count:N0}" + (hasNextPage ? " · more available" : " · end of results");
                 var sortSummary = string.Join(" → ", activeSorts.Select(x =>
                     $"{ResolveSortLabel(x.FieldKey)} {(x.Descending ? "↓" : "↑")}"));
-                status.Text = $"{results.Count:N0} players on this page · {criteria.Count:N0} conditions · {(matchAll ? "ALL / AND" : "ANY / OR")} · sort: {sortSummary} · only actual stored fields and values were tested.";
+                status.Text = $"{results.Count:N0} players on this page · {criteria.Count:N0} general conditions · {(matchAll ? "ALL / AND" : "ANY / OR")} · {positionFilter?.Positions?.Count ?? 0} position ratings · {(positionFilter is null ? "positions off" : positionFilter.MatchAny ? "position ANY" : "position ALL")}{(positionFilter?.AtLeast == true ? " · minimum ratings" : " · exact ratings")} · sort: {sortSummary} · only actual stored fields and values were tested.";
                 AtlasLog.Info($"Universal advanced player search: conditions={criteria.Count}; matchAll={matchAll}; results={results.Count}.");
             }
             catch (OperationCanceledException)
