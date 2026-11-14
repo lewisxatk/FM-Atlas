@@ -8,7 +8,7 @@ public sealed class ScoutingActionAnalyticsServiceTests
     private static UnifiedSoccerAction Action(string id, string type, double sx, double sy, double ex, double ey,
         bool success = true, bool shot = false, bool goal = false, double? xg = null, int sequence = 0) =>
         new("M1", "Test League", "2025/26", 1, sequence, 0, "P1", "T1", "Home",
-            "P1", "Player One, type, type.ToLowerInvariant(), success,
+            "P1", "Player One", type, type.ToLowerInvariant(), success,
             sx, sy, ex, ey, shot, goal, xg, "StatsBomb Open Data", id, sequence);
 
     [Fact]
