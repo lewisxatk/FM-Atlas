@@ -76,7 +76,7 @@ public static class WyscoutCsvImporter
             if (ParseNumber(Find(row, "Value")) is { } value) metrics["market_value"] = value;
             var season = Find(row, "Season") ?? "Unspecified season";
             result.Add(new ScoutingPlayerSeason(
-                "WY:" + (id ?? $"{name}|{Find(row, "Team")}|{season}"), name,
+                "WY:" + (id ?? name) + ":" + Find(row, "Team") + ":" + Find(row, "Competition") + ":" + season, name,
                 Find(row, "Team"), Find(row, "Competition"), season,
                 PositionGroup(Find(row, "Position")), minutes, metrics,
                 "Wyscout user CSV", "User export CSV", false));
