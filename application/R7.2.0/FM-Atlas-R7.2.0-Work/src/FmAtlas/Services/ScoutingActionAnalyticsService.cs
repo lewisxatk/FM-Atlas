@@ -22,7 +22,7 @@ public sealed record PossessionChain(
     int Goals, double Xg, double XtAdded, string? FinalPlayer, string Outcome);
 public sealed record PassingNetworkEdge(string MatchId, string Team, string FromPlayer, string ToPlayer, int Passes, int CompletedPasses, double? AverageStartX, double? AverageStartY, double? AverageEndX, double? AverageEndY);
 public sealed record PlayerEventAnalytics(
-    string PlayerId, string Player, string Team, int Minutes,
+    string PlayerId, string Player, string Team, int? Minutes,
     int Passes, int CompletedPasses, int Carries, int Shots, int Goals,
     double Xg, double XtAdded, int Pressures, int Tackles, int Interceptions,
     int FinalThirdEntries, int ProgressivePasses, int ProgressiveCarries,
@@ -125,7 +125,8 @@ public static class ScoutingActionAnalyticsService
                         "Pass" => Str(detail, "outcome", "name") is null,
                         "Dribble" => Str(Prop(ev, "dribble"), "outcome", "name") == "Complete",
                         "Shot" => Str(detail, "outcome", "name") is "Goal" or "Saved" or "Saved to Post",
-                        "Tackle" => Str(Prop(ev, "duel"), "outcome", "name") is null or "Won",
+                        "Tackle" => Str(Prop(ev, "duel"), "outcome", "name") == "Won",
+                        "Duel" when Str(ev, "duel", "type", "name") == "Tackle" => Str(ev, "duel", "outcome", "name") == "Won",
                         _ => true
                     };
                     var shotOutcome = Str(detail, "outcome", "name");
@@ -274,16 +275,15 @@ public static class ScoutingActionAnalyticsService
                 var rows = g.ToList();
                 var passes = rows.Count(x => x.Action.ActionType == "pass");
                 var completed = rows.Count(x => x.Action.ActionType == "pass" && x.Action.Successful);
-                var minutes = 0;
                 var xt = rows.Sum(x => x.XtAdded ?? 0);
-                return new PlayerEventAnalytics(g.Key.PlayerId ?? "", g.Key.Player, g.Key.Team, minutes,
+                return new PlayerEventAnalytics(g.Key.PlayerId ?? "", g.Key.Player, g.Key.Team, null,
                     passes, completed, rows.Count(x => x.Action.ActionType == "carry"),
                     rows.Count(x => x.Action.IsShot), rows.Count(x => x.Action.IsGoal),
                     rows.Sum(x => x.Action.Xg ?? 0), xt,
                     rows.Count(x => x.Action.ActionType == "pressure"),
                     rows.Count(x => x.Action.ActionType == "tackle"),
                     rows.Count(x => x.Action.ActionType == "interception"),
-                    rows.Count(x => x.Action.EndX >= 80 && x.Action.StartX < 80),
+                    rows.Count(x => x.Action.ActionType is "pass" or "carry" && x.Action.EndX >= 80 && x.Action.StartX < 80),
                     rows.Count(x => x.Action.ActionType == "pass" && IsProgressive(x.Action)),
                     rows.Count(x => x.Action.ActionType == "carry" && IsProgressive(x.Action)),
                     passes == 0 ? null : completed * 100d / passes, null);
