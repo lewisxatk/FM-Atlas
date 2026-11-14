@@ -28,7 +28,8 @@ public partial class MainWindow : Window
     // Keep the full live-memory entity-array scan fail-closed until controlled FM27
     // performance and field-witness acceptance is complete. Process/build/session detection
     // remains active; offline read-only save import remains available.
-    private static bool LiveMemoryImportEnabled => false;
+    // Automatic read-only indexing is bounded, cancellable and save-generation guarded. Live editing stays disabled.
+    private static bool LiveMemoryImportEnabled => true;
     private static bool LiveMemoryEditingEnabled => false;
     private static Brush Ink => Brush("#E8EEF4");
     private static Brush Teal => Brush("#F08A42");
