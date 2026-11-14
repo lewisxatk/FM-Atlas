@@ -184,6 +184,7 @@ public partial class MainWindow : Window
             if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Cancellation requested — safely stopping at the next import checkpoint…";
         });
         _cancelImportButton.IsEnabled = _saveImportCancellation is not null;
+        _cancelImportButton.Visibility = _saveImportCancellation is null ? Visibility.Collapsed : Visibility.Visible;
         actions.Children.Add(_cancelImportButton);
         actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
         actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
@@ -2032,7 +2033,11 @@ public partial class MainWindow : Window
         using var cancellation = new CancellationTokenSource();
         var importTimer = Stopwatch.StartNew();
         _saveImportCancellation = cancellation;
-        if (_cancelImportButton is not null) _cancelImportButton.IsEnabled = true;
+        if (_cancelImportButton is not null)
+        {
+            _cancelImportButton.Visibility = Visibility.Visible;
+            _cancelImportButton.IsEnabled = true;
+        }
         if (_liveLoadProgress is not null)
         {
             _liveLoadProgress.Visibility = Visibility.Visible;
@@ -2096,7 +2101,11 @@ public partial class MainWindow : Window
                 _liveLoadProgress.IsIndeterminate = false;
                 _liveLoadProgress.Visibility = Visibility.Collapsed;
             }
-            if (_cancelImportButton is not null) _cancelImportButton.IsEnabled = false;
+            if (_cancelImportButton is not null)
+            {
+                _cancelImportButton.IsEnabled = false;
+                _cancelImportButton.Visibility = Visibility.Collapsed;
+            }
             _saveImportCancellation = null;
         }
     }
