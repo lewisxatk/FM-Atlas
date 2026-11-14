@@ -698,7 +698,7 @@ public partial class MainWindow : Window
             stateRow.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
             stateRow.Children.Add(Txt("Automatic · read-only", 10, true, Ink));
             bottomStack.Children.Add(stateRow);
-            bottomStack.Children.Add(Txt("FM27 career detection and cancellable live indexing are active. Live editing remains disabled.", 8, false, Muted, wrap: true));
+            bottomStack.Children.Add(Txt("FM27 career detection and cancellable live indexing are active. Verified live editing is available from player, staff and club profiles.", 8, false, Muted, wrap: true));
         }
         else
         {
@@ -912,7 +912,7 @@ public partial class MainWindow : Window
         "Role Lab" => "Transparent IP/OOP role-fit estimates from imported player attributes",
         "Tester & Logs" => "System checks · diagnostic export · application and build logs",
         "Shortlists" => "Manage your local recruitment lists",
-        "Live Editor" => "Editing boundary · live game writing is not enabled in this build",
+        "Live Editor" => "Live FM27 profile editing · validated player, staff, club and tactical Match Exposure fields",
         "World Editor" => "Explore every indexed FM save directory · edit source-backed scalar fields locally with audit and undo",
         "Edit History" => "Local FM Atlas data changes and audit trail",
         "Atlas Assistant" => "Search your local career snapshot using natural-language-style filters",
@@ -3701,11 +3701,11 @@ public partial class MainWindow : Window
             ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
             : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
         var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
-        alert.Child = Txt("Atlas local edits are separate from Football Manager. In this V8 build, Editor Studio saves changes to the FM Atlas database only. Live Apply/Undo is hard-disabled; no game-memory writes are exposed. Live editing will remain blocked until exact-build identity, field mappings, in-game witnesses, read-back, rollback and Windows acceptance are independently verified.", 10, true, Brush("#E6C477"), wrap: true);
+        alert.Child = Txt("FM Atlas now has a field-specific live writer for supported FM27 player, staff and club values, plus Tactical Match Exposure. Each change is staged, checks the exact game build and career session, verifies entity identity and original field bytes, then reads the written value back. Some pointer-backed collections and unverified ownership/debt fields remain unavailable; never test on your only career save.", 10, true, Brush("#E6C477"), wrap: true);
         hs.Children.Add(alert);
         if (!_editorEnabled)
         {
-            hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas database edits only. The switch resets to OFF when FM Atlas closes; Football Manager itself is never changed.", 11, false, Muted, wrap: true));
+            hs.Children.Add(Txt("The editor is locked. Enable it above to access Atlas-local edits and the supported live FM27 editor panels in player, staff and club profiles. The switch resets to OFF when FM Atlas closes.", 11, false, Muted, wrap: true));
             Grid.SetRow(header, 0); root.Children.Add(header); return root;
         }
         if (_selectedPlayer is null)
@@ -3716,6 +3716,13 @@ public partial class MainWindow : Window
         }
         hs.Children.Add(Txt($"Selected player · {_selectedPlayer.Name} · {_selectedPlayer.Club ?? "Club unavailable"}", 11, true, Ink));
         Grid.SetRow(header, 0); root.Children.Add(header);
+        if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+        {
+            var liveContent = await BuildLiveEntityEditorAsync(
+                LiveEntityMemoryEditService.EntityKind.Player, _selectedPlayer.SourceId, _selectedPlayer.Name);
+            var livePanel = Card(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = liveContent }, 16);
+            Grid.SetRow(livePanel, 1); root.Children.Add(livePanel); return root;
+        }
 
         var editor = Card(new DockPanel(), 16); var dock = (DockPanel)editor.Child;
         var controls = new StackPanel(); controls.Children.Add(Txt("ABILITY VALUES", 9, true, Teal));
