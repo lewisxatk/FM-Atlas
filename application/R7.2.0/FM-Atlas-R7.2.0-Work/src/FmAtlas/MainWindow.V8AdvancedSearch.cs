@@ -960,16 +960,15 @@ public partial class MainWindow
         {
             var criteria = CaptureCriteria(out var error);
             if (error.Length > 0) { status.Text = error; return; }
-            if (criteria.Count == 0) { status.Text = "Add at least one complete condition before saving a profile."; return; }
+            var positionFilter = CapturePositionFilter(out var positionError);
+            if (positionError.Length > 0) { status.Text = positionError; return; }
+            if (criteria.Count == 0 && positionFilter is null) { status.Text = "Add at least one general or position condition before saving a profile."; return; }
             var existing = profilePicker.SelectedItem as AdvancedSearchProfile;
             var name = AskProfileName(existing?.Name ?? "");
             if (string.IsNullOrWhiteSpace(name)) return;
             var sameName = savedProfiles.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (sameName is not null && !MessageBox.Show(this, $"A search profile named '{name}' already exists. Replace it?", "FM Atlas · Replace profile", MessageBoxButton.YesNo, MessageBoxImage.Question).Equals(MessageBoxResult.Yes))
                 return;
-            var positionFilter = CapturePositionFilter(out var positionError);
-            if (positionError.Length > 0) { status.Text = positionError; return; }
-            if (criteria.Count == 0 && positionFilter is null) { status.Text = "Add at least one general or position condition before saving a profile."; return; }
             var profile = new AdvancedSearchProfile(
                 sameName?.Id ?? Guid.NewGuid().ToString("N"),
                 name,
