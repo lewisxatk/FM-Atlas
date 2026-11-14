@@ -5,6 +5,12 @@
 **Branch:** `rebuild/v8-full-product-rebuild`  
 **Application:** `application/R7.2.0/FM-Atlas-R7.2.0-Work/`
 
+## Latest integrated continuation — 2026-11-14
+
+- Commit `91ea60ad`: closing the main WPF window now stops the live-career monitor and requests cooperative cancellation of any active read-only live scan or offline save import. The existing importer/database cancellation path is responsible for rolling back unpublished work and retaining the last committed snapshot.
+- Commit `82916f68`: added separate implementation and Windows verification checklist entries. The code change is implemented, but close-during-scan/import behaviour still requires a fresh Windows workflow and runtime acceptance; no test pass is claimed.
+- Preservation remains mandatory: Advanced Search, saved profiles, player/staff directories, profiles, shortlist, analytics, save import and the four appearance modes are not replaced by this continuation.
+
 ## Current objective
 
 Continue the integrated V8 rebuild without replacing existing R7.2.0 functionality. Preserve the Monolith Glass shell, universal Advanced Search, saved search profiles, Players and Staff workspaces, profile tabs, shortlist pipeline, analytics, squad analysis, local editor history, save-import pipeline and all existing source-backed features.
