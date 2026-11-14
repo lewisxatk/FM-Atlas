@@ -6,7 +6,7 @@
 **Status:** source implementation committed; fresh Windows build and real FM27 acceptance still required.  
 **Principle:** load FM27, load a career, leave Atlas open. Atlas should recognise the active career without asking the user to choose a save file.
 
-## 1. Career/session detection — entity-array import currently paused
+## 1. Career/session detection — bounded read-only entity-array import
 
 ### Implemented in source
 
@@ -20,7 +20,7 @@
 - [x] Discard the snapshot if the career changes while Atlas is reading it.
 - [x] Detect and report a changed career generation; cancel an active scan if the process/build/session key changes.
 - [x] Detect a supported FM process/build when Atlas opens while a career is already loaded and begin the bounded read-only import.
-- [x] Keep a toolbar action that explains the paused import gate; it does not initiate a memory scan.
+- [x] Keep a toolbar action for manual connect/refresh; the automatic monitor uses the same bounded importer and session checks.
 - [x] Keep the original local Atlas database and offline save-import path intact.
 
 ### Still needs real-PC verification
@@ -30,7 +30,7 @@
 - [ ] Confirm the bounded scan does not materially affect FM CPU/RAM or responsiveness; record elapsed time and peak memory.
 - [x] Limit each scan to two minutes, report progress, and avoid repeated import attempts while a scan is active.
 - [ ] Load a second save without closing Atlas and confirm the active scan cancels, the partial snapshot is discarded and a new scan starts for the new generation.
-- [ ] After a bounded scanner is implemented and enabled for controlled testing, confirm a save switch during a scan discards that scan.
+- [ ] Confirm a save switch during a scan discards that scan and that the next generation is indexed exactly once.
 - [ ] Measure CPU/memory and scan duration on a real career; confirm the two-minute cap is adequate for the full player/staff/club arrays.
 
 ## 2. Human manager, club and nation
@@ -50,7 +50,7 @@
 
 ### Still needs real-PC verification
 
-- [ ] After the import gate is safely re-enabled, confirm the detected manager name matches the manager shown inside FM27.
+- [ ] Confirm the detected manager name matches the manager shown inside FM27.
 - [ ] Confirm manager club and nation match the in-game profile.
 - [ ] Compare manager/staff CA and PA with the in-game UI; values remain provisional until witnessed.
 - [ ] Confirm the shortcut opens the correct person/club profile after each save change.
@@ -72,6 +72,9 @@
 - [x] Extend Staff search results with CA, PA, job, age, nation, club and human-manager status.
 - [x] Open the selected Staff record into its fact profile; namespace live staff IDs with `LIVE:` so they cannot collide with offline save IDs.
 - [x] Add database integration coverage for live manager context, staff search, staff fact profiles and signed PA.
+- [x] Add an independently implemented FM27 15-group preferred-job decoder; validate 15-byte length and 1–20 range, preserve ties, and avoid inventing a preferred job for low scores or broad ties.
+- [x] Persist all available preferred-job ratings and the provisional top group(s) as LiveStaffFacts; surface them in the existing Staff profile without replacing the directory.
+- [ ] Compare preferred-job group ratings and displayed top preference against FM27's Staff Search / staff profile on the user's supported build.
 
 ### Known boundary
 
