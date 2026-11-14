@@ -648,7 +648,8 @@ public sealed class ScoutDatabase
         var type = (entityType ?? string.Empty).Trim().ToLowerInvariant();
         var supportedEntityTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "player", "staff", "club", "competition", "nation", "stadium", "other",
+            "player", "players", "staff", "club", "clubs", "competition", "competitions",
+            "nation", "nations", "stadium", "stadiums", "other",
             "contracts", "suspensions", "staff_lists", "managed_clubs", "finances", "sponsorships",
             "facilities", "affiliates", "job_vacancies", "stages", "fixtures", "league_tables",
             "competition_rules", "transfer_windows", "officials", "player_match_stats",
