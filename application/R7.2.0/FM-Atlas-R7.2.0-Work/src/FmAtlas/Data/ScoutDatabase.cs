@@ -2473,7 +2473,8 @@ CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotGroupFieldPlayer ON Fmsa
         IReadOnlyList<AdvancedSearchCriterion> criteria,
         bool matchAll = true,
         int limit = 250,
-        int offset = 0)
+        int offset = 0,
+        CancellationToken cancellationToken = default)
     {
         if (criteria.Count == 0) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 conditions in one advanced player search.");
@@ -2497,7 +2498,7 @@ CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotGroupFieldPlayer ON Fmsa
         };
 
         await using var db = new SqliteConnection(_connectionString);
-        await db.OpenAsync().ConfigureAwait(false);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
         var cmd = db.CreateCommand();
         var predicates = new List<string>();
 
@@ -2606,8 +2607,8 @@ CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotGroupFieldPlayer ON Fmsa
         cmd.Parameters.AddWithValue("$offset", Math.Clamp(offset, 0, 1_000_000));
 
         var results = new List<PlayerRecord>();
-        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-        while (await reader.ReadAsync().ConfigureAwait(false))
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             results.Add(new PlayerRecord
             {
