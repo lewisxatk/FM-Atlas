@@ -6,14 +6,14 @@ on:
       - feature/v9-all-roadmap
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
-      - ".github/workflows/fm-atlas-v10-windows.yml"
+      - ".github/workflows/fm-atlas-v8-windows.yml"
   pull_request:
     branches:
       - fix/r7.2.0-release-build-integration
       - rebuild/v8-full-product-rebuild
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
-      - ".github/workflows/fm-atlas-v10-windows.yml"
+      - ".github/workflows/fm-atlas-v8-windows.yml"
   workflow_dispatch:
 
 permissions:
@@ -76,7 +76,7 @@ jobs:
           dotnet build $solution --configuration Release --no-restore
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Run career import integration tests
+      - name: Run complete automated regression suite (xUnit)
         shell: pwsh
         run: |
           $solution = "application/R7.2.0/FM-Atlas-R7.2.0-Work/FmAtlas.sln"
