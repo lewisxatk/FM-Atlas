@@ -19,14 +19,14 @@ The shell includes a glass-style top action toolbar, descriptive hover/focus too
 The V8 branch preserves the R7.2.0 application and feature foundation while adding:
 - Atlas Liquid shell, toolbar, hover/focus help, three appearance modes and collapsible navigation.
 - Responsive navigation and improved player workspace activation.
-- Advanced Search workspace hub linking existing player, multi-attribute, statistical and global search engines.
+- Universal Advanced Search builder across core player fields, stored attributes/personality and latest-save facts, with ALL/ANY logic, saved profiles, visible-column sets, paging and cancellation; performance-stat searches remain a separate player-period workspace.
 - A Windows .NET 8 Release and self-contained x64 build/package workflow.
 - Live-memory safety gates: the old full process scan and live Apply handlers are blocked in V8 until bounded scanning and field mappings pass independent validation.
 - SQLite writer coordination and a 30-second busy timeout.
-- Save-import reader progress, database indexing progress, elapsed time and a Cancel action; cancellation/failure before commit rolls back the active transaction and preserves the last committed snapshot.
-- Reduced duplicate allocation in the C# importer by lazily enumerating player/staff/club arrays.
+- Save import now streams individual tables into a temporary NDJSON bundle and imports each row incrementally in one SQLite transaction; progress, elapsed time and cancellation preserve the last committed snapshot. A Python mock-save streaming test passes on Windows CI; the C# build of this exact integration is in progress.
+- SQLite write serialization and a 30-second lock timeout to address concurrent writer contention.
 
-**Do not equate source implementation with verification.** The save bridge still creates a full JSON snapshot and the C# importer still parses the complete document in memory. The universal multi-category AND/OR filter builder, full MVVM separation, deeper development/tactics/recruitment systems, performance validation and other roadmap areas remain open. The durable checklist records the exact state.
+**Do not equate source implementation with verification.** The new NDJSON adapter regression test passes, but the C# Release compile/package for the streaming importer is not yet confirmed and large real-save import behaviour still needs testing. Nested Advanced Search logic, multi-sort/multi-select comparison, full MVVM separation, deeper development/tactics/recruitment systems, runtime performance and Football Manager stability acceptance remain open. The durable checklist records the exact state.
 
 ## Durable progress and design documents
 
