@@ -239,7 +239,7 @@ public sealed class FmsaveNdjsonImportTests
         {
             var stats = new
             {
-                player_uid = "1001",
+                player_uid = "player-uid-1001",
                 season = "2026/27",
                 minutes_played = 900,
                 goals = 10,
