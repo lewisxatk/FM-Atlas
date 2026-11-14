@@ -153,7 +153,7 @@ public sealed class LiveMemoryWriteGateTests
             "date_of_birth", "contract.unhappiness", "loan.expires", "loan.option_fee",
             "position.gk", "position.amc", "personality.professionalism",
             "left_foot", "right_foot", "trait.0", "trait.63",
-            "contract.wage", "contract.type", "contract.signed", "contract.expires", "contract.joined", "contract.squad_number",
+            "contract.wage", "contract.signed", "contract.expires", "contract.joined", "contract.squad_number",
             "contract.squad_status", "contract.transfer_listed", "contract.loan_listed",
             "contract.loyalty_bonus", "contract.happiness", "contract.playing_time_happiness"
         })
