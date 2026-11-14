@@ -45,6 +45,8 @@ public partial class MainWindow : Window
     private TextBlock? _connectionSummary;
     private Ellipse? _connectionDot;
     private Button? _liveLoadButton;
+    private Button? _cancelImportButton;
+    private CancellationTokenSource? _saveImportCancellation;
     private ProgressBar? _liveLoadProgress;
     private TextBlock? _liveLoadStatus;
     private TextBox? _globalSearchBox;
@@ -176,6 +178,13 @@ public partial class MainWindow : Window
         actions.Children.Add(ToolbarIcon("\uE721", "Global search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
         actions.Children.Add(ToolbarIcon("\uE71C", "Open Advanced Search and choose player, attribute or performance-stat filters.", async (_, _) => await NavigateAsync("Advanced Search")));
         actions.Children.Add(ToolbarIcon("\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
+        _cancelImportButton = ToolbarIcon("\uE711", "Cancel the current career-save import. Any uncommitted database transaction is rolled back.", (_, _) =>
+        {
+            _saveImportCancellation?.Cancel();
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Cancellation requested — safely stopping at the next import checkpoint…";
+        });
+        _cancelImportButton.IsEnabled = false;
+        actions.Children.Add(_cancelImportButton);
         actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
         actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
         actions.Children.Add(ToolbarIcon("\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
@@ -2008,6 +2017,7 @@ public partial class MainWindow : Window
 
     private async Task ImportCareerSaveAsync()
     {
+        if (_saveImportCancellation is not null) return;
         var open = new OpenFileDialog { Title = "Select a COPY of your Football Manager career save", Filter = "Football Manager saves (*.fm;*.fmf;*.dat)|*.fm;*.fmf;*.dat|All files (*.*)|*.*", CheckFileExists = true };
         if (open.ShowDialog(this) != true) return;
         if (!await FmsaveBridgeService.IsAvailableAsync())
@@ -2016,25 +2026,67 @@ public partial class MainWindow : Window
             if (answer == MessageBoxResult.Yes) Process.Start(new ProcessStartInfo("explorer.exe", AppContext.BaseDirectory) { UseShellExecute = true });
             return;
         }
-        var confirmation = MessageBox.Show(this, "For safety, select a COPY of your career save, not your only save file. The parser is read-only, but the game may continue saving while you are browsing.\n\nProceed with a local, offline snapshot?", "Import career snapshot", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var confirmation = MessageBox.Show(this, "For safety, select a COPY of your career save, not your only save file. The parser is read-only.\n\nProceed with a local, offline snapshot?", "Import career snapshot", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (confirmation != MessageBoxResult.Yes) return;
+
+        using var cancellation = new CancellationTokenSource();
+        _saveImportCancellation = cancellation;
+        if (_cancelImportButton is not null) _cancelImportButton.IsEnabled = true;
+        if (_liveLoadProgress is not null)
+        {
+            _liveLoadProgress.Visibility = Visibility.Visible;
+            _liveLoadProgress.IsIndeterminate = true;
+            _liveLoadProgress.Value = 0;
+        }
+        void SetImportStatus(string message)
+        {
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = message;
+        }
+        var progress = new Progress<string>(message =>
+        {
+            SetImportStatus(message);
+            AtlasLog.Info("Save import: " + message);
+        });
+
         try
         {
-            Mouse.OverrideCursor = Cursors.Wait;
+            SetImportStatus("Starting read-only save inspection…");
             AtlasLog.Info("Starting read-only FM career save export/import.");
-            var result = await FmsaveBridgeService.ExportAsync(open.FileName);
-            var imported = await RunDatabaseAsync(() => _database.ImportFmsaveSnapshotAsync(result.OutputJsonPath));
+            var result = await FmsaveBridgeService.ExportAsync(open.FileName, cancellation.Token, progress);
+            cancellation.Token.ThrowIfCancellationRequested();
+            SetImportStatus("Save inspection complete. Indexing the career snapshot into Atlas…");
+            var imported = await RunDatabaseAsync(() => _database.ImportFmsaveSnapshotAsync(result.OutputJsonPath, cancellation.Token, progress));
+            cancellation.Token.ThrowIfCancellationRequested();
             AtlasLog.Info($"Career snapshot import completed: players={imported.PlayersImported}, staff={imported.StaffImported}, clubs={imported.ClubsImported}, extraRows={imported.ExtraRowsImported}, warnings={imported.Warnings.Count}.");
             var warnings = imported.Warnings.Count == 0 ? "No adapter warnings were reported." : string.Join("\n", imported.Warnings.Take(8));
+            SetImportStatus("Career snapshot imported successfully.");
             MessageBox.Show(this, $"Career save snapshot imported.\n\nPlayers: {imported.PlayersImported:N0}\nStaff: {imported.StaffImported:N0}\nClubs: {imported.ClubsImported:N0}\nAdditional table rows retained: {imported.ExtraRowsImported:N0}\n\n{warnings}\n\nThe source save was read-only; no game process or save was modified.", "FM Atlas · Save snapshot complete", MessageBoxButton.OK, MessageBoxImage.Information);
-            RefreshConnectionStatus(); await RefreshCareerStatusAsync(); await NavigateAsync("Dashboard");
+            RefreshConnectionStatus();
+            await RefreshCareerStatusAsync();
+            await NavigateAsync("Dashboard");
+        }
+        catch (OperationCanceledException)
+        {
+            AtlasLog.Info("FM career save import cancelled; an uncommitted snapshot transaction was discarded.");
+            SetImportStatus("Import cancelled. Existing published snapshots remain available.");
+            MessageBox.Show(this, "The import was cancelled safely. Any uncommitted snapshot transaction was rolled back; your previous imported career snapshot is retained.", "FM Atlas · Import cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             AtlasLog.Error("FM career save import failed.", ex);
+            SetImportStatus("Import failed. The previous published snapshot remains available.");
             MessageBox.Show(this, "The save snapshot was not imported.\n\n" + ex.Message, "FM Atlas · Save import error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        finally { Mouse.OverrideCursor = null; }
+        finally
+        {
+            if (_liveLoadProgress is not null)
+            {
+                _liveLoadProgress.IsIndeterminate = false;
+                _liveLoadProgress.Visibility = Visibility.Collapsed;
+            }
+            if (_cancelImportButton is not null) _cancelImportButton.IsEnabled = false;
+            _saveImportCancellation = null;
+        }
     }
 
     private void RunSaveBridgeSetup()
