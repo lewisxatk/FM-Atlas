@@ -42,4 +42,5 @@ public sealed record AdvancedSearchProfile(
     DateTime UpdatedUtc,
     string SearchText,
     bool MatchAll,
-    IReadOnlyList<AdvancedSearchCriterion> Criteria);
+    IReadOnlyList<AdvancedSearchCriterion> Criteria,
+    IReadOnlyList<string>? VisibleColumns = null);
