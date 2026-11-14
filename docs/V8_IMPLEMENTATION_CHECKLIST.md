@@ -37,7 +37,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [x] Initial Atlas Liquid application resource palette and shared tooltip styling committed.
 - [x] Initial glass top toolbar, side navigation, collapsible navigation and contextual hover descriptions committed.
 - [x] Monolith Glass is the first-run default, with graphite/charcoal surfaces, restrained orange accents and persisted theme preference; Glass Dark, Glass Light and Studio remain selectable.
-- [x] Top toolbar connect action refreshes a supported FM27 career; automatic detection remains active independently of the manual refresh action.
+- [x] Top toolbar live action reports the detected FM27 process/build/session; full entity-array import remains explicitly paused by the safety gate.
 - [x] Ctrl+K search shortcut wired to existing global search.
 - [~] Reusable shared button states are implemented for default, hover, pressed, keyboard focus and disabled; selected navigation is styled. Busy-state templates remain outstanding.
 - [x] Add automation names/help text and keyboard focus support to icon-only toolbar controls.
@@ -61,19 +61,21 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 3. Football Manager stability and live-memory safety
 
+**Safety gate (2026-11-14):** `LiveMemoryImportEnabled` is OFF. Automatic monitoring is detection-only; it does not start large player/staff/club entity-array reads. The manual toolbar action also reports the paused state. Do not mark automatic manager/player indexing as delivered until the gate is deliberately re-enabled after controlled FM performance and field-witness acceptance.
+
 - [x] Add exact PE-fingerprint process detection for supported Windows FM27 Steam and Game Pass builds; unknown builds and duplicate supported processes fail closed.
 - [x] Add read-only GAME_UI save-load generation detection. A career connection is keyed by process, build profile and the in-game load counter, not by a remembered save-file path.
-- [x] Start automatic career detection on application load; the monitor probes every three seconds and reconnects when a different save generation is observed.
-- [x] Replace the legacy broad process-memory scan with profile-bounded reads of the documented player, staff and club entity arrays. No full-address-space scan is invoked by the automatic connector.
+- [x] Start automatic detection on application load; the monitor probes every three seconds and reports process/build/save-generation changes. It does not import a new career while the live-memory gate is OFF.
+- [x] Replace the legacy broad process-memory scan with profile-bounded player/staff/club array reads in the controlled extractor. The automatic monitor does not invoke the extractor while the safety gate is OFF.
 - [x] Check the save-load generation before and after extraction; discard the partial snapshot if FM changes career while Atlas is reading.
-- [x] Retry a transient automatic extraction failure for the same career after a 30-second cooldown instead of treating the first failure as a permanent attempt.
-- [x] Persist the read-only player, staff and club snapshot; capture the uniquely identified human manager and their club/nation context with the same save-load counter.
+- [x] Keep bounded extraction cancellation, generation checks and retry handling in the controlled importer. Automatic extraction/retry is disabled while the live-memory safety gate is OFF.
+- [x] Implement transactional persistence for controlled live player/staff/club snapshots and uniquely identified manager club/nation context. Full live-memory scanning is not enabled for routine use.
 - [x] Surface the existing player and staff records in the searchable Players/Staff directories. Live player CA/PA, mapped standard attributes and positions remain explicitly provisional until an in-game UI witness is recorded.
 - [x] Fix live player search to resolve ability.current_ability and ability.potential_ability, including profile-matched provisional values and negative PA ranges, for display and CA/PA filtering.
 - [x] Display provisional live position ratings on the player profile with an explicit source-confidence warning.
 - [x] Bind My Manager / My Club shortcuts to the currently detected save-load generation; do not display a previous career's manager as current when FM closes or changes career.
 - [x] Keep live CA/PA/attribute Apply and live editing disabled. The automatic connector is read-only.
-- [ ] Run the newly added live-career database/search regression tests in the current Windows workflow.
+- [ ] Run the newly added live-career database/search regression tests against the exact current branch head in the Windows workflow.
 - [ ] Compare player/staff CA/PA, key player attributes/positions, manager identity, nation and club against the current FM27 UI on supported Steam and Game Pass builds.
 - [ ] Profile memory/CPU and FM responsiveness with FM closed, at menus and during a match; verify save switch, save close, game restart and duplicate-process behaviour.
 - [ ] Add a user-visible capability/status matrix for read-only, provisional and write-supported fields; maintain write gates until mapping, identity, read-back and rollback are independently validated.
