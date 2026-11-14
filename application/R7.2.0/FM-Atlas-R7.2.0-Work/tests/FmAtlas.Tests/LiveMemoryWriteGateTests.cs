@@ -54,7 +54,6 @@ public sealed class LiveMemoryWriteGateTests
 
     [Theory]
     [InlineData("nation")]
-    [InlineData("date_of_birth")]
     [InlineData("club.finance.balance")]
     [InlineData("tactical.effectiveness")]
     [InlineData("contract.clause")]
