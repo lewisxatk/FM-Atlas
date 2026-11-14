@@ -207,6 +207,28 @@ public partial class MainWindow
         stack.Children.Add(Txt("Tactical role planner", 22, true, Ink));
         stack.Children.Add(Txt("Screen the imported player pool against transparent In Possession and Out of Possession role profiles. Each score is an Atlas estimate from available 1–20 attributes, not Football Manager's hidden role score. Exact tactical duties, team instructions and role weights remain separate until independently validated.", 10, false, Muted, wrap: true));
 
+        List<RoleFitCandidate> results = new();
+        CancellationTokenSource? activeCancellation = null;
+
+        var status = Txt("Choose a role and search the latest imported player snapshot.", 9, false, Muted, wrap: true);
+        status.Margin = new Thickness(0, 8, 0, 0);
+        stack.Children.Add(status);
+        Grid.SetRow(header, 0); root.Children.Add(header);
+
+        var grid = CreateGrid();
+        grid.Columns.Add(Column("PLAYER", nameof(RoleFitCandidate.Name), 1.2));
+        grid.Columns.Add(Column("CLUB", nameof(RoleFitCandidate.Club), 1.0));
+        grid.Columns.Add(Column("AGE", nameof(RoleFitCandidate.Age), .4));
+        grid.Columns.Add(Column("POSITION", nameof(RoleFitCandidate.Position), .7));
+        grid.Columns.Add(Column("ATLAS ROLE FIT / 20", nameof(RoleFitCandidate.Score), .75));
+        grid.Columns.Add(Column("COVERAGE", nameof(RoleFitCandidate.Coverage), .6));
+        grid.Columns.Add(Column("ATTRIBUTE EVIDENCE", nameof(RoleFitCandidate.EvidenceSummary), 1.35));
+        grid.Columns.Add(Column("CA", nameof(RoleFitCandidate.CurrentAbility), .4));
+        grid.Columns.Add(Column("PA", nameof(RoleFitCandidate.PotentialAbility), .4));
+        grid.MouseDoubleClick += (_, _) =>
+        {
+            if (grid.SelectedItem is RoleFitCandidate selected) ShowGlobalSearch(selected.Name);
+        };
         var controls = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         var role = new ComboBox { Width = 260, Height = 36, Margin = new Thickness(0, 0, 8, 8), ItemsSource = profiles, DisplayMemberPath = nameof(RoleFitProfile.Name), IsTextSearchEnabled = true };
         if (profiles.Count > 0) role.SelectedIndex = 0;
@@ -239,29 +261,7 @@ public partial class MainWindow
             if (role.SelectedItem is RoleFitProfile selected) description.Text = $"{selected.Phase} · {selected.PositionGroup} · {selected.Description} · Atlas estimate, not the game's role rating.";
         };
 
-        var status = Txt("Choose a role and search the latest imported player snapshot.", 9, false, Muted, wrap: true);
-        status.Margin = new Thickness(0, 8, 0, 0);
-        stack.Children.Add(status);
-        Grid.SetRow(header, 0); root.Children.Add(header);
-
-        var grid = CreateGrid();
-        grid.Columns.Add(Column("PLAYER", nameof(RoleFitCandidate.Name), 1.2));
-        grid.Columns.Add(Column("CLUB", nameof(RoleFitCandidate.Club), 1.0));
-        grid.Columns.Add(Column("AGE", nameof(RoleFitCandidate.Age), .4));
-        grid.Columns.Add(Column("POSITION", nameof(RoleFitCandidate.Position), .7));
-        grid.Columns.Add(Column("ATLAS ROLE FIT / 20", nameof(RoleFitCandidate.Score), .75));
-        grid.Columns.Add(Column("COVERAGE", nameof(RoleFitCandidate.Coverage), .6));
-        grid.Columns.Add(Column("ATTRIBUTE EVIDENCE", nameof(RoleFitCandidate.EvidenceSummary), 1.35));
-        grid.Columns.Add(Column("CA", nameof(RoleFitCandidate.CurrentAbility), .4));
-        grid.Columns.Add(Column("PA", nameof(RoleFitCandidate.PotentialAbility), .4));
-        grid.MouseDoubleClick += (_, _) =>
-        {
-            if (grid.SelectedItem is RoleFitCandidate selected) ShowGlobalSearch(selected.Name);
-        };
         var card = Card(grid, 14); Grid.SetRow(card, 1); root.Children.Add(card);
-
-        List<RoleFitCandidate> results = new();
-        CancellationTokenSource? activeCancellation = null;
 
         async Task SearchAsync()
         {
