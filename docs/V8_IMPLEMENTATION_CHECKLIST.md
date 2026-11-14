@@ -439,3 +439,15 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - [x] Saved-profile restore clears the transient field-library query before rebuilding criteria, preventing a filtered picker from silently selecting a different field.
 - [x] Added SQLite integration coverage that seeds both FMSAVE snapshot facts and live position facts, then asserts exact ALL, exact ANY and At Least ALL result sets.
 - [ ] Run a fresh Windows Release build and complete xUnit suite after these additional changes; the previously uploaded artifact predates this test-only/profile-restore follow-up.
+
+
+## Final verification — Monolith Glass + FMRTE position filters — 14 November 2026
+
+- [x] Windows workflow 43590756414 passed all 12 steps on branch head 9ec72cbf34af3b51984c7fe23ad2c54573ec36fc.
+- [x] Python adapter validation and streaming bundle tests passed.
+- [x] .NET 8 restore and Release build passed.
+- [x] Complete xUnit suite passed, including SQLite integration proving exact ALL, exact ANY and At Least ALL against both offline FMSAVE facts and live position facts.
+- [x] Self-contained Windows x64 publish and artifact upload passed.
+- [x] Artifact FM-Atlas-V8-win-x64: 68,894,168 bytes; SHA-256 e76e763e26b35dd73ad4ee9ab1e1b95ffb34b7c090269e406658a2ad7f627f93; expires 28 November 2026.
+- [ ] Manual Windows visual acceptance remains open: inspect Monolith Glass and the 15-position filter tiles at 100%, 125% and 150% DPI, including keyboard focus, contrast, dropdowns and text clipping.
+- [ ] Compare position ratings against the in-game FM27 Positions page. Live-memory values remain provisional until witnessed.
