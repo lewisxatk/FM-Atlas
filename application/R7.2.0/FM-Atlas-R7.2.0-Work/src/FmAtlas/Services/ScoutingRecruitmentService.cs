@@ -1,6 +1,7 @@
 namespace FmAtlas.Services;
 
-public sealed record ScoutingMetricGroup(string Name, IReadOnlyList<ScoutingMetricDefinition> Metrics);\npublic sealed record ScoutingRoleProfile(string Name, string PositionGroup, IReadOnlyList<string> PreferredMetricKeys);
+public sealed record ScoutingMetricGroup(string Name, IReadOnlyList<ScoutingMetricDefinition> Metrics);
+public sealed record ScoutingRoleProfile(string Name, string PositionGroup, IReadOnlyList<string> PreferredMetricKeys);
 public sealed record SimilarPlayerResult(ScoutingPlayerSeason Player, double Similarity, double Coverage, IReadOnlyList<string> SharedMetrics);
 public sealed record UndervaluedPlayerResult(ScoutingPlayerSeason Player, double PerformancePercentile, double AgeScore,
     double ValueScore, double CompositeScore, double? MarketValue, string Explanation);
