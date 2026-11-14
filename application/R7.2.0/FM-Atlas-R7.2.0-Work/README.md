@@ -1,12 +1,32 @@
-# FM Atlas 27 — Obsidian Intelligence 7.2.0
+# FM Atlas V8 — Atlas Liquid
 
-FM Atlas is a Windows desktop scouting, career-intelligence, analytics and live-editing workbench for Football Manager 27. This 7.2.0 source checkpoint extends the previous R7.1.0 integration without deleting its history or replacing the existing local database design.
+FM Atlas is a Windows desktop scouting, career-intelligence, analytics, squad-planning and editing workbench for Football Manager 27. V8 keeps the R7.2.0 data and workspace foundation while rebuilding the application shell around the Atlas Liquid visual system. The source is still subject to a clean Windows Release build and user-side acceptance testing.
 
-## Design direction
+## V8 design direction — Atlas Liquid
 
-**Obsidian + Swiss Editorial**: charcoal surfaces (`#0D1117`, `#171F28`, `#202A35`), off-white typography, quiet grey secondary text, fine borders and electric-lime accent (`#C6F36B`). The existing desktop navigation and workspaces have been brought onto this palette. This is a significant theme pass, but final visual acceptance still requires running the WPF app at the user's Windows display scaling and resolution.
+V8 introduces three coordinated appearances: **Glass Dark**, **Glass Light** and **Studio**. The first-run default is Glass Dark. The selected appearance is saved under `%LOCALAPPDATA%\\FMAtlas\\theme.txt`.
 
-## Included in 7.2.0 source
+- A glass-style top action toolbar uses compact icon buttons with explanatory hover tooltips.
+- The side navigation is grouped by Home, Scouting, Squad & Analysis, Editing, and Data & Tools. It can collapse to an icon rail; hover descriptions remain available.
+- Toolbar and navigation controls have rounded translucent surfaces, hover illumination and pressed/disabled feedback.
+- Content-heavy tables and profile surfaces remain solid enough to preserve readability.
+- Ctrl+K opens Global Search. Navigation remains clickable during workspace preparation and queues the most recent destination.
+- Previously opened player profiles are restored after the Players workspace is displayed rather than delaying workspace construction.
+
+The three modes share the same layout and component language. Visual acceptance at Windows display scaling and common resolutions remains outstanding.
+
+## Integrated V8 safety changes
+
+- Automatic/background live-memory scanning is not enabled. The legacy full live identity scan is blocked by an application-level V8 gate; the toolbar action is visibly disabled and explains the reason.
+- Live-memory CA/PA and attribute writes are blocked by an application-level V8 gate pending independent validation of the mappings and Football Manager stability.
+- Offline career-save import remains the intended primary data path. Select a COPY of the career save; the fmsave reader is read-only.
+- The existing guarded live writer and its verification/rollback code are retained in source, but are not callable through the V8 editor UI while the gate is closed.
+
+## Retained R7.2.0 feature foundation
+
+V8 preserves the current player, staff and club records; search workspaces; indexed season/stat facts; multi-attribute player search; statistics search; Value Finder; Role Fit Lab; squad and tactical tools; shortlists; graphics resolver; local editing; diagnostics; and the save bridge. This does not imply that every roadmap feature is complete or has passed testing.
+
+## Included feature foundation
 
 - **Multi-condition Statistical Search Lab**: dynamically discovers numeric fields from retained FM career season statistics, career-history statistics, player match statistics and imported FM View Exporter CSVs. Fields are grouped into Goalkeeping, Attacking, Passing & Creation, Defending, Physical, Possession & Carrying, Discipline, General and Other metrics. Up to 60 AND conditions can be combined against the same player/stat row/period. Per-90 derivation is optional and requires a minimum-minute threshold.
 - **Indexed statistics facts**: import retains each source row as lossless JSON and additionally indexes numeric statistic fields by snapshot, player UID, period, minutes, original field path and numeric value. Player profiles use the index first to avoid reparsing every match/season row on each profile open. Older snapshots without the index use a compatibility fallback.
@@ -47,8 +67,9 @@ The licenses above apply to those projects. Their ideas and public game-layout o
 
 ## What is not complete yet
 
-This is an implementation checkpoint, not a claim that the entire FM Atlas vision is finished or that Windows compilation/gameplay testing has passed. The user-side build and FM27 validation gates remain open. Broad FMRTE-style arbitrary field search across all entities, complete staff/club/contract/transfer live editing, full Match Lab event/shot-map data, a comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain on the roadmap. See:
+This is an integrated V8 source milestone, not a claim that the entire FM Atlas vision is finished or that Windows compilation/gameplay testing has passed. The full V8 MVVM/service-layer migration, general-purpose FMRTE-style multi-category filter builder, cancellable streaming save-import pipeline, complete staff/club/contract/transfer field coverage, full Match Lab event/shot-map data, comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain unfinished. The user-side build and FM27 validation gates remain open. Broad FMRTE-style arbitrary field search across all entities, complete staff/club/contract/transfer live editing, full Match Lab event/shot-map data, a comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain on the roadmap. See:
 
+- `docs/architecture/FM-ATLAS-V8-IMPLEMENTATION-STATUS.md`
 - `docs/R7.2.0-IMPLEMENTATION-STATUS.md`
 - `docs/R7.2.0-ROADMAP-CHECKLIST.md`
 - `docs/R7.2.0-USER-TESTING.md`
