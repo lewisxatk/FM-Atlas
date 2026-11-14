@@ -394,6 +394,12 @@ public static partial class LiveMemoryEditService
         { currentMinimum = 0; currentMaximum = 22001231; }
         else if (field.Key.Equals("contract.squad_number", StringComparison.OrdinalIgnoreCase))
         { currentMinimum = 1; currentMaximum = 255; }
+        else if (field.Key.Equals("contract.squad_status", StringComparison.OrdinalIgnoreCase))
+        { currentMinimum = 0; currentMaximum = 40; }
+        else if (field.Key is "contract.happiness" or "contract.playing_time_happiness")
+        { currentMinimum = sbyte.MinValue; currentMaximum = sbyte.MaxValue; }
+        else if (field.Key is "contract.wage" or "contract.loyalty_bonus")
+        { currentMinimum = 0; currentMaximum = int.MaxValue; }
 
         var targetIsBlankSquadNumber = field.Key.Equals("contract.squad_number", StringComparison.OrdinalIgnoreCase) && target == 255;
         if (field.Key.Equals("contract.squad_status", StringComparison.OrdinalIgnoreCase) && target is not (1 or 2 or 3 or 4 or 5))
