@@ -10,6 +10,8 @@ using Path = System.IO.Path;
 using WpfCanvas = System.Windows.Controls.Canvas;
 using Microsoft.Win32;
 using FmAtlas.Services;
+using FmAtlas.Data;
+using FmAtlas.Models;
 
 namespace FmAtlas;
 
@@ -494,8 +496,10 @@ public partial class MainWindow
         cancelScoutingImport = SoftButton("Cancel import", (_, _) => activeScoutingImport?.Cancel());
         cancelScoutingImport.IsEnabled = false;
         eventLab = SoftButton("Open Event Lab · xT / Possessions", async (_, _) => await RunEventLabAsync());
+        var fmPlayerStatsLab = SoftButton("Open FM Player Stats Explorer", async (_, _) => await RunFmPlayerStatsExplorerAsync());
+        var fmLeagueLab = SoftButton("Open FM League Explorer", async (_, _) => await RunFmLeagueExplorerAsync());
         var fmTeamLab = SoftButton("Open FM27 Team Match Explorer", async (_, _) => await RunFmTeamMatchExplorerAsync());
-        importBar.Children.Add(eventLab); importBar.Children.Add(fmTeamLab);
+        importBar.Children.Add(eventLab); importBar.Children.Add(fmPlayerStatsLab); importBar.Children.Add(fmLeagueLab); importBar.Children.Add(fmTeamLab);
         importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload);
         importBar.Children.Add(fmMatrix); importBar.Children.Add(cancelScoutingImport);
 
@@ -519,6 +523,201 @@ public partial class MainWindow
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
 
+
+    private async Task RunFmPlayerStatsExplorerAsync()
+    {
+        var catalog = await _database.GetSeasonMetricCatalogAsync();
+        var root = new DockPanel { LastChildFill = true, Margin = new Thickness(14) };
+        var header = new StackPanel();
+        header.Children.Add(Txt("FM SAVE DATA · PLAYER SEASON / HISTORY / MATCH STATISTICS", 9, true, Teal));
+        header.Children.Add(Txt("FM Player Stats Explorer", 23, true, Ink));
+        header.Children.Add(Txt("Build a metric search from fields actually present in the imported career snapshot. Current-season, archived-history, retained match rows and FM View exports are labelled by source; the same player can have separate records for different teams, seasons or match rows.", 10, false, Muted, wrap: true));
+        header.Children.Add(Txt("The FM reader exposes current-season totals by competition type and team. Archived history can be sparse, while per-match history is only the portion retained by the save. Missing rows are not zeroes.", 9, false, Muted, wrap: true));
+
+        var controls = new WrapPanel { Margin = new Thickness(0, 10, 0, 8) };
+        var metricPicker = new ComboBox
+        {
+            Width = 300, Height = 34, Margin = new Thickness(3),
+            ItemsSource = catalog, DisplayMemberPath = nameof(StatMetricField.PickerLabel),
+            IsTextSearchEnabled = true
+        };
+        if (catalog.Count > 0) metricPicker.SelectedIndex = 0;
+        var minimum = Input("Minimum value"); minimum.Width = 110; minimum.Text = "0";
+        var maximum = Input("Maximum value"); maximum.Width = 110;
+        var minimumMinutes = Input("Minimum minutes"); minimumMinutes.Width = 120; minimumMinutes.Text = "450";
+        var per90 = new CheckBox
+        {
+            Content = "Calculate per 90 from recorded minutes",
+            Margin = new Thickness(8, 10, 8, 4),
+            VerticalAlignment = VerticalAlignment.Center,
+            IsEnabled = catalog.FirstOrDefault()?.SupportsPer90 == true
+        };
+        controls.Children.Add(FilterControl("FM STATISTIC", metricPicker, 310));
+        controls.Children.Add(FilterControl("MINIMUM", minimum, 120));
+        controls.Children.Add(FilterControl("MAXIMUM", maximum, 120));
+        controls.Children.Add(FilterControl("MIN SAMPLE", minimumMinutes, 130));
+        controls.Children.Add(per90);
+        header.Children.Add(controls);
+
+        Button searchButton = null!;
+        TextBlock status = null!;
+        DataGrid grid = null!;
+        searchButton = PrimaryButton("Search FM career data", async (_, _) => await SearchAsync());
+        controls.Children.Add(searchButton);
+        status = Txt(catalog.Count == 0
+            ? "No indexed player metrics found. Import an FM career save or an authorised FM View export first."
+            : $"{catalog.Count:N0} metric fields discovered from the latest local imports.", 9, false, Muted, wrap: true);
+        status.Margin = new Thickness(0, 2, 0, 8);
+        header.Children.Add(status);
+        DockPanel.SetDock(header, Dock.Top);
+        root.Children.Add(header);
+
+        grid = new DataGrid
+        {
+            AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false,
+            SelectionMode = DataGridSelectionMode.Single, MinHeight = 320,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal
+        };
+        grid.Columns.Add(new DataGridTextColumn { Header = "PLAYER", Binding = new System.Windows.Data.Binding(nameof(StatSearchResult.Name)), Width = 190 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "CLUB", Binding = new System.Windows.Data.Binding(nameof(StatSearchResult.Club)), Width = 170 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "PERIOD", Binding = new System.Windows.Data.Binding(nameof(StatSearchResult.Period)), Width = 125 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "MINUTES", Binding = new System.Windows.Data.Binding(nameof(StatSearchResult.Minutes)) { StringFormat = "0" }, Width = 90 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "DATA SOURCE", Binding = new System.Windows.Data.Binding(nameof(StatSearchResult.SourceTable)), Width = 170 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "MATCHED METRIC", Binding = new System.Windows.Data.Binding(nameof(StatSearchResult.ValuesSummary)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+        root.Children.Add(new ScrollViewer { Content = grid, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+
+        metricPicker.SelectionChanged += (_, _) =>
+        {
+            per90.IsEnabled = metricPicker.SelectedItem is StatMetricField selected && selected.SupportsPer90;
+            if (!per90.IsEnabled) per90.IsChecked = false;
+        };
+
+        async Task SearchAsync()
+        {
+            try
+            {
+                if (metricPicker.SelectedItem is not StatMetricField selected)
+                {
+                    status.Text = "Select a discovered FM statistic first.";
+                    return;
+                }
+                if (!double.TryParse(minimum.Text, System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out var minValue))
+                {
+                    status.Text = "Minimum must be a valid number.";
+                    return;
+                }
+                double? maxValue = null;
+                if (!string.IsNullOrWhiteSpace(maximum.Text))
+                {
+                    if (!double.TryParse(maximum.Text, System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedMax))
+                    {
+                        status.Text = "Maximum must be a valid number.";
+                        return;
+                    }
+                    maxValue = parsedMax;
+                }
+                if (maxValue.HasValue && minValue > maxValue.Value)
+                {
+                    status.Text = "Minimum cannot be greater than maximum.";
+                    return;
+                }
+                if (!int.TryParse(minimumMinutes.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sampleMinutes) || sampleMinutes < 0)
+                {
+                    status.Text = "Minimum minutes must be a non-negative whole number.";
+                    return;
+                }
+
+                searchButton.IsEnabled = false;
+                status.Text = "Searching indexed FM player facts…";
+                var rows = await _database.SearchSeasonStatCriteriaAsync(
+                    new[] { new StatFilterCriterion(selected.Key, selected.DisplayName, minValue, maxValue) },
+                    per90.IsChecked == true,
+                    Math.Max(1, sampleMinutes),
+                    limit: 5000,
+                    matchAll: true);
+                grid.ItemsSource = rows;
+                var sources = rows.Select(x => x.SourceTable).Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
+                status.Text = rows.Count == 0
+                    ? "No rows matched. A missing metric row may be unavailable or not retained in the save; it is not interpreted as zero."
+                    : $"{rows.Count:N0} matching player records · {selected.DisplayName} · {(per90.IsChecked == true ? "calculated per 90 from recorded minutes" : "source units")} · Sources: {string.Join(", ", sources)}.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("FM Player Stats Explorer query failed.", ex);
+                status.Text = "Search failed: " + ex.Message;
+            }
+            finally { searchButton.IsEnabled = true; }
+        }
+
+        var window = new Window
+        {
+            Title = "FM Atlas · FM Player Stats Explorer",
+            Width = 1240, Height = 760, MinWidth = 860, MinHeight = 520,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this, Background = this.Background, Foreground = this.Foreground, Content = root
+        };
+        window.ShowDialog();
+    }
+
+    private async Task RunFmLeagueExplorerAsync()
+    {
+        var rows = await _database.GetLatestFmLeagueTableEntriesAsync();
+        var root = new DockPanel { LastChildFill = true, Margin = new Thickness(14) };
+        var header = new StackPanel();
+        header.Children.Add(Txt("FM SAVE DATA · LIVE LEAGUE TABLES", 9, true, Teal));
+        header.Children.Add(Txt("FM League Explorer", 23, true, Ink));
+        header.Children.Add(Txt("Standings are read from the live league-table records in your imported save. Competition and club labels are displayed only when the reader supplied them. This view does not generate a pre-season zero-points table or substitute external league data.", 10, false, Muted, wrap: true));
+        var status = Txt(rows.Count == 0
+            ? "No live league-table rows were present in the latest snapshot. The save may not yet contain a played match for those competitions; check the Fixtures view."
+            : $"{rows.Count:N0} live league standings rows · values taken from the latest imported FM save.", 9, false, Muted, wrap: true);
+        status.Margin = new Thickness(0, 6, 0, 8);
+        header.Children.Add(status);
+        DockPanel.SetDock(header, Dock.Top);
+        root.Children.Add(header);
+
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false,
+            SelectionMode = DataGridSelectionMode.Single, MinHeight = 330,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+            ItemsSource = rows
+        };
+        grid.Columns.Add(new DataGridTextColumn { Header = "COMPETITION ID", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.CompetitionId)), Width = 130 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "COMPETITION", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.CompetitionName)), Width = 180 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "POS", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.Position)), Width = 55 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "CLUB", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.ClubName)), Width = 190 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "PLD", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.Played)), Width = 60 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "W", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.Won)), Width = 50 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "D", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.Drawn)), Width = 50 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "L", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.Lost)), Width = 50 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "GF", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.GoalsFor)), Width = 55 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "GA", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.GoalsAgainst)), Width = 55 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "PTS", Binding = new System.Windows.Data.Binding(nameof(FmLeagueTableEntry.Points)), Width = 60 });
+        var detail = Txt("Select a row to inspect the exact nested FM table row retained by Atlas.", 9, false, Muted, wrap: true);
+        detail.Margin = new Thickness(0, 8, 0, 0);
+        grid.SelectionChanged += (_, _) =>
+        {
+            if (grid.SelectedItem is FmLeagueTableEntry selected)
+                detail.Text = $"Source: FM save league_tables · competition id: {selected.CompetitionId ?? "unavailable"} · position: {selected.Position?.ToString(CultureInfo.InvariantCulture) ?? "unavailable"}\\n\\n{selected.SourceJson}";
+        };
+        var body = new StackPanel();
+        body.Children.Add(grid);
+        body.Children.Add(detail);
+        root.Children.Add(new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+
+        var window = new Window
+        {
+            Title = "FM Atlas · FM League Explorer",
+            Width = 1180, Height = 760, MinWidth = 820, MinHeight = 520,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this, Background = this.Background, Foreground = this.Foreground, Content = root
+        };
+        window.ShowDialog();
+    }
+
     private async Task RunFmTeamMatchExplorerAsync()
     {
         var root = new DockPanel { LastChildFill = true, Margin = new Thickness(14) };
@@ -537,16 +736,19 @@ public partial class MainWindow
         filters.Children.Add(FilterControl("TEAM", team, 130));
         filters.Children.Add(FilterControl("DATE FROM", from, 145));
         filters.Children.Add(FilterControl("DATE TO", to, 145));
-        var run = PrimaryButton("Search FM match data", async (_, _) => await SearchAsync());
+        Button run = null!;
+        TextBlock status = null!;
+        DataGrid grid = null!;
+        run = PrimaryButton("Search FM match data", async (_, _) => await SearchAsync());
         filters.Children.Add(run);
         header.Children.Add(filters);
-        var status = Txt("Ready · this view only searches FM-native team_match_stats.", 9, false, Muted, wrap: true);
+        status = Txt("Ready · this view only searches FM-native team_match_stats.", 9, false, Muted, wrap: true);
         status.Margin = new Thickness(0, 2, 0, 8);
         header.Children.Add(status);
         DockPanel.SetDock(header, Dock.Top);
         root.Children.Add(header);
 
-        var grid = new DataGrid
+        grid = new DataGrid
         {
             AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false,
             SelectionMode = DataGridSelectionMode.Single, HeadersVisibility = DataGridHeadersVisibility.Column,

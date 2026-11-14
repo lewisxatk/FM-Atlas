@@ -18,6 +18,7 @@ public sealed record AtlasEditableAttribute(string Name, string Category, double
 public sealed record AnalyticsMetricResult(string SourceId, string Name, string? Club, string Season, double Value);
 public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int StaffImported, int ClubsImported, int ExtraRowsImported, IReadOnlyDictionary<string,int> TableCounts, IReadOnlyList<string> Warnings);
 public sealed record FmTeamMatchMetric(string MatchDate, string CompetitionId, string HomeTeamId, string AwayTeamId, string MetricKey, double Value, bool FixtureMatched, string RawMatchJson, string? FixtureJson);
+public sealed record FmLeagueTableEntry(string? CompetitionId, string? CompetitionName, int? Position, string? ClubName, string? TeamId, int? Played, int? Won, int? Drawn, int? Lost, int? GoalsFor, int? GoalsAgainst, int? Points, string SourceJson);
 
 public sealed class ScoutDatabase
 {
@@ -2827,6 +2828,100 @@ public sealed class ScoutDatabase
         var rows=new List<(string,int)>(); await using var r=await cmd.ExecuteReaderAsync().ConfigureAwait(false); while(await r.ReadAsync().ConfigureAwait(false)) rows.Add((r.GetString(0),r.GetInt32(1))); return rows;
     }
 
+    /// <summary>
+    /// Returns only the live league-table rows actually present in the latest FM save snapshot.
+    /// Nested rows emitted by fmsave are expanded for search/display, while the source JSON is retained.
+    /// Flat legacy/test rows are still readable. Missing table rows are not treated as zero-point teams.
+    /// </summary>
+    public async Task<List<FmLeagueTableEntry>> GetLatestFmLeagueTableEntriesAsync(string? competitionId = null, int limit = 5000)
+    {
+        var safeLimit = Math.Clamp(limit, 1, 10000);
+        var jsonRows = new List<string>();
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT RawJson
+            FROM FmsaveExtraTables
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND TableName='league_tables'
+            ORDER BY RowIndex;
+            """;
+        await using (var reader = await command.ExecuteReaderAsync().ConfigureAwait(false))
+            while (await reader.ReadAsync().ConfigureAwait(false)) jsonRows.Add(reader.GetString(0));
+
+        static string? DirectText(JsonElement element, string key)
+        {
+            if (element.ValueKind != JsonValueKind.Object) return null;
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!property.Name.Equals(key, StringComparison.OrdinalIgnoreCase)) continue;
+                return property.Value.ValueKind switch
+                {
+                    JsonValueKind.String => property.Value.GetString(),
+                    JsonValueKind.Number => property.Value.GetRawText(),
+                    JsonValueKind.True => "true",
+                    JsonValueKind.False => "false",
+                    _ => null
+                };
+            }
+            return null;
+        }
+
+        static int? DirectInt(JsonElement element, string key)
+        {
+            var text = DirectText(element, key);
+            return int.TryParse(text, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : null;
+        }
+
+        var results = new List<FmLeagueTableEntry>();
+        foreach (var raw in jsonRows)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(raw);
+                var table = document.RootElement;
+                var compId = DirectText(table, "competition_id");
+                if (!string.IsNullOrWhiteSpace(competitionId)
+                    && !string.Equals(compId, competitionId.Trim(), StringComparison.OrdinalIgnoreCase)) continue;
+                var compName = DirectText(table, "competition_name");
+                if (table.TryGetProperty("rows", out var nestedRows) && nestedRows.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var row in nestedRows.EnumerateArray())
+                    {
+                        if (results.Count >= safeLimit) return results;
+                        AddEntry(row);
+                    }
+                }
+                else
+                {
+                    // Older/custom exports can contain one flat standings row per record.
+                    if (results.Count >= safeLimit) return results;
+                    AddEntry(table);
+                }
+
+                void AddEntry(JsonElement row)
+                {
+                    var teamId = DirectText(row, "team_id") ?? DirectText(row, "team_uid");
+                    var clubUid = DirectText(row, "club_uid");
+                    var clubName = DirectText(row, "club_name") ?? DirectText(row, "club_short_name");
+                    var position = DirectInt(row, "position");
+                    if (position is null && teamId is null && clubUid is null && clubName is null) return;
+                    results.Add(new FmLeagueTableEntry(
+                        compId, compName, position, clubName, teamId ?? clubUid,
+                        DirectInt(row, "played"), DirectInt(row, "won"), DirectInt(row, "drawn"),
+                        DirectInt(row, "lost"), DirectInt(row, "goals_for"), DirectInt(row, "goals_against"),
+                        DirectInt(row, "points"), row.GetRawText()));
+                }
+            }
+            catch (JsonException ex)
+            {
+                AtlasLog.Error("An archived FM league-table row could not be parsed.", ex);
+            }
+        }
+        return results;
+    }
 
     public async Task CheckpointAsync()
     {
@@ -3197,7 +3292,7 @@ public sealed class ScoutDatabase
                 if (!matchAll && conditionMatches) matches = true;
             }
             if (!matches || displayValues.Count == 0 || !playerMap.TryGetValue(work.PlayerUid, out var player) || string.IsNullOrWhiteSpace(player.SourceId)) continue;
-            results.Add(new StatSearchResult(player.SourceId, player.Name, player.Club, work.Period, work.Minutes, string.Join("  ·  ", displayValues)));
+            results.Add(new StatSearchResult(player.SourceId, player.Name, player.Club, work.Period, work.Minutes, string.Join("  ·  ", displayValues), work.SourceTable));
         }
         return results.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Take(safeLimit).ToList();
     }

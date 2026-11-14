@@ -52,7 +52,37 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal(14d, shots.Value);
         Assert.True(shots.FixtureMatched);
         Assert.Contains("competition_id", shots.FixtureJson ?? "", StringComparison.OrdinalIgnoreCase);
+        var leagueRows = await database.GetLatestFmLeagueTableEntriesAsync("77");
+        var leagueRow = Assert.Single(leagueRows);
+        Assert.Equal(1, leagueRow.Position);
+        Assert.Equal("Fixture FC", leagueRow.ClubName);
+        Assert.Equal(30, leagueRow.Points);
+        Assert.Equal(12, leagueRow.Played);
 
+    }
+
+    [Fact]
+    public async Task NativeFmPlayerSeasonMetricsAreIndexedAndSearchableWithProvenance()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "fm27-player-stats", playerManifestCount: 1,
+            includeContractRow: false, includeSeasonStatsRow: true);
+
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        var catalog = await database.GetSeasonMetricCatalogAsync();
+        Assert.Contains(catalog, x => x.Key.Equals("goals", StringComparison.OrdinalIgnoreCase));
+        var results = await database.SearchSeasonStatCriteriaAsync(
+            new[] { new StatFilterCriterion("goals", "Goals", 10, null) },
+            per90: false, minimumMinutes: 450, limit: 100, matchAll: true);
+        var player = Assert.Single(results);
+        Assert.Equal("Fixture Player", player.Name);
+        Assert.Equal("2026/27", player.Period);
+        Assert.Equal("player_season_stats", player.SourceTable);
+        Assert.Equal(900d, player.Minutes);
     }
 
     [Fact]
@@ -1622,7 +1652,21 @@ public sealed class FmsaveNdjsonImportTests
             File.WriteAllText(Path.Combine(folder, "fixtures.ndjson"),
                 JsonSerializer.Serialize(new { competition_id = 77, home_team_id = 10, away_team_id = 11, date = "2026-11-01" }) + Environment.NewLine);
             File.WriteAllText(Path.Combine(folder, "league_tables.ndjson"),
-                JsonSerializer.Serialize(new { competition_id = 77, team_uid = "club-10", position = 1, points = 30 }) + Environment.NewLine);
+                JsonSerializer.Serialize(new
+                {
+                    competition_id = 77,
+                    competition_name = "Test League",
+                    club_count = 1,
+                    rows = new[]
+                    {
+                        new
+                        {
+                            position = 1, team_id = 10, club_uid = 10, club_name = "Fixture FC",
+                            played = 12, won = 9, drawn = 3, lost = 0,
+                            goals_for = 22, goals_against = 5, points = 30
+                        }
+                    }
+                }) + Environment.NewLine);
             File.WriteAllText(Path.Combine(folder, "officials.ndjson"),
                 JsonSerializer.Serialize(new { uid = "ref-1", name = "Fixture Official" }) + Environment.NewLine);
             File.WriteAllText(Path.Combine(folder, "squad_planner.ndjson"),

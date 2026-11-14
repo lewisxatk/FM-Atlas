@@ -56,3 +56,20 @@ The C# importer now creates a dedicated `FmsaveTeamMatchFacts` index for numeric
 The query API supports metric-key, competition-ID, team-ID and ISO date-range filters. Fixture context is attached only on an exact composite-key match (competition + home team + away team + date), with numeric fixture IDs normalised to text for the join. Unmatched reports remain searchable with `FixtureMatched=false`. The WPF Scouting Analytics page now opens an FM27 Team Match Explorer with those filters, match-level result grid and raw source/fixture audit detail.
 
 This is a team-report explorer, not a player performance feed. It does not infer player involvement, player minutes, competition display names or team names from IDs. Those require validated UID-to-directory mappings and a witnessed FM27 save schema.
+
+
+## Pre-testing integration — player scouting and league tables
+
+FM Atlas now exposes the existing indexed player-stat search in a dedicated **FM Player Stats Explorer** from Scouting Analytics. It discovers metric fields present in the latest imported snapshot, applies a numeric range and an optional per-90 calculation using recorded minutes, and shows the period, minutes, matched value and exact source table for every returned row. Current-season stats, retained player-match rows, archived history and FM View exports remain visibly distinct. The view does not infer player minutes from appearances or fabricate a zero for an absent statistic.
+
+A new **FM League Explorer** expands the nested `league_tables` rows exported by fmsave into readable standings columns while retaining the original row JSON for inspection. It shows the competition identifier and supplied name separately; a missing competition name remains blank because FM saves do not store those names by default. It displays only live tables found in the save. If no table rows exist, the UI explains that the save may not yet have a played fixture for the competition and directs the user to fixture data rather than manufacturing an all-zero table.
+
+The Team Match Explorer build blocker was corrected by importing the data/model namespaces and declaring its captured WPF controls before the query callback. The existing exact fixture join and unmatched-report retention are unchanged.
+
+### Pre-testing validation gates
+
+- Windows x64 Release restore/build/test/publish must pass on the final branch head.
+- Confirm an actual FM27 save against the reader's supported or borrowed-layout warning state; the adapter's structural checks do not establish that every game field has verified semantics.
+- Check names and league context against in-game Data Hub / League screens. No external name map is bundled by default.
+- Confirm the scouting UI on a real imported career with a large season-stat table; fmsave notes that a full current-season player stats table can contain roughly 400,000 rows.
+- Verify live-memory attachment and any editor operation separately. Memory editing remains disabled pending read/write validation.

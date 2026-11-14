@@ -9,7 +9,7 @@ public sealed record StatMetricField(string Key, string DisplayName, string Cate
 
 public sealed record StatFilterCriterion(string Key, string DisplayName, double? Minimum, double? Maximum);
 
-public sealed record StatSearchResult(string SourceId, string Name, string? Club, string Period, double? Minutes, string ValuesSummary);
+public sealed record StatSearchResult(string SourceId, string Name, string? Club, string Period, double? Minutes, string ValuesSummary, string SourceTable = "unknown");
 
 public sealed record AttributeSearchCriterion(string Key, string DisplayName, double? Minimum, double? Maximum);
 
