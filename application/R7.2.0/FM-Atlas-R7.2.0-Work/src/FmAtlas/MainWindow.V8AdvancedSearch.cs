@@ -43,6 +43,8 @@ public partial class MainWindow
         TextBlock status = null!;
         Button searchButton = null!;
         Button cancelSearchButton = null!;
+        Button loadProfileButton = null!;
+        Button deleteProfileButton = null!;
         Button previousPageButton = null!;
         Button nextPageButton = null!;
         TextBlock pageStatus = null!;
@@ -100,8 +102,8 @@ public partial class MainWindow
         cancelSearchButton.IsEnabled = false;
         var resetButton = SoftButton("Reset filters", (_, _) => ResetFilters());
         var saveProfileButton = SoftButton("Save profile", (_, _) => SaveCurrentProfile());
-        var loadProfileButton = SoftButton("Load profile", (_, _) => LoadSelectedProfile());
-        var deleteProfileButton = SoftButton("Delete profile", (_, _) => DeleteSelectedProfile());
+        loadProfileButton = SoftButton("Load profile", (_, _) => LoadSelectedProfile());
+        deleteProfileButton = SoftButton("Delete profile", (_, _) => DeleteSelectedProfile());
         loadProfileButton.IsEnabled = savedProfiles.Count > 0;
         deleteProfileButton.IsEnabled = savedProfiles.Count > 0;
         toolbar.Children.Add(addButton);
