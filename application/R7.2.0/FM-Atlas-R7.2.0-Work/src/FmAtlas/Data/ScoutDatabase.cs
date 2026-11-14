@@ -498,8 +498,9 @@ public sealed class ScoutDatabase
         {
         if (value < 1 || value > 20) throw new ArgumentOutOfRangeException(nameof(value), "FM attributes must be between 1 and 20.");
         await using var db = new SqliteConnection(_connectionString);
-        await db.OpenAsync().ConfigureAwait(false);
-        await using var tx = await db.BeginTransactionAsync();
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await using var tx = await db.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         var old = db.CreateCommand(); old.Transaction = (SqliteTransaction)tx;
         old.CommandText = "SELECT AttributeValue FROM PlayerAttributes WHERE SourceId=$id AND AttributeName=$name;";
         old.Parameters.AddWithValue("$id", sourceId); old.Parameters.AddWithValue("$name", attributeName);
@@ -1061,9 +1062,13 @@ public sealed class ScoutDatabase
         }
 }
 
-    public async Task<LiveImportResult> ImportLiveSnapshotAsync(FmAtlas.Services.LiveImportPayload payload)
+    public async Task<LiveImportResult> ImportLiveSnapshotAsync(
+        FmAtlas.Services.LiveImportPayload payload,
+        CancellationToken cancellationToken = default)
     {
-        await WriteGate.WaitAsync().ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(payload);
+        cancellationToken.ThrowIfCancellationRequested();
+        await WriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
         await using var db = new SqliteConnection(_connectionString);
@@ -1079,6 +1084,7 @@ public sealed class ScoutDatabase
         // Replace only the active live snapshot inside this transaction. If any later
         // import step fails, rollback restores the prior live view. Offline save rows,
         // local/CSV scouting records, projects and import-run history remain untouched.
+        cancellationToken.ThrowIfCancellationRequested();
         var clearLiveSnapshot = db.CreateCommand(); clearLiveSnapshot.Transaction = (SqliteTransaction)tx;
         clearLiveSnapshot.CommandText = """
             DELETE FROM PlayerAttributes WHERE SourceId LIKE 'LIVE:%';
@@ -1089,8 +1095,10 @@ public sealed class ScoutDatabase
             """;
         await clearLiveSnapshot.ExecuteNonQueryAsync();
 
-        foreach (var club in payload.Clubs)
+        for (var clubIndex = 0; clubIndex < payload.Clubs.Count; clubIndex++)
         {
+            if ((clubIndex & 127) == 0) cancellationToken.ThrowIfCancellationRequested();
+            var club = payload.Clubs[clubIndex];
             var cmd = db.CreateCommand(); cmd.Transaction = (SqliteTransaction)tx;
             cmd.CommandText = "INSERT INTO LiveClubs(ClubUid,ClubName,ShortName,ArrayIndex,ObjectAddress,SourceRunId,ValidationStatus,UpdatedUtc) VALUES($id,$name,NULL,$idx,$addr,$run,$status,$utc) ON CONFLICT(ClubUid) DO UPDATE SET ClubName=excluded.ClubName,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,ValidationStatus=CASE WHEN LiveClubs.ValidationStatus='WitnessVerified' OR excluded.ValidationStatus='WitnessVerified' THEN 'WitnessVerified' ELSE 'Candidate' END,UpdatedUtc=excluded.UpdatedUtc;";
             cmd.Parameters.AddWithValue("$id", (long)club.Uid); cmd.Parameters.AddWithValue("$name", club.Name); cmd.Parameters.AddWithValue("$idx", club.ArrayIndex);
@@ -1110,8 +1118,10 @@ public sealed class ScoutDatabase
         staffFactUpsert.Parameters.Add("$number", SqliteType.Real); staffFactUpsert.Parameters.Add("$text", SqliteType.Text);
         staffFactUpsert.Parameters.Add("$status", SqliteType.Text); staffFactUpsert.Parameters.Add("$run", SqliteType.Integer); staffFactUpsert.Parameters.Add("$utc", SqliteType.Text);
         var liveStaffFactCount = 0;
-        foreach (var member in staffRows)
+        for (var staffIndex = 0; staffIndex < staffRows.Count; staffIndex++)
         {
+            if ((staffIndex & 127) == 0) cancellationToken.ThrowIfCancellationRequested();
+            var member = staffRows[staffIndex];
             staffUpsert.Parameters["$id"].Value = (long)member.Uid;
             staffUpsert.Parameters["$name"].Value = member.Name;
             staffUpsert.Parameters["$idx"].Value = member.ArrayIndex;
@@ -1160,8 +1170,11 @@ public sealed class ScoutDatabase
         careerIdentity.Parameters.AddWithValue("$utc", now);
         await careerIdentity.ExecuteNonQueryAsync();
 
-        foreach (var player in payload.Players.Where(p => p.TeamObjectAddress is not null).GroupBy(p => p.TeamObjectAddress).Select(g => g.First()))
+        var linkedTeams = payload.Players.Where(p => p.TeamObjectAddress is not null).GroupBy(p => p.TeamObjectAddress).Select(g => g.First()).ToArray();
+        for (var teamIndex = 0; teamIndex < linkedTeams.Length; teamIndex++)
         {
+            if ((teamIndex & 127) == 0) cancellationToken.ThrowIfCancellationRequested();
+            var player = linkedTeams[teamIndex];
             var link = db.CreateCommand(); link.Transaction = (SqliteTransaction)tx;
             link.CommandText = "INSERT INTO LiveTeamLinks(TeamObjectAddress,ClubUid,SourceRunId,UpdatedUtc) VALUES($team,$club,$run,$utc) ON CONFLICT(TeamObjectAddress) DO UPDATE SET ClubUid=excluded.ClubUid,SourceRunId=excluded.SourceRunId,UpdatedUtc=excluded.UpdatedUtc;";
             link.Parameters.AddWithValue("$team", player.TeamObjectAddress!); link.Parameters.AddWithValue("$club", player.ClubUid.HasValue ? (object)(long)player.ClubUid.Value : DBNull.Value);
@@ -1182,8 +1195,10 @@ public sealed class ScoutDatabase
         foreach (var parameter in new[] { "$id", "$name", "$club", "$nation", "$position", "$origin", "$utc" }) atlasLivePlayerUpsert.Parameters.Add(parameter, SqliteType.Text);
         atlasLivePlayerUpsert.Parameters.Add("$age", SqliteType.Integer); atlasLivePlayerUpsert.Parameters.Add("$ca", SqliteType.Integer); atlasLivePlayerUpsert.Parameters.Add("$pa", SqliteType.Integer);
         var liveAttributeCount = 0;
-        foreach (var player in payload.Players)
+        for (var playerIndex = 0; playerIndex < payload.Players.Count; playerIndex++)
         {
+            if ((playerIndex & 127) == 0) cancellationToken.ThrowIfCancellationRequested();
+            var player = payload.Players[playerIndex];
             var cmd = db.CreateCommand(); cmd.Transaction = (SqliteTransaction)tx;
             cmd.CommandText = "INSERT INTO LivePlayers(PlayerUid,PlayerName,TeamUid,ClubUid,ArrayIndex,ObjectAddress,SourceRunId,NameValidation,RelationshipValidation,UpdatedUtc,TeamObjectAddress,DateOfBirth,RegenStatus,RegenEvidence,RegenConfidence) VALUES($id,$name,NULL,$club,$idx,$addr,$run,'Decoded',$relationship,$utc,$team,$dob,'Unknown',$evidence,'Unverified') ON CONFLICT(PlayerUid) DO UPDATE SET PlayerName=excluded.PlayerName,ClubUid=excluded.ClubUid,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,NameValidation='Decoded',RelationshipValidation=excluded.RelationshipValidation,UpdatedUtc=excluded.UpdatedUtc,TeamObjectAddress=excluded.TeamObjectAddress,DateOfBirth=COALESCE(excluded.DateOfBirth,LivePlayers.DateOfBirth),RegenEvidence=excluded.RegenEvidence;";
             cmd.Parameters.AddWithValue("$id", (long)player.Uid); cmd.Parameters.AddWithValue("$name", player.Name);
@@ -1269,6 +1284,7 @@ public sealed class ScoutDatabase
         };
         foreach (var field in registryRows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var reg = db.CreateCommand(); reg.Transaction = (SqliteTransaction)tx;
             reg.CommandText = "INSERT INTO LiveFieldRegistry(EntityType,FieldKey,DisplayName,CandidateOffset,DataType,ValidationStatus,Evidence,LastVerifiedGameVersion,LastVerifiedModuleSha256) VALUES($entity,$key,$display,$offset,$type,$status,$evidence,$version,$hash) ON CONFLICT(EntityType,FieldKey) DO UPDATE SET DisplayName=excluded.DisplayName,CandidateOffset=excluded.CandidateOffset,DataType=excluded.DataType,ValidationStatus=excluded.ValidationStatus,Evidence=excluded.Evidence,LastVerifiedGameVersion=excluded.LastVerifiedGameVersion,LastVerifiedModuleSha256=excluded.LastVerifiedModuleSha256;";
             reg.Parameters.AddWithValue("$entity", field.Item1); reg.Parameters.AddWithValue("$key", field.Item2); reg.Parameters.AddWithValue("$display", field.Item3);
@@ -1283,7 +1299,9 @@ public sealed class ScoutDatabase
         finish.Parameters.AddWithValue("$staffImported", staffRows.Count);
         finish.Parameters.AddWithValue("$summary", $"Unnamed/unreadable player slots: {payload.UnnamedPlayers}; unresolved player-to-club links: {payload.UnlinkedPlayers}; staff identities imported: {staffRows.Count}; staff fact rows: {liveStaffFactCount}; player attribute/personality facts: {liveAttributeCount}; all live field values remain provisional pending in-game UI witnesses");
         finish.Parameters.AddWithValue("$id", runId);
-        await finish.ExecuteNonQueryAsync(); await tx.CommitAsync().ConfigureAwait(false);
+        await finish.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
         return new LiveImportResult(runId, payload.PlayerSlots, payload.Players.Count, payload.Clubs.Count, payload.Clubs.Count,
             payload.UnnamedPlayers, payload.UnlinkedPlayers, liveAttributeCount, payload.StaffSlots, staffRows.Count);
     
