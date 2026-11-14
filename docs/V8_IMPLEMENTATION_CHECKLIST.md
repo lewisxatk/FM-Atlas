@@ -115,7 +115,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 7. Recruitment, Moneyball and analytics
 
-- [x] Indexed statistic search evaluates ALL/ANY thresholds with per-condition aggregation inside SQLite, applies per-90/minutes filters before materialisation, groups qualifying player-period rows server-side, uses a dedicated composite search index and resolves only candidate player identities.
+- [x] Indexed statistic search pushes each metric's numeric threshold into SQLite's indexed candidate predicate, evaluates ALL/ANY with per-condition aggregation, applies per-90/minutes filters before materialisation, groups qualifying player-period rows server-side, and resolves only candidate player identities.
 - [ ] Verify indexed metric-search correctness against a real imported FM27 career and benchmark query latency on large stat tables.
 - [ ] Benchmark metric search, import throughput and peak memory using 40k+ player / large-stat fixtures.
 

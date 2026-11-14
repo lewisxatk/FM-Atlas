@@ -2338,7 +2338,7 @@ public sealed class ScoutDatabase
                     SELECT TableName,RowIndex,PlayerUid,PeriodKey,Minutes
                     FROM FmsaveStatFacts
                     WHERE SnapshotId=$s
-                      AND FieldKey COLLATE NOCASE IN ({string.Join(",", keyParameters)})
+                      AND ({string.Join(" OR ", criterionPredicates)})
                       {(per90 ? "AND Minutes >= $minimumMinutes" : string.Empty)}
                     GROUP BY TableName,RowIndex,PlayerUid,PeriodKey,Minutes
                     HAVING ({matchedCountExpression}) >= $requiredMatches
