@@ -13,7 +13,8 @@
 | Top command toolbar | Source implemented | Compact icon controls for Global Search, offline save import, Save Atlas, Shortlists, Analytics, paused live scan, theme switching and diagnostics. |
 | Hover help | Source implemented | Toolbar buttons and navigation items have explanatory tooltips and delayed hover display. |
 | Side navigation | Source implemented | Grouped sections, active item treatment, collapsible icon rail and hover descriptions. |
-| Button feedback | Source implemented | Rounded controls include hover, pressed and disabled visual states. |
+| Button feedback | Source implemented | Rounded controls include hover, pressed, keyboard-focus and disabled visual states. |
+| Workspace motion | Source implemented | 150 ms workspace fade-in is conditional on the Windows system animation setting; no continuous decorative animation. |
 | Keyboard search | Source implemented | Ctrl+K opens the existing Global Search window; Ctrl+F remains supported. |
 | Navigation responsiveness | Improved in source | Navigation buttons stay enabled while workspace construction runs; latest requested destination is queued. |
 | Player workspace activation | Improved in source | Previously open profiles are restored after the workspace is displayed rather than awaited during workspace construction. |
@@ -47,7 +48,7 @@ A feature being present in source is not equivalent to verified completeness. Me
 ## Remaining V8 work before calling the rebuild complete
 
 1. Run and fix a clean Windows 10/11 .NET 8 Release build and WPF startup.
-2. Validate Glass Dark, Glass Light and Studio at 100%, 125% and 150% DPI and 1080p/1440p resolutions; check keyboard focus, contrast, clipping and tooltips.
+2. Validate Glass Dark, Glass Light and Studio at 100%, 125% and 150% DPI and 1080p/1440p resolutions; check keyboard focus, contrast, clipping, tooltip text and the reduced-motion/system-animation path.
 3. Complete the MVVM/service-layer separation; the legacy MainWindow code-behind is still substantial.
 4. Replace the limited Global Search filter surface with the full general-purpose Advanced Search builder: filter library categories, AND/OR groups, arbitrary available fields, saved profiles, configurable result columns and paging.
 5. Rework save import as staged, streaming/batched, cancellable and retryable with progress, memory limits and atomic snapshot publication. The current large JSON bridge/import route remains a constraint.
