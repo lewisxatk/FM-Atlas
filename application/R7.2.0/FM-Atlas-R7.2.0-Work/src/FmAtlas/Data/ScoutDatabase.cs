@@ -2719,7 +2719,8 @@ public sealed class ScoutDatabase
         bool per90,
         int minimumMinutes = 450,
         int limit = 2500,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int minimumSampleSize = 1)
     {
         if (string.IsNullOrWhiteSpace(metricKey))
             throw new ArgumentException("Choose a discovered statistical metric.", nameof(metricKey));
@@ -2730,6 +2731,7 @@ public sealed class ScoutDatabase
             throw new ArgumentException($"{metric.DisplayName} is already a rate, percentage, rating or playing-time field and cannot be normalised per 90 again.", nameof(per90));
 
         var safeMinutes = Math.Clamp(minimumMinutes, 1, 10000);
+        var safeSampleSize = Math.Clamp(minimumSampleSize, 1, 10000);
         var safeLimit = Math.Clamp(limit, 1, 5000);
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync(cancellationToken).ConfigureAwait(false);
@@ -2744,6 +2746,7 @@ public sealed class ScoutDatabase
         command.Parameters.AddWithValue("$snapshot", snapshotId);
         command.Parameters.AddWithValue("$metric", metricKey);
         command.Parameters.AddWithValue("$minimumMinutes", safeMinutes);
+        command.Parameters.AddWithValue("$minimumSampleSize", safeSampleSize);
         command.CommandText = """
             WITH source_priority AS (
                 SELECT ps.PlayerSourceId,
@@ -2789,6 +2792,7 @@ public sealed class ScoutDatabase
                 FROM preferred_rows
                 GROUP BY PlayerSourceId
                 HAVING SUM(Minutes)>=$minimumMinutes
+                   AND COUNT(*) >= $minimumSampleSize
             )
             SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,
                    p.CurrentAbility,p.PotentialAbility,p.Value,p.DataOrigin,

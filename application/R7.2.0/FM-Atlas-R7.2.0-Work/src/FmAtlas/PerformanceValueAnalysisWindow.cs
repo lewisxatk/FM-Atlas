@@ -20,6 +20,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
     private readonly ComboBox _metricPicker;
     private readonly CheckBox _per90;
     private readonly TextBox _minimumMinutes;
+    private readonly TextBox _minimumSampleSize;
     private readonly ComboBox _positionFilter;
     private readonly ComboBox _leagueFilter;
     private readonly Canvas _chart;
@@ -30,6 +31,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
     private bool _updatingCohortFilters;
     private string _activeMetricName = "";
     private bool _activePer90;
+    private int _activeMinimumSampleSize = 1;
 
     private PerformanceValueAnalysisWindow(ScoutDatabase database, IReadOnlyList<StatMetricField> metrics)
     {
@@ -61,6 +63,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
         _metricPicker.SelectedIndex = 0;
         _per90 = new CheckBox { Content = "Per 90", Foreground = new SolidColorBrush(Color.FromRgb(220, 229, 237)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 6) };
         _minimumMinutes = new TextBox { Text = "450", Width = 90, Height = 34, Margin = new Thickness(0, 0, 8, 6), Padding = new Thickness(8, 5, 8, 5) };
+        _minimumSampleSize = new TextBox { Text = "1", Width = 65, Height = 34, Margin = new Thickness(0, 0, 8, 6), Padding = new Thickness(8, 5, 8, 5), ToolTip = "Minimum number of source rows/periods used to calculate this player's metric." };
         _positionFilter = new ComboBox { Width = 155, Height = 34, Margin = new Thickness(0, 0, 8, 6) };
         _positionFilter.Items.Add("All positions");
         _positionFilter.SelectedIndex = 0;
@@ -82,6 +85,8 @@ public sealed class PerformanceValueAnalysisWindow : Window
         controls.Children.Add(_per90);
         controls.Children.Add(new TextBlock { Text = "Minimum minutes", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), Margin = new Thickness(0, 0, 6, 6) });
         controls.Children.Add(_minimumMinutes);
+        controls.Children.Add(new TextBlock { Text = "Min samples", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), Margin = new Thickness(0, 0, 6, 6) });
+        controls.Children.Add(_minimumSampleSize);
         controls.Children.Add(_positionFilter);
         controls.Children.Add(_leagueFilter);
         controls.Children.Add(clearCohorts);
@@ -166,6 +171,12 @@ public sealed class PerformanceValueAnalysisWindow : Window
             _status.Text = "Minimum minutes must be a whole number from 1 to 10,000.";
             return;
         }
+        if (!int.TryParse(_minimumSampleSize.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var minimumSampleSize)
+            || minimumSampleSize < 1 || minimumSampleSize > 10000)
+        {
+            _status.Text = "Minimum samples must be a whole number from 1 to 10,000.";
+            return;
+        }
         if (_per90.IsChecked == true && !metric.SupportsPer90)
         {
             _status.Text = "This metric is not eligible for per-90 normalisation.";
@@ -177,7 +188,9 @@ public sealed class PerformanceValueAnalysisWindow : Window
         {
             _activeMetricName = metric.DisplayName;
             _activePer90 = _per90.IsChecked == true;
-            _allResults = await _database.GetPerformanceValueCandidatesAsync(metric.Key, _activePer90, minutes, 5000);
+            _activeMinimumSampleSize = minimumSampleSize;
+            _allResults = await _database.GetPerformanceValueCandidatesAsync(
+                metric.Key, _activePer90, minutes, 5000, minimumSampleSize: minimumSampleSize);
             RefreshCohortFilterOptions();
             ApplyCohortFilters();
         }
@@ -250,7 +263,7 @@ public sealed class PerformanceValueAnalysisWindow : Window
             filterPosition ? $"Position: {selectedPosition}" : "All positions",
             filterLeague ? $"League: {selectedLeague}" : "All leagues"
         });
-        _status.Text = $"{_results.Count:N0} of {_allResults.Count:N0} eligible players shown · {_results[0].DisplayCoverage} coverage of the eligible valued-player pool · {cohortSummary}. Percentiles remain calculated against the full eligible pool; minutes and sample size are shown per player.";
+        _status.Text = $"{_results.Count:N0} of {_allResults.Count:N0} eligible players shown · minimum {_activeMinimumSampleSize} source sample(s) · {_results[0].DisplayCoverage} coverage of the eligible valued-player pool · {cohortSummary}. Percentiles are calculated after the minutes and sample-size floors, before the visible position/league filters; minutes, sample count and latest period are shown per player.";
     }
 
     private void DrawEmptyChart()

@@ -544,12 +544,24 @@ public sealed class FmsaveNdjsonImportTests
                 fact.Parameters.AddWithValue("$uid", candidate.Uid);
                 fact.Parameters.AddWithValue("$goals", candidate.Goals);
                 await fact.ExecuteNonQueryAsync();
+                if (candidate.Uid == "value-uid-2")
+                {
+                    fact.Parameters["$row"].Value = candidate.Row + 20;
+                    await fact.ExecuteNonQueryAsync();
+                }
             }
             await transaction.CommitAsync();
         }
 
         var results = await database.GetPerformanceValueCandidatesAsync("goals", per90: true, minimumMinutes: 450);
         Assert.Equal(4, results.Count);
+        var repeatedSample = Assert.Single(results.Where(x => x.Player.SourceId == "FMSAVE:FM27:value:2"));
+        Assert.Equal(2, repeatedSample.SampleSize);
+        var minimumSampleResults = await database.GetPerformanceValueCandidatesAsync(
+            "goals", per90: true, minimumMinutes: 450, minimumSampleSize: 2);
+        var onlyRepeatedSample = Assert.Single(minimumSampleResults);
+        Assert.Equal("FMSAVE:FM27:value:2", onlyRepeatedSample.Player.SourceId);
+        Assert.Equal(2, onlyRepeatedSample.SampleSize);
         var anchor = Assert.Single(results.Where(x => x.Player.SourceId == "FMSAVE:FM27:test-db:1001"));
         Assert.Equal(1d, anchor.PerformanceValue, 5);
         Assert.Equal(900d, anchor.TotalMinutes);
