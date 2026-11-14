@@ -42,7 +42,7 @@ public static partial class LiveEntityMemoryEditService
     public sealed record BatchReceipt(BatchPlan Plan, DateTime AppliedUtc, bool ReadBackVerified);
 
     private enum Place { Object, Contract, Concerns, Loan, SeniorTeam, ClubInfo, ClubFinance, Stadium }
-    private enum EncodingKind { ScaledAttribute, DirectByte, UInt8, Int8, UInt16, Int16, UInt32, Int32, Date, Flag }
+    private enum EncodingKind { ScaledAttribute, DirectByte, UInt8, Int8, UInt16, Int16, UInt32, Int32, FloatPence, Date, Flag }
     private sealed record FieldSpec(
         string Key, string Label, EntityKind Entity, Place Place, ulong Offset, int Size,
         EncodingKind Encoding, int Minimum, int Maximum, int PlausibleMinimum, int PlausibleMaximum,
@@ -323,6 +323,7 @@ public static partial class LiveEntityMemoryEditService
             fields.Add(F("left_foot","Left Foot",entity,Place.Object,0x177,1,EncodingKind.DirectByte,1,20,0,20));
             fields.Add(F("right_foot","Right Foot",entity,Place.Object,0x178,1,EncodingKind.DirectByte,1,20,0,20));
             fields.Add(F("height","Height (cm)",entity,Place.Object,0x22E,2,EncodingKind.UInt16,140,220,100,250));
+            fields.Add(F("transfer_value","Transfer Value (GBP)",entity,Place.Object,0x234,4,EncodingKind.Int32,0,300_000_000,-1,int.MaxValue,blank:-1));
             fields.Add(F("asking_price","Asking Price (GBP)",entity,Place.Object,0x238,4,EncodingKind.Int32,0,2_000_000_000,-1,int.MaxValue,blank:-1));
             fields.Add(F("condition","Condition",entity,Place.Object,0x25C,2,EncodingKind.UInt16,0,10_000,0,10_000));
             fields.Add(F("match_sharpness","Match Sharpness",entity,Place.Object,0x258,2,EncodingKind.UInt16,3_500,10_000,0,10_000));
@@ -374,6 +375,16 @@ public static partial class LiveEntityMemoryEditService
         else
         {
             fields.Add(F("reputation","Club Reputation",entity,Place.SeniorTeam,0xA8,2,EncodingKind.UInt16,0,10_000,0,10_000));
+            fields.Add(F("club.season_tickets","Season Tickets",entity,Place.ClubInfo,0xC0,4,EncodingKind.UInt32,0,2_000_000,0,10_000_000));
+            fields.Add(F("club.social_media","Social Media Followers",entity,Place.ClubInfo,0xF8,4,EncodingKind.UInt32,0,2_000_000_000,0,int.MaxValue));
+            var supporterMix = new[] { "hardcore", "core", "family", "fair_weather", "corporate", "casual" };
+            for (var i = 0; i < supporterMix.Length; i++)
+                fields.Add(F("supporters.mix." + supporterMix[i], "Supporter Mix · " + Humanize(supporterMix[i]) + " (%)", entity,
+                    Place.ClubInfo, 0x106UL + (ulong)i, 1, EncodingKind.DirectByte, 0, 100, 0, 100));
+            var supporterTraits = new[] { "loyalty", "passion", "patience", "affluence", "temperament", "expectations" };
+            for (var i = 0; i < supporterTraits.Length; i++)
+                fields.Add(F("supporters.trait." + supporterTraits[i], "Supporter " + Humanize(supporterTraits[i]), entity,
+                    Place.ClubInfo, 0x114UL + (ulong)i, 1, EncodingKind.DirectByte, 1, 20, 0, 20));
             fields.Add(F("facilities.training","Training Facilities",entity,Place.ClubInfo,0x120,1,EncodingKind.DirectByte,1,20,0,20));
             fields.Add(F("facilities.youth_facilities","Youth Facilities",entity,Place.ClubInfo,0x12B,1,EncodingKind.DirectByte,1,20,0,20));
             fields.Add(F("facilities.youth_coaching","Youth Coaching",entity,Place.ClubInfo,0x12C,1,EncodingKind.DirectByte,1,20,0,20));
@@ -382,6 +393,8 @@ public static partial class LiveEntityMemoryEditService
             fields.Add(F("finance.transfer_budget","Transfer Budget (GBP)",entity,Place.ClubFinance,0x7C4,4,EncodingKind.Int32,0,2_000_000_000,0,int.MaxValue));
             fields.Add(F("finance.total_wage_budget","Total Wage Budget (GBP/week)",entity,Place.ClubFinance,0x808,4,EncodingKind.Int32,0,100_000_000,0,int.MaxValue));
             fields.Add(F("finance.wage_budget","Wage Budget (GBP/week)",entity,Place.ClubFinance,0x814,4,EncodingKind.Int32,0,100_000_000,0,int.MaxValue));
+            fields.Add(F("finance.ticket_price_pence","Average Ticket Price (pence)",entity,Place.ClubFinance,0x864,4,
+                EncodingKind.FloatPence,0,1_000_000,0,1_000_000));
             fields.Add(F("facilities.corporate","Corporate Facilities",entity,Place.ClubFinance,0x8A9,1,EncodingKind.DirectByte,1,20,0,20));
             fields.Add(F("stadium.capacity","Stadium Capacity",entity,Place.Stadium,0x7C,4,EncodingKind.UInt32,0,250_000,0,int.MaxValue));
             fields.Add(F("stadium.seating","Stadium Seating",entity,Place.Stadium,0x80,4,EncodingKind.UInt32,0,250_000,0,int.MaxValue));
@@ -399,9 +412,15 @@ public static partial class LiveEntityMemoryEditService
     {
         var prefix = "contract.";
         fields.Add(F(prefix+"wage","Contract Wage (GBP/week)",entity,Place.Contract,0x20,4,EncodingKind.Int32,0,10_000_000,0,int.MaxValue));
-        fields.Add(F(prefix+"expires","Contract Expiry",entity,Place.Contract,0x48,4,EncodingKind.Date,20000101,21001231,0,22001231));
+        // Staff may hold BASIC_CONTRACT records of only 0x28 bytes. Until the class is
+        // independently resolved, never expose staff date fields at offsets that could
+        // overlap the next packed contract. Player contracts are FULL_CONTRACT records.
         if(entity==EntityKind.Player)
         {
+            fields.Add(F(prefix+"signed","Contract Signed (YYYYMMDD)",entity,Place.Contract,0x44,4,EncodingKind.Date,20000101,21001231,0,22001231));
+            fields.Add(F(prefix+"expires","Contract Expiry (YYYYMMDD)",entity,Place.Contract,0x48,4,EncodingKind.Date,20000101,21001231,0,22001231));
+            fields.Add(F(prefix+"joined","Joined Club (YYYYMMDD)",entity,Place.Contract,0x4C,4,EncodingKind.Date,20000101,21001231,0,22001231));
+            fields.Add(F(prefix+"type","Contract Type",entity,Place.Contract,0xC3,1,EncodingKind.UInt8,0,11,0,11,choices:new[]{0,1,2,3,4,10,11}));
             fields.Add(F(prefix+"squad_number","Squad Number",entity,Place.Contract,0x5D,1,EncodingKind.UInt8,1,99,1,255,blank:255));
             fields.Add(F(prefix+"squad_status","Squad Status",entity,Place.Contract,0x54,1,EncodingKind.UInt8,1,5,0,40,choices:new[]{1,2,3,4,5}));
             fields.Add(F(prefix+"transfer_listed","Transfer Listed",entity,Place.Contract,0x57,1,EncodingKind.Flag,0,1,0,1,bit:0));
@@ -463,6 +482,7 @@ public static partial class LiveEntityMemoryEditService
             EncodingKind.Int16 => BitConverter.ToInt16(bytes,0),
             EncodingKind.UInt32 => checked((int)BitConverter.ToUInt32(bytes,0)),
             EncodingKind.Int32 => BitConverter.ToInt32(bytes,0),
+            EncodingKind.FloatPence => checked((int)Math.Round(BitConverter.ToSingle(bytes,0) * 100f, MidpointRounding.AwayFromZero)),
             EncodingKind.Date => DecodeDate(bytes),
             _ => throw new InvalidOperationException("Unsupported live field encoding.")
         };
@@ -496,6 +516,7 @@ public static partial class LiveEntityMemoryEditService
             EncodingKind.Int16 => BitConverter.GetBytes(checked((short)value)),
             EncodingKind.UInt32 => BitConverter.GetBytes(checked((uint)value)),
             EncodingKind.Int32 => BitConverter.GetBytes(value),
+            EncodingKind.FloatPence => BitConverter.GetBytes(value / 100f),
             EncodingKind.Date => EncodeDate(value, old),
             _ => throw new InvalidOperationException("Unsupported live field encoding.")
         };
