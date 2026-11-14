@@ -77,7 +77,7 @@ public static class ScoutingActionAnalyticsService
                 var seasonId = Int(match, "season", "season_id");
                 var cohort = compId.HasValue && seasonId.HasValue && competitions.TryGetValue((compId.Value, seasonId.Value), out var found)
                     ? found : ("Unknown competition", "Unknown season");
-                var homeTeam = Str(match, "home_team", "home_team_name");
+                var homeTeamId = Str(match, "home_team", "home_team_id");
                 using var eventDoc = JsonDocument.Parse(await File.ReadAllTextAsync(eventPath, cancellationToken));
                 var sequence = 0;
                 foreach (var ev in eventDoc.RootElement.EnumerateArray())
@@ -109,6 +109,14 @@ public static class ScoutingActionAnalyticsService
                         "Shot" => Pair(detail, "end_location"),
                         _ => (X: (double?)null, Y: (double?)null)
                     };
+                    var period = Int(ev, "period") ?? 1;
+                    var teamId = Str(ev, "team", "id");
+                    var reverseDirection = (teamId == homeTeamId && period % 2 == 0) || (teamId != homeTeamId && period % 2 == 1);
+                    if (reverseDirection)
+                    {
+                        location = (location.X.HasValue ? PitchLength - location.X.Value : null, location.Y.HasValue ? PitchWidth - location.Y.Value : null);
+                        end = (end.X.HasValue ? PitchLength - end.X.Value : null, end.Y.HasValue ? PitchWidth - end.Y.Value : null);
+                    }
                     var outcome = eventType switch
                     {
                         "Pass" => Str(detail, "outcome", "name") is null,
@@ -122,7 +130,7 @@ public static class ScoutingActionAnalyticsService
                     output.Add(new UnifiedSoccerAction(
                         matchId, cohort.Item1, cohort.Item2, Int(ev, "period") ?? 1,
                         Int(ev, "minute") ?? 0, Int(ev, "second") ?? 0,
-                        Str(ev, "possession"), Str(ev, "team", "id"), Str(ev, "team", "name") ?? "Unknown team",
+                        Str(ev, "possession"), teamId, Str(ev, "team", "name") ?? "Unknown team",
                         Str(ev, "player", "id"), Str(ev, "player", "name") ?? "Unknown player",
                         eventType, actionType, outcome, location.X, location.Y, end.X, end.Y,
                         eventType == "Shot", shotOutcome == "Goal", xg,
