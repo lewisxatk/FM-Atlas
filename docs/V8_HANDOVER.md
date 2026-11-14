@@ -258,3 +258,30 @@ This batch is source-implemented and regression tests are added, but it is not y
 - Artifact: FM-Atlas-V8-win-x64, 68,894,168 bytes; SHA-256 e76e763e26b35dd73ad4ee9ab1e1b95ffb34b7c090269e406658a2ad7f627f93; expires 28 November 2026.
 - Artifact is the current verified build for this update. Download from the Actions run's Artifacts section.
 - Still open: manual Windows visual/DPI review, real FM27 in-game field comparison, actual career scan performance and full user-PC acceptance. Live-memory field confidence remains provisional until witnessed in game. Live editing remains disabled.
+
+
+## Integrated Monolith Glass, position-rating and scouting-engine batch — 14 November 2026
+
+### Implemented in source
+
+- Performance vs Value now accepts an optional FM position code plus a minimum numeric familiarity threshold (1–20). The filter is applied against the latest FMSAVE snapshot's numeric `positions` facts before percentile calculation.
+- Results show the actual selected position rating beside player position, performance, performance/value/position/league percentiles, value gap, minutes and sample size.
+- Chart tooltips and CSV exports include the selected FM position familiarity.
+- The percentile comparison pool is restricted by the selected position rating, minutes, sample-size and positive source transfer value. Visible text position and league filters remain post-calculation views.
+- The standalone Performance vs Value window now uses Monolith Glass graphite gradients, fine amber edges, rounded surfaces and matching dark input/button states.
+- Added a SQLite integration test intended to prove that players below the chosen numeric position rating do not enter the scouting cohort.
+- Research has been expanded in `docs/V8_REVERSE_ENGINEERING_NOTES_2026-11-14.md`, covering FMSuperScout's field map, virtualised table, value-estimation caveats, and FMLibreEditor's UI and safety architecture.
+
+### Important boundaries
+
+- This is a meaningful extension of the scouting foundation, not completion of the full Wyscout/StatsBomb-style engine. Reusable metric bundles, deeper player reports, richer player comparison and value-gap shortlist integration remain to be built.
+- FM save statistics are not StatsBomb event data. Only imported FM metrics and user-supplied FM View CSV fields may appear; no xG/progressive/pressure metrics are invented.
+- Position rating filtering is based on offline FMSAVE numeric facts. The live reader remains provisional until its values are checked against FM27's in-game Positions page.
+- FM position familiarity is not a tactical role rating. No proprietary FMRTE/Genie Scout role formulas are copied.
+- FMSuperScout's estimated value model is not reused. FM Atlas continues to distinguish actual imported transfer value from any future labelled estimate.
+
+### Verification status
+
+- Code and a new SQLite integration test are committed to the development branch.
+- Fresh Windows Release build, full xUnit result, publish artifact, real-save SQL acceptance, in-game position witness comparison and DPI visual review are pending. Do not use the previous 9ec72cb artifact as if it contains this batch.
+- Existing Advanced Search, saved profiles, 15-position pitch display, player directories, shortlist and prior V8 work are preserved.
