@@ -211,7 +211,7 @@ public static class LiveDataImporter
 
                         // The 10-November Steam and Game Pass profiles share the documented object layout.
                         // Keep only range-valid decoded values and label the layout evidence in diagnostics.
-                        var inline = Read(handle, (nint)address, 0x410);
+                        var inline = Read(handle, (nint)address, 0x450);
                         var caRaw = BitConverter.ToUInt16(inline, 0x264);
                         var paRaw = BitConverter.ToInt16(inline, 0x266);
                         int? ca = caRaw is >= 1 and <= 200 ? caRaw : null;
