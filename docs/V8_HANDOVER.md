@@ -21,9 +21,9 @@ Continue the integrated V8 rebuild without replacing existing R7.2.0 functionali
 
 ## Safety state
 
-**Verified source correction in this continuation:** `LiveMemoryImportEnabled` was found set to `true` even though this handover and the V8 live-career checklist explicitly said the gate was OFF. That contradiction would have allowed the 3-second monitor to start full entity-array scans automatically. It has now been corrected to `false` in `MainWindow.xaml.cs` (commit `8afe77a4`). The monitor remains detection-only: process/build/session generation checks are allowed; large player/staff/club array scans are not started automatically or by the toolbar action. Live editing remains OFF. Offline read-only save import is the supported way to populate career data until controlled FM performance and field-witness checks pass.
+**Current source state:** `LiveMemoryImportEnabled` is ON for exact supported FM27 profiles. The monitor detects process/build/save-generation changes and starts the profile-bounded read-only player/staff/club scan when a career is loaded. Each scan has a two-minute hard deadline, progress reporting, toolbar cancellation and cancellation when the monitor detects a session change. The save-load counter is checked before and after extraction; a failed or cancelled scan must retain the previous committed snapshot. Live editing remains OFF. Real FM performance, peak-memory and field-witness acceptance are still required before calling the live connection release-ready.
 
-The implementation checklist has also been reconciled with this safety state (commit `fa226cee`). The extractor and transactional persistence code remain in the branch for controlled fixtures and future acceptance; their presence is not evidence that automatic career indexing is currently enabled.
+The current implementation checklist, architecture status and quick-start guidance have been aligned with this bounded-scan state. The exact imported-session guard prevents manager/club shortcuts from treating a cached snapshot from another process as current, even if the save-load counter is reused.
 
 ## Commits made in this continuation
 
