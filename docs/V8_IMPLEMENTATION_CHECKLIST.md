@@ -479,3 +479,12 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - [x] Include the selected FM position familiarity in the chart tooltip and CSV.
 - [x] Test both a filtered FM position cohort and an unrestricted cohort where the rating is not populated.
 - [ ] Fresh Windows build and all tests after the latest chart/test changes.
+
+
+### Windows CI correction — 14 November 2026
+
+- [x] Windows .NET restore and Release compilation passed on the first integrated run.
+- [x] Investigate the one failing test: 83/84 passed; the new cohort test failed only when deleting a temporary SQLite file still held by the Microsoft.Data.Sqlite pool.
+- [x] Clear SQLite connection pools before deleting the temporary test database and sidecar files.
+- [ ] Re-run the complete Windows workflow and confirm all 84+ tests pass.
+- [ ] Publish and upload a fresh Windows x64 artifact after the full suite passes.
