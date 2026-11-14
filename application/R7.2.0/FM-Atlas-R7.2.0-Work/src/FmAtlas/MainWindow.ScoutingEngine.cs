@@ -1,0 +1,313 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using Microsoft.Win32;
+using FmAtlas.Services;
+
+namespace FmAtlas;
+
+public partial class MainWindow
+{
+    private sealed record ScoutingGridRow(
+        string Player, string Club, string Position, string Competition, string Season,
+        double Minutes, double MetricValue, string DisplayMetric, double? Percentile,
+        string Source, string SourceType, string SourceId, ScoutingPlayerSeason Record);
+    private sealed record MetricChoice(string Group, ScoutingMetricDefinition Definition)
+    {
+        public string Label => Group + " · " + Definition.Label;
+        public override string ToString() => Label;
+    }
+
+    private static string ScoutingDatasetPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "FmAtlas", "ScoutingDatasets", "player-seasons.json");
+
+    private async Task<UIElement> ScoutingEnginePageAsync()
+    {
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        var dataset = await LoadScoutingDatasetAsync();
+        var allRows = dataset.ToList();
+        var results = new List<ScoutingGridRow>();
+
+        var intro = new StackPanel();
+        intro.Children.Add(Txt("RECRUITMENT INTELLIGENCE · EVENT DATA + FM SAVE DATA", 9, true, Teal));
+        intro.Children.Add(Txt("Scouting analytics", 25, true, Ink));
+        intro.Children.Add(Txt("A Wyscout / StatsBomb-inspired recruitment workspace. Import genuine event data or a user-owned Wyscout CSV, compare players within like-for-like cohorts, and inspect the source behind every metric. FM save statistics remain a separate source family.", 10, false, Muted, wrap: true));
+        var importBar = new WrapPanel { Margin = new Thickness(0, 10, 0, 4) };
+        var importStatsBomb = PrimaryButton("Import StatsBomb Open Data", async (_, _) => await ImportStatsBombAsync());
+        var importWyscout = SoftButton("Import Wyscout CSV", async (_, _) => await ImportWyscoutAsync());
+        var reload = SoftButton("Reload saved datasets", async (_, _) => { allRows = (await LoadScoutingDatasetAsync()).ToList(); RefreshChoices(); status.Text = $"Loaded {allRows.Count:N0} player-season records from local datasets."; });
+        importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload);
+        intro.Children.Add(importBar);
+        var status = Txt($"{allRows.Count:N0} player-season records loaded · imports are stored locally on this PC.", 9, false, Muted, wrap: true);
+        status.Margin = new Thickness(0, 4, 0, 2);
+        intro.Children.Add(status);
+        var introCard = Card(intro, 15, new Thickness(0, 0, 0, 10));
+        Grid.SetRow(introCard, 0); root.Children.Add(introCard);
+
+        var filterCard = Card(new StackPanel(), 13, new Thickness(0, 0, 0, 10));
+        var filterStack = (StackPanel)filterCard.Child;
+        var filters = new WrapPanel();
+        var competition = new ComboBox { Width = 180, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Competition cohort" };
+        var season = new ComboBox { Width = 140, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Season cohort" };
+        var position = new ComboBox { Width = 130, Height = 34, Margin = new Thickness(3), ItemsSource = new[] { "All positions", "Goalkeeper", "Defender", "Midfielder", "Attacker" }, SelectedIndex = 0 };
+        var metric = new ComboBox { Width = 270, Height = 34, Margin = new Thickness(3), IsTextSearchEnabled = true };
+        var minimumMinutes = Input("Min minutes"); minimumMinutes.Text = "450"; minimumMinutes.Width = 95;
+        var maxValue = Input("Max market value"); maxValue.Width = 125;
+        var minAge = Input("Min age"); minAge.Text = "16"; minAge.Width = 75;
+        var maxAge = Input("Max age"); maxAge.Text = "34"; maxAge.Width = 75;
+        filters.Children.Add(FilterControl("COMPETITION", competition, 190));
+        filters.Children.Add(FilterControl("SEASON", season, 150));
+        filters.Children.Add(FilterControl("POSITION GROUP", position, 140));
+        filters.Children.Add(FilterControl("PERFORMANCE METRIC", metric, 280));
+        filters.Children.Add(FilterControl("MIN SAMPLE", minimumMinutes, 105));
+        filters.Children.Add(FilterControl("MAX VALUE · SOURCE UNITS", maxValue, 135));
+        filters.Children.Add(FilterControl("AGE RANGE", minAge, 80));
+        filters.Children.Add(FilterControl("TO", maxAge, 80));
+        filterStack.Children.Add(filters);
+        var actions = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
+        var find = PrimaryButton("Rank players", async (_, _) => await RunRankAsync());
+        var similar = SoftButton("Find similar to selected", async (_, _) => await RunSimilarAsync());
+        var undervalued = SoftButton("Find undervalued", async (_, _) => await RunUndervaluedAsync());
+        var export = SoftButton("Export results CSV", (_, _) => ExportScoutingRows());
+        actions.Children.Add(find); actions.Children.Add(similar); actions.Children.Add(undervalued); actions.Children.Add(export);
+        filterStack.Children.Add(actions);
+        Grid.SetRow(filterCard, 1); root.Children.Add(filterCard);
+
+        var body = new Grid();
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.55, GridUnitType.Star) });
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var grid = CreateGrid();
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.Columns.Add(Column("PLAYER", nameof(ScoutingGridRow.Player), 1.15));
+        grid.Columns.Add(Column("CLUB", nameof(ScoutingGridRow.Club), .9));
+        grid.Columns.Add(Column("POS", nameof(ScoutingGridRow.Position), .55));
+        grid.Columns.Add(Column("MIN", nameof(ScoutingGridRow.Minutes), .45));
+        grid.Columns.Add(Column("METRIC", nameof(ScoutingGridRow.DisplayMetric), .65));
+        grid.Columns.Add(Column("PERCENTILE", nameof(ScoutingGridRow.Percentile), .7));
+        grid.Columns.Add(Column("SOURCE", nameof(ScoutingGridRow.SourceType), .7));
+        grid.SelectionChanged += (_, _) => UpdateComparison();
+        var left = Card(grid, 12, new Thickness(0, 0, 7, 0));
+        Grid.SetColumn(left, 0); body.Children.Add(left);
+
+        var detailStack = new StackPanel();
+        detailStack.Children.Add(Txt("PLAYER COMPARISON & EVIDENCE", 9, true, Teal));
+        detailStack.Children.Add(Txt("Select one player for similar-player discovery, or two players to compare their source-backed metric profiles.", 10, false, Muted, wrap: true));
+        var comparison = Txt("No players selected.", 10, false, Ink, wrap: true);
+        comparison.Margin = new Thickness(0, 10, 0, 10);
+        detailStack.Children.Add(comparison);
+        var evidence = Txt("Metric definitions, sample rules and data provenance appear here.", 9, false, Muted, wrap: true);
+        detailStack.Children.Add(evidence);
+        var right = Card(new ScrollViewer { Content = detailStack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }, 14, new Thickness(7, 0, 0, 0));
+        Grid.SetColumn(right, 1); body.Children.Add(right);
+        Grid.SetRow(body, 2); root.Children.Add(body);
+
+        void RefreshChoices()
+        {
+            var oldComp = competition.Text; var oldSeason = season.Text; var oldMetric = (metric.SelectedItem as MetricChoice)?.Definition.Key;
+            competition.Items.Clear(); competition.Items.Add("All competitions");
+            foreach (var x in allRows.Select(x => x.Competition).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x))
+                competition.Items.Add(x);
+            competition.Text = string.IsNullOrWhiteSpace(oldComp) ? "All competitions" : oldComp;
+            season.Items.Clear(); season.Items.Add("All seasons");
+            foreach (var x in allRows.Select(x => x.Season).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderByDescending(x => x))
+                season.Items.Add(x);
+            season.Text = string.IsNullOrWhiteSpace(oldSeason) ? "All seasons" : oldSeason;
+
+            var choices = new List<MetricChoice>();
+            foreach (var group in ScoutingRecruitmentService.MetricGroups)
+                foreach (var def in group.Metrics)
+                    if (allRows.Any(p => p.Metrics.ContainsKey(def.Key))) choices.Add(new MetricChoice(group.Name, def));
+            foreach (var key in allRows.SelectMany(p => p.Metrics.Keys).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x))
+            {
+                if (choices.Any(x => x.Definition.Key.Equals(key, StringComparison.OrdinalIgnoreCase))) continue;
+                var label = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
+                var isAlreadyPer90 = key.EndsWith("_90", StringComparison.OrdinalIgnoreCase) || key.Contains("per_90", StringComparison.OrdinalIgnoreCase);
+                choices.Add(new MetricChoice("Imported source metrics", new ScoutingMetricDefinition(key, label, isAlreadyPer90 ? "per 90" : "source units",
+                    !isAlreadyPer90, true, 90, "Imported provider CSV")));
+            }
+            metric.ItemsSource = choices;
+            metric.SelectedItem = choices.FirstOrDefault(x => x.Definition.Key.Equals(oldMetric, StringComparison.OrdinalIgnoreCase)) ?? choices.FirstOrDefault();
+        }
+
+        (string? Competition, string? Season, string? Position) SelectedCohort()
+        {
+            var comp = competition.Text.Trim();
+            var sea = season.Text.Trim();
+            var pos = position.SelectedItem?.ToString();
+            return (comp.Equals("All competitions", StringComparison.OrdinalIgnoreCase) || comp.Length == 0 ? null : comp,
+                sea.Equals("All seasons", StringComparison.OrdinalIgnoreCase) || sea.Length == 0 ? null : sea,
+                pos == "All positions" ? null : pos);
+        }
+
+        async Task RunRankAsync()
+        {
+            if (metric.SelectedItem is not MetricChoice choice) { status.Text = "Import a dataset containing performance metrics first."; return; }
+            var cohort = SelectedCohort();
+            if (!int.TryParse(minimumMinutes.Text, out var floor) || floor < 0) { status.Text = "Minimum minutes must be a non-negative whole number."; return; }
+            var def = choice.Definition with { MinimumSampleMinutes = Math.Max(floor, choice.Definition.MinimumSampleMinutes) };
+            var rows = allRows.Where(p => (cohort.Competition is null || p.Competition == cohort.Competition) &&
+                (cohort.Season is null || p.Season == cohort.Season) &&
+                (cohort.Position is null || p.PositionGroup == cohort.Position)).ToList();
+            var ranked = ScoutingAnalyticsService.RankMetric(rows, def, cohort.Competition, cohort.Season, cohort.Position, 5);
+            results = ranked.Select(r =>
+            {
+                var p = rows.First(x => x.SourceId == r.SourceId);
+                var value = r.Per90Value ?? r.RawValue;
+                return new ScoutingGridRow(r.PlayerName, r.Club ?? "—", r.PositionGroup ?? "—", r.Competition ?? "—", r.Season,
+                    p.MinutesPlayed ?? 0, value, value.ToString("0.00", CultureInfo.InvariantCulture), r.Percentile,
+                    r.SourceName, p.IsEventLevel ? "Event data" : "Season stats", r.SourceId, p);
+            }).ToList();
+            grid.ItemsSource = results;
+            status.Text = $"{results.Count:N0} players ranked · {choice.Label} · {cohort.Competition ?? "all competitions"} · {cohort.Season ?? "all seasons"}. Percentiles are withheld below a five-player cohort; source and minutes are retained.";
+            evidence.Text = $"Metric: {choice.Definition.Label}\nDefinition: {choice.Definition.SourceFamily}; {(choice.Definition.IsRatePer90 ? "normalised per 90 using recorded minutes" : "reported in source units")}\nMinimum sample: {def.MinimumSampleMinutes:0} minutes\nCohort: {cohort.Competition ?? "all competitions"} / {cohort.Season ?? "all seasons"} / {cohort.Position ?? "all positions"}\nSource: each player's import provenance.";
+            await Task.CompletedTask;
+        }
+
+        async Task RunSimilarAsync()
+        {
+            if (grid.SelectedItem is not ScoutingGridRow selected || metric.SelectedItem is not MetricChoice choice)
+            { status.Text = "Select a player in the results first."; return; }
+            var metrics = ScoutingRecruitmentService.MetricGroups.SelectMany(x => x.Metrics)
+                .Where(m => allRows.Any(p => p.Metrics.ContainsKey(m.Key))).ToList();
+            var candidates = allRows.Where(p => p.Competition == selected.Record.Competition && p.Season == selected.Record.Season && p.PositionGroup == selected.Record.PositionGroup).ToList();
+            var similarRows = ScoutingRecruitmentService.FindSimilar(selected.Record, candidates, metrics, 50, .35);
+            results = similarRows.Select(x => new ScoutingGridRow(x.Player.PlayerName, x.Player.Club ?? "—",
+                x.Player.PositionGroup ?? "—", x.Player.Competition ?? "—", x.Player.Season, x.Player.MinutesPlayed ?? 0,
+                x.Similarity, x.Similarity.ToString("0.0") + "% similar", x.Similarity, x.Player.SourceName,
+                x.Player.IsEventLevel ? "Event data" : "Season stats", x.Player.SourceId, x.Player)).ToList();
+            grid.ItemsSource = results;
+            status.Text = $"Similar players to {selected.Player}: {results.Count:N0} matches. Similarity is an Atlas distance score over shared normalised metrics, not a vendor rating.";
+            evidence.Text = $"Reference: {selected.Player}\nMetrics compared: {metrics.Count}\nCohort: same competition, season and position group\nSimilarity: Euclidean distance over shared normalised metrics; candidates require at least 35% metric coverage.";
+            await Task.CompletedTask;
+        }
+
+        async Task RunUndervaluedAsync()
+        {
+            if (metric.SelectedItem is not MetricChoice choice) { status.Text = "Choose a performance metric first."; return; }
+            if (!double.TryParse(maxValue.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var limit)) limit = double.PositiveInfinity;
+            if (!int.TryParse(minAge.Text, out var lowAge) || !int.TryParse(maxAge.Text, out var highAge) || lowAge > highAge)
+            { status.Text = "Enter a valid age range."; return; }
+            var cohort = SelectedCohort();
+            var def = choice.Definition with { MinimumSampleMinutes = Math.Max(450, choice.Definition.MinimumSampleMinutes) };
+            var found = ScoutingRecruitmentService.FindUndervalued(allRows, def, cohort.Competition, cohort.Season,
+                cohort.Position, limit, Math.Max(450, int.TryParse(minimumMinutes.Text, out var floor) ? floor : 450), 5, lowAge, highAge);
+            results = found.Select(x => new ScoutingGridRow(x.Player.PlayerName, x.Player.Club ?? "—",
+                x.Player.PositionGroup ?? "—", x.Player.Competition ?? "—", x.Player.Season, x.Player.MinutesPlayed ?? 0,
+                x.CompositeScore, x.CompositeScore.ToString("0.0") + " / 100", x.PerformancePercentile,
+                x.Player.SourceName, x.Player.IsEventLevel ? "Event data" : "Season stats", x.Player.SourceId, x.Player)).ToList();
+            grid.ItemsSource = results;
+            status.Text = $"{results.Count:N0} undervalued candidates. This is a transparent discovery score, not a predicted transfer fee or guarantee of availability.";
+            evidence.Text = "Discovery score: performance percentile 65% + age score 20% + relative value score 15%. Requires age, market value, minutes and performance data in the same source. Market value remains in the provider's own units.";
+            await Task.CompletedTask;
+        }
+
+        void UpdateComparison()
+        {
+            var selected = grid.SelectedItems.Cast<ScoutingGridRow>().Take(2).ToList();
+            if (selected.Count == 0) { comparison.Text = "No players selected."; return; }
+            if (selected.Count == 1)
+            {
+                var p = selected[0].Record;
+                comparison.Text = $"{p.PlayerName}\n{p.Club} · {p.PositionGroup} · {p.Competition} · {p.Season}\nMinutes: {p.MinutesPlayed:0}\nSource: {p.SourceName}";
+                evidence.Text = "Select a second player to compare shared metric values, or use Find similar to selected.";
+                return;
+            }
+            var a = selected[0].Record; var b = selected[1].Record;
+            var keys = a.Metrics.Keys.Intersect(b.Metrics.Keys, StringComparer.OrdinalIgnoreCase).Take(14).ToList();
+            var lines = keys.Select(k => $"{k.Replace('_',' ')}: {a.Metrics[k]?.ToString("0.##", CultureInfo.InvariantCulture) ?? "—"}  |  {b.Metrics[k]?.ToString("0.##", CultureInfo.InvariantCulture) ?? "—"}");
+            comparison.Text = $"{a.PlayerName}  vs  {b.PlayerName}\n" + string.Join("\n", lines);
+            evidence.Text = $"Comparison shows {keys.Count} shared raw source metrics. Values are not silently converted between different providers or metric definitions. Select a like-for-like competition and season for percentile comparison.";
+        }
+
+        async Task ImportStatsBombAsync()
+        {
+            var dialog = new OpenFileDialog { Title = "Select StatsBomb Open Data competitions.json", Filter = "StatsBomb competitions.json|competitions.json|JSON files (*.json)|*.json", CheckFileExists = true };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                importStatsBomb.IsEnabled = false; importWyscout.IsEnabled = false;
+                status.Text = "Reading StatsBomb matches, lineups and event files…";
+                var progress = new Progress<string>(x => status.Text = x);
+                var imported = await Task.Run(() => StatsBombOpenDataImporter.ImportAsync(dialog.FileName, CancellationToken.None, progress));
+                allRows.RemoveAll(x => x.SourceName == "StatsBomb Open Data");
+                allRows.AddRange(imported.Players);
+                await SaveScoutingDatasetAsync(allRows);
+                RefreshChoices();
+                status.Text = $"StatsBomb import complete · {imported.Summary.MatchesImported:N0} matches · {imported.Summary.EventsRead:N0} events · {imported.Players.Count:N0} player/competition/season records. {string.Join(" ", imported.Summary.Warnings.Take(3))}";
+            }
+            catch (Exception ex) { AtlasLog.Error("StatsBomb Open Data import failed.", ex); status.Text = "StatsBomb import failed: " + ex.Message; }
+            finally { importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true; }
+        }
+
+        async Task ImportWyscoutAsync()
+        {
+            var dialog = new OpenFileDialog { Title = "Select a Wyscout player statistics CSV export", Filter = "CSV files (*.csv)|*.csv", CheckFileExists = true };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                importStatsBomb.IsEnabled = false; importWyscout.IsEnabled = false;
+                status.Text = "Importing user-owned Wyscout season statistics…";
+                var imported = await Task.Run(() => WyscoutCsvImporter.ImportAsync(dialog.FileName));
+                allRows.RemoveAll(x => x.SourceName == "Wyscout user CSV");
+                allRows.AddRange(imported);
+                await SaveScoutingDatasetAsync(allRows);
+                RefreshChoices();
+                status.Text = $"Wyscout CSV import complete · {imported.Count:N0} player-season records. Provider fields and source units are preserved.";
+            }
+            catch (Exception ex) { AtlasLog.Error("Wyscout CSV import failed.", ex); status.Text = "Wyscout CSV import failed: " + ex.Message; }
+            finally { importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true; }
+        }
+
+        void ExportScoutingRows()
+        {
+            if (results.Count == 0) { MessageBox.Show(this, "Run a scouting search before exporting.", "FM Atlas · Scouting Analytics"); return; }
+            var dialog = new SaveFileDialog { Title = "Export scouting analytics", FileName = "FM-Atlas-scouting-analytics.csv", Filter = "CSV files (*.csv)|*.csv" };
+            if (dialog.ShowDialog(this) != true) return;
+            static string Q(string? s) => CsvExportSafety.QuoteText(s);
+            var lines = new List<string> { "Player,Club,Position,Competition,Season,Minutes,MetricValue,DisplayMetric,Percentile,Source,SourceType,SourceId" };
+            lines.AddRange(results.Select(x => string.Join(",", new[]
+            {
+                Q(x.Player),Q(x.Club),Q(x.Position),Q(x.Competition),Q(x.Season),
+                Q(x.Minutes.ToString(CultureInfo.InvariantCulture)),Q(x.MetricValue.ToString(CultureInfo.InvariantCulture)),
+                Q(x.DisplayMetric),Q(x.Percentile?.ToString(CultureInfo.InvariantCulture)),Q(x.Source),Q(x.SourceType),Q(x.SourceId)
+            })));
+            File.WriteAllLines(dialog.FileName, lines, new System.Text.UTF8Encoding(true));
+            status.Text = $"Exported {results.Count:N0} scouting results.";
+        }
+
+        RefreshChoices();
+        return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+    }
+
+    private static async Task<List<ScoutingPlayerSeason>> LoadScoutingDatasetAsync()
+    {
+        if (!File.Exists(ScoutingDatasetPath)) return new List<ScoutingPlayerSeason>();
+        try
+        {
+            await using var stream = File.OpenRead(ScoutingDatasetPath);
+            return await JsonSerializer.DeserializeAsync<List<ScoutingPlayerSeason>>(stream) ?? new List<ScoutingPlayerSeason>();
+        }
+        catch (Exception ex)
+        {
+            AtlasLog.Error("Scouting dataset cache could not be read; source imports are left untouched.", ex);
+            return new List<ScoutingPlayerSeason>();
+        }
+    }
+
+    private static async Task SaveScoutingDatasetAsync(IEnumerable<ScoutingPlayerSeason> rows)
+    {
+        var path = ScoutingDatasetPath;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temporary = path + ".tmp";
+        await using (var stream = File.Create(temporary))
+            await JsonSerializer.SerializeAsync(stream, rows.ToList(), new JsonSerializerOptions { WriteIndented = false });
+        if (File.Exists(path)) File.Replace(temporary, path, path + ".bak", true);
+        else File.Move(temporary, path);
+    }
+}
