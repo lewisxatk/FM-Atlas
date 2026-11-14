@@ -41,6 +41,17 @@ public static class LiveMemoryEditService
     public sealed record BatchPlan(int ProcessId, uint PlayerUid, string PlayerName, string ProfileId, string ProfileFingerprint, ulong SaveLoadCounter, DateTime CreatedUtc, IReadOnlyList<PlannedChange> Changes);
     public sealed record BatchReceipt(BatchPlan Plan, DateTime AppliedUtc, bool ReadBackVerified);
 
+    // V10 is the first controlled, read-only acceptance build. Keep this hard gate false
+    // until exact-build field witnesses and disposable-save rollback checks are signed off.
+    private const bool AllowLiveWritesForThisBuild = false;
+    private const string LiveWritesDisabledMessage = "Live-memory Apply/Undo is hard-disabled in this FM Atlas V10 pre-testing build. The FM connection is read-only; do not attempt live edits.";
+    public static bool LiveWritesEnabled => AllowLiveWritesForThisBuild;
+
+    private static void EnsureLiveWritesEnabled()
+    {
+        if (!LiveWritesEnabled) throw new InvalidOperationException(LiveWritesDisabledMessage);
+    }
+
     public static int FindSupportedProcessId()
     {
         var matching = new List<int>();
@@ -99,6 +110,7 @@ public static class LiveMemoryEditService
 
     public static BatchReceipt ApplyBatch(BatchPlan plan)
     {
+        EnsureLiveWritesEnabled();
         if (DateTime.UtcNow - plan.CreatedUtc > TimeSpan.FromMinutes(2) || plan.CreatedUtc > DateTime.UtcNow.AddSeconds(10))
             throw new InvalidOperationException("This staged live-edit preview has expired. Stage a fresh preview before writing.");
         using var process = Process.GetProcessById(plan.ProcessId);
@@ -175,6 +187,7 @@ public static class LiveMemoryEditService
 
     public static void UndoBatch(BatchReceipt receipt)
     {
+        EnsureLiveWritesEnabled();
         var plan = receipt.Plan;
         using var process = Process.GetProcessById(plan.ProcessId);
         var module = FindGameModule(process);
