@@ -395,6 +395,8 @@ public static class LiveMemoryEditService
         { currentMinimum = 1; currentMaximum = 255; }
 
         var targetIsBlankSquadNumber = field.Key.Equals("contract.squad_number", StringComparison.OrdinalIgnoreCase) && target == 255;
+        if (field.Key.Equals("contract.squad_status", StringComparison.OrdinalIgnoreCase) && target is not (1 or 2 or 3 or 4 or 5))
+            throw new ArgumentOutOfRangeException(nameof(target), "FM27 supports the verified squad-status codes 1, 2, 3, 4 and 5.");
         if (current < currentMinimum || current > currentMaximum || (!targetIsBlankSquadNumber && (target < field.Minimum || target > field.Maximum)))
             throw new ArgumentOutOfRangeException(nameof(target),
                 $"{field.DisplayName}: current value must be {currentMinimum:N0}–{currentMaximum:N0}; target must be {field.Minimum:N0}–{field.Maximum:N0} in FM27 storage units.");
@@ -420,7 +422,7 @@ public static class LiveMemoryEditService
     {
         return field.Encoding switch
         {
-            ValueEncoding.ScaledAttribute => (bytes[0] <= 98 ? (bytes[0] + 2) / 5
+            ValueEncoding.ScaledAttribute => (bytes[0] <= 100 ? (bytes[0] + 2) / 5
                 : throw new InvalidOperationException($"{field.DisplayName} raw byte {bytes[0]} is outside the FM 1–20 attribute encoding range.")),
             ValueEncoding.BitFlag => (bytes[0] & field.BitMask) != 0 ? 1 : 0,
             ValueEncoding.Int8 => unchecked((sbyte)bytes[0]),
@@ -459,7 +461,7 @@ public static class LiveMemoryEditService
     {
         return field.Encoding switch
         {
-            ValueEncoding.ScaledAttribute => new[] { checked((byte)(value * 5 - 2)) },
+            ValueEncoding.ScaledAttribute => new[] { checked((byte)(value * 5)) },
             ValueEncoding.BitFlag => new[] { value == 0 ? (byte)(originalBytes[0] & ~field.BitMask) : (byte)(originalBytes[0] | field.BitMask) },
             ValueEncoding.Int8 => new[] { unchecked((byte)checked((sbyte)value)) },
             ValueEncoding.FmDate => EncodeFmDate(value),
