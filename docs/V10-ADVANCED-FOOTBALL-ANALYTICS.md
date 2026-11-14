@@ -77,3 +77,7 @@ This is an Atlas empirical xT model, trained on the imported sample. It is not c
 
 ## Preservation
 Additive changes only. Preserve Advanced Search, saved profiles, player profiles/comparisons/position ratings, Value Finder, Scouting Matrix, role-fit Tactical Lab, Player Development, offline save import, read-only FM27 connector, Monolith Glass and live-write safety gate.
+
+
+## CI compile corrections (14 November 2026)
+The first V10 Windows Release compile reached the C# build and exposed two integration issues: the Event Lab window referenced a WPF type name where the owner theme brush was intended, and the new StatsBomb reader needed the System.IO namespace. Both are corrected in the current branch. The Python adapter suite passed (2 tests) and solution restore passed on the first CI attempt; the next Windows run must confirm the C# fixes and continue through xUnit and self-contained publish.
