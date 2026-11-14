@@ -1,10 +1,13 @@
 using System.Globalization;
+using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using Path = System.IO.Path;
+using WpfCanvas = System.Windows.Controls.Canvas;
 using Microsoft.Win32;
 using FmAtlas.Services;
 
@@ -44,13 +47,15 @@ public partial class MainWindow
         var importBar = new WrapPanel { Margin = new Thickness(0, 10, 0, 4) };
         TextBlock status = null!;
         CancellationTokenSource? activeScoutingImport = null;
-        var importStatsBomb = PrimaryButton("Import StatsBomb Open Data", async (_, _) => await ImportStatsBombAsync());
-        var importWyscout = SoftButton("Import Wyscout CSV", async (_, _) => await ImportWyscoutAsync());
-        var reload = SoftButton("Reload saved datasets", async (_, _) => { allRows = (await LoadScoutingDatasetAsync()).ToList(); RefreshChoices(); status.Text = $"Loaded {allRows.Count:N0} player-season records from local datasets."; });
-        var fmMatrix = SoftButton("Open FM Scouting Matrix", async (_, _) => await NavigateAsync("Scouting Matrix"));
-        var cancelScoutingImport = SoftButton("Cancel import", (_, _) => activeScoutingImport?.Cancel());
-        cancelScoutingImport.IsEnabled = false;
-        importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload); importBar.Children.Add(fmMatrix); importBar.Children.Add(cancelScoutingImport);
+        Button importStatsBomb = null!;
+        Button importWyscout = null!;
+        Button reload = null!;
+        Button fmMatrix = null!;
+        Button cancelScoutingImport = null!;
+        Button find = null!;
+        Button similar = null!;
+        Button undervalued = null!;
+        Button export = null!;
         intro.Children.Add(importBar);
         status = Txt($"{allRows.Count:N0} player-season records loaded · imports are stored locally on this PC.", 9, false, Muted, wrap: true);
         status.Margin = new Thickness(0, 4, 0, 2);
@@ -86,11 +91,6 @@ public partial class MainWindow
         filters.Children.Add(FilterControl("TO", maxAge, 80));
         filterStack.Children.Add(filters);
         var actions = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
-        var find = PrimaryButton("Rank players", async (_, _) => await RunRankAsync());
-        var similar = SoftButton("Find similar to selected", async (_, _) => await RunSimilarAsync());
-        var undervalued = SoftButton("Find undervalued", async (_, _) => await RunUndervaluedAsync());
-        var export = SoftButton("Export results CSV", (_, _) => ExportScoutingRows());
-        actions.Children.Add(find); actions.Children.Add(similar); actions.Children.Add(undervalued); actions.Children.Add(export);
         filterStack.Children.Add(actions);
         Grid.SetRow(filterCard, 1); root.Children.Add(filterCard);
 
@@ -106,7 +106,6 @@ public partial class MainWindow
         grid.Columns.Add(Column("METRIC", nameof(ScoutingGridRow.DisplayMetric), .65));
         grid.Columns.Add(Column("PERCENTILE", nameof(ScoutingGridRow.Percentile), .7));
         grid.Columns.Add(Column("SOURCE", nameof(ScoutingGridRow.SourceType), .7));
-        grid.SelectionChanged += (_, _) => UpdateComparison();
         var left = Card(grid, 12, new Thickness(0, 0, 7, 0));
         Grid.SetColumn(left, 0); body.Children.Add(left);
 
@@ -291,8 +290,8 @@ public partial class MainWindow
             {
                 var angle = -Math.PI / 2 + 2 * Math.PI * i / rankedMetrics.Count;
                 var label = Txt(rankedMetrics[i].Definition.Label.Replace(" / 90", ""), 8, false, Muted);
-                Canvas.SetLeft(label, cx + Math.Cos(angle) * (radius + 8) - 24);
-                Canvas.SetTop(label, cy + Math.Sin(angle) * (radius + 8) - 7);
+                WpfCanvas.SetLeft(label, cx + Math.Cos(angle) * (radius + 8) - 24);
+                WpfCanvas.SetTop(label, cy + Math.Sin(angle) * (radius + 8) - 7);
                 radar.Children.Add(label);
             }
         }
@@ -376,6 +375,22 @@ public partial class MainWindow
             File.WriteAllLines(dialog.FileName, lines, new System.Text.UTF8Encoding(true));
             status.Text = $"Exported {results.Count:N0} scouting results.";
         }
+
+        importStatsBomb = PrimaryButton("Import StatsBomb Open Data", async (_, _) => await ImportStatsBombAsync());
+        importWyscout = SoftButton("Import Wyscout CSV", async (_, _) => await ImportWyscoutAsync());
+        reload = SoftButton("Reload saved datasets", async (_, _) => { allRows = (await LoadScoutingDatasetAsync()).ToList(); RefreshChoices(); status.Text = $"Loaded {allRows.Count:N0} player-season records from local datasets."; });
+        fmMatrix = SoftButton("Open FM Scouting Matrix", async (_, _) => await NavigateAsync("Scouting Matrix"));
+        cancelScoutingImport = SoftButton("Cancel import", (_, _) => activeScoutingImport?.Cancel());
+        cancelScoutingImport.IsEnabled = false;
+        importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload);
+        importBar.Children.Add(fmMatrix); importBar.Children.Add(cancelScoutingImport);
+
+        find = PrimaryButton("Rank players", async (_, _) => await RunRankAsync());
+        similar = SoftButton("Find similar to selected", async (_, _) => await RunSimilarAsync());
+        undervalued = SoftButton("Find undervalued", async (_, _) => await RunUndervaluedAsync());
+        export = SoftButton("Export results CSV", (_, _) => ExportScoutingRows());
+        actions.Children.Add(find); actions.Children.Add(similar); actions.Children.Add(undervalued); actions.Children.Add(export);
+        grid.SelectionChanged += (_, _) => UpdateComparison();
 
         roleProfile.SelectionChanged += (_, _) =>
         {
