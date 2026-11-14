@@ -299,6 +299,8 @@ The exact-profile read-only live scan is enabled for supported FM27 builds. Each
 - [x] Keep manager/club toolbar shortcuts tied to the current probe generation rather than stale prior-session identity.
 - [x] Require the manager/club shortcuts to match the exact process ID, build profile and save-generation session that produced the committed live snapshot; a matching counter alone is insufficient.
 - [x] Add SQLite integration coverage for staff search, manager identity, CA/PA, age, nation, club, provisional facts and replacement on a new session.
+- [x] Add active-snapshot replacement coverage: old LIVE player/fact rows are replaced atomically while offline/local records and their attributes remain intact.
+- [x] Add a cancelled-before-process-open regression to ensure a cancelled live scan exits without attaching to FM.
 - [x] Extend the live staff search contract so name, club and numeric UID queries all work against live rows; add regressions for club and UID search.
 - [x] Keep live editing disabled.
 - [x] Bound live entity-array scanning to a two-minute deadline and check cancellation at entity batches; keep the monitor checking the session while the worker runs.
