@@ -47,6 +47,11 @@ public partial class MainWindow
         var options = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
         var per90 = new CheckBox { Content = "Calculate per 90 minutes", Foreground = Brush("#DCE5ED"), FontSize = 11, Margin = new Thickness(0, 5, 18, 0), VerticalAlignment = VerticalAlignment.Center };
         var minMinutes = Input("Minimum minutes"); minMinutes.Text = "450"; minMinutes.Width = 135; minMinutes.Margin = new Thickness(0, 0, 8, 0);
+        var matchLogic = new ComboBox { Width = 160, Height = 34, FontSize = 10, Margin = new Thickness(0, 0, 8, 0), ToolTip = "Choose whether every condition must match (AND) or any condition may match (OR)." };
+        matchLogic.Items.Add("All conditions (AND)");
+        matchLogic.Items.Add("Any condition (OR)");
+        matchLogic.SelectedIndex = 0;
+        options.Children.Add(matchLogic);
         options.Children.Add(per90);
         options.Children.Add(FilterControl("PER-90 SAMPLE FLOOR", minMinutes, 150));
         var addButton = SoftButton("＋ Add metric condition", (_, _) => AddFilterRow());
@@ -56,7 +61,7 @@ public partial class MainWindow
         importViewButton = SoftButton("Import FM View CSV", async (_, _) => await ImportViewCsvAsync());
         options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton);
         controlStack.Children.Add(options);
-        controlStack.Children.Add(Txt("CONDITIONS · ALL CONDITIONS MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
+        controlStack.Children.Add(Txt("CONDITIONS · CHOOSE WHETHER ALL OR ANY CONDITION MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
         controlStack.Children.Add(Txt("The catalogue combines every numeric metric found in the latest imported save plus any FM View Exporter CSV you import. To capture more columns, add them to an in-game player view before exporting; FM's own view export has a practical column ceiling.", 9, false, Muted, wrap: true));
         controlStack.Children.Add(filterPanel);
         controlStack.Children.Add(status);
@@ -122,14 +127,15 @@ public partial class MainWindow
             if (criteria.Count == 0) { status.Text = "Add at least one metric condition with a minimum or maximum."; return; }
             if (per90.IsChecked == true && (!int.TryParse(minMinutes.Text, out var sample) || sample < 1)) { status.Text = "Enter a valid minimum minutes sample."; return; }
             var minSample = int.TryParse(minMinutes.Text, out var value) ? Math.Clamp(value, 1, 10000) : 450;
+            var matchAll = matchLogic.SelectedIndex == 0;
             findButton.IsEnabled = false; Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             status.Text = "Searching imported player-season and player-match records…";
             try
             {
-                resultRows = await RunDatabaseAsync(() => _database.SearchSeasonStatCriteriaAsync(criteria, per90.IsChecked == true, minSample, 5000));
+                resultRows = await RunDatabaseAsync(() => _database.SearchSeasonStatCriteriaAsync(criteria, per90.IsChecked == true, minSample, 5000, matchAll));
                 grid.ItemsSource = resultRows;
-                status.Text = $"{resultRows.Count:N0} matching player-period rows · {criteria.Count} condition(s) · {(per90.IsChecked == true ? $"per 90, minimum {minSample:N0} minutes" : "raw source values")} · source fields retained with their original metric keys.";
-                AtlasLog.Info($"Advanced stats search completed: fields={criteria.Count}; per90={per90.IsChecked == true}; results={resultRows.Count}.");
+                status.Text = $"{resultRows.Count:N0} matching player-period rows · {(matchAll ? "ALL / AND" : "ANY / OR")} of {criteria.Count} condition(s) · {(per90.IsChecked == true ? $"per 90, minimum {minSample:N0} minutes" : "raw source values")} · source fields retained with their original metric keys.";
+                AtlasLog.Info($"Advanced stats search completed: fields={criteria.Count}; matchAll={matchAll}; per90={per90.IsChecked == true}; results={resultRows.Count}.");
             }
             catch (Exception ex) { AtlasLog.Error("Advanced stats search failed.", ex); status.Text = "Statistics search failed: " + ex.Message; }
             finally { findButton.IsEnabled = true; Mouse.OverrideCursor = null; }
@@ -207,7 +213,12 @@ public partial class MainWindow
         var builder = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 10));
         var builderStack = (StackPanel)builder.Child;
         var search = Input("Optional player, club, nation or UID search"); search.Width = 280; search.Margin = new Thickness(0, 0, 8, 0);
+        var matchLogic = new ComboBox { Width = 160, Height = 34, FontSize = 10, Margin = new Thickness(0, 6, 8, 0), ToolTip = "Choose whether every attribute condition must match (AND) or any one may match (OR)." };
+        matchLogic.Items.Add("All conditions (AND)");
+        matchLogic.Items.Add("Any condition (OR)");
+        matchLogic.SelectedIndex = 0;
         var top = new WrapPanel(); top.Children.Add(FilterControl("OPTIONAL NAME / CLUB", search, 290));
+        top.Children.Add(FilterControl("MATCH LOGIC", matchLogic, 170));
         top.Children.Add(SoftButton("＋ Add attribute", (_, _) => AddFilterRow()));
         findButton = PrimaryButton("Find players", async (_, _) => await RunSearchAsync());
         top.Children.Add(findButton);
@@ -220,7 +231,7 @@ public partial class MainWindow
         presets.Children.Add(SoftButton("Ball Winner", (_, _) => ApplyPreset(new[] { ("tackling", 15d), ("work_rate", 14d), ("stamina", 14d), ("aggression", 12d), ("anticipation", 13d) })));
         presets.Children.Add(SoftButton("Elite Goalkeeper", (_, _) => ApplyPreset(new[] { ("reflexes", 15d), ("handling", 14d), ("one_on_ones", 14d), ("aerial_reach", 14d), ("command_of_area", 13d) })));
         builderStack.Children.Add(presets);
-        builderStack.Children.Add(Txt("ATTRIBUTE CONDITIONS · RATE EACH REQUIREMENT FROM 1 TO 20 · ALL CONDITIONS MATCH", 8, true, Muted));
+        builderStack.Children.Add(Txt("ATTRIBUTE CONDITIONS · RATE EACH REQUIREMENT FROM 1 TO 20 · MATCH LOGIC ABOVE", 8, true, Muted));
         builderStack.Children.Add(filterPanel);
         builderStack.Children.Add(status);
         pageStack.Children.Add(builder);
@@ -270,14 +281,15 @@ public partial class MainWindow
                 criteria.Add(new AttributeSearchCriterion(field.Key, field.Label, hasMin ? lower : null, hasMax ? upper : null));
             }
             if (criteria.Count == 0) { status.Text = "Add at least one attribute condition and set its minimum or maximum."; return; }
+            var matchAll = matchLogic.SelectedIndex == 0;
             findButton.IsEnabled = false; Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-            status.Text = $"Searching players for {criteria.Count} simultaneous attribute conditions…";
+            status.Text = $"Searching players using {(matchAll ? "ALL" : "ANY")} of {criteria.Count} attribute conditions…";
             try
             {
-                resultRows = await RunDatabaseAsync(() => _database.SearchPlayerAttributeCriteriaAsync(search.Text, criteria, 5000));
+                resultRows = await RunDatabaseAsync(() => _database.SearchPlayerAttributeCriteriaAsync(search.Text, criteria, 5000, matchAll));
                 grid.ItemsSource = resultRows;
-                status.Text = $"{resultRows.Count:N0} player matches · {criteria.Count} conditions · source: latest imported FM save / local scouting facts.";
-                AtlasLog.Info($"Multi-attribute search completed: conditions={criteria.Count}; results={resultRows.Count}.");
+                status.Text = $"{resultRows.Count:N0} player matches · {(matchAll ? "ALL / AND" : "ANY / OR")} of {criteria.Count} conditions · source: latest imported FM save / local scouting facts.";
+                AtlasLog.Info($"Multi-attribute search completed: conditions={criteria.Count}; matchAll={matchAll}; results={resultRows.Count}.");
             }
             catch (Exception ex) { AtlasLog.Error("Multi-attribute search failed.", ex); status.Text = "Attribute search failed: " + ex.Message; }
             finally { findButton.IsEnabled = true; Mouse.OverrideCursor = null; }
