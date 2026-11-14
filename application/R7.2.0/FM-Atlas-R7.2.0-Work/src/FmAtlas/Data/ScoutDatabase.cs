@@ -1446,7 +1446,8 @@ public sealed class ScoutDatabase
     }
 
     public async Task<int> CountLocalPlayersAsync(string? search = null,
-        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null)
+        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null,
+        string? position = null)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
@@ -1459,6 +1460,32 @@ public sealed class ScoutDatabase
               AND ($maxCa IS NULL OR CurrentAbility <= $maxCa)
               AND ($minPa IS NULL OR PotentialAbility >= $minPa)
               AND ($maxPa IS NULL OR PotentialAbility <= $maxPa)
+              AND ($position IS NULL
+                OR ($position='ATTACKERS' AND (Position IN ('ST','STC','AML','AMR') OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (UPPER(pf.FieldKey) IN ('ST','STC','AML','AMR') OR UPPER(COALESCE(pf.TextValue,'')) IN ('ST','STC','AML','AMR')))))
+                OR ($position='MIDFIELDERS' AND (Position IN ('DM','ML','MC','MR','AML','AMC','AMR') OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (UPPER(pf.FieldKey) IN ('DM','ML','MC','MR','AML','AMC','AMR') OR UPPER(COALESCE(pf.TextValue,'')) IN ('DM','ML','MC','MR','AML','AMC','AMR')))))
+                OR ($position='DEFENDERS' AND (Position IN ('SW','DL','DC','DR','WBL','WBR') OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (UPPER(pf.FieldKey) IN ('SW','DL','DC','DR','WBL','WBR') OR UPPER(COALESCE(pf.TextValue,'')) IN ('SW','DL','DC','DR','WBL','WBR')))))
+                OR ($position='GOALKEEPERS' AND (Position='GK' OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (UPPER(pf.FieldKey)='GK' OR UPPER(COALESCE(pf.TextValue,''))='GK'))))
+                OR ($position NOT IN ('ATTACKERS','MIDFIELDERS','DEFENDERS','GOALKEEPERS') AND (Position LIKE $positionPattern OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (pf.FieldKey LIKE $positionFieldPattern OR pf.TextValue LIKE $positionPattern)))))
               AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (
                   SELECT 1 FROM FmsavePlayerSnapshots s
                   WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
@@ -1471,6 +1498,9 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$maxCa", (object?)maxCa ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$minPa", (object?)minPa ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$maxPa", (object?)maxPa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$position", position ?? "");
+        cmd.Parameters.AddWithValue("$positionPattern", position is null ? "" : $"%{position}%");
+        cmd.Parameters.AddWithValue("$positionFieldPattern", position is null ? "" : $"%{position.ToUpperInvariant()}%");
         return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
     }
 
@@ -1511,7 +1541,8 @@ public sealed class ScoutDatabase
     }
 
     public async Task<int> CountLivePlayersAsync(string? search = null,
-        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null)
+        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null,
+        string? positionFilter = null)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
@@ -1522,6 +1553,18 @@ public sealed class ScoutDatabase
               AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
             WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
               AND ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
+              AND ($positionFilter='' OR EXISTS (
+                    SELECT 1 FROM LivePlayerFacts pf
+                    WHERE pf.PlayerUid=p.PlayerUid AND pf.NumericValue >= 15
+                      AND (pf.ValidationStatus LIKE '%Verified%' OR pf.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      AND (
+                        ($positionFilter='ATTACKERS' AND lower(pf.FieldKey) IN ('positions.st','positions.aml','positions.amr'))
+                        OR ($positionFilter='MIDFIELDERS' AND lower(pf.FieldKey) IN ('positions.dm','positions.ml','positions.mc','positions.mr','positions.aml','positions.amc','positions.amr'))
+                        OR ($positionFilter='DEFENDERS' AND lower(pf.FieldKey) IN ('positions.sw','positions.dl','positions.dc','positions.dr','positions.wbl','positions.wbr'))
+                        OR ($positionFilter='GOALKEEPERS' AND lower(pf.FieldKey)='positions.gk')
+                        OR ($positionFilter NOT IN ('ATTACKERS','MIDFIELDERS','DEFENDERS','GOALKEEPERS')
+                            AND lower(pf.FieldKey)='positions.' || CASE WHEN upper($positionFilter)='STC' THEN 'st' ELSE lower($positionFilter) END)
+                      )))
               AND ($minCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
                     WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
                       AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minCa)
@@ -1542,6 +1585,7 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$maxCa", (object?)maxCa ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$minPa", (object?)minPa ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$maxPa", (object?)maxPa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$positionFilter", positionFilter ?? "");
         return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
     }
 
