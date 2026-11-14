@@ -1,6 +1,6 @@
 # FM Atlas V8 — reference-tool mapping notes
 
-**Updated:** 2026-11-14  
+**Updated:** 2026-11-14 · second reference pass  
 **Working branch:** `rebuild/v8-full-product-rebuild`
 
 This document records public research findings used to guide independent FM Atlas implementations. It is not a claim that another project's code, binary, or licence has been incorporated. FM Atlas keeps its own C# implementation and its own evidence/status model.
@@ -58,9 +58,24 @@ Useful methods and constraints:
 - Staff personality is an eight-byte 1–20 array at staff+0x170; for the human manager it follows the +0x340 identity/person-block shift. Atlas stores these as provisional `staff_personality.*` facts.
 - The shared FULL_CONTRACT layout exposes weekly wage at +0x20 (GBP), signed date at +0x44, expiry at +0x48 and joined-club date at +0x4C. Atlas stores these only when the contract pointer and individual values pass range/date checks.
 - The FM27 staff layout documents CA/PA at staff+0xDA/+0xDC and coaching attributes at their base staff-object offsets. The human-manager identity/person block shifts by +0x340, but CA/PA, coaching attributes and reputation remain unshifted.
-- Nineteen coaching attributes are raw bytes in the 0–100 range and display as `(raw + 2) / 5`; authority and working-with-youngsters are direct 1–20 ratings. Atlas now decodes and stores these as provisional staff profile facts, omitting invalid/missing bytes rather than filling defaults.
+- Nineteen coaching attributes are raw bytes in the 0–100 range and display as `(raw + 2) / 5`; authority and working-with-youngsters are direct 1–20 ratings. Atlas field keys now match the layout names exactly: `judging_ability`, `judging_potential` and `judging_staff` (not invented `judging_player_*` aliases). Atlas now decodes and stores these as provisional staff profile facts, omitting invalid/missing bytes rather than filling defaults.
 
 FM Atlas retains its own C# implementation. Public GPL-licensed project code is not copied into this repository.
+
+## 2A. FMSuperScout — real-process discovery and scan lifecycle
+
+Reference files inspected directly:
+- `scanner/Program.cs`: the external scanner rejects unrelated processes named `fm`, confirms the executable has an adjacent `fm_Data` directory, handles access-denied separately, and chooses the most recently started real FM process when several exist.
+- `core/MemScan.Win.cs`: opens external FM with least-privilege `PROCESS_VM_READ | PROCESS_QUERY_INFORMATION`; reads through `ReadProcessMemory`, whose failed reads are handled rather than dereferenced.
+- `core/Dumper.cs`: scans in a separate worker process, applies a five-minute timeout, and only pays the cost of a process snapshot when a normal live scan has an elevated unreadable-region rate.
+
+FM Atlas implementation in this update:
+- `LiveCareerMonitor.IsFootballManagerInstallPath` now requires the executable filename to be `fm.exe` and the adjacent `fm_Data` folder to exist before the process is considered.
+- Process-access denial is surfaced separately from an unsupported build or a game that is still starting.
+- If multiple supported FM processes exist, Atlas selects the most recently started verified FM process, logs the selection and includes its PID in the session key. The scan still verifies the exact process/build/save-load generation before and after reading and before database publication.
+- A regression test covers the real-install marker and rejects a similarly named executable without it.
+
+The Atlas importer already uses a cancellable background task, two-minute deadline and save-generation cancellation. The reference scanner's separate child-process isolation and adaptive snapshot retry are not copied in this update; those need a measured memory/CPU benchmark and a dedicated worker protocol before adding process orchestration to the WPF app.
 
 ## 3. fmsave — field trust and coverage
 
