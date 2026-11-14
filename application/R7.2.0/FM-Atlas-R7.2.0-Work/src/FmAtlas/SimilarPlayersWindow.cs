@@ -12,6 +12,7 @@ public sealed class SimilarPlayersWindow : Window
     private readonly ScoutDatabase _database;
     private readonly PlayerRecord _reference;
     private readonly DataGrid _grid;
+    private readonly TextBlock _status;
 
     public SimilarPlayersWindow(ScoutDatabase database, PlayerRecord reference, IReadOnlyList<SimilarPlayerCandidate> candidates)
     {
@@ -60,20 +61,99 @@ public sealed class SimilarPlayersWindow : Window
         DockPanel.SetDock(_grid, Dock.Top);
         root.Children.Add(_grid);
 
-        var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        footer.Children.Add(new TextBlock
+        var footer = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
+        _status = new TextBlock
         {
             Text = candidates.Count == 0 ? "No players met the shared-attribute coverage threshold." : $"{candidates.Count:N0} candidates ranked · similarity is not a guarantee of equivalent role, ability or transfer value.",
-            VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), Margin = new Thickness(0, 0, 12, 0)
-        });
+            VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)),
+            Margin = new Thickness(0, 0, 0, 8), TextWrapping = TextWrapping.Wrap
+        };
+        footer.Children.Add(_status);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var addToShortlist = new Button { Content = "Add selected to shortlist", Padding = new Thickness(12, 7, 12, 7), IsEnabled = candidates.Count > 0, Margin = new Thickness(0, 0, 8, 0) };
+        addToShortlist.Click += async (_, _) => await AddSelectedToShortlistAsync();
+        actions.Children.Add(addToShortlist);
         var compare = new Button { Content = "Compare with reference", Padding = new Thickness(12, 7, 12, 7), IsEnabled = candidates.Count > 0 };
         compare.Click += async (_, _) => await CompareSelectedAsync();
-        footer.Children.Add(compare);
+        actions.Children.Add(compare);
+        footer.Children.Add(actions);
         DockPanel.SetDock(footer, Dock.Bottom);
         root.Children.Add(footer);
 
         _grid.MouseDoubleClick += async (_, _) => await CompareSelectedAsync();
         Content = root;
+    }
+
+    private string? PromptShortlistName()
+    {
+        var dialog = new Window
+        {
+            Title = "Add similar players to shortlist",
+            Owner = this,
+            Width = 440,
+            Height = 205,
+            MinWidth = 400,
+            MinHeight = 180,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new SolidColorBrush(Color.FromRgb(17, 24, 32)),
+            Foreground = new SolidColorBrush(Color.FromRgb(232, 238, 244)),
+            ShowInTaskbar = false
+        };
+        var panel = new StackPanel { Margin = new Thickness(18) };
+        panel.Children.Add(new TextBlock { Text = "RECRUITMENT PIPELINE", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(110, 174, 218)) });
+        panel.Children.Add(new TextBlock { Text = "Choose a shortlist name", FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 3) });
+        panel.Children.Add(new TextBlock { Text = "Use an existing name to add to that shortlist, or enter a new name to create it.", FontSize = 10, Foreground = new SolidColorBrush(Color.FromRgb(158, 173, 185)), TextWrapping = TextWrapping.Wrap });
+        var name = new TextBox { Text = "My Shortlist", Margin = new Thickness(0, 10, 0, 12), Padding = new Thickness(8, 6, 8, 6), MaxLength = 80 };
+        panel.Children.Add(name);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var cancel = new Button { Content = "Cancel", Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(0, 0, 8, 0) };
+        cancel.Click += (_, _) => dialog.DialogResult = false;
+        var save = new Button { Content = "Add players", Padding = new Thickness(12, 6, 12, 6) };
+        save.Click += (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(name.Text) || name.Text.Trim().Length > 80)
+            {
+                MessageBox.Show(dialog, "Enter a shortlist name between 1 and 80 characters.", "FM Atlas · Shortlists", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            dialog.DialogResult = true;
+        };
+        buttons.Children.Add(cancel);
+        buttons.Children.Add(save);
+        panel.Children.Add(buttons);
+        dialog.Content = panel;
+        dialog.Loaded += (_, _) => { name.Focus(); name.SelectAll(); };
+        return dialog.ShowDialog() == true ? name.Text.Trim() : null;
+    }
+
+    private async Task AddSelectedToShortlistAsync()
+    {
+        var selected = _grid.SelectedItems.OfType<SimilarPlayerCandidate>()
+            .Select(x => x.Player)
+            .Where(x => !string.IsNullOrWhiteSpace(x.SourceId))
+            .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .Take(50)
+            .ToList();
+        if (selected.Count == 0)
+        {
+            MessageBox.Show(this, "Select one or more similar players first. Use Ctrl or Shift for multi-select.", "FM Atlas · Shortlists", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var shortlistName = PromptShortlistName();
+        if (string.IsNullOrWhiteSpace(shortlistName)) return;
+        try
+        {
+            var added = await _database.AddPlayersToShortlistAsync(selected, shortlistName);
+            var alreadyPresent = selected.Count - added;
+            _status.Text = $"'{shortlistName}': {added:N0} new player(s) added · {alreadyPresent:N0} already present · reference player was not added.";
+        }
+        catch (Exception ex)
+        {
+            _status.Text = "Could not add the selected players to the shortlist: " + ex.Message;
+        }
     }
 
     private async Task CompareSelectedAsync()
