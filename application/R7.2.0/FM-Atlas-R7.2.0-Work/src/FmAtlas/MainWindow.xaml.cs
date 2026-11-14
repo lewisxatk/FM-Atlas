@@ -1888,11 +1888,24 @@ public partial class MainWindow : Window
         top.Children.Add(Txt("RECRUITMENT", 9, true, Teal));
         top.Children.Add(Txt("Candidate pipeline", 20, true, Ink));
         top.Children.Add(Txt("Track each target from identification through scouting, contact, offer and signing. Stages and notes are stored locally in your Atlas database.", 10, false, Muted, wrap: true));
-        var controls = new StackPanel { Orientation = Orientation.Horizontal };
-        _shortlistPicker = new ComboBox { Width = 230, Margin = new Thickness(0, 5, 5, 9), Padding = new Thickness(8) };
-        controls.Children.Add(_shortlistPicker);
+        var controls = new WrapPanel { Margin = new Thickness(0, 5, 0, 5) };
+        _shortlistPicker = new ComboBox { Width = 210, Margin = new Thickness(0, 3, 7, 7), Padding = new Thickness(8) };
+        controls.Children.Add(FilterControl("SHORTLIST", _shortlistPicker, 220));
         controls.Children.Add(SoftButton("＋ New", async (_, _) => await CreateNewShortlistAsync()));
+        var stageFilter = new ComboBox { Width = 155, Height = 34, Margin = new Thickness(0, 3, 7, 7), FontSize = 10 };
+        stageFilter.Items.Add("All stages");
+        foreach (var stage in ShortlistRecord.PipelineStages) stageFilter.Items.Add(stage);
+        stageFilter.SelectedIndex = 0;
+        var priorityFilter = new ComboBox { Width = 145, Height = 34, Margin = new Thickness(0, 3, 7, 7), FontSize = 10 };
+        priorityFilter.Items.Add("All priorities");
+        foreach (var priority in ShortlistRecord.PipelinePriorities) priorityFilter.Items.Add(priority);
+        priorityFilter.SelectedIndex = 0;
+        controls.Children.Add(FilterControl("STAGE FILTER", stageFilter, 165));
+        controls.Children.Add(FilterControl("PRIORITY FILTER", priorityFilter, 155));
         top.Children.Add(controls);
+        var pipelineSummary = Txt("Loading recruitment pipeline…", 9, false, Muted, wrap: true);
+        pipelineSummary.Margin = new Thickness(0, 2, 0, 9);
+        top.Children.Add(pipelineSummary);
         DockPanel.SetDock(top, Dock.Top);
         dock.Children.Add(top);
 
@@ -1914,6 +1927,8 @@ public partial class MainWindow : Window
         dg.Columns.Add(Column("POSITION", "DisplayPosition", .65));
         dg.Columns.Add(Column("PRIORITY", "Priority", .65));
         dg.Columns.Add(Column("STAGE", "Stage", .9));
+        dg.Columns.Add(Column("TARGET FEE · SOURCE UNITS", "TargetFee", .9));
+        dg.Columns.Add(Column("TARGET WAGE · SOURCE UNITS", "TargetWage", .9));
         dg.Columns.Add(Column("NEXT ACTION", "NextAction", 1.1));
         dg.Columns.Add(Column("REVIEW", "ReviewDate", .75));
         dg.SelectionChanged += (_, _) =>
@@ -1938,11 +1953,57 @@ public partial class MainWindow : Window
             else
             {
                 selectedPlayerLabel.Text = "Select a candidate";
+                stagePicker.SelectedItem = ShortlistRecord.DefaultStage;
+                priorityPicker.SelectedItem = ShortlistRecord.DefaultPriority;
+                targetFeeBox.Text = "";
+                targetWageBox.Text = "";
+                nextActionBox.Text = "";
+                reviewDatePicker.SelectedDate = null;
                 notesEditor.Text = "";
-                detailsStatus.Text = "Select a player from the shortlist to edit their stage and notes.";
+                detailsStatus.Text = "Select a player from the shortlist to edit their stage, priority, target and follow-up details.";
                 saveDetails.IsEnabled = false;
             }
         };
+
+        var allPipelineRows = new List<ShortlistRecord>();
+        async Task RefreshPipelineRowsAsync()
+        {
+            if (_shortlistPicker?.SelectedItem is not string selectedList) return;
+            allPipelineRows = await RunDatabaseAsync(() => _database.GetShortlistAsync(selectedList));
+            var selectedStage = stageFilter.SelectedItem?.ToString();
+            var selectedPriority = priorityFilter.SelectedItem?.ToString();
+            var visibleRows = allPipelineRows.Where(row =>
+                (string.IsNullOrWhiteSpace(selectedStage) || selectedStage == "All stages" ||
+                 row.Stage.Equals(selectedStage, StringComparison.OrdinalIgnoreCase)) &&
+                (string.IsNullOrWhiteSpace(selectedPriority) || selectedPriority == "All priorities" ||
+                 row.Priority.Equals(selectedPriority, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            _shortlist.Clear();
+            foreach (var row in visibleRows) _shortlist.Add(row);
+            dg.ItemsSource = _shortlist;
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var reviewsDue = allPipelineRows.Count(row =>
+                DateOnly.TryParseExact(row.ReviewDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var date) && date <= today);
+            var highPriority = allPipelineRows.Count(row => row.Priority.Equals("High", StringComparison.OrdinalIgnoreCase));
+            var feeTotal = allPipelineRows.Where(row => row.TargetFee.HasValue).Sum(row => row.TargetFee!.Value);
+            pipelineSummary.Text =
+                $"{allPipelineRows.Count:N0} candidate(s) · {highPriority:N0} high priority · {reviewsDue:N0} review(s) due · " +
+                $"specified target fees total {feeTotal:N0} source units · showing {visibleRows.Count:N0}";
+        }
+
+        stageFilter.SelectionChanged += async (_, _) =>
+        {
+            dg.SelectedItem = null;
+            await RefreshPipelineRowsAsync();
+        };
+        priorityFilter.SelectionChanged += async (_, _) =>
+        {
+            dg.SelectedItem = null;
+            await RefreshPipelineRowsAsync();
+        };
+
         dg.MouseDoubleClick += async (_, _) =>
         {
             if (dg.SelectedItem is not ShortlistRecord selected) return;
@@ -2043,8 +2104,8 @@ public partial class MainWindow : Window
                     ReadOptionalSourceAmount(targetFeeBox, "Target fee"),
                     ReadOptionalSourceAmount(targetWageBox, "Target wage"),
                     nextActionBox.Text, reviewDatePicker.SelectedDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)));
-                await RefreshShortlistRowsAsync(dg);
-                detailsStatus.Text = $"Saved {selected.PlayerName} · {stagePicker.SelectedItem}.";
+                await RefreshPipelineRowsAsync();
+                detailsStatus.Text = $"Saved {selected.PlayerName} · {stagePicker.SelectedItem} · {priorityPicker.SelectedItem}.";
             }
             catch (Exception ex)
             {
@@ -2059,7 +2120,7 @@ public partial class MainWindow : Window
             if (dg.SelectedItem is ShortlistRecord item && _shortlistPicker.SelectedItem is string name)
             {
                 await RunDatabaseAsync(() => _database.RemoveFromShortlistAsync(item.SourceId, name));
-                await RefreshShortlistRowsAsync(dg);
+                await RefreshPipelineRowsAsync();
             }
         }));
         side.Children.Add(SoftButton("Export shortlist CSV", (_, _) => ExportShortlistCsv()));
@@ -2075,9 +2136,9 @@ public partial class MainWindow : Window
         _shortlistPicker.SelectionChanged += async (_, _) =>
         {
             dg.SelectedItem = null;
-            await RefreshShortlistRowsAsync(dg);
+            await RefreshPipelineRowsAsync();
         };
-        await RefreshShortlistRowsAsync(dg);
+        await RefreshPipelineRowsAsync();
         return root;
     }
 

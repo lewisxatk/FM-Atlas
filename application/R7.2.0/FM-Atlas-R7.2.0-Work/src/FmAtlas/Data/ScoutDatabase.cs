@@ -205,15 +205,6 @@ public sealed class ScoutDatabase
         var shortlistReviewIndex = db.CreateCommand();
         shortlistReviewIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Shortlists_ReviewDate ON Shortlists(ReviewDate) WHERE ReviewDate IS NOT NULL;";
         await shortlistReviewIndex.ExecuteNonQueryAsync().ConfigureAwait(false);
-        await EnsureColumnAsync(db, "Shortlists", "Priority", "TEXT NOT NULL DEFAULT 'Normal'");
-        await EnsureColumnAsync(db, "Shortlists", "TargetFee", "REAL NULL");
-        await EnsureColumnAsync(db, "Shortlists", "TargetWage", "REAL NULL");
-        await EnsureColumnAsync(db, "Shortlists", "NextAction", "TEXT NULL");
-        await EnsureColumnAsync(db, "Shortlists", "ReviewDate", "TEXT NULL");
-        var shortlistPipelineIndex = db.CreateCommand();
-        shortlistPipelineIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Shortlists_ReviewDate ON Shortlists(ReviewDate) WHERE ReviewDate IS NOT NULL;";
-        await shortlistPipelineIndex.ExecuteNonQueryAsync().ConfigureAwait(false);
-
         var snapshotSchema = db.CreateCommand();
         snapshotSchema.CommandText = """
             CREATE TABLE IF NOT EXISTS FmsaveImportRuns (
