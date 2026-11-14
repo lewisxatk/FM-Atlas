@@ -3123,7 +3123,10 @@ public sealed class ScoutDatabase
 
         var weights = profile.Weights
             .Where(x => double.IsFinite(x.Value) && x.Value > 0)
-            .ToDictionary(x => NormalizeAttributeKey(x.Key), x => x.Value, StringComparer.OrdinalIgnoreCase);
+            .Select(x => new { Key = NormalizeAttributeKey(x.Key), x.Value })
+            .Where(x => x.Key.Length > 0)
+            .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Sum(v => v.Value), StringComparer.OrdinalIgnoreCase);
         if (weights.Count == 0) return new();
 
         var maxPlayers = Math.Clamp(candidateLimit, 100, 50000);
@@ -3184,7 +3187,7 @@ public sealed class ScoutDatabase
             results.Add(new RoleFitCandidate(
                 pair.Key, pair.Value.Name, pair.Value.Club, pair.Value.Age, pair.Value.Position,
                 pair.Value.Ca, pair.Value.Pa, score.Score,
-                score.AttributesAvailable, score.AttributesExpected, score.Coverage));
+                score.AttributesAvailable, score.AttributesExpected, score.Coverage, score.Contributions));
         }
 
         return results

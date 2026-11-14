@@ -59,6 +59,7 @@ public partial class MainWindow
         grid.Columns.Add(Column("POSITION", nameof(RoleFitCandidate.Position), .7));
         grid.Columns.Add(new DataGridTextColumn { Header = "ATLAS ROLE FIT / 20", Binding = new System.Windows.Data.Binding(nameof(RoleFitCandidate.Score)) { StringFormat = "0.00" }, Width = new DataGridLength(.8, DataGridLengthUnitType.Star) });
         grid.Columns.Add(new DataGridTextColumn { Header = "COVERAGE", Binding = new System.Windows.Data.Binding(nameof(RoleFitCandidate.Coverage)) { StringFormat = "P0" }, Width = new DataGridLength(.65, DataGridLengthUnitType.Star) });
+        grid.Columns.Add(Column("ATTRIBUTE EVIDENCE", nameof(RoleFitCandidate.EvidenceSummary), 1.35));
         grid.Columns.Add(Column("ATTRS", nameof(RoleFitCandidate.AttributesAvailable), .45));
         grid.Columns.Add(Column("CA", nameof(RoleFitCandidate.CurrentAbility), .4));
         grid.Columns.Add(Column("PA", nameof(RoleFitCandidate.PotentialAbility), .4));
@@ -166,6 +167,7 @@ public partial class MainWindow
                     Q(item.Position),
                     Q(item.Score.ToString("0.00", CultureInfo.InvariantCulture), false),
                     Q(item.Coverage.ToString("P0", CultureInfo.InvariantCulture), false),
+                    Q(item.EvidenceSummary),
                     Q(item.AttributesAvailable.ToString(CultureInfo.InvariantCulture), false),
                     Q(item.AttributesExpected.ToString(CultureInfo.InvariantCulture), false),
                     Q(item.CurrentAbility?.ToString(CultureInfo.InvariantCulture), false),

@@ -250,6 +250,68 @@ public sealed class FmsaveNdjsonImportTests
         }, minimumCoverage: 0.8));
     }
 
+
+    [Fact]
+    public void RoleFitBreakdownExplainsWeightedScoreAndNormalizesAttributeNames()
+    {
+        var profile = new RoleFitProfile(
+            "Evidence Test", "Both", "Test", "Regression profile.",
+            new Dictionary<string, double>
+            {
+                ["Finishing"] = 2,
+                ["finish_ing"] = 1,
+                ["Pace"] = 1,
+                ["Crossing"] = 4
+            });
+        var score = RoleFitService.CalculateScore(profile, new Dictionary<string, double>
+        {
+            ["finishing"] = 18,
+            ["Pace"] = 12,
+            ["Crossing"] = double.NaN,
+            ["Unknown"] = 20
+        }, minimumCoverage: 0.5);
+
+        Assert.NotNull(score);
+        Assert.Equal(16.5, score!.Score, 2);
+        Assert.Equal(2, score.AttributesAvailable);
+        Assert.Equal(3, score.AttributesExpected);
+        Assert.Equal(2d / 3d, score.Coverage, 5);
+        Assert.Equal(2, score.Contributions.Count);
+        Assert.Equal("Finishing", score.Contributions[0].Attribute);
+        Assert.Equal(3, score.Contributions[0].Weight);
+        Assert.Equal(54, score.Contributions[0].WeightedPoints);
+        Assert.Equal(1d, score.Contributions.Sum(x => x.ShareOfTotal), 5);
+    }
+
+    [Fact]
+    public async Task RoleFitSearchCombinesEquivalentNormalizedWeightKeys()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "role-fit-duplicate-keys", playerManifestCount: 1, includeContractRow: false);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        var profile = new RoleFitProfile(
+            "Duplicate key test", "In Possession", "Attacker", "Regression profile.",
+            new Dictionary<string, double>
+            {
+                ["Finishing"] = 1,
+                ["finish_ing"] = 1,
+                ["Pace"] = 1
+            });
+
+        var matching = await database.SearchRoleFitCandidatesAsync(
+            profile, 50000, new RoleFitSearchFilters(MinimumCoverage: 1, ResultLimit: 25));
+
+        Assert.Single(matching);
+        Assert.Equal(15.6667, matching[0].Score, 3);
+        Assert.Equal(2, matching[0].AttributesAvailable);
+        Assert.Equal(2, matching[0].AttributesExpected);
+        Assert.Equal(3, matching[0].Contributions!.Count);
+    }
+
     private static string CreateBundle(
         string root,
         string name,

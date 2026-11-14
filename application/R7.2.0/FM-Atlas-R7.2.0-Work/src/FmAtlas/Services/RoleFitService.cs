@@ -1,7 +1,14 @@
 namespace FmAtlas.Services;
 
 public sealed record RoleFitProfile(string Name, string Phase, string PositionGroup, string Description, IReadOnlyDictionary<string, double> Weights);
-public sealed record RoleFitCandidate(string SourceId, string Name, string? Club, int? Age, string? Position, int? CurrentAbility, int? PotentialAbility, double Score, int AttributesAvailable, int AttributesExpected, double Coverage);
+public sealed record RoleFitAttributeContribution(string Attribute, double Value, double Weight, double WeightedPoints, double ShareOfTotal);
+
+public sealed record RoleFitCandidate(string SourceId, string Name, string? Club, int? Age, string? Position, int? CurrentAbility, int? PotentialAbility, double Score, int AttributesAvailable, int AttributesExpected, double Coverage, IReadOnlyList<RoleFitAttributeContribution>? Contributions = null)
+{
+    public string EvidenceSummary => Contributions is null || Contributions.Count == 0
+        ? "No attribute evidence"
+        : string.Join(" · ", Contributions.Take(4).Select(x => $"{x.Attribute} {x.Value:0.#}"));
+}
 public sealed record RoleFitSearchFilters(
     int? MinimumAge = null,
     int? MaximumAge = null,
@@ -10,7 +17,7 @@ public sealed record RoleFitSearchFilters(
     string? PositionContains = null,
     double MinimumCoverage = 0.5,
     int ResultLimit = 250);
-public sealed record RoleFitScore(double Score, int AttributesAvailable, int AttributesExpected, double Coverage);
+public sealed record RoleFitScore(double Score, int AttributesAvailable, int AttributesExpected, double Coverage, IReadOnlyList<RoleFitAttributeContribution> Contributions);
 
 /// <summary>
 /// Transparent coaching-style role estimates. These are not Sports Interactive's hidden role formula
@@ -66,7 +73,7 @@ public static class RoleFitService
         var weights = profile.Weights
             .Where(x => double.IsFinite(x.Value) && x.Value > 0)
             .GroupBy(x => NormalizeAttributeKey(x.Key), StringComparer.OrdinalIgnoreCase)
-            .Select(x => new { Key = x.Key, Weight = x.Sum(v => v.Value) })
+            .Select(x => new { Key = x.Key, Label = x.First().Key, Weight = x.Sum(v => v.Value) })
             .Where(x => x.Key.Length > 0 && x.Weight > 0)
             .ToList();
         if (weights.Count == 0) return null;
@@ -79,17 +86,26 @@ public static class RoleFitService
         double weightedTotal = 0;
         double availableWeight = 0;
         var available = 0;
+        var evidence = new List<(string Attribute, double Value, double Weight, double WeightedPoints)>();
         foreach (var weight in weights)
         {
             if (!values.TryGetValue(weight.Key, out var value)) continue;
-            weightedTotal += value * weight.Weight;
+            var points = value * weight.Weight;
+            weightedTotal += points;
             availableWeight += weight.Weight;
             available++;
+            evidence.Add((weight.Label, value, weight.Weight, points));
         }
 
         var coverage = available / (double)weights.Count;
         if (available == 0 || availableWeight <= 0 || coverage < minimumCoverage) return null;
-        return new RoleFitScore(weightedTotal / availableWeight, available, weights.Count, coverage);
+        var contributions = evidence
+            .Select(x => new RoleFitAttributeContribution(x.Attribute, x.Value, x.Weight, x.WeightedPoints,
+                weightedTotal > 0 ? x.WeightedPoints / weightedTotal : 0))
+            .OrderByDescending(x => x.WeightedPoints)
+            .ThenBy(x => x.Attribute, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return new RoleFitScore(weightedTotal / availableWeight, available, weights.Count, coverage, contributions);
     }
 
     private static string NormalizeAttributeKey(string value)
