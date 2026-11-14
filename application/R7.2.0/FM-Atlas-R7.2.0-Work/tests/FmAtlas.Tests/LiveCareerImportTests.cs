@@ -46,6 +46,14 @@ public sealed class LiveCareerImportTests
         Assert.Equal(164, staff.PotentialAbility);
         Assert.Equal("Fixture FC", staff.Club);
         Assert.Equal("England", staff.Nation);
+        Assert.Equal("Manager", staff.Job);
+        Assert.Equal(41, staff.Age);
+
+        // The directory advertises search by staff name, club or ID. Live rows must
+        // honour the club part of that contract, not just save-snapshot rows.
+        var byClub = Assert.Single(await database.SearchFmsaveStaffAsync("Fixture FC"));
+        Assert.Equal("Fixture Manager", byClub.Name);
+        Assert.Equal("Fixture FC", byClub.Club);
 
         var facts = await database.GetFmsaveStaffFactsAsync(staff.SourceId);
         Assert.Contains(facts, fact => fact.Field.Contains("is_human_manager", StringComparison.OrdinalIgnoreCase)
