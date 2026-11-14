@@ -3108,13 +3108,27 @@ public sealed class ScoutDatabase
             .ToList();
     }
 
-    public async Task<List<RoleFitCandidate>> SearchRoleFitCandidatesAsync(RoleFitProfile profile, int limit = 5000)
+    public async Task<List<RoleFitCandidate>> SearchRoleFitCandidatesAsync(
+        RoleFitProfile profile,
+        int candidateLimit = 5000,
+        RoleFitSearchFilters? filters = null,
+        CancellationToken cancellationToken = default)
     {
-        var weights = profile.Weights.ToDictionary(x => NormalizeAttributeKey(x.Key), x => x.Value, StringComparer.OrdinalIgnoreCase);
+        var selectedFilters = filters ?? new RoleFitSearchFilters();
+        if (selectedFilters.MinimumAge.HasValue && selectedFilters.MaximumAge.HasValue
+            && selectedFilters.MinimumAge > selectedFilters.MaximumAge)
+            throw new ArgumentException("Minimum age cannot exceed maximum age.", nameof(filters));
+        if (!double.IsFinite(selectedFilters.MinimumCoverage) || selectedFilters.MinimumCoverage is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(filters), "Minimum attribute coverage must be between 0 and 1.");
+
+        var weights = profile.Weights
+            .Where(x => double.IsFinite(x.Value) && x.Value > 0)
+            .ToDictionary(x => NormalizeAttributeKey(x.Key), x => x.Value, StringComparer.OrdinalIgnoreCase);
         if (weights.Count == 0) return new();
-        var maxPlayers = Math.Clamp(limit, 100, 50000);
+
+        var maxPlayers = Math.Clamp(candidateLimit, 100, 50000);
         await using var db = new SqliteConnection(_connectionString);
-        await db.OpenAsync().ConfigureAwait(false);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
         var cmd = db.CreateCommand();
         var names = weights.Keys.ToList();
         var parameterNames = new List<string>();
@@ -3125,19 +3139,32 @@ public sealed class ScoutDatabase
             cmd.Parameters.AddWithValue(parameter, names[i]);
         }
         cmd.Parameters.AddWithValue("$limit", maxPlayers);
+        cmd.Parameters.AddWithValue("$minimumAge", (object?)selectedFilters.MinimumAge ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maximumAge", (object?)selectedFilters.MaximumAge ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$minimumCurrentAbility", (object?)selectedFilters.MinimumCurrentAbility ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$minimumPotentialAbility", (object?)selectedFilters.MinimumPotentialAbility ?? DBNull.Value);
         cmd.CommandText = $"""
             SELECT p.SourceId,p.Name,p.Club,p.Age,p.Position,p.CurrentAbility,p.PotentialAbility,a.AttributeName,a.AttributeValue
-            FROM (SELECT * FROM Players WHERE SourceId NOT LIKE 'FMSAVE:%' OR SourceId IN
-                (SELECT PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns))
-                ORDER BY Name COLLATE NOCASE LIMIT $limit) p
+            FROM (
+                SELECT * FROM Players
+                WHERE (SourceId NOT LIKE 'FMSAVE:%' OR SourceId IN
+                    (SELECT PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)))
+                  AND ($minimumAge IS NULL OR Age >= $minimumAge)
+                  AND ($maximumAge IS NULL OR Age <= $maximumAge)
+                  AND ($minimumCurrentAbility IS NULL OR CurrentAbility >= $minimumCurrentAbility)
+                  AND ($minimumPotentialAbility IS NULL OR PotentialAbility >= $minimumPotentialAbility)
+                ORDER BY Name COLLATE NOCASE
+                LIMIT $limit
+            ) p
             LEFT JOIN PlayerAttributes a ON a.SourceId=p.SourceId AND LOWER(REPLACE(REPLACE(REPLACE(a.AttributeName,'_',''),' ',''),'-','')) IN ({string.Join(",", parameterNames)})
             ORDER BY p.Name COLLATE NOCASE;
             """;
         var grouped = new Dictionary<string, (string Name, string? Club, int? Age, string? Position, int? Ca, int? Pa, Dictionary<string,double> Attrs)>(StringComparer.OrdinalIgnoreCase);
-        await using (var r = await cmd.ExecuteReaderAsync().ConfigureAwait(false))
+        await using (var r = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
         {
-            while (await r.ReadAsync().ConfigureAwait(false))
+            while (await r.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var id = r.GetString(0);
                 if (!grouped.TryGetValue(id, out var row))
                     row = (r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.IsDBNull(3) ? null : r.GetInt32(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetInt32(5), r.IsDBNull(6) ? null : r.GetInt32(6), new Dictionary<string,double>(StringComparer.OrdinalIgnoreCase));
@@ -3145,21 +3172,25 @@ public sealed class ScoutDatabase
                 grouped[id] = row;
             }
         }
+
         var results = new List<RoleFitCandidate>();
         foreach (var pair in grouped)
         {
-            double weighted = 0, totalWeight = 0;
-            var available = 0;
-            foreach (var weight in weights)
-                if (pair.Value.Attrs.TryGetValue(weight.Key, out var score) && score >= 1 && score <= 20)
-                { weighted += score * weight.Value; totalWeight += weight.Value; available++; }
-            if (available == 0 || totalWeight <= 0) continue;
-            var coverage = available / (double)weights.Count;
-            // Avoid presenting a role rating when most of its requested attributes are absent.
-            if (coverage < 0.5) continue;
-            results.Add(new RoleFitCandidate(pair.Key, pair.Value.Name, pair.Value.Club, pair.Value.Age, pair.Value.Position, pair.Value.Ca, pair.Value.Pa, weighted / totalWeight, available, weights.Count, coverage));
+            cancellationToken.ThrowIfCancellationRequested();
+            var score = RoleFitService.CalculateScore(profile, pair.Value.Attrs, selectedFilters.MinimumCoverage);
+            if (score is null) continue;
+            results.Add(new RoleFitCandidate(
+                pair.Key, pair.Value.Name, pair.Value.Club, pair.Value.Age, pair.Value.Position,
+                pair.Value.Ca, pair.Value.Pa, score.Score,
+                score.AttributesAvailable, score.AttributesExpected, score.Coverage));
         }
-        return results.OrderByDescending(x => x.Score).ThenByDescending(x => x.Coverage).Take(250).ToList();
+
+        return results
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Coverage)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(selectedFilters.ResultLimit, 1, 5000))
+            .ToList();
     }
 
     private static string NormalizeAttributeKey(string value)

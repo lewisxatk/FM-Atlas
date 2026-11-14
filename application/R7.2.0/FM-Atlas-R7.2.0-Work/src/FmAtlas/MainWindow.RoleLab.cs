@@ -17,6 +17,7 @@ public partial class MainWindow
         TextBlock status = null!;
         DataGrid grid = null!;
         List<RoleFitCandidate> results = new();
+        CancellationTokenSource? activeSearchCancellation = null;
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var header = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 10));
@@ -27,9 +28,23 @@ public partial class MainWindow
         var controls = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         var role = new ComboBox { Width = 270, Height = 36, Margin = new Thickness(0, 0, 8, 8), DisplayMemberPath = nameof(RoleFitProfile.Name), ItemsSource = RoleFitService.GetProfiles() };
         role.SelectedIndex = 0;
+        var minimumAge = Input("Min age"); minimumAge.Width = 76; minimumAge.Margin = new Thickness(0, 0, 6, 8);
+        var maximumAge = Input("Max age"); maximumAge.Width = 76; maximumAge.Margin = new Thickness(0, 0, 6, 8);
+        var minimumCa = Input("Min CA"); minimumCa.Width = 76; minimumCa.Margin = new Thickness(0, 0, 6, 8);
+        var minimumPa = Input("Min PA"); minimumPa.Width = 76; minimumPa.Margin = new Thickness(0, 0, 6, 8);
+        var coverage = new ComboBox { Width = 132, Height = 36, Margin = new Thickness(0, 0, 8, 8), ToolTip = "Minimum percentage of the role's weighted attributes that must actually exist." };
+        foreach (var value in new[] { "50% coverage", "60% coverage", "70% coverage", "80% coverage", "90% coverage", "100% coverage" }) coverage.Items.Add(value);
+        coverage.SelectedIndex = 0;
         find = PrimaryButton("Find best fits", async (_, _) => await SearchAsync()); find.Margin = new Thickness(0, 0, 8, 8);
+        var cancel = SoftButton("Cancel search", (_, _) => activeSearchCancellation?.Cancel()); cancel.Margin = new Thickness(0, 0, 8, 8); cancel.IsEnabled = false;
         var export = SoftButton("Export results CSV", (_, _) => ExportResults()); export.Margin = new Thickness(0, 0, 8, 8);
-        controls.Children.Add(role); controls.Children.Add(find); controls.Children.Add(export);
+        controls.Children.Add(role);
+        controls.Children.Add(FilterControl("MIN AGE", minimumAge, 82));
+        controls.Children.Add(FilterControl("MAX AGE", maximumAge, 82));
+        controls.Children.Add(FilterControl("MIN CA", minimumCa, 82));
+        controls.Children.Add(FilterControl("MIN PA", minimumPa, 82));
+        controls.Children.Add(FilterControl("DATA COVERAGE", coverage, 138));
+        controls.Children.Add(find); controls.Children.Add(cancel); controls.Children.Add(export);
         hs.Children.Add(controls);
         var description = Txt("", 9, false, Muted, wrap: true); hs.Children.Add(description);
         status = Txt("Choose a role and search the latest imported player snapshot.", 10, false, Muted); status.Margin = new Thickness(0, 8, 0, 0); hs.Children.Add(status);
@@ -56,26 +71,71 @@ public partial class MainWindow
         role.SelectionChanged += (_, _) => UpdateDescription();
         UpdateDescription();
 
+        int? ReadOptionalInt(TextBox box, string label, int maximum)
+        {
+            var raw = box.Text.Trim();
+            if (raw.Length == 0) return null;
+            if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) || value < 0 || value > maximum)
+                throw new FormatException($"{label} must be a whole number from 0 to {maximum:N0}.");
+            return value;
+        }
+
         async Task SearchAsync()
         {
-            if (role.SelectedItem is not RoleFitProfile selected) return;
-            find.IsEnabled = false; status.Text = "Scoring imported player attributes…";
+            if (role.SelectedItem is not RoleFitProfile selected || activeSearchCancellation is not null) return;
+            RoleFitSearchFilters filters;
             try
             {
-                results = await RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(selected, 50000));
+                var minAge = ReadOptionalInt(minimumAge, "Minimum age", 120);
+                var maxAge = ReadOptionalInt(maximumAge, "Maximum age", 120);
+                if (minAge.HasValue && maxAge.HasValue && minAge > maxAge)
+                    throw new FormatException("Minimum age cannot exceed maximum age.");
+                filters = new RoleFitSearchFilters(
+                    MinimumAge: minAge,
+                    MaximumAge: maxAge,
+                    MinimumCurrentAbility: ReadOptionalInt(minimumCa, "Minimum CA", 200),
+                    MinimumPotentialAbility: ReadOptionalInt(minimumPa, "Minimum PA", 200),
+                    MinimumCoverage: 0.5 + Math.Clamp(coverage.SelectedIndex, 0, 5) * 0.1,
+                    ResultLimit: 250);
+            }
+            catch (FormatException ex)
+            {
+                status.Text = ex.Message;
+                return;
+            }
+
+            using var cancellation = new CancellationTokenSource();
+            activeSearchCancellation = cancellation;
+            find.IsEnabled = false;
+            cancel.IsEnabled = true;
+            status.Text = "Scoring imported player attributes against the selected role…";
+            try
+            {
+                results = await RunDatabaseAsync(() => _database.SearchRoleFitCandidatesAsync(selected, 50000, filters, cancellation.Token));
+                cancellation.Token.ThrowIfCancellationRequested();
                 grid.ItemsSource = results;
                 if (results.Count == 0)
-                    status.Text = "No reliable role scores could be calculated. Import an FM27 save copy with player attributes; candidates need at least 50% of the role's requested attributes.";
+                    status.Text = "No players match these filters with enough source-backed attributes. Lower the coverage threshold or import a save copy with broader player attribute coverage.";
                 else
-                    status.Text = $"{results.Count:N0} candidates ranked · top score {results[0].Score:0.00}/20 · available input coverage shown per player. Position familiarity and tactical instructions are not yet part of this estimate.";
-                AtlasLog.Info($"Role Lab completed: {selected.Name} ({selected.Phase}), {results.Count} candidates.");
+                    status.Text = $"{results.Count:N0} candidates ranked · top Atlas estimate {results[0].Score:0.00}/20 · source coverage shown per player. This is not the game's role rating; position familiarity and tactical instructions are not yet included.";
+                AtlasLog.Info($"Role Lab completed: {selected.Name} ({selected.Phase}), {results.Count} candidates; age={minAge}-{maxAge}; minCA={filters.MinimumCurrentAbility}; minPA={filters.MinimumPotentialAbility}; coverage={filters.MinimumCoverage:P0}.");
+            }
+            catch (OperationCanceledException)
+            {
+                status.Text = "Role Fit search cancelled. The previous completed result set is retained.";
+                AtlasLog.Info("Role Fit search cancelled by user.");
             }
             catch (Exception ex)
             {
                 AtlasLog.Error("Role Lab search failed.", ex);
                 status.Text = "Role search failed: " + ex.Message;
             }
-            finally { find.IsEnabled = true; }
+            finally
+            {
+                activeSearchCancellation = null;
+                cancel.IsEnabled = false;
+                find.IsEnabled = true;
+            }
         }
 
         void ExportResults()

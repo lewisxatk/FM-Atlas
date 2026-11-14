@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FmAtlas.Data;
 using FmAtlas.Models;
+using FmAtlas.Services;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
@@ -164,6 +165,82 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Single(per90Match);
         Assert.Contains("Goals per 90: 1", per90Match[0].ValuesSummary);
         Assert.Contains("Assists per 90: 0.8", per90Match[0].ValuesSummary);
+    }
+
+    [Fact]
+    public async Task RoleFitSearchAppliesRecruitmentFiltersAndCoverageBeforeRanking()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "role-fit", playerManifestCount: 1, includeContractRow: false);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        var profile = new RoleFitProfile(
+            "Fixture Forward", "In Possession", "Attacker", "Regression profile.",
+            new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Finishing"] = 1,
+                ["Pace"] = 1
+            });
+
+        var matching = await database.SearchRoleFitCandidatesAsync(
+            profile, 50000, new RoleFitSearchFilters(MinimumCoverage: 1, ResultLimit: 25));
+        Assert.Single(matching);
+        Assert.Equal(15.5, matching[0].Score, 2);
+        Assert.Equal(2, matching[0].AttributesAvailable);
+        Assert.Equal(2, matching[0].AttributesExpected);
+        Assert.Equal(1d, matching[0].Coverage);
+
+        var ageFiltered = await database.SearchRoleFitCandidatesAsync(
+            profile, 50000, new RoleFitSearchFilters(MinimumAge: 21, ResultLimit: 25));
+        Assert.Empty(ageFiltered);
+
+        var caFiltered = await database.SearchRoleFitCandidatesAsync(
+            profile, 50000, new RoleFitSearchFilters(MinimumCurrentAbility: 121, ResultLimit: 25));
+        Assert.Empty(caFiltered);
+
+        var paFiltered = await database.SearchRoleFitCandidatesAsync(
+            profile, 50000, new RoleFitSearchFilters(MinimumPotentialAbility: 151, ResultLimit: 25));
+        Assert.Empty(paFiltered);
+
+        var incompleteProfile = new RoleFitProfile(
+            "Incomplete", "In Possession", "Attacker", "Regression profile.",
+            new Dictionary<string, double> { ["Finishing"] = 1, ["Pace"] = 1, ["Crossing"] = 1, ["Heading"] = 1 });
+        var strictCoverage = await database.SearchRoleFitCandidatesAsync(
+            incompleteProfile, 50000, new RoleFitSearchFilters(MinimumCoverage: 0.75, ResultLimit: 25));
+        Assert.Empty(strictCoverage);
+    }
+
+    [Fact]
+    public void RoleFitScoringExcludesMissingAndOutOfRangeAttributesAndReportsCoverage()
+    {
+        var profile = new RoleFitProfile(
+            "Weighted Test", "Both", "Test", "Regression profile.",
+            new Dictionary<string, double>
+            {
+                ["Finishing"] = 2,
+                ["Pace"] = 1,
+                ["Crossing"] = 1
+            });
+        var score = RoleFitService.CalculateScore(profile, new Dictionary<string, double>
+        {
+            ["finishing"] = 18,
+            ["Pace"] = 12,
+            ["Crossing"] = 0,
+            ["Unknown"] = 19
+        });
+
+        Assert.NotNull(score);
+        Assert.Equal(16, score!.Score, 2);
+        Assert.Equal(2, score.AttributesAvailable);
+        Assert.Equal(3, score.AttributesExpected);
+        Assert.Equal(2d / 3d, score.Coverage, 5);
+        Assert.Null(RoleFitService.CalculateScore(profile, new Dictionary<string, double>
+        {
+            ["finishing"] = 18
+        }, minimumCoverage: 0.8));
     }
 
     private static string CreateBundle(
