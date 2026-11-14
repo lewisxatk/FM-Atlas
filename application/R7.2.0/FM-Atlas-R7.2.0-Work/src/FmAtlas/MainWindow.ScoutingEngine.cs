@@ -61,6 +61,7 @@ public partial class MainWindow
         var filterCard = Card(new StackPanel(), 13, new Thickness(0, 0, 0, 10));
         var filterStack = (StackPanel)filterCard.Child;
         var filters = new WrapPanel();
+        var sourcePicker = new ComboBox { Width = 155, Height = 34, Margin = new Thickness(3), ToolTip = "Never compare percentiles across different provider definitions." };
         var competition = new ComboBox { Width = 180, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Competition cohort" };
         var season = new ComboBox { Width = 140, Height = 34, Margin = new Thickness(3), IsEditable = true, ToolTip = "Season cohort" };
         var position = new ComboBox { Width = 130, Height = 34, Margin = new Thickness(3), ItemsSource = new[] { "All positions", "Goalkeeper", "Defender", "Midfielder", "Attacker" }, SelectedIndex = 0 };
@@ -73,6 +74,7 @@ public partial class MainWindow
         var maxValue = Input("Max market value"); maxValue.Width = 125;
         var minAge = Input("Min age"); minAge.Text = "16"; minAge.Width = 75;
         var maxAge = Input("Max age"); maxAge.Text = "34"; maxAge.Width = 75;
+        filters.Children.Add(FilterControl("DATA SOURCE", sourcePicker, 165));
         filters.Children.Add(FilterControl("ROLE PROFILE", roleProfile, 200));
         filters.Children.Add(FilterControl("COMPETITION", competition, 190));
         filters.Children.Add(FilterControl("SEASON", season, 150));
@@ -124,7 +126,10 @@ public partial class MainWindow
 
         void RefreshChoices()
         {
-            var oldComp = competition.Text; var oldSeason = season.Text; var oldMetric = (metric.SelectedItem as MetricChoice)?.Definition.Key;
+            var oldComp = competition.Text; var oldSeason = season.Text; var oldMetric = (metric.SelectedItem as MetricChoice)?.Definition.Key; var oldSource = sourcePicker.SelectedItem?.ToString();
+            sourcePicker.Items.Clear(); sourcePicker.Items.Add("All sources");
+            foreach (var x in allRows.Select(x => x.SourceName).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)) sourcePicker.Items.Add(x);
+            sourcePicker.SelectedItem = oldSource is not null && sourcePicker.Items.Contains(oldSource) ? oldSource : "All sources";
             competition.Items.Clear(); competition.Items.Add("All competitions");
             foreach (var x in allRows.Select(x => x.Competition).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x))
                 competition.Items.Add(x);
@@ -151,15 +156,17 @@ public partial class MainWindow
             metric.SelectedItem = choices.FirstOrDefault(x => x.Definition.Key.Equals(oldMetric, StringComparison.OrdinalIgnoreCase)) ?? choices.FirstOrDefault();
         }
 
-        (string? Competition, string? Season, string? Position) SelectedCohort()
+        (string? Competition, string? Season, string? Position, string? Source) SelectedCohort()
         {
             var comp = competition.Text.Trim();
             var sea = season.Text.Trim();
             var selectedRole = roleProfile.SelectedItem as ScoutingRoleProfile;
             var pos = selectedRole is { Name: not "All roles" } ? selectedRole.PositionGroup : position.SelectedItem?.ToString();
+            var source = sourcePicker.SelectedItem?.ToString();
             return (comp.Equals("All competitions", StringComparison.OrdinalIgnoreCase) || comp.Length == 0 ? null : comp,
                 sea.Equals("All seasons", StringComparison.OrdinalIgnoreCase) || sea.Length == 0 ? null : sea,
-                pos == "All positions" ? null : pos);
+                pos == "All positions" ? null : pos,
+                source == "All sources" || string.IsNullOrWhiteSpace(source) ? null : source);
         }
 
         async Task RunRankAsync()
@@ -170,8 +177,9 @@ public partial class MainWindow
             var def = choice.Definition with { MinimumSampleMinutes = Math.Max(floor, choice.Definition.MinimumSampleMinutes) };
             var rows = allRows.Where(p => (cohort.Competition is null || p.Competition == cohort.Competition) &&
                 (cohort.Season is null || p.Season == cohort.Season) &&
-                (cohort.Position is null || p.PositionGroup == cohort.Position)).ToList();
-            var ranked = ScoutingAnalyticsService.RankMetric(rows, def, cohort.Competition, cohort.Season, cohort.Position, 5);
+                (cohort.Position is null || p.PositionGroup == cohort.Position) &&
+                (cohort.Source is null || p.SourceName == cohort.Source)).ToList();
+            var ranked = rows.GroupBy(p => p.SourceName).SelectMany(group => ScoutingAnalyticsService.RankMetric(group, def, cohort.Competition, cohort.Season, cohort.Position, 5)).ToList();
             results = ranked.Select(r =>
             {
                 var p = rows.First(x => x.SourceId == r.SourceId);
@@ -181,7 +189,7 @@ public partial class MainWindow
                     r.SourceName, p.IsEventLevel ? "Event data" : "Season stats", r.SourceId, p);
             }).ToList();
             grid.ItemsSource = results;
-            status.Text = $"{results.Count:N0} players ranked · {choice.Label} · {cohort.Competition ?? "all competitions"} · {cohort.Season ?? "all seasons"}. Percentiles are withheld below a five-player cohort; source and minutes are retained.";
+            status.Text = $"{results.Count:N0} players ranked · {choice.Label} · {cohort.Source ?? "each source ranked separately"} · {cohort.Competition ?? "all competitions"} · {cohort.Season ?? "all seasons"}. Percentiles are withheld below a five-player cohort; source and minutes are retained.";
             evidence.Text = $"Metric: {choice.Definition.Label}\nDefinition: {choice.Definition.SourceFamily}; {(choice.Definition.IsRatePer90 ? "normalised per 90 using recorded minutes" : "reported in source units")}\nMinimum sample: {def.MinimumSampleMinutes:0} minutes\nCohort: {cohort.Competition ?? "all competitions"} / {cohort.Season ?? "all seasons"} / {cohort.Position ?? "all positions"}\nSource: each player's import provenance.";
             await Task.CompletedTask;
         }
