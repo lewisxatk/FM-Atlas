@@ -61,6 +61,7 @@ public static class FmsaveBridgeService
         {
             try { process.Kill(entireProcessTree: true); } catch { }
             try { await Task.WhenAll(stdoutTask, stderrTask); } catch { }
+            try { if (File.Exists(output)) File.Delete(output); } catch { /* Best-effort cleanup of a partial career export. */ }
             if (!cancellationToken.IsCancellationRequested)
                 throw new TimeoutException("The save reader exceeded the 30-minute safety timeout.");
             throw;
