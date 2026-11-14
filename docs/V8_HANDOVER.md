@@ -246,3 +246,15 @@ This batch is source-implemented and regression tests are added, but it is not y
 - Saved-profile loading now clears the transient field-library text filter before restoring criteria. This avoids an edge case where a saved field hidden by the active field search could otherwise resolve to the first visible field.
 - Added an SQLite integration test using real table contracts: FMSAVE snapshot position facts and live LivePlayerFacts are both seeded. The test asserts exact ALL, exact ANY and At Least ALL result sets across offline and live players.
 - This follow-up is later than workflow #43590420150 and its artifact. That green run verifies the feature implementation and model/profile tests, but the newly added SQL integration test and field-search restore safeguard need their own fresh Windows workflow before they are considered verified.
+
+
+## Final Windows verification — Monolith Glass and Advanced Search positions — 14 November 2026
+
+- Workflow run: https://github.com/lewisxatk/FM-Atlas/actions/runs/43590756414
+- Branch: rebuild/v8-full-product-rebuild
+- Verified head: 9ec72cbf34af3b51984c7fe23ad2c54573ec36fc
+- All 12 workflow steps passed: Python adapter validation, supported fmsave verification, streaming bundle tests, .NET 8 restore, Release build, complete xUnit suite, self-contained Windows x64 publish and artifact upload.
+- The suite includes the SQLite position-search integration test for exact ALL, exact ANY and At Least ALL, spanning FMSAVE snapshot facts and live position facts. Saved-profile backwards compatibility and JSON round-trip tests also passed.
+- Artifact: FM-Atlas-V8-win-x64, 68,894,168 bytes; SHA-256 e76e763e26b35dd73ad4ee9ab1e1b95ffb34b7c090269e406658a2ad7f627f93; expires 28 November 2026.
+- Artifact is the current verified build for this update. Download from the Actions run's Artifacts section.
+- Still open: manual Windows visual/DPI review, real FM27 in-game field comparison, actual career scan performance and full user-PC acceptance. Live-memory field confidence remains provisional until witnessed in game. Live editing remains disabled.
