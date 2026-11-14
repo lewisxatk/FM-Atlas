@@ -1,6 +1,6 @@
 # FM Atlas V11 — Monolith Glass, Football Intelligence & Live Editor
 
-> **V11 validation status:** the live editor diagnostics and recovery update is committed to `feature/v9-all-roadmap`. Its Windows Release restore/build, complete xUnit suite, Python adapter tests and self-contained x64 publish are running in [workflow #732](https://github.com/lewisxatk/FM-Atlas/actions/runs/43644832235). Do not distribute this source revision until that exact workflow succeeds.
+> **V11 validation status:** the live editor diagnostics and recovery update is committed to `feature/v9-all-roadmap`. Its Windows Release restore/build, complete xUnit suite, Python adapter tests and self-contained x64 publish are running in [latest branch-head workflow](https://github.com/lewisxatk/FM-Atlas/actions/workflows/fm-atlas-v8-windows.yml). Do not distribute this source revision until that exact workflow succeeds.
 >
 > **Live-write safety:** player/staff/club live editing is explicitly opt-in for the current Atlas session and starts OFF. Apply and Undo re-check the session gate, exact FM27 build, save generation, entity identity, staged bytes and read-back. Only the whitelisted fields are exposed; unsupported structures remain blocked. Use a disposable offline career copy and keep a separate backup.
 

@@ -12,7 +12,7 @@ Build acceptance for branch `feature/v9-all-roadmap` (V11 live editor diagnostic
 
 ## Build that this plan refers to
 
-- Workflow: https://github.com/lewisxatk/FM-Atlas/actions/runs/43644832235 (run #730; superseded by the final stable-head validation run)
+- Workflow: https://github.com/lewisxatk/FM-Atlas/actions/workflows/fm-atlas-v8-windows.yml (use the run for the current branch head)
 - Code commit: `bc58ca0598bff67542f11d1b50cd587e5cc2afb2` (privacy-hardening source; subsequent handover-only commits are included in the final validation)
 - Artifact: `FM-Atlas-V11-win-x64` (publish/upload are conditional on this exact workflow succeeding)
 - Previous activation build passed its Windows Release build, xUnit suite (168 tests), self-contained x64 publish and artifact upload. That result does not validate the newer diagnostics commit.
