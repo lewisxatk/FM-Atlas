@@ -3344,6 +3344,8 @@ public partial class MainWindow : Window
             stagePanel.Children.Add(Txt($"{stageRows.Count:N0} live values have a supported, range-checked preview mapping.", 8, true, Muted));
             stagePanel.Children.Add(stageGrid);
             var stageStatus = Txt("No live preview staged.", 9, false, Muted, wrap: true);
+            Button applyButton = null!;
+            Button undoButton = null!;
             var stageButton = PrimaryButton("Stage live edit preview", async (_, _) =>
             {
                 stageGrid.CommitEdit(DataGridEditingUnit.Cell, true);
@@ -3394,8 +3396,6 @@ public partial class MainWindow : Window
             });
             stagePanel.Children.Add(stageButton);
             stagePanel.Children.Add(stageStatus);
-            Button applyButton = null!;
-            Button undoButton = null!;
             applyButton = PrimaryButton("Apply to running Football Manager", async (_, _) =>
             {
                 var planToApply = stagedPlan;
