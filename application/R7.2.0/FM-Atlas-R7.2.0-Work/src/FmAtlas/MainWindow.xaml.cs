@@ -3093,7 +3093,7 @@ public partial class MainWindow : Window
         var search = Input("Search names, IDs or imported values");
         search.Margin = new Thickness(0, 6, 0, 6);
         controls.Children.Add(search);
-        var searchButton = PrimaryButton("Search selected directory", (_, _) => _ = RefreshWorldRowsAsync());
+        var searchButton = PrimaryButton("Search selected directory", async (_, _) => await RefreshWorldRowsAsync());
         controls.Children.Add(searchButton);
         var tableStatus = Txt($"{tables.Count:N0} imported directories available", 8, true, Muted);
         controls.Children.Add(tableStatus);
@@ -3117,8 +3117,8 @@ public partial class MainWindow : Window
         detailHeader.Children.Add(Txt("Choose a record", 22, true, Ink));
         detailHeader.Children.Add(Txt("The editor exposes all scalar properties in the selected raw save record, including nested objects and indexed array elements. Pointer/list operations are not silently converted into numeric writes.", 9, false, Muted, wrap: true));
         var toggle = _editorEnabled
-            ? SoftButton("Disable local editor", (_, _) => { _editorEnabled = false; NavigateAsync("World Editor"); })
-            : PrimaryButton("Enable local editor", (_, _) => { _editorEnabled = true; NavigateAsync("World Editor"); });
+            ? SoftButton("Disable local editor", async (_, _) => { _editorEnabled = false; await NavigateAsync("World Editor"); })
+            : PrimaryButton("Enable local editor", async (_, _) => { _editorEnabled = true; await NavigateAsync("World Editor"); });
         detailHeader.Children.Add(toggle);
         var editorMessage = Txt("Select a row on the left. Enable the local editor to change its imported values and save an auditable Atlas override.", 10, false, Muted, wrap: true);
         detailHeader.Children.Add(editorMessage);
