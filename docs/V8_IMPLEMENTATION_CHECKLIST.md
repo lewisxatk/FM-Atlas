@@ -144,7 +144,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add formation builder, positional coverage, role-fit and age/payroll structure.
 - [ ] Add tactical/role analysis with in/out-of-possession distinctions where supported.
 - [ ] Add staff search, coaching-role fit and backroom gaps where supported.
-- [ ] Add transfer/candidate views and shortlists with provenance-aware actions.
+- [~] Add a local shortlist recruitment pipeline with Identified, Monitoring, Scouting, Contact, Offer, Signed and Rejected stages; candidate notes are editable and retained locally. Existing databases add the Stage column in-place with an Identified default. Windows verification pending.
 - [ ] Add drag/drop formation interactions with keyboard alternatives and reduced-motion support.
 
 ## 9. Editing and history
@@ -191,6 +191,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
 | 2026-11-14 | Advanced Search cross-source regression coverage | Pending CI | Added an integration fixture combining core player fields, imported 1–20 attributes and latest-snapshot contract facts; verifies ALL/ANY semantics, missing-value exclusion, deterministic paging and rejection beyond 60 conditions. The existing Advanced Search workspace, saved profiles and result actions remain unchanged. Windows verification pending. |
+| 2026-11-14 | Local shortlist recruitment pipeline | Pending CI | Added a safe in-place Stage-column migration, validated stage transitions, editable notes, stage grid column and stage-aware CSV export; legacy shortlist rows are preserved and default to Identified. Added a migration/update/validation regression test. Windows verification pending. |
 | 2026-11-14 | Full-cohort Performance vs Value ranking | `af5f82d0` | Removed the alphabetical pre-percentile SQL cap; overall, position and league cohort percentiles and coverage now use every eligible player in the imported snapshot, with the requested result limit applied only after ranking. Added a regression fixture where the strongest value-gap player is alphabetically outside the first two records. Windows verification pending. |
 | 2026-11-14 | Performance vs Value cohort filters | Pending CI | Added position and league selectors plus a clear-filters action. Chart and CSV use the visible filtered rows while all overall and cohort percentiles remain anchored to the full eligible metric/value pool. Windows verification pending. |
 | 2026-11-14 | Role Fit scoring, recruitment filters and cancellation | `7d8cef6b`, `3e4acf28` | Extracted a reusable coverage-aware weighted score; added pre-limit age/CA/PA/position filters, adjustable minimum attribute coverage, cancellation, and regression tests for score math and database filters. Windows verification pending. |

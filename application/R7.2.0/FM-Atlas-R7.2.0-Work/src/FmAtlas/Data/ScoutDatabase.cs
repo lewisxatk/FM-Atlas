@@ -178,6 +178,26 @@ public sealed class ScoutDatabase
             CREATE INDEX IF NOT EXISTS IX_LivePlayerHistory_Player ON LivePlayerHistory(PlayerUid, SeasonKey);
             """;
         await cmd.ExecuteNonQueryAsync();
+
+        // Upgrade existing V8/R7 databases without dropping or rebuilding any shortlist rows.
+        var shortlistColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var shortlistColumnCommand = db.CreateCommand();
+        shortlistColumnCommand.CommandText = "PRAGMA table_info(Shortlists);";
+        await using (var shortlistColumnReader = await shortlistColumnCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await shortlistColumnReader.ReadAsync().ConfigureAwait(false))
+                shortlistColumns.Add(shortlistColumnReader.GetString(1));
+        }
+        if (!shortlistColumns.Contains("Stage"))
+        {
+            var addStage = db.CreateCommand();
+            addStage.CommandText = "ALTER TABLE Shortlists ADD COLUMN Stage TEXT NOT NULL DEFAULT 'Identified';";
+            await addStage.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+        var shortlistStageIndex = db.CreateCommand();
+        shortlistStageIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Shortlists_Stage ON Shortlists(ShortlistName, Stage);";
+        await shortlistStageIndex.ExecuteNonQueryAsync().ConfigureAwait(false);
+
         var snapshotSchema = db.CreateCommand();
         snapshotSchema.CommandText = """
             CREATE TABLE IF NOT EXISTS FmsaveImportRuns (
@@ -919,7 +939,7 @@ public sealed class ScoutDatabase
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
         cmd.CommandText = """
-          SELECT s.SourceId, COALESCE(p.Name,lp.PlayerName), s.ShortlistName, s.Notes, s.AddedUtc, COALESCE(p.Club,c.ClubName), p.Position
+          SELECT s.SourceId, COALESCE(p.Name,lp.PlayerName), s.ShortlistName, s.Notes, s.AddedUtc, COALESCE(p.Club,c.ClubName), p.Position, s.Stage
           FROM Shortlists s LEFT JOIN Players p ON p.SourceId=s.SourceId
           LEFT JOIN LivePlayers lp ON s.SourceId=('LIVE:' || lp.PlayerUid)
           LEFT JOIN LiveClubs c ON c.ClubUid=lp.ClubUid
@@ -933,9 +953,46 @@ public sealed class ScoutDatabase
             ShortlistName = reader.GetString(2), Notes = reader.IsDBNull(3) ? null : reader.GetString(3),
             AddedUtc = DateTime.TryParse(reader.GetString(4), out var dt) ? dt : DateTime.MinValue,
             DisplayClub = reader.IsDBNull(5) ? "—" : reader.GetString(5),
-            DisplayPosition = reader.IsDBNull(6) ? "—" : reader.GetString(6)
+            DisplayPosition = reader.IsDBNull(6) ? "—" : reader.GetString(6),
+            Stage = reader.IsDBNull(7) ? ShortlistRecord.DefaultStage : reader.GetString(7)
         });
         return rows;
+    }
+
+
+    public async Task UpdateShortlistDetailsAsync(string sourceId, string shortlistName, string stage, string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("A shortlist source ID is required.", nameof(sourceId));
+        if (string.IsNullOrWhiteSpace(shortlistName)) throw new ArgumentException("A shortlist name is required.", nameof(shortlistName));
+        var selectedStage = ShortlistRecord.PipelineStages.FirstOrDefault(x =>
+            x.Equals(stage?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (selectedStage is null)
+            throw new ArgumentException("Choose a stage from the supported recruitment pipeline.", nameof(stage));
+        var cleanNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        if (cleanNotes?.Length > 2000) throw new ArgumentException("Shortlist notes cannot exceed 2,000 characters.", nameof(notes));
+
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await using var db = new SqliteConnection(_connectionString);
+            await db.OpenAsync().ConfigureAwait(false);
+            var command = db.CreateCommand();
+            command.CommandText = """
+                UPDATE Shortlists
+                SET Stage=$stage, Notes=$notes
+                WHERE SourceId=$source AND ShortlistName=$name;
+                """;
+            command.Parameters.AddWithValue("$stage", selectedStage);
+            command.Parameters.AddWithValue("$notes", (object?)cleanNotes ?? DBNull.Value);
+            command.Parameters.AddWithValue("$source", sourceId);
+            command.Parameters.AddWithValue("$name", shortlistName.Trim());
+            var changed = await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+            if (changed == 0) throw new InvalidOperationException("This player is no longer in the selected shortlist.");
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
     }
 
     public async Task RemoveFromShortlistAsync(string sourceId, string shortlistName)

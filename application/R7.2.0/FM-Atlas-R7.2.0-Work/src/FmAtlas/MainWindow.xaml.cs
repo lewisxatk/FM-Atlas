@@ -1878,17 +1878,141 @@ public partial class MainWindow : Window
 
     private async Task<UIElement> ShortlistsPageAsync()
     {
-        var root = new Grid(); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(370) });
-        var left = Card(new DockPanel(), 14); var dock = (DockPanel)left.Child;
-        var top = new StackPanel(); top.Children.Add(Txt("RECRUITMENT", 9, true, Teal)); top.Children.Add(Txt("My shortlists", 20, true, Ink));
-        var controls = new StackPanel { Orientation = Orientation.Horizontal }; _shortlistPicker = new ComboBox { Width = 210, Margin = new Thickness(0, 5, 5, 9), Padding = new Thickness(8) }; controls.Children.Add(_shortlistPicker); controls.Children.Add(SoftButton("＋ New", async (_, _) => await CreateNewShortlistAsync())); top.Children.Add(controls); DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
-        var dg = CreateGrid(); dg.Columns.Add(Column("PLAYER", "PlayerName", 1.2)); dg.Columns.Add(Column("CLUB", "DisplayClub", 1)); dg.Columns.Add(Column("POSITION", "DisplayPosition", .7)); dg.Columns.Add(Column("ADDED", "AddedUtc", 1)); dg.ItemsSource = _shortlist; dock.Children.Add(dg);
-        var right = Card(new StackPanel(), 14); var s = (StackPanel)right.Child; s.Children.Add(Txt("SHORTLIST ACTIONS", 9, true, Teal)); s.Children.Add(Txt("Recruitment workflow", 19, true, Ink)); s.Children.Add(Txt("Add players from the player profile. Notes and groups are stored locally and remain available between application updates.", 10, false, Muted, wrap: true));
-        s.Children.Add(SoftButton("Remove selected", async (_, _) => { if (dg.SelectedItem is ShortlistRecord item && _shortlistPicker.SelectedItem is string name) { await RunDatabaseAsync(() => _database.RemoveFromShortlistAsync(item.SourceId, name)); await RefreshShortlistRowsAsync(dg); } }));
-        s.Children.Add(SoftButton("Export shortlist CSV", (_, _) => ExportShortlistCsv()));
-        Grid.SetColumn(left, 0); root.Children.Add(left); Grid.SetColumn(right, 1); root.Children.Add(right);
-        var names = await RunDatabaseAsync(() => _database.GetShortlistNamesAsync()); _shortlistPicker.ItemsSource = names; _shortlistPicker.SelectedIndex = 0;
-        _shortlistPicker.SelectionChanged += async (_, _) => await RefreshShortlistRowsAsync(dg);
+        var root = new Grid();
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(390) });
+
+        var left = Card(new DockPanel(), 14);
+        var dock = (DockPanel)left.Child;
+        var top = new StackPanel();
+        top.Children.Add(Txt("RECRUITMENT", 9, true, Teal));
+        top.Children.Add(Txt("Candidate pipeline", 20, true, Ink));
+        top.Children.Add(Txt("Track each target from identification through scouting, contact, offer and signing. Stages and notes are stored locally in your Atlas database.", 10, false, Muted, wrap: true));
+        var controls = new StackPanel { Orientation = Orientation.Horizontal };
+        _shortlistPicker = new ComboBox { Width = 230, Margin = new Thickness(0, 5, 5, 9), Padding = new Thickness(8) };
+        controls.Children.Add(_shortlistPicker);
+        controls.Children.Add(SoftButton("＋ New", async (_, _) => await CreateNewShortlistAsync()));
+        top.Children.Add(controls);
+        DockPanel.SetDock(top, Dock.Top);
+        dock.Children.Add(top);
+
+        var dg = CreateGrid();
+        dg.SelectionMode = DataGridSelectionMode.Single;
+        dg.Columns.Add(Column("PLAYER", "PlayerName", 1.2));
+        dg.Columns.Add(Column("CLUB", "DisplayClub", 1));
+        dg.Columns.Add(Column("POSITION", "DisplayPosition", .65));
+        dg.Columns.Add(Column("STAGE", "Stage", .9));
+        dg.Columns.Add(Column("ADDED", "AddedUtc", .9));
+        dg.SelectionChanged += (_, _) =>
+        {
+            if (dg.SelectedItem is ShortlistRecord selected)
+            {
+                stagePicker.SelectedItem = ShortlistRecord.PipelineStages.FirstOrDefault(x =>
+                    x.Equals(selected.Stage, StringComparison.OrdinalIgnoreCase)) ?? ShortlistRecord.DefaultStage;
+                notesEditor.Text = selected.Notes ?? "";
+                selectedPlayerLabel.Text = selected.PlayerName + (string.IsNullOrWhiteSpace(selected.DisplayClub) ? "" : " · " + selected.DisplayClub);
+                detailsStatus.Text = "Edit this candidate's pipeline stage or private recruitment notes.";
+                saveDetails.IsEnabled = true;
+            }
+            else
+            {
+                selectedPlayerLabel.Text = "Select a candidate";
+                notesEditor.Text = "";
+                detailsStatus.Text = "Select a player from the shortlist to edit their stage and notes.";
+                saveDetails.IsEnabled = false;
+            }
+        };
+        dg.MouseDoubleClick += async (_, _) =>
+        {
+            if (dg.SelectedItem is not ShortlistRecord selected) return;
+            var player = new PlayerRecord { SourceId = selected.SourceId, Name = selected.PlayerName, Club = selected.DisplayClub, Position = selected.DisplayPosition };
+            _selectedPlayer = player;
+            await NavigateAsync("Players");
+            try { await ShowPlayerProfileAsync(player); }
+            catch (Exception ex) { ClearProfile("Could not open this shortlist player: " + ex.Message); }
+        };
+        dock.Children.Add(dg);
+
+        var right = Card(new StackPanel(), 14);
+        var side = (StackPanel)right.Child;
+        side.Children.Add(Txt("RECRUITMENT WORKFLOW", 9, true, Teal));
+        side.Children.Add(Txt("Candidate details", 19, true, Ink));
+        var selectedPlayerLabel = Txt("Select a candidate", 11, true, Muted, wrap: true);
+        selectedPlayerLabel.Margin = new Thickness(0, 4, 0, 12);
+        side.Children.Add(selectedPlayerLabel);
+
+        var stagePicker = new ComboBox
+        {
+            ItemsSource = ShortlistRecord.PipelineStages,
+            SelectedItem = ShortlistRecord.DefaultStage,
+            Height = 36,
+            Margin = new Thickness(0, 3, 0, 10),
+            FontSize = 11
+        };
+        side.Children.Add(FilterControl("PIPELINE STAGE", stagePicker, 330));
+
+        var notesEditor = new TextBox
+        {
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            MinHeight = 140,
+            MaxHeight = 220,
+            MaxLength = 2000,
+            Padding = new Thickness(9),
+            Margin = new Thickness(0, 4, 0, 10),
+            Background = Brush("#171F28"),
+            Foreground = Ink,
+            BorderBrush = Line,
+            BorderThickness = new Thickness(1),
+            ToolTip = "Private scouting notes for this shortlist candidate. Maximum 2,000 characters."
+        };
+        side.Children.Add(FilterControl("SCOUTING NOTES", notesEditor, 340));
+        var detailsStatus = Txt("Select a player from the shortlist to edit their stage and notes.", 9, false, Muted, wrap: true);
+        detailsStatus.Margin = new Thickness(0, 5, 0, 6);
+        side.Children.Add(detailsStatus);
+        var saveDetails = PrimaryButton("Save candidate details", async (_, _) =>
+        {
+            if (dg.SelectedItem is not ShortlistRecord selected || _shortlistPicker?.SelectedItem is not string name) return;
+            try
+            {
+                await RunDatabaseAsync(() => _database.UpdateShortlistDetailsAsync(
+                    selected.SourceId, name, stagePicker.SelectedItem?.ToString() ?? ShortlistRecord.DefaultStage,
+                    notesEditor.Text));
+                await RefreshShortlistRowsAsync(dg);
+                detailsStatus.Text = $"Saved {selected.PlayerName} · {stagePicker.SelectedItem}.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Shortlist candidate details could not be saved.", ex);
+                detailsStatus.Text = "Could not save candidate details: " + ex.Message;
+            }
+        });
+        saveDetails.IsEnabled = false;
+        side.Children.Add(saveDetails);
+        side.Children.Add(SoftButton("Remove selected", async (_, _) =>
+        {
+            if (dg.SelectedItem is ShortlistRecord item && _shortlistPicker.SelectedItem is string name)
+            {
+                await RunDatabaseAsync(() => _database.RemoveFromShortlistAsync(item.SourceId, name));
+                await RefreshShortlistRowsAsync(dg);
+            }
+        }));
+        side.Children.Add(SoftButton("Export shortlist CSV", (_, _) => ExportShortlistCsv()));
+
+        Grid.SetColumn(left, 0);
+        root.Children.Add(left);
+        Grid.SetColumn(right, 1);
+        root.Children.Add(right);
+
+        var names = await RunDatabaseAsync(() => _database.GetShortlistNamesAsync());
+        _shortlistPicker.ItemsSource = names;
+        _shortlistPicker.SelectedIndex = 0;
+        _shortlistPicker.SelectionChanged += async (_, _) =>
+        {
+            dg.SelectedItem = null;
+            await RefreshShortlistRowsAsync(dg);
+        };
         await RefreshShortlistRowsAsync(dg);
         return root;
     }
@@ -2452,7 +2576,7 @@ public partial class MainWindow : Window
         var save = new SaveFileDialog { Filter = "CSV file (*.csv)|*.csv", FileName = $"{SanitizeFileName(name)}.csv" };
         if (save.ShowDialog(this) != true) return;
         static string Escape(string? value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
-        var lines = new[] { "Player,Club,Position,SourceId,Notes" }.Concat(rows.Select(x => string.Join(',', Escape(x.PlayerName), Escape(x.DisplayClub), Escape(x.DisplayPosition), Escape(x.SourceId), Escape(x.Notes))));
+        var lines = new[] { "Player,Club,Position,Stage,SourceId,Notes" }.Concat(rows.Select(x => string.Join(',', Escape(x.PlayerName), Escape(x.DisplayClub), Escape(x.DisplayPosition), Escape(x.Stage), Escape(x.SourceId), Escape(x.Notes))));
         await File.WriteAllLinesAsync(save.FileName, lines);
         MessageBox.Show(this, $"Exported {rows.Count:N0} shortlist entries.", "Export complete");
     }

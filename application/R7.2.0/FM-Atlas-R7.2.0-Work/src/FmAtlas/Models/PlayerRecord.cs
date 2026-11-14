@@ -28,10 +28,17 @@ public sealed class PlayerRecord
 
 public sealed class ShortlistRecord
 {
+    public const string DefaultStage = "Identified";
+    public static readonly IReadOnlyList<string> PipelineStages = new[]
+    {
+        "Identified", "Monitoring", "Scouting", "Contact", "Offer", "Signed", "Rejected"
+    };
+
     public string SourceId { get; set; } = "";
     public string PlayerName { get; set; } = "";
     public string ShortlistName { get; set; } = "My Shortlist";
     public string? Notes { get; set; }
+    public string Stage { get; set; } = DefaultStage;
     public DateTime AddedUtc { get; set; }
     public string DisplayClub { get; set; } = "—";
     public string DisplayPosition { get; set; } = "—";

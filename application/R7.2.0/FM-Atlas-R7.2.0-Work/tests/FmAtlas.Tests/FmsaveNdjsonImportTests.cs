@@ -810,6 +810,51 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal("history-duplicate-date.fm", history[2].SourceFileName);
     }
 
+
+    [Fact]
+    public async Task ShortlistPipelinePersistsStageAndNotesAndMigratesExistingDatabase()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "shortlist-existing.db");
+        await using (var legacy = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await legacy.OpenAsync();
+            var createLegacy = legacy.CreateCommand();
+            createLegacy.CommandText = """
+                CREATE TABLE Shortlists (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    SourceId TEXT NOT NULL,
+                    ShortlistName TEXT NOT NULL DEFAULT 'My Shortlist',
+                    Notes TEXT NULL,
+                    AddedUtc TEXT NOT NULL,
+                    UNIQUE(SourceId, ShortlistName)
+                );
+                CREATE TABLE ShortlistGroups (ShortlistName TEXT PRIMARY KEY, CreatedUtc TEXT NOT NULL);
+                INSERT INTO Shortlists(SourceId,ShortlistName,Notes,AddedUtc)
+                VALUES('LOCAL:legacy:1','Recruitment targets','Old note','2026-11-14T00:00:00Z');
+                """;
+            await createLegacy.ExecuteNonQueryAsync();
+        }
+
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM pragma_table_info('Shortlists') WHERE name='Stage';"));
+        Assert.Equal("Identified", await ScalarStringAsync(databasePath, "SELECT Stage FROM Shortlists WHERE SourceId='LOCAL:legacy:1';"));
+
+        await database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Monitoring", "Rewatch the last three matches.");
+        var row = Assert.Single(await database.GetShortlistAsync("Recruitment targets"));
+        Assert.Equal("Monitoring", row.Stage);
+        Assert.Equal("Rewatch the last three matches.", row.Notes);
+        await database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Offer", null);
+        row = Assert.Single(await database.GetShortlistAsync("Recruitment targets"));
+        Assert.Equal("Offer", row.Stage);
+        Assert.Null(row.Notes);
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Invented stage", "test"));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            database.UpdateShortlistDetailsAsync("LOCAL:legacy:1", "Recruitment targets", "Signed", new string('x', 2001)));
+    }
+
     private static string CreateBundle(
         string root,
         string name,
