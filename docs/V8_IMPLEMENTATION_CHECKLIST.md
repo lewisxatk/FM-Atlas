@@ -284,3 +284,36 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Successful integrated V8 build and import tests | GitHub Actions run [#168](https://github.com/lewisxatk/FM-Atlas/actions/runs/43537353738), artifact `14090511809`, commit `e8cbd5da` | Python adapter syntax/regression tests, .NET 8 restore, Release build, all 4 C# import integration tests, self-contained win-x64 publish and ZIP upload all passed. Product ZIP SHA-256: `775bb48f8e61a0080f379075a07732e01eec21e4fe32e746d5e4f57602753c98`. This validates source/build/import fixtures, not the app’s real Windows startup or a large real FM save import.
 | 2026-11-14 | First Windows Release compile and fixes | `80b4160d`, `b35432d8` | First attempt exposed 7 errors (four event-handler signatures, three WPF/System.IO Path ambiguities). Fixed callback signatures and added an explicit System.IO.Path alias. |
 | 2026-11-14 | Successful Windows x64 Release build and package | GitHub Actions run [#79](https://github.com/lewisxatk/FM-Atlas/actions/runs/43534383967), commit `18d32e2d` | .NET 8 setup, solution restore, Release compilation, self-contained win-x64 publish and artifact upload all passed. Product ZIP SHA-256: `4a16f815150e41855b2b1d5dba884c6878ac5a69f44b8ae44ebea8570b2798e2`. This is a compile/package checkpoint only; Windows runtime and FM acceptance remain open. |
+
+
+## 11. Live career identity, staff and manager integration (2026-11-14)
+
+Implementation is deliberately separated from permission to scan a running FM process.
+
+- [x] Add the profile-matched read-only staff extractor, including the distinct human-manager identity-block layout and class-scoped layout selection.
+- [x] Capture staff UID/name, DOB/age, CA/PA, nation UID/name, linked club UID/name and job code/title when the source exposes them.
+- [x] Reject ambiguous human-manager identity: only exactly one detected manager is published into `LiveCareerIdentity`.
+- [x] Persist live staff identities and field-level facts in `LiveStaff`, `LiveStaffFacts` and `LiveCareerIdentity` within the same live snapshot transaction.
+- [x] Include the live save-generation counter in career identity and reject a scan if the generation changes before completion.
+- [x] Expose live staff in the existing Staff directory and profile-facts panel; `LIVE:` IDs are normalised before querying live staff facts.
+- [x] Keep manager/club toolbar shortcuts tied to the current probe generation rather than stale prior-session identity.
+- [x] Add SQLite integration coverage for staff search, manager identity, CA/PA, age, nation, club, provisional facts and replacement on a new session.
+- [x] Extend the live staff search contract so name, club and numeric UID queries all work against live rows; add a regression for club search.
+- [x] Keep live editing disabled.
+- [x] Keep full live entity-array scanning disabled by default. The 3-second monitor performs career/process/build/session detection only; it does not read the large player/staff/club arrays.
+- [ ] Run Windows Release build and the full .NET integration suite after the latest staff-search and safety-gate commits.
+- [ ] Run controlled FM27 PC acceptance: load career, change career/save generation, close/reopen FM, verify detection status and confirm no process-array scan occurs while the gate is off.
+- [ ] Profile FM CPU/RAM and responsiveness with FM at menu and during a match before considering any bounded live import re-enable.
+- [ ] Validate every staff field and the human-manager object layout against the in-game UI and an independent source; keep all un-witnessed values provisional.
+- [ ] After the above gates pass, design a bounded/cancellable manual live import; do not re-enable automatic full scans as a side effect of the detector.
+
+## 12. Latest handover
+
+- Current working branch: `rebuild/v8-full-product-rebuild`.
+- Current release source remains the R7.2.0-based V8 WPF/.NET 8 application under `application/R7.2.0/FM-Atlas-R7.2.0-Work/`.
+- Advanced Search, Players search, paged results, profile tabs, deferred profile restoration and staff/club workspaces are retained. Do not replace these with a simplified new search or rebuild.
+- The Staff live-facts lookup already handles the `LIVE:` source-ID prefix in this branch. Do not reintroduce a numeric-ID-only lookup.
+- The live-memory import gate is OFF; career detection remains ON. Offline save import remains the current supported route for populating new career data until live scanning has passed performance and field-witness gates.
+- No Windows build/test result is claimed for the latest commits until a fresh Actions run reports success. Historical green runs do not validate the latest edits.
+- User PC/runtime acceptance, actual FM27 save compatibility, full import throughput/peak-memory, and packaged release acceptance remain outstanding.
+- Canonical handover companion: `docs/V8_HANDOVER.md`.
