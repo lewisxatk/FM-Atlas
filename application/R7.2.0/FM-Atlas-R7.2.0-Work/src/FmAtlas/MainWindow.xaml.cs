@@ -147,8 +147,8 @@ public partial class MainWindow : Window
         _shell.ColumnDefinitions.Add(_navColumn);
         _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _shell.Background = new LinearGradientBrush(
-            Color.FromRgb(_themeMode == "Glass Light" ? (byte)239 : (byte)7, _themeMode == "Glass Light" ? (byte)244 : (byte)14, _themeMode == "Glass Light" ? (byte)250 : (byte)25),
-            Color.FromRgb(_themeMode == "Glass Light" ? (byte)222 : (byte)17, _themeMode == "Glass Light" ? (byte)232 : (byte)32, _themeMode == "Glass Light" ? (byte)244 : (byte)49), 35);
+            Color.FromRgb(_themeMode == "Glass Light" ? (byte)239 : (byte)10, _themeMode == "Glass Light" ? (byte)244 : (byte)11, _themeMode == "Glass Light" ? (byte)250 : (byte)13),
+            Color.FromRgb(_themeMode == "Glass Light" ? (byte)222 : (byte)27, _themeMode == "Glass Light" ? (byte)232 : (byte)28, _themeMode == "Glass Light" ? (byte)244 : (byte)31), 35);
         RootGrid.Children.Add(_shell);
 
         var sidebar = BuildSidebar();
@@ -3099,8 +3099,8 @@ public partial class MainWindow : Window
         var background = light
             ? new SolidColorBrush(Color.FromArgb(226, 255, 255, 255))
             : _themeMode == "Studio"
-                ? new SolidColorBrush(Color.FromArgb(226, 12, 23, 38))
-                : new SolidColorBrush(Color.FromArgb(198, 23, 38, 58));
+                ? new SolidColorBrush(Color.FromArgb(226, 14, 16, 19))
+                : new SolidColorBrush(Color.FromArgb(198, 27, 29, 34));
         var border = light
             ? new SolidColorBrush(Color.FromArgb(172, 151, 188, 220))
             : new SolidColorBrush(Color.FromArgb(112, 244, 155, 100));
