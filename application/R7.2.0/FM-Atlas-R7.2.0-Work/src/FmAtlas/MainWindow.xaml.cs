@@ -651,7 +651,7 @@ public partial class MainWindow : Window
         var heroGrid = new Grid(); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var heroLeft = new StackPanel(); heroLeft.Children.Add(Txt("WELCOME TO COACHPRO", 9, true, Brush("#B7E5E0")));
         heroLeft.Children.Add(Txt("A clearer view of your football world.", 25, true, Brushes.White));
-        heroLeft.Children.Add(Txt("Load the active career for verified live identity data, or import a save copy to unlock the broader player and club intelligence layer.", 11, false, Brush("#DBF2EF"), wrap: true));
+        heroLeft.Children.Add(Txt("Atlas detects the running FM27 career and save generation automatically. Import a COPY of your save to populate player, staff and club profiles while full live-memory indexing remains paused for safety.", 11, false, Brush("#DBF2EF"), wrap: true));
         heroGrid.Children.Add(heroLeft);
         var heroActions = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Width = 185 };
         heroActions.Children.Add(WhiteButton("Import career save", async (_, _) => await ImportCareerSaveAsync()));
