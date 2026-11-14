@@ -52,7 +52,7 @@ public sealed class ScoutingEngineImportTests
         {
             await File.WriteAllTextAsync(path,
                 "Player,Player ID,Team,Competition,Season,Position,Minutes played,Age,Market value,Progressive passes / 90,Goals / 90\n" +
-                "Alex Player,77,Atlas FC,Test League,2025/26,CB,"1,800",24,€5m,4.1,0.2\n");
+                "Alex Player,77,Atlas FC,Test League,2025/26,CB,\\"1,800\\",24,€5m,4.1,0.2\n");
             var player = Assert.Single(await WyscoutCsvImporter.ImportAsync(path));
             Assert.Equal("Alex Player", player.PlayerName);
             Assert.Equal("Wyscout user CSV", player.SourceName);
