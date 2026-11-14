@@ -1131,7 +1131,13 @@ public partial class MainWindow : Window
             attributesTab.Children.Add(Txt("No player attribute rows were supplied by the selected source.", 10, false, Muted, wrap: true));
 
         AddPositionSuitabilityMap(positionsTab, positionFacts, liveFacts);
-        AddProfileFactsSection(positionsTab, "POSITION SUITABILITY · SOURCE VALUES", positionFacts, 36);
+        var positionDisplayFacts = positionFacts.Concat(liveFacts
+            .Where(f => f.FieldKey.StartsWith("positions.", StringComparison.OrdinalIgnoreCase) && f.NumericValue.HasValue)
+            .Select(f => new AtlasFactRecord(
+                "Live FM27 · " + (f.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase) ? "verified" : "provisional"),
+                f.FieldKey, f.NumericValue!.Value.ToString("0.#", CultureInfo.InvariantCulture))))
+            .ToList();
+        AddProfileFactsSection(positionsTab, "POSITION SUITABILITY · SOURCE VALUES", positionDisplayFacts, 36);
         positionsTab.Children.Add(Txt(
             "Role Fit scores are Atlas estimates based on available 1–20 attributes, not Football Manager's hidden role rating. Open Role Lab for the selected role profiles and coverage explanation.",
             9, false, Muted, wrap: true));
