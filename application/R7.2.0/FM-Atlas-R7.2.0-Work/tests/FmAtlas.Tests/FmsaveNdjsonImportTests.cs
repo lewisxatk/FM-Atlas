@@ -514,11 +514,11 @@ public sealed class FmsaveNdjsonImportTests
         var result = ClubSquadAnalysisService.Analyse(players, wages);
         Assert.Equal(4, result.PlayerCount);
         Assert.Equal(3, result.AgeKnownCount);
-        Assert.Equal(27d, result.AverageAge, 5);
+        Assert.Equal(27d, result.AverageAge!.Value, 5);
         Assert.Equal(3, result.CurrentAbilityKnownCount);
-        Assert.Equal(120d, result.AverageCurrentAbility, 5);
+        Assert.Equal(120d, result.AverageCurrentAbility!.Value, 5);
         Assert.Equal(3, result.PotentialAbilityKnownCount);
-        Assert.Equal(425d / 3d, result.AveragePotentialAbility, 5);
+        Assert.Equal(425d / 3d, result.AveragePotentialAbility!.Value, 5);
         Assert.Equal(2, result.ValueKnownCount);
         Assert.Equal(4000000m, result.TotalValue);
         Assert.Equal(3, result.WageKnownCount);
