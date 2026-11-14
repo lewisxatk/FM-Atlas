@@ -32,7 +32,9 @@ public partial class MainWindow
         var results = new List<PlayerRecord>();
         const int pageSize = 250;
         var pageOffset = 0;
+        var lastSuccessfulOffset = 0;
         var hasNextPage = false;
+        CancellationTokenSource? activeSearchCancellation = null;
         var savedProfiles = AdvancedSearchProfileStore.LoadAll().ToList();
         var resultColumns = new Dictionary<string, DataGridColumn>(StringComparer.OrdinalIgnoreCase);
         var columnChecks = new Dictionary<string, CheckBox>(StringComparer.OrdinalIgnoreCase);
@@ -40,6 +42,7 @@ public partial class MainWindow
         StackPanel conditionPanel = null!;
         TextBlock status = null!;
         Button searchButton = null!;
+        Button cancelSearchButton = null!;
         Button previousPageButton = null!;
         Button nextPageButton = null!;
         TextBlock pageStatus = null!;
@@ -93,6 +96,8 @@ public partial class MainWindow
         toolbar.Children.Add(FilterControl("MATCH LOGIC", logic, 180));
         var addButton = SoftButton("＋ Add condition", (_, _) => AddCondition());
         searchButton = PrimaryButton("Search players", async (_, _) => await RunSearchAsync());
+        cancelSearchButton = SoftButton("Cancel search", (_, _) => activeSearchCancellation?.Cancel());
+        cancelSearchButton.IsEnabled = false;
         var resetButton = SoftButton("Reset filters", (_, _) => ResetFilters());
         var saveProfileButton = SoftButton("Save profile", (_, _) => SaveCurrentProfile());
         var loadProfileButton = SoftButton("Load profile", (_, _) => LoadSelectedProfile());
@@ -101,6 +106,7 @@ public partial class MainWindow
         deleteProfileButton.IsEnabled = savedProfiles.Count > 0;
         toolbar.Children.Add(addButton);
         toolbar.Children.Add(searchButton);
+        toolbar.Children.Add(cancelSearchButton);
         toolbar.Children.Add(resetButton);
         toolbar.Children.Add(saveProfileButton);
         toolbar.Children.Add(FilterControl("SAVED SEARCHES", profilePicker, 215));
@@ -360,11 +366,13 @@ public partial class MainWindow
 
         void ResetFilters()
         {
+            activeSearchCancellation?.Cancel();
             rows.Clear();
             conditionPanel.Children.Clear();
             searchText.Clear();
             logic.SelectedIndex = 0;
             AddCondition();
+            ApplyVisibleColumns(defaultVisibleColumns);
             pageOffset = 0;
             hasNextPage = false;
             previousPageButton.IsEnabled = false;
@@ -504,6 +512,7 @@ public partial class MainWindow
         void LoadSelectedProfile()
         {
             if (profilePicker.SelectedItem is not AdvancedSearchProfile profile) return;
+            activeSearchCancellation?.Cancel();
             rows.Clear();
             conditionPanel.Children.Clear();
             searchText.Text = profile.SearchText ?? "";
@@ -530,6 +539,12 @@ public partial class MainWindow
                 }
             }
             ApplyVisibleColumns(profile.VisibleColumns);
+            pageOffset = 0;
+            lastSuccessfulOffset = 0;
+            hasNextPage = false;
+            previousPageButton.IsEnabled = false;
+            nextPageButton.IsEnabled = false;
+            pageStatus.Text = "Profile loaded · run search";
             status.Text = missingFields.Count == 0
                 ? $"Loaded '{profile.Name}' · {rows.Count:N0} condition(s). Run Search players to execute it."
                 : $"Loaded '{profile.Name}' with {missingFields.Count:N0} unavailable field(s) skipped because this save does not provide them.";
@@ -570,6 +585,9 @@ public partial class MainWindow
             }
 
             var matchAll = logic.SelectedIndex == 0;
+            using var searchCancellation = new CancellationTokenSource();
+            activeSearchCancellation = searchCancellation;
+            cancelSearchButton.IsEnabled = true;
             searchButton.IsEnabled = false;
             addButton.IsEnabled = false;
             previousPageButton.IsEnabled = false;
@@ -578,10 +596,12 @@ public partial class MainWindow
             status.Text = $"Searching {criteria.Count:N0} conditions across {(matchAll ? "ALL / AND" : "ANY / OR")} of the available fields…";
             try
             {
-                var pageRows = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(searchText.Text, criteria, matchAll, pageSize + 1, pageOffset));
+                var pageRows = await RunDatabaseAsync(() => _database.SearchAdvancedPlayersAsync(searchText.Text, criteria, matchAll, pageSize + 1, pageOffset, searchCancellation.Token));
+                searchCancellation.Token.ThrowIfCancellationRequested();
                 hasNextPage = pageRows.Count > pageSize;
                 if (hasNextPage) pageRows.RemoveAt(pageRows.Count - 1);
                 results = pageRows;
+                lastSuccessfulOffset = pageOffset;
                 grid.ItemsSource = results;
                 previousPageButton.IsEnabled = pageOffset > 0;
                 nextPageButton.IsEnabled = hasNextPage;
@@ -591,6 +611,12 @@ public partial class MainWindow
                 status.Text = $"{results.Count:N0} players on this page · {criteria.Count:N0} conditions · {(matchAll ? "ALL / AND" : "ANY / OR")} · only actual stored fields and values were tested.";
                 AtlasLog.Info($"Universal advanced player search: conditions={criteria.Count}; matchAll={matchAll}; results={results.Count}.");
             }
+            catch (OperationCanceledException)
+            {
+                pageOffset = lastSuccessfulOffset;
+                status.Text = "Search cancelled. The last completed result page has been retained.";
+                AtlasLog.Info("Universal advanced player search cancelled by user.");
+            }
             catch (Exception ex)
             {
                 AtlasLog.Error("Universal advanced player search failed.", ex);
@@ -598,6 +624,8 @@ public partial class MainWindow
             }
             finally
             {
+                activeSearchCancellation = null;
+                cancelSearchButton.IsEnabled = false;
                 searchButton.IsEnabled = true;
                 addButton.IsEnabled = true;
                 previousPageButton.IsEnabled = pageOffset > 0;
