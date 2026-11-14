@@ -16,7 +16,7 @@
 | Button feedback | Source implemented | Rounded controls include hover, pressed, keyboard-focus and disabled visual states. |
 | Workspace motion | Source implemented | 150 ms workspace fade-in is conditional on the Windows system animation setting; no continuous decorative animation. |
 | Keyboard search | Source implemented | Ctrl+K opens the existing Global Search window; Ctrl+F remains supported. |
-| Advanced Search hub | Source implemented | A new workspace links to player discovery, the 60-condition attribute/personality builder, the performance-stat builder and multi-entity Global Search; counts available attribute and performance fields. It does not yet combine them into one universal AND/OR query. |
+| Advanced Search hub and specialist builders | Source implemented | The workspace links to player discovery, attribute/personality search, performance-stat search and Global Search. Attribute and performance builders now support ALL (AND) or ANY (OR) matching. The search families are still separate; a single mixed-category query and nested logic groups are not implemented. |
 | Navigation responsiveness | Improved in source | Navigation buttons stay enabled while workspace construction runs; latest requested destination is queued. |
 | Player workspace activation | Improved in source | Previously open profiles are restored after the workspace is displayed rather than awaited during workspace construction. |
 | Live-memory scan safety | Blocked by default in V8 UI | The full legacy scan is behind a compile-time false gate and the toolbar action is disabled. |
@@ -24,6 +24,11 @@
 | Save-import progress and cancellation | Source implemented | Python table-reader stages and row counts stream to the UI; a toolbar Cancel action kills the reader process and the database checks cancellation during row indexing. The elapsed time is shown. Cancellation/failure before commit rolls back the active transaction and retains the previous committed snapshot. The temporary full-save JSON export is deleted after success, cancellation or failure. The C# importer no longer makes duplicate player/staff/club array and List copies; it still parses the complete JSON document in memory. |
 | SQLite write coordination | Source implemented | Mutating/import/undo/checkpoint operations share a process-wide writer gate and the connection has a 30-second busy timeout with foreign keys enabled. Lock stress tests remain open. |
 | Existing R7.2 functionality | Retained in source | Player/staff/club discovery, indexed statistics, multi-attribute and statistical search, Value Finder, Role Fit, squad/tactical workspaces, shortlists, graphics resolution, local edits, logs and diagnostics remain in the source tree. |
+
+## Build verification
+
+- First hosted Windows Release attempt: .NET 8 setup and solution restore passed. Compilation failed with seven errors: four `RoutedEventHandler` callback signatures in the Advanced Search hub and three ambiguous `Path` references caused by the WPF Shapes import.
+- Source fixes were committed in `80b4160d` and `b35432d8`. A second Windows Release build is pending; do not mark the build verified until restore, compile and publish all pass.
 
 ## Safety policy
 
@@ -53,7 +58,7 @@ A feature being present in source is not equivalent to verified completeness. Me
 1. Run and fix a clean Windows 10/11 .NET 8 Release build and WPF startup.
 2. Validate Glass Dark, Glass Light and Studio at 100%, 125% and 150% DPI and 1080p/1440p resolutions; check keyboard focus, contrast, clipping, tooltip text and the reduced-motion/system-animation path.
 3. Complete the MVVM/service-layer separation; the legacy MainWindow code-behind is still substantial.
-4. Replace the limited Global Search filter surface with the full general-purpose Advanced Search builder: filter library categories, AND/OR groups, arbitrary available fields, saved profiles, configurable result columns and paging.
+4. Replace the search hub and separate builders with the full general-purpose Advanced Search workspace: attribute/personality and performance-stat builders now support ALL/AND or ANY/OR matching, but a single cross-category filter library, nested logic groups, arbitrary core/contract filters, saved profiles and configurable result columns remain open.
 5. Finish the save-import redesign: visible progress, cancellation, elapsed time and transaction rollback are implemented, and duplicate C# player/staff/club array copies have been removed. The Python bridge still materialises the table set and emits one large JSON file which the C# importer parses as a full JsonDocument. Replace that with bounded streaming/batches, staging validation, retryable lock handling and measured memory limits.
 6. Profile search, profile open, navigation, import and database contention on 40k+ player / 28k+ club fixtures.
 7. Implement the remaining roadmap areas only where source data and validation support them: development history, deeper tactical/match analysis, staff/club/contract coverage and explainable recruitment models.
