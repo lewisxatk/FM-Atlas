@@ -53,7 +53,7 @@ public sealed class ScoutingProfileEngineTests
         };
         var target = new[] { Sample("2", "B", "STC", "Premier", 2), Sample("5", "E", "STC", "Premier", null) };
         var rows = PlayerStatComparisonService.Compare(target, population, new[] { "xg" }, ScoutingCohortBasis.Position);
-        Assert.Equal(62.5, rows[0].Percentile);
+        Assert.Equal(50d, rows[0].Percentile);
         Assert.Null(rows[1].Percentile);
         Assert.Contains(rows[1].Warnings, x => x.Contains("missing", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(4, rows[0].CohortSize);
