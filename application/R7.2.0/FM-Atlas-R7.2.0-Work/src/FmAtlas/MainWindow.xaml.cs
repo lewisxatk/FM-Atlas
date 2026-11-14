@@ -968,10 +968,11 @@ public partial class MainWindow : Window
         var contractTask = RunDatabaseAsync(() => _database.GetFmsavePlayerFactsAsync(player.SourceId, "contract"));
         var traitsTask = RunDatabaseAsync(() => _database.GetFmsavePlayerFactsAsync(player.SourceId, "traits"));
         var performanceTask = RunDatabaseAsync(() => _database.GetPlayerPerformanceFactsAsync(player.SourceId));
+        var developmentHistoryTask = RunDatabaseAsync(() => _database.GetPlayerDevelopmentHistoryAsync(player.SourceId));
         Task<List<(string FieldKey, double? NumericValue, string? TextValue, string ValidationStatus)>>? liveFactsTask = null;
         if (player.SourceId.StartsWith("LIVE:", StringComparison.Ordinal) && long.TryParse(player.SourceId[5..], out var liveUid))
             liveFactsTask = RunDatabaseAsync(() => _database.GetLivePlayerFactsAsync(liveUid));
-        await Task.WhenAll(new Task[] { attributesTask, generalTask, positionTask, reputationTask, stateTask, contractTask, traitsTask, performanceTask }.Concat(liveFactsTask is null ? Array.Empty<Task>() : new Task[] { liveFactsTask }));
+        await Task.WhenAll(new Task[] { attributesTask, generalTask, positionTask, reputationTask, stateTask, contractTask, traitsTask, performanceTask, developmentHistoryTask }.Concat(liveFactsTask is null ? Array.Empty<Task>() : new Task[] { liveFactsTask }));
 
         var attributes = await attributesTask;
         var generalFacts = await generalTask;
@@ -981,6 +982,7 @@ public partial class MainWindow : Window
         var contractFacts = await contractTask;
         var traits = await traitsTask;
         var performanceFacts = await performanceTask;
+        var developmentHistory = await developmentHistoryTask;
         var liveFacts = liveFactsTask is null ? new List<(string FieldKey, double? NumericValue, string? TextValue, string ValidationStatus)>() : await liveFactsTask;
         foreach (var fact in liveFacts.Where(f => f.NumericValue.HasValue && f.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase) && (f.FieldKey.Contains("Attribute", StringComparison.OrdinalIgnoreCase) || f.FieldKey.StartsWith("Ability.", StringComparison.OrdinalIgnoreCase))))
             attributes[fact.FieldKey] = fact.NumericValue!.Value;
@@ -1078,6 +1080,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(liveStatus)) profilePanel.Children.Add(Txt(liveStatus, 10, true, Brush("#84612B"), wrap: true));
 
         AddAttributeRadar(profilePanel, attributes);
+        AddDevelopmentHistorySection(profilePanel, developmentHistory);
         AddOrderedAttributeSections(profilePanel, attributes);
         AddPositionSuitabilityMap(profilePanel, positionFacts, liveFacts);
         AddProfileFactsSection(profilePanel, "POSITION SUITABILITY · SOURCE VALUES", positionFacts, 36);
@@ -1234,6 +1237,136 @@ public partial class MainWindow : Window
         layout.Children.Add(canvas);
         host.Child = layout;
         panel.Children.Add(host);
+    }
+
+
+    private static void AddDevelopmentHistorySection(Panel panel, IReadOnlyList<PlayerDevelopmentSnapshot> history)
+    {
+        var snapshots = history
+            .GroupBy(x => x.GameDate.Date)
+            .Select(group => group.OrderByDescending(x => x.SnapshotId).First())
+            .OrderBy(x => x.GameDate)
+            .ToList();
+        panel.Children.Add(Txt("DEVELOPMENT HISTORY · DATED SAVE SNAPSHOTS", 9, true, Teal) is var heading
+            ? Configure(heading, new Thickness(0, 18, 0, 5)) : new TextBlock());
+        if (snapshots.Count == 0)
+        {
+            panel.Children.Add(Txt("No dated ability/value snapshots were supplied for this player. Import more career snapshots with in-game dates to build a history. No development trend is inferred.",
+                9, false, Muted, wrap: true));
+            return;
+        }
+
+        var note = Txt(
+            "Imported CA/PA/value observations only · parser-derived and build-dependent · no projections or interpolation. Each point retains its source save and import timestamp.",
+            9, false, Muted, wrap: true);
+        panel.Children.Add(note);
+        if (snapshots.Count < 2)
+        {
+            var only = snapshots[0];
+            AddDetailRow(panel, "Only dated snapshot", only.GameDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture));
+            AddDetailRow(panel, "Current ability", only.CurrentAbility?.ToString("0.#", CultureInfo.InvariantCulture) ?? "—");
+            AddDetailRow(panel, "Potential ability", only.PotentialAbility?.ToString("0.#", CultureInfo.InvariantCulture) ?? "—");
+            AddDetailRow(panel, "Source save", only.SourceFileName);
+            panel.Children.Add(Txt("A trend needs at least two distinct in-game dates. Import another career snapshot after advancing the save to compare development.",
+                9, false, Muted, wrap: true));
+            return;
+        }
+
+        const double left = 58, top = 22, width = 610, height = 205;
+        var chart = new Canvas
+        {
+            Width = 700, Height = 275,
+            Background = Brush("#141C25"),
+            Margin = new Thickness(0, 8, 0, 9),
+            ClipToBounds = true
+        };
+        var abilityValues = snapshots.SelectMany(x => new[] { x.CurrentAbility, x.PotentialAbility })
+            .Where(x => x.HasValue && double.IsFinite(x.Value)).Select(x => x!.Value).ToList();
+        if (abilityValues.Count == 0)
+        {
+            panel.Children.Add(Txt("Dated snapshots were found, but none contain a finite CA or PA value to plot.", 9, false, Muted));
+            return;
+        }
+        var minValue = Math.Floor(abilityValues.Min() / 10d) * 10d;
+        var maxValue = Math.Ceiling(abilityValues.Max() / 10d) * 10d;
+        if (maxValue <= minValue) { minValue -= 5; maxValue += 5; }
+        var range = maxValue - minValue;
+        var dateSpan = (snapshots[^1].GameDate - snapshots[0].GameDate).TotalDays;
+        if (dateSpan <= 0) dateSpan = 1;
+
+        for (var tick = 0; tick <= 4; tick++)
+        {
+            var y = top + height - height * tick / 4d;
+            var value = minValue + range * tick / 4d;
+            chart.Children.Add(new Line
+            {
+                X1 = left, Y1 = y, X2 = left + width, Y2 = y,
+                Stroke = Brush("#344656"), StrokeThickness = 1
+            });
+            var label = Txt(value.ToString("0", CultureInfo.InvariantCulture), 8, false, Muted);
+            System.Windows.Controls.Canvas.SetLeft(label, 8);
+            System.Windows.Controls.Canvas.SetTop(label, y - 8);
+            chart.Children.Add(label);
+        }
+
+        void AddSeries(string label, Func<PlayerDevelopmentSnapshot, double?> selector, Brush stroke, double yOffset)
+        {
+            var points = new PointCollection();
+            var entries = new List<(PlayerDevelopmentSnapshot Snapshot, Point Point)>();
+            foreach (var snapshot in snapshots)
+            {
+                var value = selector(snapshot);
+                if (!value.HasValue || !double.IsFinite(value.Value)) continue;
+                var x = left + width * (snapshot.GameDate - snapshots[0].GameDate).TotalDays / dateSpan;
+                var y = top + height - height * Math.Clamp((value.Value - minValue) / range, 0, 1);
+                var point = new Point(x, y);
+                points.Add(point);
+                entries.Add((snapshot, point));
+            }
+            if (points.Count >= 2)
+                chart.Children.Add(new Polyline { Points = points, Stroke = stroke, StrokeThickness = 2 });
+            foreach (var entry in entries)
+            {
+                var dot = new Ellipse
+                {
+                    Width = 8, Height = 8, Fill = stroke,
+                    Stroke = Brush("#E8EEF4"), StrokeThickness = .8,
+                    ToolTip = $"{label}: {selector(entry.Snapshot):0.#}\nGame date: {entry.Snapshot.GameDate:dd MMM yyyy}\nSource: {entry.Snapshot.SourceFileName}\nImported: {entry.Snapshot.ImportedUtc}"
+                };
+                System.Windows.Controls.Canvas.SetLeft(dot, entry.Point.X - 4);
+                System.Windows.Controls.Canvas.SetTop(dot, entry.Point.Y - 4);
+                chart.Children.Add(dot);
+            }
+            var legend = Txt(label, 9, true, stroke);
+            System.Windows.Controls.Canvas.SetLeft(legend, left + yOffset);
+            System.Windows.Controls.Canvas.SetTop(legend, 245);
+            chart.Children.Add(legend);
+        }
+
+        AddSeries("CA", x => x.CurrentAbility, Brush("#77BCE8"), 0);
+        AddSeries("PA", x => x.PotentialAbility, Brush("#E6C477"), 48);
+        var firstDate = Txt(snapshots[0].GameDate.ToString("dd MMM yy", CultureInfo.InvariantCulture), 8, false, Muted);
+        var lastDate = Txt(snapshots[^1].GameDate.ToString("dd MMM yy", CultureInfo.InvariantCulture), 8, false, Muted);
+        System.Windows.Controls.Canvas.SetLeft(firstDate, left);
+        System.Windows.Controls.Canvas.SetTop(firstDate, top + height + 9);
+        System.Windows.Controls.Canvas.SetLeft(lastDate, left + width - 60);
+        System.Windows.Controls.Canvas.SetTop(lastDate, top + height + 9);
+        chart.Children.Add(firstDate);
+        chart.Children.Add(lastDate);
+        panel.Children.Add(chart);
+
+        var rows = new List<string>
+        {
+            "Game date,CA,PA,Source save,Imported UTC"
+        };
+        rows.AddRange(snapshots.Select(x => string.Join(",",
+            x.GameDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            x.CurrentAbility?.ToString("0.##", CultureInfo.InvariantCulture) ?? "",
+            x.PotentialAbility?.ToString("0.##", CultureInfo.InvariantCulture) ?? "",
+            x.SourceFileName,
+            x.ImportedUtc)));
+        panel.Children.Add(Txt($"{snapshots.Count:N0} distinct dated snapshots · dates and values are retained as imported. Duplicate exports on the same in-game date are collapsed to the latest snapshot for the visual trend.",
+            9, false, Muted, wrap: true));
     }
 
     private static void AddOrderedAttributeSections(Panel panel, Dictionary<string, double> values)

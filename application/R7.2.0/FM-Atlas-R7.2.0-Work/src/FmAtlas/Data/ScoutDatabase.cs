@@ -1722,6 +1722,61 @@ public sealed class ScoutDatabase
     /// source actually contains for this player. This is deliberately lossless and
     /// provenance-preserving: fields are grouped by FM statistical family and period.
     /// </summary>
+
+    /// <summary>
+    /// Returns dated ability/value observations from each imported save snapshot for a player.
+    /// A trend is meaningful only when at least two distinct in-game dates are present.
+    /// Values remain parser-derived and are never interpolated or projected.
+    /// </summary>
+    public async Task<List<PlayerDevelopmentSnapshot>> GetPlayerDevelopmentHistoryAsync(string sourceId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("A player source ID is required.", nameof(sourceId));
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT r.SnapshotId,r.GameDate,r.CreatedUtc,r.SourceFileName,s.RawJson
+            FROM FmsavePlayerSnapshots s
+            INNER JOIN FmsaveImportRuns r ON r.SnapshotId=s.SnapshotId
+            WHERE s.PlayerSourceId=$source AND r.GameDate IS NOT NULL AND TRIM(r.GameDate)<>''
+            ORDER BY r.GameDate ASC,r.SnapshotId ASC;
+            """;
+        command.Parameters.AddWithValue("$source", sourceId);
+        var results = new List<PlayerDevelopmentSnapshot>();
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            var rawDate = reader.GetString(1);
+            if (!DateTime.TryParse(rawDate, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var gameDate))
+                continue;
+
+            using var document = JsonDocument.Parse(reader.GetString(4));
+            var player = document.RootElement;
+            var currentAbility = GetNumeric(player, "current_ability") ?? GetNumeric(player, "ca");
+            var potentialAbility = GetNumeric(player, "potential_ability") ?? GetNumeric(player, "pa");
+            var rawValue = GetNumeric(player, "value");
+            if (!currentAbility.HasValue && !potentialAbility.HasValue && !rawValue.HasValue) continue;
+
+            decimal? value = null;
+            if (rawValue.HasValue && double.IsFinite(rawValue.Value))
+            {
+                try { value = Convert.ToDecimal(rawValue.Value, System.Globalization.CultureInfo.InvariantCulture); }
+                catch (OverflowException) { value = null; }
+            }
+
+            results.Add(new PlayerDevelopmentSnapshot(
+                reader.GetInt32(0), gameDate.Date, reader.GetString(2), reader.GetString(3),
+                currentAbility.HasValue && double.IsFinite(currentAbility.Value) ? currentAbility.Value : null,
+                potentialAbility.HasValue && double.IsFinite(potentialAbility.Value) ? potentialAbility.Value : null,
+                value));
+        }
+        return results
+            .OrderBy(x => x.GameDate)
+            .ThenBy(x => x.SnapshotId)
+            .ToList();
+    }
+
     public async Task<List<AtlasFactRecord>> GetPlayerPerformanceFactsAsync(string sourceId)
     {
         await using var db = new SqliteConnection(_connectionString);

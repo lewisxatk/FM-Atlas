@@ -108,8 +108,8 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [ ] Complete player profile tabs: Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence.
 - [ ] Add validated position/role fit, attribute radar and comparison visualisations.
-- [ ] Add CA/PA and attribute history snapshots with source and confidence.
-- [ ] Add longitudinal development trends only where dated comparable snapshots exist.
+- [~] Add dated CA/PA/value history from source player snapshots with source-file/import evidence; a chart appears only after two distinct in-game dates and does not project or interpolate missing values. Windows verification pending.
+- [~] Add longitudinal CA/PA trends only where at least two dated comparable save snapshots exist. Attribute-by-attribute history still requires a stable dated attribute snapshot source.
 - [ ] Add player comparison and similar-player discovery with explainable ranking.
 - [ ] Ensure no inferred hidden attributes or unsupported development predictions are presented as fact.
 
@@ -194,6 +194,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Role Fit explainability and normalized-key hardening | `57b08fba` | Each ranked player now carries per-attribute weighted evidence, shown in the results grid and CSV; database search combines normalized aliases before building SQL parameters; added regression coverage for weighted breakdowns and duplicate normalized keys. Windows verification pending. |
 | 2026-11-14 | Custom Role Fit templates | Pending CI | Added per-PC custom template storage with atomic JSON replacement, load/delete, editable visible-attribute weights, role phase/position/description, and validation. Added round-trip/replacement/deletion and invalid-weight tests. Windows verification pending. |
 | 2026-11-14 | Player profile radar and discovery integration | Pending CI | Added a source-only five-axis attribute radar and wired Similar Player Discovery plus comparison of up to four open profiles into the player hero actions. Missing categories/ratings are excluded. Windows verification pending. |
+| 2026-11-14 | Dated player development history | Pending CI | Added a snapshot-history query for CA, PA and value, a per-player dated trend chart, source/import evidence, and a two-distinct-date rule; added a regression that imports three snapshots across two game dates and checks same-date latest-snapshot ordering. Windows verification pending. |
 | 2026-11-14 | Performance Value logging namespace compile repair | `b0ecb617` | Imported the service namespace required by the new Performance vs Value window to resolve the CI compile error from run #185. Run #186 exposed a namespace-shadowed Canvas call and the template Save event ordering; both are fixed in the follow-up commit. Windows verification pending. |
 | 2026-11-14 | Role Fit Windows compile repair | `4d10811d` | Fixed the cancellation button's definite-assignment issue and retained age-filter values outside validation scope for completion logging; corrected regression expectations for normalized duplicate attributes. Verified by successful Windows Actions run #182. |
 | 2026-11-14 | Performance vs Value percentile analysis | `bdbbc9a0` | Added metric-to-value percentile comparison using the best available source table (season stats, then season history, then match stats), minutes-weighted per-90 for eligible counting metrics, career-wide percentiles, source-value units, sample count, latest period, coverage and an interactive scatter view. CI pending. |

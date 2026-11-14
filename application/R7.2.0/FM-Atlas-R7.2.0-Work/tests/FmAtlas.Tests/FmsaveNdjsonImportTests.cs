@@ -587,6 +587,38 @@ public sealed class FmsaveNdjsonImportTests
         Assert.Equal("Valid Template", store.LoadAll()[0].Name);
     }
 
+
+    [Fact]
+    public async Task PlayerDevelopmentHistoryUsesOnlyDistinctDatedSourceSnapshots()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+
+        var first = CreateBundle(temp.Path, "history-first", playerManifestCount: 1, includeContractRow: false,
+            currentAbility: 120, potentialAbility: 150, gameDate: "2026-11-14");
+        var second = CreateBundle(temp.Path, "history-second", playerManifestCount: 1, includeContractRow: false,
+            currentAbility: 128, potentialAbility: 158, gameDate: "2027-01-02");
+        var duplicateDate = CreateBundle(temp.Path, "history-duplicate-date", playerManifestCount: 1, includeContractRow: false,
+            currentAbility: 130, potentialAbility: 160, gameDate: "2027-01-02");
+
+        await database.ImportFmsaveSnapshotAsync(first);
+        await database.ImportFmsaveSnapshotAsync(second);
+        await database.ImportFmsaveSnapshotAsync(duplicateDate);
+
+        var history = await database.GetPlayerDevelopmentHistoryAsync("FMSAVE:FM27:test-db:1001");
+
+        Assert.Equal(3, history.Count);
+        Assert.Equal(120d, history[0].CurrentAbility);
+        Assert.Equal(150d, history[0].PotentialAbility);
+        Assert.Equal(new DateTime(2026, 11, 14), history[0].GameDate);
+        Assert.Equal(130d, history[2].CurrentAbility);
+        Assert.Equal(160d, history[2].PotentialAbility);
+        Assert.Equal(new DateTime(2027, 1, 2), history[2].GameDate);
+        Assert.Equal("history-duplicate-date.fm", history[2].SourceFileName);
+    }
+
     private static string CreateBundle(
         string root,
         string name,
@@ -594,7 +626,10 @@ public sealed class FmsaveNdjsonImportTests
         bool includeContractRow,
         bool malformedContractRow = false,
         bool includeInvalidStaffRow = false,
-        bool includeSeasonStatsRow = false)
+        bool includeSeasonStatsRow = false,
+        int currentAbility = 120,
+        int potentialAbility = 150,
+        string gameDate = "2026-11-14")
     {
         var folder = Path.Combine(root, name);
         Directory.CreateDirectory(folder);
@@ -614,7 +649,7 @@ public sealed class FmsaveNdjsonImportTests
             source_file_name = name + ".fm",
             source_file_size = 128,
             fmsave_version = "test-fixture",
-            save_info = new { game = "FM27", build = "fixture", known_build = true, db_version = "test-db", game_date = "2026-11-14" },
+            save_info = new { game = "FM27", build = "fixture", known_build = true, db_version = "test-db", game_date = gameDate },
             validation = new { readers = Array.Empty<object>() },
             counts,
             warnings = Array.Empty<string>()
@@ -633,8 +668,8 @@ public sealed class FmsaveNdjsonImportTests
             nationality = "England",
             league = "Test League",
             position = "ST",
-            current_ability = 120,
-            potential_ability = 150,
+            current_ability = currentAbility,
+            potential_ability = potentialAbility,
             value = 1250000,
             preferred_foot = "Right",
             left_foot = 10,
