@@ -1170,6 +1170,12 @@ public sealed class ScoutDatabase
             }
             foreach (var attribute in member.Attributes ?? new Dictionary<string, double>())
                 SetStaffFact("staff_attributes." + attribute.Key, attribute.Value);
+            foreach (var personality in member.Personality ?? new Dictionary<string, double>())
+                SetStaffFact("staff_personality." + personality.Key, personality.Value);
+            if (member.WagePerWeek.HasValue) SetStaffFact("contract.wage_per_week_gbp", member.WagePerWeek.Value);
+            if (member.ContractStart.HasValue) SetStaffFact("contract.signed_date", null, member.ContractStart.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+            if (member.ContractExpiry.HasValue) SetStaffFact("contract.expiry_date", null, member.ContractExpiry.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+            if (member.JoinedClub.HasValue) SetStaffFact("contract.joined_club_date", null, member.JoinedClub.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
         }
 
         var managers = staffRows.Where(x => x.IsHumanManager).ToArray();
