@@ -456,15 +456,15 @@ public partial class MainWindow
             AddLine(width / 2, 2, width / 2, height - 2, pitchBrush, 1.5);
             var circle = new Ellipse { Width = 110, Height = 110, Stroke = pitchBrush, StrokeThickness = 1.5 };
             WpfCanvas.SetLeft(circle, width / 2 - 55); WpfCanvas.SetTop(circle, height / 2 - 55); canvas.Children.Add(circle);
-            var leftBox = new Rectangle { Width = width * 16 / 120, Height = height * 44 / 80, Stroke = pitchBrush, StrokeThickness = 1.5, Fill = Brushes.Transparent };
+            var leftBox = new Rectangle { Width = width * 16 / ScoutingActionAnalyticsService.PitchLength, Height = height * 44 / ScoutingActionAnalyticsService.PitchWidth, Stroke = pitchBrush, StrokeThickness = 1.5, Fill = Brushes.Transparent };
             WpfCanvas.SetLeft(leftBox, 2); WpfCanvas.SetTop(leftBox, (height - leftBox.Height) / 2); canvas.Children.Add(leftBox);
-            var rightBox = new Rectangle { Width = width * 16 / 120, Height = height * 44 / 80, Stroke = pitchBrush, StrokeThickness = 1.5, Fill = Brushes.Transparent };
+            var rightBox = new Rectangle { Width = width * 16 / ScoutingActionAnalyticsService.PitchLength, Height = height * 44 / ScoutingActionAnalyticsService.PitchWidth, Stroke = pitchBrush, StrokeThickness = 1.5, Fill = Brushes.Transparent };
             WpfCanvas.SetLeft(rightBox, width - rightBox.Width - 2); WpfCanvas.SetTop(rightBox, (height - rightBox.Height) / 2); canvas.Children.Add(rightBox);
             var laneBrush = new SolidColorBrush(Color.FromArgb(205, 255, 225, 120));
             foreach (var edge in edges.Where(x => x.CompletedPasses > 0 && x.AverageStartX.HasValue && x.AverageStartY.HasValue && x.AverageEndX.HasValue && x.AverageEndY.HasValue).Take(120))
             {
-                AddLine(edge.AverageStartX!.Value / 120 * width, edge.AverageStartY!.Value / 80 * height,
-                    edge.AverageEndX!.Value / 120 * width, edge.AverageEndY!.Value / 80 * height,
+                AddLine(edge.AverageStartX!.Value / ScoutingActionAnalyticsService.PitchLength * width, edge.AverageStartY!.Value / ScoutingActionAnalyticsService.PitchWidth * height,
+                    edge.AverageEndX!.Value / ScoutingActionAnalyticsService.PitchLength * width, edge.AverageEndY!.Value / ScoutingActionAnalyticsService.PitchWidth * height,
                     laneBrush, Math.Clamp(1 + edge.CompletedPasses * .25, 1, 4));
             }
             return canvas;
