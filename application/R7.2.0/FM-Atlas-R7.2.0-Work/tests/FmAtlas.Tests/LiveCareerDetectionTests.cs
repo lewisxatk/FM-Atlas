@@ -42,6 +42,21 @@ public sealed class LiveCareerDetectionTests
     }
 
     [Fact]
+    public void LiveImporterHonoursCancellationBeforeOpeningTheGameProcess()
+    {
+        var probe = new LiveCareerProbe(
+            IsGameRunning: true, IsSupportedBuild: true, IsCareerLoaded: true,
+            ProcessId: 1234, ProfileId: "steam-26385295", ProfileName: "FM27 Steam",
+            SaveLoadCounter: 7, PlayerSlots: 40286, StaffSlots: 28000, ClubSlots: 9000,
+            Status: "Career loaded");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() =>
+            LiveDataImporter.Extract(probe, cancellation.Token));
+    }
+
+    [Fact]
     public void SessionKeyIsEmptyUntilCareerIsLoaded()
     {
         var probe = new LiveCareerProbe(
