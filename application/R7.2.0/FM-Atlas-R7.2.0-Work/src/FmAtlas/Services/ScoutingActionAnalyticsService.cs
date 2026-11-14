@@ -9,7 +9,7 @@ public sealed record UnifiedSoccerAction(
     string EventType, string ActionType, bool Successful, double? StartX, double? StartY,
     double? EndX, double? EndY, bool IsShot, bool IsGoal, double? Xg,
     string Provider, string ProviderEventId, int Sequence,
-    string? RecipientPlayerId = null, string? RecipientPlayer = null);
+    string? RecipientPlayerId = null, string? RecipientPlayer = null, string? BodyPart = null);
 
 public sealed record ExpectedThreatModel(
     int Columns, int Rows, double[] Values, string ModelName, string TrainingSource,
@@ -35,8 +35,8 @@ public sealed record PlayerEventAnalytics(
 /// </summary>
 public static class ScoutingActionAnalyticsService
 {
-    public const int PitchLength = 120;
-    public const int PitchWidth = 80;
+    public const int PitchLength = 105;
+    public const int PitchWidth = 68;
     private const int Columns = 16;
     private const int Rows = 12;
 
@@ -114,12 +114,14 @@ public static class ScoutingActionAnalyticsService
                     };
                     var period = Int(ev, "period") ?? 1;
                     var teamId = Str(ev, "team", "id");
-                    var reverseDirection = (teamId == homeTeamId && period % 2 == 0) || (teamId != homeTeamId && period % 2 == 1);
+                    var reverseDirection = !string.IsNullOrWhiteSpace(homeTeamId) && ((teamId == homeTeamId && period % 2 == 0) || (teamId != homeTeamId && period % 2 == 1));
                     if (reverseDirection)
                     {
-                        location = (location.X.HasValue ? PitchLength - location.X.Value : null, location.Y.HasValue ? PitchWidth - location.Y.Value : null);
-                        end = (end.X.HasValue ? PitchLength - end.X.Value : null, end.Y.HasValue ? PitchWidth - end.Y.Value : null);
+                        location = (location.X.HasValue ? 120 - location.X.Value : null, location.Y.HasValue ? 80 - location.Y.Value : null);
+                        end = (end.X.HasValue ? 120 - end.X.Value : null, end.Y.HasValue ? 80 - end.Y.Value : null);
                     }
+                    location = (location.X.HasValue ? location.X.Value * PitchLength / 120d : null, location.Y.HasValue ? PitchWidth - location.Y.Value * PitchWidth / 80d : null);
+                    end = (end.X.HasValue ? end.X.Value * PitchLength / 120d : null, end.Y.HasValue ? PitchWidth - end.Y.Value * PitchWidth / 80d : null);
                     var outcome = eventType switch
                     {
                         "Pass" => Str(detail, "outcome", "name") is null,
@@ -139,7 +141,7 @@ public static class ScoutingActionAnalyticsService
                         eventType, actionType, outcome, location.X, location.Y, end.X, end.Y,
                         eventType == "Shot", shotOutcome == "Goal", xg,
                         "StatsBomb Open Data", Str(ev, "id") ?? sequence.ToString(CultureInfo.InvariantCulture), sequence++,
-                        Str(detail, "recipient", "id"), Str(detail, "recipient", "name")));
+                        Str(detail, "recipient", "id"), Str(detail, "recipient", "name"), Str(detail, "body_part", "name")));
                 }
                 matchCount++;
                 if (matchCount % 25 == 0) progress?.Report($"Unified {matchCount:N0} matches · {output.Count:N0} actions");
@@ -294,7 +296,7 @@ public static class ScoutingActionAnalyticsService
     {
         if (!a.StartX.HasValue || !a.EndX.HasValue) return false;
         var gain = a.EndX.Value - a.StartX.Value;
-        var distanceToGoal = 120 - a.StartX.Value;
+        var distanceToGoal = PitchLength - a.StartX.Value;
         var threshold = distanceToGoal >= 60 ? 30 : distanceToGoal >= 40 ? 15 : 10;
         return gain >= threshold;
     }
