@@ -1498,7 +1498,7 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$maxCa", (object?)maxCa ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$minPa", (object?)minPa ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$maxPa", (object?)maxPa ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$position", position ?? "");
+        cmd.Parameters.AddWithValue("$position", (object?)position ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$positionPattern", position is null ? "" : $"%{position}%");
         cmd.Parameters.AddWithValue("$positionFieldPattern", position is null ? "" : $"%{position.ToUpperInvariant()}%");
         return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
