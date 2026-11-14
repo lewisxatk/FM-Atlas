@@ -2,25 +2,27 @@
 
 FM Atlas is a Windows desktop scouting, career-intelligence, analytics, squad-planning and editing workbench for Football Manager 27. V8 keeps the R7.2.0 data and workspace foundation while rebuilding the application shell around the Atlas Liquid visual system. The source is still subject to a clean Windows Release build and user-side acceptance testing.
 
-## V8 design direction — Atlas Liquid
+## V8 design direction — Monolith Glass
 
-V8 introduces three coordinated appearances: **Glass Dark**, **Glass Light** and **Studio**. The first-run default is Glass Dark. The selected appearance is saved under `%LOCALAPPDATA%\\FMAtlas\\theme.txt`.
+V8 uses a **Monolith Glass** visual language: graphite/charcoal surfaces, warm amber-orange accents, translucent raised cards, fine warm glass borders, controlled shadows and restrained motion. Three coordinated appearances remain available: **Glass Dark**, **Glass Light** and **Studio**. The first-run default is Glass Dark. The selected appearance is saved under `%LOCALAPPDATA%\\FMAtlas\\theme.txt`.
 
-- A glass-style top action toolbar uses compact icon buttons with explanatory hover tooltips.
+- A glass-style top action toolbar uses compact icon buttons with explanatory hover tooltips, including direct shortcuts to the human manager and current club.
 - The side navigation is grouped by Home, Scouting, Squad & Analysis, Editing, and Data & Tools. It can collapse to an icon rail; hover descriptions remain available.
-- Toolbar and navigation controls have rounded translucent surfaces, hover illumination and pressed/disabled feedback.
-- Content-heavy tables and profile surfaces remain solid enough to preserve readability.
+- Main workspace cards use translucent surfaces, warm glass borders, rounded corners and restrained shadows. Tables remain readable rather than being made fully transparent.
 - Ctrl+K opens Global Search. A dedicated Advanced Search hub brings the existing player, attribute/personality and performance-stat builders together. Navigation remains clickable during workspace preparation and queues the most recent destination.
 - Previously opened player profiles are restored after the Players workspace is displayed rather than delaying workspace construction.
 
-The three modes share the same layout and component language. Visual acceptance at Windows display scaling and common resolutions remains outstanding.
+The shared Monolith Glass tokens are implemented in source. Visual acceptance at Windows display scaling and common resolutions remains outstanding.
 
-## Integrated V8 safety changes
+## Automatic live-career connection and safety
 
-- Automatic/background live-memory scanning is not enabled. The legacy full live identity scan is blocked by an application-level V8 gate; the toolbar action is visibly disabled and explains the reason.
-- Live-memory CA/PA and attribute writes are blocked by an application-level V8 gate pending independent validation of the mappings and Football Manager stability.
-- Offline career-save import remains the intended primary data path. Select a COPY of the career save; the fmsave reader is read-only.
-- The existing guarded live writer and its verification/rollback code are retained in source, but are not callable through the V8 editor UI while the gate is closed.
+- Atlas polls for a running FM27 process and waits for an exact supported Steam/Game Pass module fingerprint plus the game's own GAME_UI save-load counter. It does not ask the user to browse to a save file to populate the live player directory.
+- When a supported career has finished loading, Atlas attaches to that exact process/session and scans the profiled player, staff and club pointer arrays. The save-load counter is checked before and after the scan; a scan that overlaps a career switch is discarded.
+- The staff reader uses the profile's person-block layout, identifies the human-manager record using name-decoding evidence, and imports the manager's club/nation context. The same records appear in the Players, Staff and Clubs workspaces.
+- A new save-load generation triggers a fresh snapshot automatically. Reopening Atlas while a career is loaded also triggers a new connection. A toolbar action remains available for manual refresh.
+- The live scan is read-only. CA/PA and live attribute values are retained as provisional source-derived fields until compared with the in-game UI; this is not a claim that every memory field is certified.
+- Live Apply and Undo through game memory remain blocked. The existing guarded writer code is retained but is not callable through the V8 editor UI.
+- Offline career-save import is now optional for additional career history, match/season statistics, contracts, and other tables not exposed by the live identity scan. Select a COPY of the career save; the fmsave reader is read-only.
 
 ## Retained R7.2.0 feature foundation
 
@@ -31,7 +33,7 @@ V8 preserves the current player, staff and club records; search workspaces; inde
 - **Multi-condition Statistical Search Lab**: dynamically discovers numeric fields from retained FM career season statistics, career-history statistics, player match statistics and imported FM View Exporter CSVs. Fields are grouped into Goalkeeping, Attacking, Passing & Creation, Defending, Physical, Possession & Carrying, Discipline, General and Other metrics. Up to 60 AND conditions can be combined against the same player/stat row/period. Per-90 derivation is optional and requires a minimum-minute threshold.
 - **Indexed statistics facts**: import retains each source row as lossless JSON and additionally indexes numeric statistic fields by snapshot, player UID, period, minutes, original field path and numeric value. Player profiles use the index first to avoid reparsing every match/season row on each profile open. Older snapshots without the index use a compatibility fallback.
 - **Multi-attribute Player Search**: up to 60 simultaneous 1–20 minimum/maximum requirements across the 52-field FM player schema plus eight personality fields, where those fields are actually present in the imported source. Missing values never count as zero. Quick presets include Complete Striker, Ball Winner and Elite Goalkeeper.
-- **Live FM identity/attribute reader**: matches exact Windows FM27 module fingerprints and separate Steam/Game Pass build profiles; reads player/club identities, CA/PA, positions and candidate attribute values. Live-imported values retain explicit provisional provenance.
+- **Live FM career connection**: detects the currently loaded supported FM27 Steam/Game Pass career through its exact module fingerprint and GAME_UI save-load counter; reconnects after a save switch; reads player, staff and club identities; locates the human manager and stores their club/nation context. Live CA/PA and player attribute facts are surfaced with provisional evidence labels.
 - **Narrow guarded live writer**: live writes are no longer described as impossible or local-only. The source contains a separate Windows writer for CA, PA and 47 visible standard player attributes. It is OFF until enabled by the user and requires an exact module profile, career-load generation check, UID/name identity check, old-byte preview check, value validation, read-back and guarded inverse Undo. It rechecks the career generation before each field write. Five hidden-attribute offsets are explicitly blocked because the source layout describes them as inherited leads rather than independently witnessed FM27 mappings. Personality, position, staff, club, contract, transfer and other structural edits remain blocked.
 - **Graphics Resolver**: scans the user's existing Football Manager 27 graphics folders and `config.xml` files, resolves player/staff/club/competition/nation IDs to local images, constrains paths to the chosen graphics root and caches the results. No facepacks or logos are bundled. Player and club profiles display resolved images where mappings exist.
 - **Role Fit Lab**: the existing 23 transparent weighted In Possession / Out of Possession role profiles remain available. They are Atlas estimates, not Sports Interactive's internal role-rating formula.
@@ -58,16 +60,19 @@ The licenses above apply to those projects. Their ideas and public game-layout o
 
 ## First test sequence
 
-1. Open **Tester & Logs** and run the checks.
-2. Import a COPY of the FM27 career save. Review fmsave build coverage and reader warnings.
-3. Compare a selection of CA/PA, attributes, personality and season statistics against the in-game UI. Import an FM View Exporter CSV to supplement the save reader.
-4. Scan the existing graphics root and inspect player/club profiles for face/logo resolution.
-5. Live-memory scanning and Live Apply are paused in V8. Do not attempt to enable or test them. Revisit only after a bounded read-only scanner, independently witnessed field mappings and live-write regression/rollback tests have been completed on disposable offline careers.
-6. Send `build-logs/latest-build.log` and the redacted Tester & Logs support ZIP if anything fails.
+1. Start FM27, load a career and leave Atlas open. Confirm the connection banner identifies the supported game build and completes the live scan without selecting a save file.
+2. Confirm your human-manager name, club and nation, then use the manager/club toolbar shortcuts.
+3. Search for a player using Global Search, the Players workspace and Advanced Search. Confirm CA/PA and the available 1–20 attribute profile values against the FM UI. Check that signed negative PA ranges remain visible where supplied.
+4. Search the Staff directory, open the human-manager profile and confirm CA/PA, role, club and nation. Check that missing fields stay blank rather than being guessed.
+5. Load a second career in FM27 while Atlas remains open. Confirm the save-load counter causes a fresh snapshot and that the old career is not mixed into the new one.
+6. Use offline save import only when you need extended history, match/season stats, contracts or data not included in the live identity scan. Select a COPY of the save.
+7. Scan the existing graphics root and inspect player/club profiles for face/logo resolution. Test the Glass Dark layout at 100%, 125% and 150% Windows scaling.
+8. Live memory editing remains disabled. Do not attempt to enable Apply/Undo until the exact field mappings and rollback workflow are independently validated on a disposable offline career.
+9. Send `build-logs/latest-build.log` and the redacted Tester & Logs support ZIP if anything fails.
 
 ## What is not complete yet
 
-This is an integrated V8 source milestone, not a claim that the entire FM Atlas vision is finished or that Windows compilation/gameplay testing has passed. The full V8 MVVM/service-layer migration, general-purpose FMRTE-style multi-category filter builder, cancellable streaming save-import pipeline, complete staff/club/contract/transfer field coverage, full Match Lab event/shot-map data, comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain unfinished. The user-side build and FM27 validation gates remain open. See:
+This is an integrated V8 source milestone, not a claim that the entire FM Atlas vision is finished or that the latest live-career changes have passed Windows compilation or in-game acceptance. The universal player Advanced Search, multi-attribute builder, CA/PA filtering, paged people directory, player comparison and similar-player foundations are retained. Full field coverage for every player/staff/club attribute, every in-game season and match statistic, staff/club/contract/transfer data, full Match Lab event/shot-map data, comprehensive role/tactic solver, training/development/nation registration systems and a fully validated undervaluation model remain unfinished. The user-side build and FM27 validation gates remain open. See:
 
 - `docs/architecture/FM-ATLAS-V8-IMPLEMENTATION-STATUS.md`
 - `docs/R7.2.0-IMPLEMENTATION-STATUS.md`
