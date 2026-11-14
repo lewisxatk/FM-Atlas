@@ -180,3 +180,16 @@ The previous Windows run `43554026041` built Release successfully and passed the
 ### Glass status
 
 The Monolith Glass source system now includes the shared glass-card material, themed toolbar/sidebar, shared DataGrid row/header/hover/selection styles, theme-aware TextBox/ComboBox/TabControl/progress styling, and the adaptive dashboard hero. This is implementation status, not visual acceptance. Dialog-specific polish, high-contrast accessibility, dropdown popup/scrollbar consistency, chart and empty/loading/error states, and 100%/125%/150% Windows DPI review remain open. Windows 10 fallback remains the baseline; native Windows 11 Mica is deferred until the cross-version build and visual pass are clean.
+
+
+## Position scouting pitch and latest Windows verification — 14 November 2026
+
+- Windows workflow run `43554520053` (commit `6a65a8a2`) completed successfully: Python adapter checks, .NET 8 restore, Release build, complete xUnit suite, self-contained Windows x64 publish and artifact upload all passed.
+- Artifact: `FM-Atlas-V8-win-x64`, 68,885,686 bytes, SHA-256 `3adbd4232d0e1e8910df43ab83acb81f1fbde9880cdb3e60fb121f8efbf746c4`, expires 28 November 2026. This artifact corresponds to commit `6a65a8a2`; later source changes require a fresh build before distribution.
+- Commit `e1a9fa3d`: replaced the flat 5×3 position-rating tiles in player profiles with a pitch-shaped, responsive 15-position map. The visual arrangement is presentation-only; all ratings and five display bands still come from `PositionSuitabilityService`. Missing/zero/out-of-range values remain unrated. Position tiles can be selected to inspect their source rating and band. Provisional live values remain explicitly labelled.
+- Commit `fb2e8a42`: added position-suitability regression tests for canonical position order, all five band boundaries, missing/invalid values, legacy ST alias handling and later-source precedence.
+- Fresh Windows verification is required for the new pitch and tests. Do not distribute the previous artifact as though it contains these later changes.
+
+### Permanent reverse-engineering reference rule
+
+Every meaningful reverse-engineering or competitor-research batch must update `docs/V8_REVERSE_ENGINEERING_NOTES_2026-11-14.md` with date, source/repository links, files/pages reviewed, observed behaviour, confidence/limitations, Atlas implementation decision and future follow-up. Also update the implementation checklist and this handover when implementation status changes.
