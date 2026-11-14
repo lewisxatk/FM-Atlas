@@ -75,9 +75,9 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [ ] Confirm fmsave bridge setup and exact FM27 table support/version; retain unsupported-table warnings.
 - [x] Remove duplicate full-array/List copies from the C# importer for players, staff and clubs by using lazy JsonElement array enumeration and O(1) array counts (commit `26104ba3`).
-- [ ] Replace the remaining full Python table materialisation and single giant JSON snapshot with bounded streaming/table batches.
+- [x] Replace the single giant JSON snapshot with a temporary per-table NDJSON bundle. The adapter streams Polars rows via `iter_rows(named=True)` and normalises player/staff/club rows one at a time; it does not retain the complete set of tables in memory. A compatibility fallback for non-Polars reader wrappers still uses `to_dicts()` for that one table.
 - [x] Add table-by-table save-reader progress, database indexing progress, toolbar Cancel action and elapsed-time reporting; propagate cancellation through the bridge and SQLite importer.
-- [ ] Import into staging snapshot; validate counts/relationships; publish atomically only after success.
+- [~] The C# importer now parses the small manifest and reads NDJSON one row at a time inside one SQLite transaction; the new import run and snapshot rows are only visible after the transaction commits, and cancellation/failure rolls it back. Manifest/table count reconciliation and relationship validation still need explicit checks.
 - [x] Preserve the last committed snapshot on cancellation, parse errors or database lock: the reader process is stopped and an uncommitted SQLite transaction is rolled back before commit.
 - [x] Add a process-wide SQLite writer semaphore around mutating/import/undo/checkpoint operations and a 30-second busy timeout (commit `e63668db`).
 - [ ] Stress-test the writer gate under concurrent imports and page reads; verify WAL checkpoint/backup behaviour.
@@ -85,7 +85,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [ ] Add retryable lock handling without hiding database failures.
 - [ ] Keep live identity, career-save records, validated facts and local edits clearly separated in storage and UI.
 - [ ] Show source, snapshot ID, evidence/validation status and coverage on relevant fields and metrics.
-- [ ] Test import with large saves, partial tables, malformed rows, duplicate UIDs and interrupted imports.
+- [~] Add a Python regression test for the NDJSON bundle schema, normalised player/staff/club rows, stats rows and manager-name privacy; the test passed on Windows CI run #141. Large real-save import, malformed-row rollback, duplicate UID and interrupted C# transaction tests remain open.
 
 ## 5. Player discovery and advanced search
 
@@ -185,7 +185,11 @@ Implementation and verification are tracked separately. A feature can be impleme
 | 2026-11-14 | Save-reader progress stream and table stages | `517a25de`, `755c69d3` | The Python adapter reports each table start, row count and warnings to stderr; the desktop bridge consumes it line-by-line for UI progress. |
 | 2026-11-14 | Cancellable career snapshot indexing | `1ed64ed2` | Cancellation is checked during player, staff, club and additional-table indexing; progress is reported and cancellation before commit rolls back the active transaction. |
 | 2026-11-14 | Cancellable save-import UI and elapsed time | `005af6a0`, `f0701bb1` | Added a toolbar Cancel action, visible import status, elapsed time and a clear message that the previous committed snapshot is retained. |
-| 2026-11-14 | Reduce duplicate JSON array allocations | `26104ba3` | Player, staff and club arrays are now lazily enumerated from JsonDocument rather than being copied into duplicate arrays and Lists. Full envelope memory is still materialised; true bounded streaming remains open. |
+| 2026-11-14 | Reduce duplicate JSON array allocations | `26104ba3` | First removed secondary array/List copies; superseded by the later per-table NDJSON stream. |
+| 2026-11-14 | Per-table NDJSON adapter | `c8ec8fc2`, `a28ae44a` | Python now streams each table to its own NDJSON file, then normalises player/staff/club records one at a time; fixed normalizer return handling in the follow-up commit. |
+| 2026-11-14 | Incremental NDJSON database import | `7f7f8c1e` | C# accepts the new manifest/bundle schema and yields one parsed JSON row at a time into the existing SQLite transaction; legacy JSON import remains supported. |
+| 2026-11-14 | Bridge/UI bundle integration | `a00c17f7`, `c31a0072` | The Python bridge now returns an output directory, and the UI imports it and recursively cleans up the temporary bundle. |
+| 2026-11-14 | NDJSON adapter regression test and CI validation | `c18b3322`, `cf9559cf` | Added Python syntax validation and a mocked fmsave adapter regression test; Python test step passed on Windows run #141. .NET build/publish for the same revision is still running. |
 | 2026-11-14 | AND/OR logic for specialist search engines | `e9fae94d`, `590d205a` | Attribute/personality and performance-stat search can now match ALL (AND) or ANY (OR) conditions. A single cross-category query builder remained open at that point. |
 | 2026-11-14 | Universal Advanced Search models and database query | `7b79c568`, `f6ea031f` | Added field/criterion models, live field catalog discovery and a parameterized query joining core player fields, PlayerAttributes and latest-save FmsavePlayerFacts with AND/OR semantics. |
 | 2026-11-14 | Universal Advanced Search interface | `49f29f89`, `aa9e9843`, `a33de936`, `76bb3ce4` | Replaced the navigation-only search hub with a category/field condition builder, typed values, 60-condition limit, ALL/ANY logic, result grid and profile open on double-click. Release compilation passed on Windows Actions run #101 for the initial universal builder; follow-up profile/column/paging changes require a new compile. |
