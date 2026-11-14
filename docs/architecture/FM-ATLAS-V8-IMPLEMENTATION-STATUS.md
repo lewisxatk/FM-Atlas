@@ -21,7 +21,7 @@
 | Player workspace activation | Improved in source | Previously open profiles are restored after the workspace is displayed rather than awaited during workspace construction. |
 | Live-memory scan safety | Blocked by default in V8 UI | The full legacy scan is behind a compile-time false gate and the toolbar action is disabled. |
 | Live-memory edit safety | Blocked by default in V8 UI | CA/PA and visible-attribute live Apply handlers are gated. Local Atlas edits and offline save import are unaffected. |
-| Save-import progress and cancellation | Source implemented | Python table-reader stages and row counts stream to the UI; a toolbar Cancel action kills the reader process and the database checks cancellation during row indexing. The elapsed time is shown. Cancellation/failure before commit rolls back the active transaction and retains the previous committed snapshot. The temporary full-save JSON export is deleted after success, cancellation or failure. The C# importer no longer makes duplicate player/staff/club array and List copies; it still parses the complete JSON document in memory. |
+| Save-import progress, streaming and cancellation | Source implemented; C# build pending | The Python bridge writes per-table NDJSON files using row iteration, followed by one-row-at-a-time normalisation of players/staff/clubs and a small manifest. C# parses the manifest and reads each table row from NDJSON inside the existing SQLite transaction; legacy JSON imports remain supported. The toolbar Cancel action stops the Python process and cancels row indexing; pre-commit failure/cancellation rolls back, and the UI recursively deletes the temporary bundle. A Python mock-save streaming regression test passed on Windows CI run #141. A fallback for non-Polars readers may materialise one table with `to_dicts()`. Large real-save, C# transaction, and memory/throughput tests remain open. |
 | SQLite write coordination | Source implemented | Mutating/import/undo/checkpoint operations share a process-wide writer gate and the connection has a 30-second busy timeout with foreign keys enabled. Lock stress tests remain open. |
 | Existing R7.2 functionality | Retained in source | Player/staff/club discovery, indexed statistics, multi-attribute and statistical search, Value Finder, Role Fit, squad/tactical workspaces, shortlists, graphics resolution, local edits, logs and diagnostics remain in the source tree. |
 
@@ -62,13 +62,18 @@ A feature being present in source is not equivalent to verified completeness. Me
 2. Validate Glass Dark, Glass Light and Studio at 100%, 125% and 150% DPI and 1080p/1440p resolutions; check keyboard focus, contrast, clipping, tooltip text and the reduced-motion/system-animation path.
 3. Complete the MVVM/service-layer separation; the legacy MainWindow code-behind is still substantial.
 4. Replace the search hub and separate builders with the full general-purpose Advanced Search workspace: attribute/personality and performance-stat builders now support ALL/AND or ANY/OR matching, but a single cross-category filter library, nested logic groups, arbitrary core/contract filters, saved profiles and configurable result columns remain open.
-5. Finish the save-import redesign: visible progress, cancellation, elapsed time and transaction rollback are implemented, and duplicate C# player/staff/club array copies have been removed. The Python bridge still materialises the table set and emits one large JSON file which the C# importer parses as a full JsonDocument. Replace that with bounded streaming/batches, staging validation, retryable lock handling and measured memory limits.
+5. Validate the new per-table NDJSON import path on real large saves. The adapter and C# importer now stream table rows one at a time, with a manifest and a single transaction; add manifest-to-import count reconciliation, relationship checks, malformed-row and cancellation rollback tests, lock retry policy, and measured memory/throughput benchmarks.
 6. Profile search, profile open, navigation, import and database contention on 40k+ player / 28k+ club fixtures.
 7. Implement the remaining roadmap areas only where source data and validation support them: development history, deeper tactical/match analysis, staff/club/contract coverage and explainable recruitment models.
 8. Run regression tests for existing database compatibility, data provenance, identity joins, saved edits, import failures, search and SQLite contention.
 9. Only then produce and label a signed/packaged V8 Windows release.
 
 ## Build and test
+
+- Python adapter syntax and mocked NDJSON bundle regression test passed on Windows Actions run #141 (commit `cf9559cfe91f278373ff56f012d8294155dcc396`).
+- The associated Windows .NET 8 restore/build/self-contained publish is still running at the time of this update; no compile or package result is claimed for the NDJSON integration yet.
+- A previous run #126 failed on a raw-string indentation issue in a then-current `ScoutDatabase.cs` revision; the offending SQL lines were corrected in subsequent source updates. The current run is the verification of the corrected branch state.
+
 
 The Windows build entry point remains `Build-FM-Atlas-27.bat` in the application folder. It calls `Build-FM-Atlas-27-Logged.bat`, which restores and builds `FmAtlas.sln` in Release configuration and writes `build-logs/latest-build.log`.
 
