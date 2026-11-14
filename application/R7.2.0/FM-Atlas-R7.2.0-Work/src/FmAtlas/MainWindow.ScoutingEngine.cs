@@ -395,9 +395,11 @@ public partial class MainWindow
                 var chainGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = chains, FrozenColumnCount = 2 };
                 var networkGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = network, FrozenColumnCount = 2 };
                 var actionGrid = new DataGrid { AutoGenerateColumns = true, IsReadOnly = true, CanUserAddRows = false, ItemsSource = valued.Take(5000), FrozenColumnCount = 3 };
+                var pitch = BuildEventPitch(model, network);
                 tabs.Items.Add(new TabItem { Header = "Player impact", Content = playerGrid });
                 tabs.Items.Add(new TabItem { Header = "Possession chains", Content = chainGrid });
                 tabs.Items.Add(new TabItem { Header = "Passing network", Content = networkGrid });
+                tabs.Items.Add(new TabItem { Header = "Pitch · xT & pass lanes", Content = new ScrollViewer { Content = pitch, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto } });
                 tabs.Items.Add(new TabItem { Header = "Unified actions (first 5,000)", Content = actionGrid });
                 var panel = new DockPanel();
                 var note = Txt($"ATLAS EMPIRICAL xT · {model.Columns} × {model.Rows} pitch grid\nTrained from {model.TrainingMatches:N0} matches and {model.TrainingActions:N0} event actions in this import. xT is the change in fitted zone threat for successful passes/carries; it does not value shots, failed actions or defensive actions. Model is dataset-specific and should be trained on a representative sample before cross-league comparisons.", 10, false, Muted, wrap: true);
@@ -420,6 +422,52 @@ public partial class MainWindow
                 cancelScoutingImport.IsEnabled = false;
                 eventLab.IsEnabled = true; importStatsBomb.IsEnabled = true; importWyscout.IsEnabled = true;
             }
+        }
+
+
+        WpfCanvas BuildEventPitch(ExpectedThreatModel threat, IReadOnlyList<PassingNetworkEdge> edges)
+        {
+            const double width = 960, height = 540;
+            var canvas = new WpfCanvas { Width = width, Height = height, Background = new SolidColorBrush(Color.FromRgb(13, 48, 43)) };
+            var cellW = width / threat.Columns; var cellH = height / threat.Rows;
+            var maximum = threat.Values.DefaultIfEmpty(0).Max();
+            for (var x = 0; x < threat.Columns; x++)
+            for (var y = 0; y < threat.Rows; y++)
+            {
+                var value = threat.Values[x * threat.Rows + y];
+                var intensity = maximum <= 0 ? 0 : Math.Clamp(value / maximum, 0, 1);
+                var cell = new Rectangle
+                {
+                    Width = cellW, Height = cellH,
+                    Fill = new SolidColorBrush(Color.FromArgb((byte)(25 + intensity * 150), 45, 190, 170)),
+                    Stroke = new SolidColorBrush(Color.FromArgb(45, 220, 245, 235)),
+                    StrokeThickness = .5
+                };
+                WpfCanvas.SetLeft(cell, x * cellW); WpfCanvas.SetTop(cell, y * cellH); canvas.Children.Add(cell);
+            }
+            void AddLine(double x1, double y1, double x2, double y2, Brush brush, double thickness)
+            {
+                var line = new Line { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = brush, StrokeThickness = thickness };
+                canvas.Children.Add(line);
+            }
+            var pitchBrush = new SolidColorBrush(Color.FromArgb(190, 225, 245, 235));
+            AddLine(2, 2, width - 2, 2, pitchBrush, 2); AddLine(2, height - 2, width - 2, height - 2, pitchBrush, 2);
+            AddLine(2, 2, 2, height - 2, pitchBrush, 2); AddLine(width - 2, 2, width - 2, height - 2, pitchBrush, 2);
+            AddLine(width / 2, 2, width / 2, height - 2, pitchBrush, 1.5);
+            var circle = new Ellipse { Width = 110, Height = 110, Stroke = pitchBrush, StrokeThickness = 1.5 };
+            WpfCanvas.SetLeft(circle, width / 2 - 55); WpfCanvas.SetTop(circle, height / 2 - 55); canvas.Children.Add(circle);
+            var leftBox = new Rectangle { Width = width * 16 / 120, Height = height * 44 / 80, Stroke = pitchBrush, StrokeThickness = 1.5, Fill = Brushes.Transparent };
+            WpfCanvas.SetLeft(leftBox, 2); WpfCanvas.SetTop(leftBox, (height - leftBox.Height) / 2); canvas.Children.Add(leftBox);
+            var rightBox = new Rectangle { Width = width * 16 / 120, Height = height * 44 / 80, Stroke = pitchBrush, StrokeThickness = 1.5, Fill = Brushes.Transparent };
+            WpfCanvas.SetLeft(rightBox, width - rightBox.Width - 2); WpfCanvas.SetTop(rightBox, (height - rightBox.Height) / 2); canvas.Children.Add(rightBox);
+            var laneBrush = new SolidColorBrush(Color.FromArgb(205, 255, 225, 120));
+            foreach (var edge in edges.Where(x => x.CompletedPasses > 0 && x.AverageStartX.HasValue && x.AverageStartY.HasValue && x.AverageEndX.HasValue && x.AverageEndY.HasValue).Take(120))
+            {
+                AddLine(edge.AverageStartX!.Value / 120 * width, edge.AverageStartY!.Value / 80 * height,
+                    edge.AverageEndX!.Value / 120 * width, edge.AverageEndY!.Value / 80 * height,
+                    laneBrush, Math.Clamp(1 + edge.CompletedPasses * .25, 1, 4));
+            }
+            return canvas;
         }
 
         void ExportScoutingRows()
