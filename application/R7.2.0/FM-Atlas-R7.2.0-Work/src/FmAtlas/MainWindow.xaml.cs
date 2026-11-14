@@ -2061,10 +2061,10 @@ public partial class MainWindow : Window
             SetImportStatus("Starting read-only save inspection…");
             AtlasLog.Info("Starting read-only FM career save export/import.");
             var result = await FmsaveBridgeService.ExportAsync(open.FileName, cancellation.Token, progress);
-            temporarySnapshotPath = result.OutputJsonPath;
+            temporarySnapshotPath = result.OutputPath;
             cancellation.Token.ThrowIfCancellationRequested();
-            SetImportStatus("Save inspection complete. Indexing the career snapshot into Atlas…");
-            var imported = await RunDatabaseAsync(() => _database.ImportFmsaveSnapshotAsync(result.OutputJsonPath, cancellation.Token, progress));
+            SetImportStatus("Save inspection complete. Streaming table rows into the Atlas snapshot…");
+            var imported = await RunDatabaseAsync(() => _database.ImportFmsaveSnapshotAsync(result.OutputPath, cancellation.Token, progress));
             cancellation.Token.ThrowIfCancellationRequested();
             AtlasLog.Info($"Career snapshot import completed: players={imported.PlayersImported}, staff={imported.StaffImported}, clubs={imported.ClubsImported}, extraRows={imported.ExtraRowsImported}, warnings={imported.Warnings.Count}.");
             var warnings = imported.Warnings.Count == 0 ? "No adapter warnings were reported." : string.Join("\n", imported.Warnings.Take(8));
@@ -2094,8 +2094,12 @@ public partial class MainWindow : Window
             importTimer.Stop();
             if (!string.IsNullOrWhiteSpace(temporarySnapshotPath))
             {
-                try { if (File.Exists(temporarySnapshotPath)) File.Delete(temporarySnapshotPath); }
-                catch (Exception ex) { AtlasLog.Warning("Could not remove temporary save snapshot JSON: " + ex.Message); }
+                try
+                {
+                    if (Directory.Exists(temporarySnapshotPath)) Directory.Delete(temporarySnapshotPath, recursive: true);
+                    else if (File.Exists(temporarySnapshotPath)) File.Delete(temporarySnapshotPath);
+                }
+                catch (Exception ex) { AtlasLog.Warning("Could not remove temporary save snapshot bundle: " + ex.Message); }
             }
             if (_liveLoadProgress is not null)
             {
