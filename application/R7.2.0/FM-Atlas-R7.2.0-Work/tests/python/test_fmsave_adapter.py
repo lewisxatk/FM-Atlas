@@ -158,6 +158,8 @@ class FmsaveAdapterStreamingTests(unittest.TestCase):
             self.assertTrue(manifest_path.is_file())
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["schema"], "fmatlas.fmsave.snapshot.ndjson.v1")
+            self.assertEqual(manifest["reader_scope"]["intended_views"], ["FM Data Hub", "FM League Hub", "FM player and club records"])
+            self.assertFalse(manifest["reader_scope"]["external_metrics_included"])
             self.assertEqual(manifest["counts"]["players"], 1)
             self.assertEqual(manifest["counts"]["staff"], 1)
             self.assertEqual(manifest["counts"]["clubs"], 1)
