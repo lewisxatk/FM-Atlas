@@ -1355,16 +1355,6 @@ public partial class MainWindow : Window
         chart.Children.Add(lastDate);
         panel.Children.Add(chart);
 
-        var rows = new List<string>
-        {
-            "Game date,CA,PA,Source save,Imported UTC"
-        };
-        rows.AddRange(snapshots.Select(x => string.Join(",",
-            x.GameDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            x.CurrentAbility?.ToString("0.##", CultureInfo.InvariantCulture) ?? "",
-            x.PotentialAbility?.ToString("0.##", CultureInfo.InvariantCulture) ?? "",
-            x.SourceFileName,
-            x.ImportedUtc)));
         panel.Children.Add(Txt($"{snapshots.Count:N0} distinct dated snapshots · dates and values are retained as imported. Duplicate exports on the same in-game date are collapsed to the latest snapshot for the visual trend.",
             9, false, Muted, wrap: true));
     }

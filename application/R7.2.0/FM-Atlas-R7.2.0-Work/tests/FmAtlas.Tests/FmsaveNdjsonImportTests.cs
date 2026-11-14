@@ -361,7 +361,7 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
-    public async Task IndexedStatSearchReturnsCorrectAllAnyMatchesAcrossFiveThousandPlayerPeriods()
+    public async Task IndexedStatSearchReturnsCorrectAllAnyMatchesAcrossFortyThousandPlayerPeriods()
     {
         using var temp = new TemporaryFolder();
         var databasePath = Path.Combine(temp.Path, "scouting.db");
@@ -371,6 +371,7 @@ public sealed class FmsaveNdjsonImportTests
         await database.ImportFmsaveSnapshotAsync(bundle);
         var snapshotId = await ScalarIntAsync(databasePath, "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;");
 
+        var seedTimer = System.Diagnostics.Stopwatch.StartNew();
         await using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
         {
             await db.OpenAsync();
@@ -401,7 +402,7 @@ public sealed class FmsaveNdjsonImportTests
             insertFact.Parameters.Add("$value", SqliteType.Real);
             insertFact.Prepare();
 
-            const int playerCount = 5000;
+            const int playerCount = 40000;
             for (var i = 0; i < playerCount; i++)
             {
                 var uid = "scale-uid-" + i.ToString("D5", System.Globalization.CultureInfo.InvariantCulture);
@@ -432,21 +433,25 @@ public sealed class FmsaveNdjsonImportTests
             }
             await transaction.CommitAsync();
         }
+        seedTimer.Stop();
 
         var timer = System.Diagnostics.Stopwatch.StartNew();
         var allMatches = await database.SearchSeasonStatCriteriaAsync(
-            new[] { new StatFilterCriterion("goals", "Goals", 20, null), new StatFilterCriterion("assists", "Assists", 5, null) },
+            new[] { new StatFilterCriterion("goals", "Goals", 31, null), new StatFilterCriterion("assists", "Assists", 6, null) },
             per90: false, minimumMinutes: 450, limit: 5000, matchAll: true);
-        timer.Stop();
         var anyMatches = await database.SearchSeasonStatCriteriaAsync(
             new[] { new StatFilterCriterion("goals", "Goals", 38, null), new StatFilterCriterion("assists", "Assists", 9, null) },
             per90: false, minimumMinutes: 450, limit: 5000, matchAll: false);
+        timer.Stop();
 
-        Assert.Equal(1250, allMatches.Count);
-        Assert.Equal(625, anyMatches.Count);
-        Assert.Contains(allMatches, x => x.SourceId == "FMSAVE:FM27:scale:00025");
-        Assert.DoesNotContain(allMatches, x => x.SourceId == "FMSAVE:FM27:scale:00020");
-        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(30), $"Indexed 5,000-player search took {timer.Elapsed.TotalSeconds:0.00}s.");
+        Assert.Equal(4000, allMatches.Count);
+        Assert.Equal(5000, anyMatches.Count);
+        Assert.Contains(allMatches, x => x.SourceId == "FMSAVE:FM27:scale:00036");
+        Assert.DoesNotContain(allMatches, x => x.SourceId == "FMSAVE:FM27:scale:00030");
+        Assert.Contains(anyMatches, x => x.SourceId == "FMSAVE:FM27:scale:00009");
+        Assert.Contains(anyMatches, x => x.SourceId == "FMSAVE:FM27:scale:00038");
+        Assert.True(seedTimer.Elapsed < TimeSpan.FromSeconds(90), $"Seeding 40,000 player periods took {seedTimer.Elapsed.TotalSeconds:0.00}s.");
+        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(45), $"Indexed 40,000-player ALL/ANY searches took {timer.Elapsed.TotalSeconds:0.00}s.");
     }
 
 
