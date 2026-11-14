@@ -48,3 +48,11 @@ The export allow-list now includes `team_match_stats`, `officials` and FM27 `squ
 ## Current integration checkpoint
 
 The offline C# importer explicitly archives and manifest-validates `team_match_stats`, `officials` and `squad_planner`. The team-level event tables remain separate from player-season metric indexing until a typed team/fixture join is implemented. Regression tests cover the newly added context tables.
+
+## FM Team Match Explorer integration
+
+The C# importer now creates a dedicated `FmsaveTeamMatchFacts` index for numeric fields in `team_match_stats`. Each fact retains the snapshot, source row, competition ID, home-team ID, away-team ID, match date, original field path, numeric value and original report JSON. Identity fields are excluded from metric facts; the complete source row remains in the lossless extra-table archive.
+
+The query API supports metric-key, competition-ID, team-ID and ISO date-range filters. Fixture context is attached only on an exact composite-key match (competition + home team + away team + date), with numeric fixture IDs normalised to text for the join. Unmatched reports remain searchable with `FixtureMatched=false`. The WPF Scouting Analytics page now opens an FM27 Team Match Explorer with those filters, match-level result grid and raw source/fixture audit detail.
+
+This is a team-report explorer, not a player performance feed. It does not infer player involvement, player minutes, competition display names or team names from IDs. Those require validated UID-to-directory mappings and a witnessed FM27 save schema.
