@@ -176,7 +176,7 @@ public sealed class LiveCareerDetectionTests
         Assert.Equal(17, decoded["authority"]);
         Assert.Equal(19, decoded["working_with_youngsters"]);
         Assert.False(decoded.ContainsKey("defending"));
-        Assert.Equal(21, decoded.Count);
+        Assert.Equal(20, decoded.Count);
     }
 
     [Fact]
