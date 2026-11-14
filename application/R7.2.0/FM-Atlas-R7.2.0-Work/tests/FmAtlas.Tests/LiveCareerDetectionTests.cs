@@ -156,4 +156,34 @@ public sealed class LiveCareerDetectionTests
                 Directory.Delete(folder, recursive: true);
         }
     }
+
+    [Fact]
+    public void StaffAttributeDecoderUsesDocumentedFm27OffsetsAndDisplayScale()
+    {
+        var staffObject = new byte[0x540];
+        staffObject[0x32] = 73; // Attacking: (73 + 2) / 5 = 15
+        staffObject[0x2C] = 92; // Judging player ability: (92 + 2) / 5 = 18
+        staffObject[0x3F] = 68; // Sports science: (68 + 2) / 5 = 14
+        staffObject[0x14] = 17; // Authority is stored directly as 1..20
+        staffObject[0x1C] = 19; // Working with youngsters is stored directly as 1..20
+        staffObject[0x33] = 101; // Out-of-range raw value must not become a fabricated rating
+
+        var decoded = StaffAttributeDecoder.Decode(staffObject);
+
+        Assert.Equal(15, decoded["attacking"]);
+        Assert.Equal(18, decoded["judging_player_ability"]);
+        Assert.Equal(14, decoded["sports_science"]);
+        Assert.Equal(17, decoded["authority"]);
+        Assert.Equal(19, decoded["working_with_youngsters"]);
+        Assert.False(decoded.ContainsKey("defending"));
+        Assert.Equal(21, decoded.Count);
+    }
+
+    [Fact]
+    public void StaffAttributeDecoderLeavesMissingBytesAbsent()
+    {
+        var decoded = StaffAttributeDecoder.Decode(new byte[0x20]);
+
+        Assert.Empty(decoded);
+    }
 }
