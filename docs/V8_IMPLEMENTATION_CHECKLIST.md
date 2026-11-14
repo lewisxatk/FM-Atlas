@@ -394,3 +394,21 @@ The exact-profile read-only live scan is enabled automatically for supported FM2
 - Windows workflow `43554520053` passed Python adapter checks, .NET 8 restore, Release build, all xUnit tests, self-contained win-x64 publish and artifact upload for commit `6a65a8a2`.
 - Artifact SHA-256: `3adbd4232d0e1e8910df43ab83acb81f1fbde9880cdb3e60fb121f8efbf746c4`.
 - Later pitch and regression-test commits are not covered by that artifact; a fresh workflow is required.
+
+
+## Verified pitch build — 14 November 2026 (supersedes earlier pending notes)
+
+- [x] Fresh Windows workflow 43555015459 on commit 21430f4fa4ca5b831022e67c70438a5e5cc9dff0: Python adapter checks, .NET 8 restore, Release build, career-import integration tests, self-contained Windows x64 publish and artifact upload all passed.
+- [x] Pitch-map source and regression tests are included in this verified branch-head build.
+- [x] Artifact FM-Atlas-V8-win-x64, 68,887,451 bytes, SHA-256 5813abb152cc4f82147c20fb0325fd309c1d34fddc4082161a791be2c6496541; expires 28 November 2026.
+- [ ] Windows visual acceptance remains outstanding: Monolith Glass and pitch map at 100%, 125% and 150% DPI; inspect hover, keyboard selection and readability.
+- [ ] FM27 real-career acceptance remains outstanding; no field is promoted from provisional without an in-game witness.
+
+## Next Advanced Search development batch
+
+- [ ] Inspect the actual persisted position-familiarity schema and existing criterion query path before changing semantics.
+- [ ] Add an independent position group mode (ALL / ANY) without changing the existing global ALL / ANY condition mode.
+- [ ] Add explicit minimum-familiarity semantics only if the stored data supports numeric position ratings; zero must mean no requirement.
+- [ ] Preserve old saved profiles by making new fields optional with safe defaults; test old-profile load and new-profile round-trip.
+- [ ] Test no position filter, multiple positions ALL, multiple positions ANY, minimum threshold, zero/no-op, invalid values, cancellation and paged results.
+- [ ] Do not infer missing position ratings, and do not change source field discovery or the existing 60-condition limit.
