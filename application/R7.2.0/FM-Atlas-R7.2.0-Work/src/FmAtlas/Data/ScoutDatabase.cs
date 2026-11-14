@@ -3228,11 +3228,8 @@ public sealed class ScoutDatabase
         command.Parameters.AddWithValue("$metric", metricKey);
         command.Parameters.AddWithValue("$minimumMinutes", safeMinutes);
         command.Parameters.AddWithValue("$minimumSampleSize", safeSampleSize);
-        if (normalizedPositionCode is not null)
-        {
-            command.Parameters.AddWithValue("$positionCode", normalizedPositionCode.ToLowerInvariant());
-            command.Parameters.AddWithValue("$minimumPositionRating", safePositionRating);
-        }
+        command.Parameters.AddWithValue("$positionCode", (object?)(normalizedPositionCode?.ToLowerInvariant()) ?? DBNull.Value);
+        command.Parameters.AddWithValue("$minimumPositionRating", safePositionRating);
         command.CommandText = """
             WITH source_priority AS (
                 SELECT ps.PlayerSourceId,
@@ -3282,7 +3279,16 @@ public sealed class ScoutDatabase
             )
             SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,
                    p.CurrentAbility,p.PotentialAbility,p.Value,p.DataOrigin,
-                   a.MetricTotal,a.TotalMinutes,a.AverageMetric,a.SampleSize,a.LatestPeriod
+                   a.MetricTotal,a.TotalMinutes,a.AverageMetric,a.SampleSize,a.LatestPeriod,
+                   CASE WHEN $positionCode IS NULL THEN NULL ELSE (
+                       SELECT CAST(pf.NumericValue AS INTEGER)
+                       FROM FmsavePlayerFacts pf
+                       WHERE pf.SnapshotId=$snapshot
+                         AND pf.PlayerSourceId=p.SourceId
+                         AND pf.FactGroup='positions'
+                         AND pf.FieldKey COLLATE NOCASE=$positionCode
+                       LIMIT 1
+                   ) END AS SelectedPositionRating
             FROM aggregated a
             INNER JOIN Players p ON p.SourceId=a.PlayerSourceId
             WHERE p.Value IS NOT NULL AND p.Value>0
@@ -3297,7 +3303,7 @@ public sealed class ScoutDatabase
             ORDER BY p.Name COLLATE NOCASE;
             """;
 
-        var raw = new List<(PlayerRecord Player, double Performance, double Minutes, int SampleSize, string Period)>();
+        var raw = new List<(PlayerRecord Player, double Performance, double Minutes, int SampleSize, string Period, int? PositionRating)>();
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -3323,7 +3329,8 @@ public sealed class ScoutDatabase
                         DataOrigin = reader.IsDBNull(10) ? "Unknown" : reader.GetString(10)
                     },
                     performance, minutes, reader.GetInt32(14),
-                    reader.IsDBNull(15) ? "Period unavailable" : reader.GetString(15)));
+                    reader.IsDBNull(15) ? "Period unavailable" : reader.GetString(15),
+                    reader.IsDBNull(16) ? null : reader.GetInt32(16)));
             }
         }
         if (raw.Count == 0) return new();
@@ -3398,7 +3405,8 @@ public sealed class ScoutDatabase
                 position is not null && positionCounts.TryGetValue(position, out var positionCount) ? positionCount : 0,
                 leaguePercentiles[x.Player.SourceId],
                 league is not null && leagueCounts.TryGetValue(league, out var leagueCount) ? leagueCount : 0,
-                performancePercentile - valuePercentile, dataCoverage);
+                performancePercentile - valuePercentile, dataCoverage,
+                normalizedPositionCode?.ToUpperInvariant(), x.PositionRating);
         })
         .OrderByDescending(x => x.ValueGap)
         .ThenByDescending(x => x.PerformancePercentile)
