@@ -494,7 +494,8 @@ public partial class MainWindow
         cancelScoutingImport = SoftButton("Cancel import", (_, _) => activeScoutingImport?.Cancel());
         cancelScoutingImport.IsEnabled = false;
         eventLab = SoftButton("Open Event Lab · xT / Possessions", async (_, _) => await RunEventLabAsync());
-        importBar.Children.Add(eventLab);
+        var fmTeamLab = SoftButton("Open FM27 Team Match Explorer", async (_, _) => await RunFmTeamMatchExplorerAsync());
+        importBar.Children.Add(eventLab); importBar.Children.Add(fmTeamLab);
         importBar.Children.Add(importStatsBomb); importBar.Children.Add(importWyscout); importBar.Children.Add(reload);
         importBar.Children.Add(fmMatrix); importBar.Children.Add(cancelScoutingImport);
 
@@ -516,6 +517,94 @@ public partial class MainWindow
         };
         RefreshChoices();
         return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+    }
+
+    private async Task RunFmTeamMatchExplorerAsync()
+    {
+        var root = new DockPanel { LastChildFill = true, Margin = new Thickness(14) };
+        var header = new StackPanel();
+        header.Children.Add(Txt("FM27 NATIVE DATA · TEAM MATCH REPORTS + LEAGUE FIXTURE CONTEXT", 9, true, Teal));
+        header.Children.Add(Txt("FM Team Match Explorer", 23, true, Ink));
+        header.Children.Add(Txt("Search the team-level match statistics actually exported from your FM save. Fixture matching uses competition, home team, away team and date; unmatched reports remain visible and are never silently discarded.", 10, false, Muted, wrap: true));
+        var filters = new WrapPanel { Margin = new Thickness(0, 10, 0, 8) };
+        var metric = Input("Metric key (e.g. shots, expected_goals)"); metric.Width = 220;
+        var competition = Input("Competition ID"); competition.Width = 120;
+        var team = Input("Team ID"); team.Width = 120;
+        var from = Input("From · YYYY-MM-DD"); from.Width = 135;
+        var to = Input("To · YYYY-MM-DD"); to.Width = 135;
+        filters.Children.Add(FilterControl("METRIC", metric, 230));
+        filters.Children.Add(FilterControl("COMPETITION", competition, 130));
+        filters.Children.Add(FilterControl("TEAM", team, 130));
+        filters.Children.Add(FilterControl("DATE FROM", from, 145));
+        filters.Children.Add(FilterControl("DATE TO", to, 145));
+        var run = PrimaryButton("Search FM match data", async (_, _) => await SearchAsync());
+        filters.Children.Add(run);
+        header.Children.Add(filters);
+        var status = Txt("Ready · this view only searches FM-native team_match_stats.", 9, false, Muted, wrap: true);
+        status.Margin = new Thickness(0, 2, 0, 8);
+        header.Children.Add(status);
+        DockPanel.SetDock(header, Dock.Top);
+        root.Children.Add(header);
+
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false,
+            SelectionMode = DataGridSelectionMode.Single, HeadersVisibility = DataGridHeadersVisibility.Column,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, MinHeight = 280
+        };
+        grid.Columns.Add(new DataGridTextColumn { Header = "MATCH DATE", Binding = new System.Windows.Data.Binding(nameof(FmTeamMatchMetric.MatchDate)), Width = 115 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "COMPETITION ID", Binding = new System.Windows.Data.Binding(nameof(FmTeamMatchMetric.CompetitionId)), Width = 115 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "HOME TEAM ID", Binding = new System.Windows.Data.Binding(nameof(FmTeamMatchMetric.HomeTeamId)), Width = 110 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "AWAY TEAM ID", Binding = new System.Windows.Data.Binding(nameof(FmTeamMatchMetric.AwayTeamId)), Width = 110 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "METRIC", Binding = new System.Windows.Data.Binding(nameof(FmTeamMatchMetric.MetricKey)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+        grid.Columns.Add(new DataGridTextColumn { Header = "VALUE · FM SOURCE UNITS", Binding = new System.Windows.Data.Binding(nameof(FmTeamMatchMetric.Value)) { StringFormat = "0.##" }, Width = 145 });
+        grid.Columns.Add(new DataGridCheckBoxColumn { Header = "FIXTURE MATCHED", Binding = new System.Windows.Data.Binding(nameof(FmTeamMatchMetric.FixtureMatched)), Width = 120 });
+        var detail = Txt("Select a row to inspect its original FM match report and linked fixture record.", 9, false, Muted, wrap: true);
+        detail.Margin = new Thickness(0, 8, 0, 0);
+        var content = new StackPanel();
+        content.Children.Add(grid);
+        content.Children.Add(detail);
+        root.Children.Add(new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        grid.SelectionChanged += (_, _) =>
+        {
+            if (grid.SelectedItem is not FmTeamMatchMetric selected) return;
+            detail.Text = selected.FixtureMatched
+                ? "Source: FM27 team_match_stats · fixture matched on competition + home team + away team + date. Fixture record is linked; raw values remain available for audit.\n\n" + selected.RawMatchJson + "\n\nFIXTURE\n" + selected.FixtureJson
+                : "Source: FM27 team_match_stats · no exact fixture match found. The team report is retained independently.\n\n" + selected.RawMatchJson;
+        };
+
+        async Task SearchAsync()
+        {
+            try
+            {
+                run.IsEnabled = false;
+                status.Text = "Searching the latest imported FM27 career snapshot…";
+                var rows = await _database.SearchFmTeamMatchMetricsAsync(
+                    string.IsNullOrWhiteSpace(metric.Text) ? null : metric.Text.Trim(),
+                    string.IsNullOrWhiteSpace(competition.Text) ? null : competition.Text.Trim(),
+                    string.IsNullOrWhiteSpace(team.Text) ? null : team.Text.Trim(),
+                    string.IsNullOrWhiteSpace(from.Text) ? null : from.Text.Trim(),
+                    string.IsNullOrWhiteSpace(to.Text) ? null : to.Text.Trim(), 5000);
+                grid.ItemsSource = rows;
+                var linked = rows.Count(x => x.FixtureMatched);
+                status.Text = $"FM-native results · {rows.Count:N0} metric rows · {linked:N0} fixture-linked · {rows.Count - linked:N0} unmatched · no external event metrics included.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("FM Team Match Explorer query failed.", ex);
+                status.Text = "Search failed: " + ex.Message;
+            }
+            finally { run.IsEnabled = true; }
+        }
+
+        var window = new Window
+        {
+            Title = "FM Atlas · FM27 Team Match Explorer",
+            Width = 1180, Height = 760, MinWidth = 820, MinHeight = 520,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this, Background = this.Background, Foreground = this.Foreground, Content = root
+        };
+        window.ShowDialog();
     }
 
     private static async Task<List<ScoutingPlayerSeason>> LoadScoutingDatasetAsync()
