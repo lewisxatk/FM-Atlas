@@ -1,0 +1,176 @@
+using System.Text.Json;
+using FmAtlas.Data;
+using Microsoft.Data.Sqlite;
+using Xunit;
+
+namespace FmAtlas.Tests;
+
+public sealed class FmsaveNdjsonImportTests
+{
+    [Fact]
+    public async Task ValidBundlePublishesOneCareerSnapshot()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "valid", playerManifestCount: 1, includeContractRow: true);
+
+        var result = await database.ImportFmsaveSnapshotAsync(bundle);
+
+        Assert.Equal(1, result.PlayersImported);
+        Assert.Equal(1, result.ExtraRowsImported);
+        Assert.Equal(0, result.StaffImported);
+        Assert.Equal(0, result.ClubsImported);
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveImportRuns;"));
+        Assert.Equal("Fixture Player", await ScalarStringAsync(databasePath, "SELECT Name FROM Players WHERE SourceId='FMSAVE:FM27:test-db:1001';"));
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveExtraTables WHERE TableName='contracts';"));
+    }
+
+    [Fact]
+    public async Task PlayerManifestCountMismatchRollsBackNewSnapshot()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "truncated", playerManifestCount: 2, includeContractRow: false);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => database.ImportFmsaveSnapshotAsync(bundle));
+
+        Assert.Equal(0, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveImportRuns;"));
+        Assert.Equal(0, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM Players;"));
+        Assert.Equal(0, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsavePlayerSnapshots;"));
+    }
+
+    [Fact]
+    public async Task MalformedExtraRowRollsBackPlayerAndImportRun()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "malformed", playerManifestCount: 1, includeContractRow: true, malformedContractRow: true);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => database.ImportFmsaveSnapshotAsync(bundle));
+
+        Assert.Equal(0, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveImportRuns;"));
+        Assert.Equal(0, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM Players;"));
+    }
+
+    [Fact]
+    public async Task FailedSecondImportPreservesPreviouslyCommittedSnapshot()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var validBundle = CreateBundle(temp.Path, "first", playerManifestCount: 1, includeContractRow: false);
+        await database.ImportFmsaveSnapshotAsync(validBundle);
+
+        var invalidBundle = CreateBundle(temp.Path, "second", playerManifestCount: 3, includeContractRow: false);
+        await Assert.ThrowsAsync<InvalidDataException>(() => database.ImportFmsaveSnapshotAsync(invalidBundle));
+
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsaveImportRuns;"));
+        Assert.Equal(1, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM FmsavePlayerSnapshots;"));
+        Assert.Equal("Fixture Player", await ScalarStringAsync(databasePath, "SELECT Name FROM Players WHERE SourceId='FMSAVE:FM27:test-db:1001';"));
+    }
+
+    private static string CreateBundle(
+        string root,
+        string name,
+        int playerManifestCount,
+        bool includeContractRow,
+        bool malformedContractRow = false)
+    {
+        var folder = Path.Combine(root, name);
+        Directory.CreateDirectory(folder);
+
+        var counts = new Dictionary<string, int>
+        {
+            ["players"] = playerManifestCount,
+            ["staff"] = 0,
+            ["clubs"] = 0,
+            ["contracts"] = includeContractRow ? 1 : 0
+        };
+        var manifest = new
+        {
+            schema = "fmatlas.fmsave.snapshot.ndjson.v1",
+            created_utc = DateTime.UtcNow.ToString("O"),
+            source_file_name = name + ".fm",
+            source_file_size = 128,
+            fmsave_version = "test-fixture",
+            save_info = new { game = "FM27", build = "fixture", known_build = true, db_version = "test-db", game_date = "2026-11-14" },
+            validation = new { readers = Array.Empty<object>() },
+            counts,
+            warnings = Array.Empty<string>()
+        };
+        File.WriteAllText(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(manifest));
+
+        var player = new
+        {
+            uid = "player-uid-1001",
+            unique_id = 1001,
+            atlas_source_id = "FMSAVE:FM27:test-db:1001",
+            name = "Fixture Player",
+            age = 20,
+            club_uid = "club-10",
+            club_name = "Fixture FC",
+            nationality = "England",
+            league = "Test League",
+            position = "ST",
+            current_ability = 120,
+            potential_ability = 150,
+            value = 1250000,
+            preferred_foot = "Right",
+            left_foot = 10,
+            right_foot = 18,
+            attributes = new { finishing = 16, pace = 15 },
+            personality = new { professionalism = 17 },
+            contract = new { wage = 10000, contract_end = "2028-06-30" }
+        };
+        File.WriteAllText(Path.Combine(folder, "players.ndjson"), JsonSerializer.Serialize(player) + Environment.NewLine);
+
+        if (includeContractRow)
+        {
+            var contractPath = Path.Combine(folder, "contracts.ndjson");
+            File.WriteAllText(contractPath, malformedContractRow
+                ? "{ this is not valid json }" + Environment.NewLine
+                : JsonSerializer.Serialize(new { player_uid = "player-uid-1001", wage = 10000 }) + Environment.NewLine);
+        }
+
+        return folder;
+    }
+
+    private static async Task<int> ScalarIntAsync(string databasePath, string sql)
+    {
+        await using var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString());
+        await db.OpenAsync();
+        var command = db.CreateCommand();
+        command.CommandText = sql;
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    private static async Task<string?> ScalarStringAsync(string databasePath, string sql)
+    {
+        await using var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString());
+        await db.OpenAsync();
+        var command = db.CreateCommand();
+        command.CommandText = sql;
+        var value = await command.ExecuteScalarAsync();
+        return value is null or DBNull ? null : Convert.ToString(value);
+    }
+
+    private sealed class TemporaryFolder : IDisposable
+    {
+        public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "FmAtlasTests", Guid.NewGuid().ToString("N"));
+
+        public TemporaryFolder() => Directory.CreateDirectory(Path);
+
+        public void Dispose()
+        {
+            try { if (Directory.Exists(Path)) Directory.Delete(Path, recursive: true); }
+            catch { /* SQLite WAL handles may still be releasing during test teardown. */ }
+        }
+    }
+}
