@@ -163,7 +163,7 @@ public static partial class LiveMemoryEditService
 
         var personId = BitConverter.ToUInt32(Read(handle, (nint)(player + PlayerPersonIdOffset + (ulong)personShift), 4), 0);
         var trainingManager = U64(handle, moduleBase + profile.TrainingManagerRva);
-        var keeper = FindTrainingKeeper(handle, trainingManager, club);
+        var keeper = FindTrainingKeeper(handle, moduleBase, profile, club);
         if (!Pointer(keeper)) throw new InvalidOperationException("No training-history keeper exists for the player's club. Tactical Effectiveness is read-only for this player.");
         var historyNode = FindHistoryNode(handle, keeper, personId);
         if (!Pointer(historyNode)) throw new InvalidOperationException("The FM27 training manager has no tactical history for this player. Atlas cannot safely set all eight Tactical Effectiveness areas.");
@@ -172,7 +172,7 @@ public static partial class LiveMemoryEditService
         if (history.Bytes.Length == 0)
             throw new InvalidOperationException("The player's tactical training history is empty. Atlas will not invent training records.");
         var shapeIds = ReadShapeIds(history.Bytes);
-        if (!shapeIds[0].HasValue || !shapeIds[1].HasValue)
+        if (shapeIds is null)
             throw new InvalidOperationException("The player's training history does not contain both formation-shape witnesses. All eight Tactical Effectiveness areas cannot be safely edited.");
 
         var patches = new List<TacticalPatch>();
@@ -181,10 +181,12 @@ public static partial class LiveMemoryEditService
             var list = areas[area];
             var newBytes = list.Bytes.ToArray();
             var entryIndex = FindOptionEntry(newBytes, options[area]);
+            ulong targetEnd;
             if (entryIndex >= 0)
             {
                 SetEntryValue(newBytes.AsSpan(entryIndex * RecordEntrySize, RecordEntrySize), BestFamiliarity);
                 AddPatch(patches, list.Begin, "tactical.area." + area + ".record", list.Bytes, newBytes);
+                targetEnd = list.End;
             }
             else
             {
@@ -198,8 +200,9 @@ public static partial class LiveMemoryEditService
                 var newExtended = oldExtended.ToArray();
                 entry.CopyTo(newExtended, list.Bytes.Length);
                 AddPatch(patches, list.Begin, "tactical.area." + area + ".record.append", oldExtended, newExtended);
-                AddPatch(patches, list.Header + 8, "tactical.area." + area + ".end", BitConverter.GetBytes(list.End), BitConverter.GetBytes(list.End + RecordEntrySize));
+                targetEnd = list.End + RecordEntrySize;
             }
+            AddPatch(patches, list.Header + 8, "tactical.area." + area + ".end", BitConverter.GetBytes(list.End), BitConverter.GetBytes(targetEnd));
         }
 
         var maxShapes = shapes.Bytes.ToArray();
@@ -380,14 +383,15 @@ public static partial class LiveMemoryEditService
     private static ushort[]? ReadShapeIds(byte[] history)
     {
         ushort? inPossession = null, outPossession = null;
+        ushort inDay = 0, outDay = 0;
         for (var i = 0; i + HistoryEntrySize <= history.Length; i += HistoryEntrySize)
         {
             var area = history[i + 4];
             if (history[i + 8] != 1 || area is not (6 or 7)) continue;
             var day = BinaryPrimitives.ReadUInt16LittleEndian(history.AsSpan(i, 2));
             var id = BinaryPrimitives.ReadUInt16LittleEndian(history.AsSpan(i + 2, 2));
-            if (area == 6 && (!inPossession.HasValue || day >= inPossession.Value)) inPossession = id;
-            if (area == 7 && (!outPossession.HasValue || day >= outPossession.Value)) outPossession = id;
+            if (area == 6 && (!inPossession.HasValue || day >= inDay)) { inPossession = id; inDay = day; }
+            if (area == 7 && (!outPossession.HasValue || day >= outDay)) { outPossession = id; outDay = day; }
         }
         return inPossession.HasValue && outPossession.HasValue ? new[] { inPossession.Value, outPossession.Value } : null;
     }
