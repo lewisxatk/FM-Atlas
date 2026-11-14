@@ -1,9 +1,6 @@
 name: FM Atlas V8 — Windows Release Build
 
 on:
-  push:
-    branches:
-      - rebuild/v8-full-product-rebuild
   pull_request:
     branches:
       - fix/r7.2.0-release-build-integration
