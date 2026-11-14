@@ -146,12 +146,35 @@ public partial class MainWindow
             if (results.Count == 0) { MessageBox.Show(this, "Run a role search before exporting.", "Role Fit Lab"); return; }
             var dlg = new SaveFileDialog { Title = "Export Role Fit results", FileName = "FM-Atlas-role-fit.csv", Filter = "CSV files (*.csv)|*.csv" };
             if (dlg.ShowDialog(this) != true) return;
-            static string Q(string? value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
-            var sb = new StringBuilder("Player,Club,Age,Position,Atlas role fit / 20,Coverage,Attributes available,Attributes expected,CA,PA\r\n");
+
+            static string Q(string? value, bool protectFormula = true)
+            {
+                var text = value ?? "";
+                var trimmed = text.TrimStart();
+                if (protectFormula && trimmed.Length > 0 && trimmed[0] is '=' or '+' or '-' or '@')
+                    text = "'" + text;
+                return "\"" + text.Replace("\"", "\"\"") + "\"";
+            }
+
+            var sb = new StringBuilder("Player,Source ID,Club,Age,Position,Atlas role fit / 20,Coverage,Attributes available,Attributes expected,CA,PA\r\n");
             foreach (var item in results)
-                sb.AppendLine(string.Join(",", new[] { Q(item.Name), Q(item.Club), Q(item.Age?.ToString(CultureInfo.InvariantCulture)), Q(item.Position), Q(item.Score.ToString("0.00", CultureInfo.InvariantCulture)), Q(item.Coverage.ToString("P0", CultureInfo.InvariantCulture)), Q(item.AttributesAvailable.ToString(CultureInfo.InvariantCulture)), Q(item.AttributesExpected.ToString(CultureInfo.InvariantCulture)), Q(item.CurrentAbility?.ToString(CultureInfo.InvariantCulture)), Q(item.PotentialAbility?.ToString(CultureInfo.InvariantCulture)) }));
+            {
+                sb.AppendLine(string.Join(",", new[]
+                {
+                    Q(item.Name), Q(item.SourceId), Q(item.Club),
+                    Q(item.Age?.ToString(CultureInfo.InvariantCulture), false),
+                    Q(item.Position),
+                    Q(item.Score.ToString("0.00", CultureInfo.InvariantCulture), false),
+                    Q(item.Coverage.ToString("P0", CultureInfo.InvariantCulture), false),
+                    Q(item.AttributesAvailable.ToString(CultureInfo.InvariantCulture), false),
+                    Q(item.AttributesExpected.ToString(CultureInfo.InvariantCulture), false),
+                    Q(item.CurrentAbility?.ToString(CultureInfo.InvariantCulture), false),
+                    Q(item.PotentialAbility?.ToString(CultureInfo.InvariantCulture), false)
+                }));
+            }
+
             File.WriteAllText(dlg.FileName, sb.ToString(), new UTF8Encoding(true));
-            status.Text = $"Exported {results.Count:N0} role-fit rows.";
+            status.Text = $"Exported {results.Count:N0} role-fit rows with source IDs and attribute coverage.";
         }
 
         return root;
