@@ -1,6 +1,6 @@
 # FM Atlas — FM27 Live Editor Test Plan
 
-Build acceptance for branch `feature/fm27-editor-diagnostics-v11` (V11 diagnostics update).
+Build acceptance for branch `feature/v9-all-roadmap` (V11 live editor diagnostics update).
 
 ## Session opt-in and editor controls
 
@@ -12,10 +12,10 @@ Build acceptance for branch `feature/fm27-editor-diagnostics-v11` (V11 diagnosti
 
 ## Build that this plan refers to
 
-- Workflow: https://github.com/lewisxatk/FM-Atlas/actions/runs/43637701548
-- Code commit: `8a1e87cf6928943aaaa7d5231c92b86992030a09`
-- Artifact: `FM-Atlas-V11-win-x64`
-- Previous activation build result: Windows Release build succeeded; xUnit regression suite passed (168 tests); self-contained Windows x64 publish and artifact upload succeeded. The diagnostics update must pass its own workflow before distribution.
+- Workflow: https://github.com/lewisxatk/FM-Atlas/actions/runs/43644586625 (run #721; pending at the time this plan was updated)
+- Code commit: `6eaddcb428ca3eeac859ffbf036aae864393934f`
+- Artifact: `FM-Atlas-V11-win-x64` (publish/upload are conditional on this exact workflow succeeding)
+- Previous activation build passed its Windows Release build, xUnit suite (168 tests), self-contained x64 publish and artifact upload. That result does not validate the newer diagnostics commit.
 
 ## Automated safety regressions in the activation branch
 
