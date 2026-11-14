@@ -1239,13 +1239,13 @@ public sealed class ScoutDatabase
 
 
 
-    public async Task<FmsaveImportResult> ImportFmsaveSnapshotAsync(string jsonPath)
+    public async Task<FmsaveImportResult> ImportFmsaveSnapshotAsync(string jsonPath, CancellationToken cancellationToken = default, IProgress<string>? progress = null)
     {
-        await WriteGate.WaitAsync().ConfigureAwait(false);
+        await WriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
         await using var documentStream = File.OpenRead(jsonPath);
-        using var document = await JsonDocument.ParseAsync(documentStream, new JsonDocumentOptions { MaxDepth = 128 });
+        using var document = await JsonDocument.ParseAsync(documentStream, new JsonDocumentOptions { MaxDepth = 128 }, cancellationToken);
         var root = document.RootElement;
         if (GetString(root, "schema") != "fmatlas.fmsave.snapshot.v1")
             throw new InvalidDataException("This is not an FM Atlas fmsave snapshot. Re-export the save using tools/Export-FMAtlas-Fmsave.py.");
@@ -1298,8 +1298,14 @@ public sealed class ScoutDatabase
         attributeInsert.Parameters.Add("$id", SqliteType.Text); attributeInsert.Parameters.Add("$name", SqliteType.Text); attributeInsert.Parameters.Add("$category", SqliteType.Text); attributeInsert.Parameters.Add("$value", SqliteType.Real); attributeInsert.Parameters.Add("$utc", SqliteType.Text);
         playerUpsert.Prepare(); rawPlayer.Prepare(); attributeInsert.Prepare();
         var playerCount = 0;
+        var scannedPlayers = 0;
         foreach (var player in players)
         {
+            if ((scannedPlayers++ % 250) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report($"Indexing player records: {scannedPlayers:N0} / {players.Count:N0}");
+            }
             if (player.ValueKind != JsonValueKind.Object) continue;
             var saveUid = GetString(player, "uid") ?? GetString(player, "id");
             var persistentUid = GetString(player, "unique_id") ?? saveUid;
@@ -1357,8 +1363,14 @@ public sealed class ScoutDatabase
         staffInsert.CommandText = "INSERT OR REPLACE INTO FmsaveStaffDirectory(SnapshotId,StaffUid,Name,ClubName,JobTitle,Age,Nation,RawJson) VALUES($snapshot,$uid,$name,$club,$job,$age,$nation,$raw);";
         staffInsert.Parameters.AddWithValue("$snapshot", snapshotId); staffInsert.Parameters.Add("$uid", SqliteType.Text); staffInsert.Parameters.Add("$name", SqliteType.Text); staffInsert.Parameters.Add("$club", SqliteType.Text); staffInsert.Parameters.Add("$job", SqliteType.Text); staffInsert.Parameters.Add("$age", SqliteType.Integer); staffInsert.Parameters.Add("$nation", SqliteType.Text); staffInsert.Parameters.Add("$raw", SqliteType.Text);
         var staffCount = 0;
+        var scannedStaff = 0;
         foreach (var item in staff.Where(x => x.ValueKind == JsonValueKind.Object))
         {
+            if ((scannedStaff++ % 250) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report($"Indexing staff records: {scannedStaff:N0} / {staff.Count:N0}");
+            }
             var uid = GetString(item, "uid") ?? GetString(item, "unique_id") ?? GetString(item, "id");
             var name = GetString(item, "name"); if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(name)) continue;
             staffInsert.Parameters["$uid"].Value = uid; staffInsert.Parameters["$name"].Value = name;
@@ -1371,8 +1383,14 @@ public sealed class ScoutDatabase
         clubInsert.CommandText = "INSERT OR REPLACE INTO FmsaveClubDirectory(SnapshotId,ClubUid,Name,Nation,RawJson) VALUES($snapshot,$uid,$name,$nation,$raw);";
         clubInsert.Parameters.AddWithValue("$snapshot", snapshotId); clubInsert.Parameters.Add("$uid", SqliteType.Text); clubInsert.Parameters.Add("$name", SqliteType.Text); clubInsert.Parameters.Add("$nation", SqliteType.Text); clubInsert.Parameters.Add("$raw", SqliteType.Text);
         var clubCount = 0;
+        var scannedClubs = 0;
         foreach (var item in clubs.Where(x => x.ValueKind == JsonValueKind.Object))
         {
+            if ((scannedClubs++ % 250) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report($"Indexing club records: {scannedClubs:N0} / {clubs.Count:N0}");
+            }
             var uid = GetString(item, "uid") ?? GetString(item, "club_uid") ?? GetString(item, "unique_id") ?? GetString(item, "id");
             var name = GetString(item, "name") ?? GetString(item, "club_name"); if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(name)) continue;
             clubInsert.Parameters["$uid"].Value = uid; clubInsert.Parameters["$name"].Value = name;
@@ -1393,8 +1411,12 @@ public sealed class ScoutDatabase
         var extraCount = 0; var statFactCount = 0;
         foreach (var tableName in extraNames)
         {
-            foreach (var (row, index) in GetArray(root, tableName).Select((r,i)=>(r,i)))
+            cancellationToken.ThrowIfCancellationRequested();
+            var tableRows = GetArray(root, tableName);
+            progress?.Report($"Indexing {tableName}: {tableRows.GetArrayLength():N0} rows");
+            foreach (var (row, index) in tableRows.EnumerateArray().Select((r,i)=>(r,i)))
             {
+                if ((extraCount % 500) == 0) cancellationToken.ThrowIfCancellationRequested();
                 var rawJson = row.GetRawText();
                 extraInsert.Parameters["$table"].Value = tableName; extraInsert.Parameters["$index"].Value = index; extraInsert.Parameters["$raw"].Value = rawJson;
                 await extraInsert.ExecuteNonQueryAsync(); extraCount++;
@@ -1426,7 +1448,10 @@ public sealed class ScoutDatabase
         var finish = db.CreateCommand(); finish.Transaction = (SqliteTransaction)tx;
         finish.CommandText = "UPDATE FmsaveImportRuns SET PlayersImported=$players,StaffImported=$staff,ClubsImported=$clubs,ExtraRowsImported=$extra WHERE SnapshotId=$id;";
         finish.Parameters.AddWithValue("$players", playerCount); finish.Parameters.AddWithValue("$staff", staffCount); finish.Parameters.AddWithValue("$clubs", clubCount); finish.Parameters.AddWithValue("$extra", extraCount); finish.Parameters.AddWithValue("$id", snapshotId);
-        await finish.ExecuteNonQueryAsync(); await tx.CommitAsync().ConfigureAwait(false);
+        await finish.ExecuteNonQueryAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report("Validating and committing the new career snapshot…");
+        await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
         AtlasLog.Info($"FMSave snapshot indexed: snapshot={snapshotId}; playerStatFacts={statFactCount}; rawExtraRows={extraCount}.");
         return new FmsaveImportResult(snapshotId, playerCount, staffCount, clubCount, extraCount, tableCounts, warnings);
     
