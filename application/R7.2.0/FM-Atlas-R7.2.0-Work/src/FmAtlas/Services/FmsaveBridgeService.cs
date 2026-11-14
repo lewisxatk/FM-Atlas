@@ -4,7 +4,7 @@ using System.Text;
 
 namespace FmAtlas.Services;
 
-public sealed record FmsaveBridgeResult(string OutputJsonPath, string StandardOutput, string StandardError);
+public sealed record FmsaveBridgeResult(string OutputPath, string StandardOutput, string StandardError);
 
 /// <summary>Optional local-only adapter to the MIT-licensed fmsave Python package.</summary>
 public static class FmsaveBridgeService
@@ -36,7 +36,7 @@ public static class FmsaveBridgeService
         }
         var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas", "imports");
         Directory.CreateDirectory(folder);
-        var output = Path.Combine(folder, $"fmsave-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.json");
+        var output = Path.Combine(folder, $"fmsave-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}");
         var start = new ProcessStartInfo("py") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         start.ArgumentList.Add("-3"); start.ArgumentList.Add(script); start.ArgumentList.Add(savePath); start.ArgumentList.Add(output);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start Python Launcher (py.exe).");
@@ -61,7 +61,7 @@ public static class FmsaveBridgeService
         {
             try { process.Kill(entireProcessTree: true); } catch { }
             try { await Task.WhenAll(stdoutTask, stderrTask); } catch { }
-            try { if (File.Exists(output)) File.Delete(output); } catch { /* Best-effort cleanup of a partial career export. */ }
+            try { if (Directory.Exists(output)) Directory.Delete(output, recursive: true); } catch { /* Best-effort cleanup of a partial career export. */ }
             if (!cancellationToken.IsCancellationRequested)
                 throw new TimeoutException("The save reader exceeded the 30-minute safety timeout.");
             throw;
@@ -71,12 +71,13 @@ public static class FmsaveBridgeService
         var stderr = stderrBuffer.ToString();
         if (process.ExitCode != 0)
         {
-            try { if (File.Exists(output)) File.Delete(output); } catch { /* Best-effort cleanup of failed export output. */ }
+            try { if (Directory.Exists(output)) Directory.Delete(output, recursive: true); } catch { /* Best-effort cleanup of failed export output. */ }
             throw new InvalidOperationException($"The fmsave adapter failed (exit code {process.ExitCode}).\n{stderr}\n{stdout}".Trim());
         }
-        if (!File.Exists(output) || new FileInfo(output).Length < 32)
+        var manifest = Path.Combine(output, "manifest.json");
+        if (!Directory.Exists(output) || !File.Exists(manifest) || new FileInfo(manifest).Length < 32)
         {
-            try { if (File.Exists(output)) File.Delete(output); } catch { /* Best-effort cleanup of invalid export output. */ }
+            try { if (Directory.Exists(output)) Directory.Delete(output, recursive: true); } catch { /* Best-effort cleanup of invalid export output. */ }
             throw new InvalidDataException("The fmsave adapter finished without creating a valid snapshot file.");
         }
         return new FmsaveBridgeResult(output, stdout, stderr);
