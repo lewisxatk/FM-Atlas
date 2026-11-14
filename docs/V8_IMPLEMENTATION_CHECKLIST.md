@@ -17,7 +17,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - Working branch: `rebuild/v8-full-product-rebuild`
 - Product baseline: imported R7.2.0 WPF/.NET 8 source.
 - Target: Windows 10/11 desktop, FM27 first; FM26 only where evidence supports it.
-- Design: Atlas Liquid — Glass Dark, Glass Light, Studio.
+- Design: Monolith Glass primary appearance — graphite/charcoal surfaces, warm orange accents and translucent glass controls; Glass Dark, Glass Light and Studio remain available.
 - User testing: deliberately deferred until a coherent integrated milestone exists.
 
 ## 0. Preservation, recovery and delivery controls
@@ -36,18 +36,18 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [x] Initial Atlas Liquid application resource palette and shared tooltip styling committed.
 - [x] Initial glass top toolbar, side navigation, collapsible navigation and contextual hover descriptions committed.
-- [x] Initial Glass Dark / Glass Light / Studio theme selector and persisted preference committed.
+- [x] Monolith Glass is the first-run default, with graphite/charcoal surfaces, restrained orange accents and persisted theme preference; Glass Dark, Glass Light and Studio remain selectable.
+- [x] Top toolbar connect action refreshes a supported FM27 career; automatic detection remains active independently of the manual refresh action.
 - [x] Ctrl+K search shortcut wired to existing global search.
-- [x] Live-memory scan action disabled in the new shell.
 - [~] Reusable shared button states are implemented for default, hover, pressed, keyboard focus and disabled; selected navigation is styled. Busy-state templates remain outstanding.
 - [x] Add automation names/help text and keyboard focus support to icon-only toolbar controls.
 - [ ] Verify hover/focus tooltips are accurate, readable and stable on every toolbar/navigation action.
-- [~] Initial legacy palette mapping to Atlas Liquid blue/neutral tones is in place; complete token migration and remove hard-coded remnants.
+- [~] Monolith Glass token mapping and principal navigation/glass surfaces are implemented; remaining hard-coded colours, dialog coverage and high-contrast refinements remain open.
 - [ ] Apply consistent Atlas Liquid surfaces to dialogs, tabs, filters, grids, charts and empty/loading/error states.
 - [~] Workspace fade-in honours the Windows client-area animation preference; an in-app Reduce Motion setting and full high-contrast pass remain outstanding.
 - [~] A 150 ms system-aware workspace fade-in is implemented; chart transitions and broader interaction motion remain outstanding.
 - [ ] Build and manually review shell at 100%, 125%, 150% Windows display scaling and common laptop/desktop resolutions.
-- [ ] Validate Glass Light, Glass Dark and Studio visually and functionally.
+- [ ] Validate Monolith Glass, Glass Light, Glass Dark and Studio visually and functionally at 100%, 125% and 150% DPI.
 
 ## 2. Navigation, responsiveness and app architecture
 
@@ -61,15 +61,22 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 3. Football Manager stability and live-memory safety
 
-- [x] Full live-memory scan is disabled behind a V8 code safety gate.
-- [x] Existing live CA/PA and attribute Apply buttons are blocked behind a separate V8 safety gate.
-- [ ] Confirm no startup timer, background service or navigation path invokes the full live scan.
-- [ ] Profile memory/CPU usage with FM closed, FM open at menus and FM during a match.
-- [ ] Design a bounded, cancellable live discovery process with conservative read budgets, pause/resume and progress.
-- [ ] Re-enable live discovery only after stability tests demonstrate no material FM slowdown/crashing.
-- [ ] Verify every decoded field against in-game UI and an independent source before promoting mapping confidence.
-- [ ] Keep live editing disabled until mapping, identity, read-back, rollback and build fingerprint checks are independently validated.
-- [ ] Add a clearly explained capability/status matrix for read-only, provisional and write-supported fields.
+- [x] Add exact PE-fingerprint process detection for supported Windows FM27 Steam and Game Pass builds; unknown builds and duplicate supported processes fail closed.
+- [x] Add read-only GAME_UI save-load generation detection. A career connection is keyed by process, build profile and the in-game load counter, not by a remembered save-file path.
+- [x] Start automatic career detection on application load; the monitor probes every three seconds and reconnects when a different save generation is observed.
+- [x] Replace the legacy broad process-memory scan with profile-bounded reads of the documented player, staff and club entity arrays. No full-address-space scan is invoked by the automatic connector.
+- [x] Check the save-load generation before and after extraction; discard the partial snapshot if FM changes career while Atlas is reading.
+- [x] Retry a transient automatic extraction failure for the same career after a 30-second cooldown instead of treating the first failure as a permanent attempt.
+- [x] Persist the read-only player, staff and club snapshot; capture the uniquely identified human manager and their club/nation context with the same save-load counter.
+- [x] Surface the existing player and staff records in the searchable Players/Staff directories. Live player CA/PA, mapped standard attributes and positions remain explicitly provisional until an in-game UI witness is recorded.
+- [x] Fix live player search to resolve ability.current_ability and ability.potential_ability, including profile-matched provisional values and negative PA ranges, for display and CA/PA filtering.
+- [x] Display provisional live position ratings on the player profile with an explicit source-confidence warning.
+- [x] Bind My Manager / My Club shortcuts to the currently detected save-load generation; do not display a previous career's manager as current when FM closes or changes career.
+- [x] Keep live CA/PA/attribute Apply and live editing disabled. The automatic connector is read-only.
+- [ ] Run the newly added live-career database/search regression tests in the current Windows workflow.
+- [ ] Compare player/staff CA/PA, key player attributes/positions, manager identity, nation and club against the current FM27 UI on supported Steam and Game Pass builds.
+- [ ] Profile memory/CPU and FM responsiveness with FM closed, at menus and during a match; verify save switch, save close, game restart and duplicate-process behaviour.
+- [ ] Add a user-visible capability/status matrix for read-only, provisional and write-supported fields; maintain write gates until mapping, identity, read-back and rollback are independently validated.
 
 ## 4. Save import, data provenance and database reliability
 
@@ -90,6 +97,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 5. Player discovery and advanced search
 
+- [x] Main Players directory retains fast name/club/nation/UID lookup, position filtering, paged/virtualized results and player-profile opening; live player CA/PA values are now surfaced by database search, including explicit provisional field status.
 - [~] Existing player results are indexed/paged in source; cancellation and full stable sorting still require validation and implementation.
 - [x] Add a unified Advanced Search workspace combining core player fields, dynamically discovered PlayerAttributes and latest-save facts in one field/category builder.
 - [x] Add a Cancel search action with cancellation propagated through SQLite and last successful result-page retention.
@@ -101,7 +109,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [~] Advanced Search now uses the same 15-position catalogue in a dedicated editable position picker, retaining the legacy ST alias and arbitrary source-specific text entry; database regression coverage includes Sweeper and STC. Awaiting Windows verification in the next combined run.
 - [~] Main Players workspace now shows league and Home-grown at club/nation as Yes/No/Unknown, retains the legacy ST alias beside canonical STC, and includes home-grown data when choosing the richest save/live row. Windows verification pending.
 - [x] Add source-backed Home-grown at club / Home-grown in nation Boolean criteria to Advanced Search, with Yes/No/Unknown result values and regression coverage proving missing NULL data matches neither Yes nor No.
-- [~] League, nationality and imported contract facts are available in the universal Advanced Search field library and covered by combined ALL/AND regression tests. Staff search remains separate until a source-backed staff-field map is validated.
+- [~] League, nationality and imported contract facts are available in the universal Advanced Search field library and covered by combined ALL/AND regression tests. Staff search remains a separate FMRTE-style Staff directory; live staff CA/PA, role, club, age, nation and human-manager status are shown with provisional source labels.
 - [x] Keep missing/undecoded values distinct from zero: numeric/attribute/fact predicates require a stored value, and nullable home-grown values match neither Yes nor No; result display retains Unknown where applicable.
 - [~] Add regression coverage for universal Advanced Search core fields, imported attributes, save facts, ALL/ANY logic, stable paging and the 60-condition guard. Broader mixed-field 40k+ dataset and full multi-sort validation remain outstanding.
 - [x] Four baseline Windows .NET integration tests passed on Actions run #168: valid NDJSON commit, manifest-count mismatch rollback, malformed extra-table rollback, and preservation of a previously committed snapshot.
@@ -109,7 +117,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 ## 6. Player profiles and development
 
-- [~] Add source-backed player profile tabs for Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence. Existing profile facts, dated snapshots, live validation warnings and source provenance are retained in their relevant tabs; Windows build and visual acceptance pending.
+- [~] Add source-backed player profile tabs for Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence. Live standard attributes already come from the live attribute index; provisional live position ratings now appear in the position map and source-fact list with a confidence warning. Windows build and visual acceptance pending.
 - [~] Add a source-backed five-axis profile radar and a multi-player category-average overlay in Player Comparison. The comparison radar only includes categories with valid imported 1–20 values for every player; Hidden and Personality groups are excluded and missing categories are not scored as zero. Top-six per-player Role Fit estimates include built-in and locally saved custom templates with the same coverage-aware scoring and an explicit custom label. Windows build and visual acceptance pending.
 - [~] Add dated CA/PA/value history from source player snapshots with source-file/import evidence; a chart appears only after two distinct in-game dates and does not project or interpolate missing values. Windows verification pending.
 - [~] Add longitudinal CA/PA trends only where at least two dated comparable save snapshots exist. Attribute-by-attribute history still requires a stable dated attribute snapshot source.
@@ -147,7 +155,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 - [~] Club profile includes linked squad size and source coverage, age bands, primary-position counts, average age/CA/PA, total player value, wage records/mean/total, home-grown Yes/No/Unknown, and staff only on exact save club-name matches. Currency/pay period and missing fields are not inferred. Windows verification pending.
 - [ ] Add formation builder, positional coverage, role-fit and age/payroll structure.
 - [ ] Add tactical/role analysis with in/out-of-possession distinctions where supported.
-- [ ] Add staff search, coaching-role fit and backroom gaps where supported.
+- [~] Staff directory search and selectable profiles are implemented for imported save/live staff; live CA/PA, nation, club, age, role and human-manager indicators are present. Full coaching-attribute coverage, coaching-role fit and backroom gap analysis remain open.
 - [~] Add a local shortlist recruitment pipeline with Identified, Monitoring, Scouting, Contact, Offer, Signed and Rejected stages; candidate notes are editable and retained locally. Existing databases add the Stage column in-place with an Identified default. Windows verification pending.
 - [ ] Add drag/drop formation interactions with keyboard alternatives and reduced-motion support.
 
@@ -176,7 +184,7 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 - [x] Restore and compile full solution using .NET 8 on a hosted Windows runner (GitHub Actions run #79, commit `18d32e2d`).
 - [~] All compiler errors have been fixed and the Release build passed on run #168. Removed twelve unused legacy fields, replaced compile-time live-memory `const false` gates with non-constant fail-closed properties, and wrapped deferred profile restoration in an explicit error handler (`c1f5c153`). Run #172 will check whether the known CS0162/CS0169/CS4014 warnings have reduced; any remaining warnings need a fresh review.
-- [~] Add unit tests for data mapping, identity joins, filter logic, calculations and validation. New Role Fit scoring and database-filter regression tests are committed; current Windows Actions result is pending.
+- [~] Add unit tests for data mapping, identity joins, filter logic, calculations and validation. Added live-career regression tests for provisional live player CA/PA/negative PA and attribute filters, human-manager search/profile facts, manager nation/club and save-load counter changes; current Windows Actions result is pending.
 - [ ] Add integration tests for import staging, rollback, SQLite contention, cancellation and retry.
 - [ ] Add performance benchmarks at 40k+ players, 28k+ clubs and large stats tables.
 - [ ] Record startup, navigation, query, profile-open and import timings against R7.2.0 baseline.
@@ -205,6 +213,10 @@ Implementation and verification are tracked separately. A feature can be impleme
 
 | Date (UTC) | Unit | Commit | Outcome / evidence |
 |---|---|---|---|
+| 2026-11-14 | Automatic live FM27 career connection | `576add49`, `db2dc265`, `b0af2a0f` | Added an exact-profile, read-only process monitor using the game's GAME_UI save-load counter; bounded player/staff/club array extraction; human-manager/staff identity, CA/PA, nation/club/role capture; and transactional persistence. The manager's source remains provisional until a real-career UI comparison. |
+| 2026-11-14 | Live player search/profile and career identity integration | `9fe85f22`, `dfb52634`, `9e964fc0` | Corrected field-key/status handling so provisional live CA/PA and negative PA ranges appear in player search and CA/PA/attribute filters. Added the current save-load counter to workspace metrics and displayed provisional live position ratings in player profiles with a confidence warning. |
+| 2026-11-14 | Monolith Glass primary theme and automatic reconnect safeguards | `9d302ca8`, `8439bc3a` | Added Monolith Glass as the first-run theme while preserving Glass Dark/Light/Studio; added 30-second retry after a transient scan failure; cleared old career status when FM closes; and bound My Manager/My Club shortcuts to the active session generation. |
+| 2026-11-14 | Live-career import/search regression fixtures | `ecfbc20e` | Added isolated SQLite tests for provisional live player CA/PA (including negative PA), CA/PA/attribute filters, live staff search/profile facts, manager nation/club and changing save-load generations. Windows CI and runtime results are pending. |
 | 2026-11-14 | Advanced Search CSV dialog namespace repair | `9185f34d` | Run #215 compiled the duplicate-sort repair but exposed CS0246 for SaveFileDialog; imported Microsoft.Win32 in the Advanced Search code-behind. Fresh Windows verification pending. |
 | 2026-11-14 | Similar-player hidden/personality exclusion regression | Pending CI | Extended the discovery integration fixture with Hidden and Personality rows for anchor and candidates; assertions prove similarity uses only source-backed footballing attributes and does not inflate the reference vector. Windows verification pending. |
 | 2026-11-14 | Advanced Search CSV row contract and safety tests | Pending CI | Moved the stable 16-column header and per-player CSV formatting into CsvExportSafety so export mapping can be regression-tested independently. Added assertions for source ID, formula injection, embedded commas, null/Unknown values and source units. Windows verification pending. |
