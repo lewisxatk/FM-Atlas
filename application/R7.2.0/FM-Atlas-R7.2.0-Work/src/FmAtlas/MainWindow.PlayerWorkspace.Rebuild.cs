@@ -26,7 +26,7 @@ public partial class MainWindow
         style.Setters.Add(new Setter(Control.WidthProperty, 158d));
         style.Setters.Add(new Setter(Control.MinHeightProperty, 42d));
         style.Setters.Add(new Setter(Control.MarginProperty, new Thickness(4, 4, 10, 4)));
-        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(11, 8)));
+        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(11, 8, 11, 8)));
         style.Setters.Add(new Setter(Control.BackgroundProperty,
             MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised)));
         style.Setters.Add(new Setter(Control.ForegroundProperty,
@@ -158,7 +158,7 @@ public partial class MainWindow
         // Profiles are restored into full-width record tabs after the pool is visible.
         var profilesToRestore = _openPlayerRecords.Values.ToList();
         if (profilesToRestore.Count > 0)
-            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
                 new Action(() => _ = RestoreOpenPlayerProfilesSafelyAsync(profilesToRestore)));
 
         await Task.CompletedTask;
