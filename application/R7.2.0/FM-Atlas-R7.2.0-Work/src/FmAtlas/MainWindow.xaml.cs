@@ -745,9 +745,79 @@ public partial class MainWindow : Window
         }
         if (root is ComboBox comboBox)
         {
-            comboBox.Background = Brush("#111316");
-            comboBox.Foreground = Brush("#EEE9E1");
-            comboBox.BorderBrush = Brush("#303943");
+            comboBox.Background = Brush("#090A0C");
+            comboBox.Foreground = Brush("#F08A42");
+            comboBox.BorderBrush = Brush("#6A3D25");
+            comboBox.CaretBrush = Brush("#F08A42");
+            comboBox.SelectionBrush = Brush("#6A3D25");
+            comboBox.SelectionTextBrush = Brush("#EEE9E1");
+            comboBox.ItemContainerStyle = new Style(typeof(ComboBoxItem))
+            {
+                Setters =
+                {
+                    new Setter(Control.BackgroundProperty, Brush("#111316")),
+                    new Setter(Control.ForegroundProperty, Brush("#F08A42")),
+                    new Setter(Control.BorderBrushProperty, Brush("#35383C")),
+                    new Setter(Control.PaddingProperty, new Thickness(8, 6, 8, 6))
+                },
+                Triggers =
+                {
+                    new Trigger
+                    {
+                        Property = ComboBoxItem.IsHighlightedProperty,
+                        Value = true,
+                        Setters =
+                        {
+                            new Setter(Control.BackgroundProperty, Brush("#352319")),
+                            new Setter(Control.ForegroundProperty, Brush("#F2A36C"))
+                        }
+                    },
+                    new Trigger
+                    {
+                        Property = ComboBoxItem.IsSelectedProperty,
+                        Value = true,
+                        Setters =
+                        {
+                            new Setter(Control.BackgroundProperty, Brush("#483022")),
+                            new Setter(Control.ForegroundProperty, Brush("#F08A42"))
+                        }
+                    }
+                }
+            };
+        }
+        if (root is ComboBoxItem comboItem)
+        {
+            comboItem.Background = Brush("#111316");
+            comboItem.Foreground = Brush("#F08A42");
+        }
+        if (root is CheckBox checkBox)
+        {
+            checkBox.Foreground = Brush("#F08A42");
+        }
+        if (root is DataGrid dataGrid)
+        {
+            dataGrid.Background = Brush("#090A0C");
+            dataGrid.Foreground = Brush("#EEE9E1");
+            dataGrid.RowBackground = Brush("#111316");
+            dataGrid.AlternatingRowBackground = Brush("#17191C");
+            dataGrid.BorderBrush = Brush("#6A3D25");
+            dataGrid.ColumnHeaderStyle = new Style(typeof(DataGridColumnHeader))
+            {
+                Setters =
+                {
+                    new Setter(Control.BackgroundProperty, Brush("#111316")),
+                    new Setter(Control.ForegroundProperty, Brush("#F08A42")),
+                    new Setter(Control.BorderBrushProperty, Brush("#6A3D25")),
+                    new Setter(Control.PaddingProperty, new Thickness(8, 7, 8, 7)),
+                    new Setter(Control.FontWeightProperty, FontWeights.SemiBold)
+                }
+            };
+        }
+        if (root is DataGridCell cell)
+        {
+            cell.Background = Brush("#111316");
+            cell.Foreground = Brush("#EEE9E1");
+            cell.BorderBrush = Brush("#292C30");
         }
         if (root is not Visual) return;
         var count = VisualTreeHelper.GetChildrenCount(root);
@@ -4692,19 +4762,19 @@ public partial class MainWindow : Window
         => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
 
     private static TextBox Input(string placeholder)
-        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#FBFDFF"), Foreground = Brush("#1A3851"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 12 };
+        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#090A0C"), Foreground = Brush("#F08A42"), CaretBrush = Brush("#F08A42"), BorderBrush = Brush("#6A3D25"), BorderThickness = new Thickness(1), FontSize = 12, SelectionBrush = Brush("#6A3D25"), SelectionTextBrush = Brush("#EEE9E1") };
 
     private static TextBlock FieldLabel(string label) => Txt(label, 9, true, Muted);
 
     private static Button SoftButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(13, 8, 13, 8), Margin = new Thickness(3), Background = Brush("#EFF5FA"), Foreground = Brush("#365F83"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button { Content = content, Padding = new Thickness(13, 8, 13, 8), Margin = new Thickness(3), Background = Brush("#111316"), Foreground = Brush("#F08A42"), BorderBrush = Brush("#6A3D25"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
         button.Click += click; return button;
     }
 
     private static Button PrimaryButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#2D75B6"), Foreground = Brush("#0D1117"), BorderBrush = Brush("#C6F36B"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#F08A42"), Foreground = Brush("#090A0C"), BorderBrush = Brush("#F08A42"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.Bold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
         button.Click += click; return button;
     }
 
