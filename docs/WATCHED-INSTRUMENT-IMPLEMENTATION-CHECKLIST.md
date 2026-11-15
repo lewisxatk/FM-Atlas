@@ -148,12 +148,14 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 - [x] Commit `0201ee1`: Advanced Search position familiarity is now presented on a horizontal football pitch, with editable 0–20 ratings at each of the 15 supported FM position points. Existing ALL/ANY and exact/at-least filter behaviour is retained.
 - [x] Commit `2b3607f`: Global Quick Search now has an explicit All types / Players / Staff / Clubs selector. Selecting Staff or Clubs focuses the corresponding results and disables player-only numeric filters instead of silently applying them to other entity types.
 - [x] Commit `ea9366f`: initialize the scope selector after the result tabs are created.
+- [x] Commit `1218127`: use explicit pitch-marking element references for predictable WPF placement.
+- [x] Commit `254ff7a`: keep the pitch at a readable native size and use horizontal scrolling on narrower windows instead of shrinking labels and rating inputs.
 - [ ] Fresh Windows .NET 8 Release build, automated tests and self-contained publish for these commits.
 - [ ] Visual acceptance of the pitch layout at 100%, 125% and 150% DPI, including smaller laptop windows.
 - [ ] Build the full Staff and Club advanced field catalogues and their independent condition builders. The new scope picker is not a claim of full FMRTE Staff/Club filter parity.
 - [ ] Continue the full-width Staff/Club record-tab migration and shared workspace-tab host.
 
-**Current code checkpoint:** `rebuild/watched-earth-fmrte-ui` at `ea9366f89331a6c878d72cf75c074ac4edcd58c7`. Draft PR #8 remains unmerged and is the isolated UI rebuild line. No new Windows validation result has been recorded for this head.
+**Current code checkpoint:** `rebuild/watched-earth-fmrte-ui` at `254ff7a90b8d87e9e115100756a4d6a4e84c66ba`. Draft PR #8 remains unmerged and is the isolated UI rebuild line. No new Windows validation result has been recorded for this head.
 
 
 ## Branch preservation note
