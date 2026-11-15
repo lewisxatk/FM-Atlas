@@ -3944,7 +3944,8 @@ public sealed partial class ScoutDatabase
         factCommand.CommandText = """
             SELECT FactGroup,FieldKey,
                    MAX(CASE WHEN NumericValue IS NOT NULL THEN 1 ELSE 0 END),
-                   MAX(CASE WHEN TextValue IS NOT NULL THEN 1 ELSE 0 END)
+                   MAX(CASE WHEN TextValue IS NOT NULL THEN 1 ELSE 0 END),
+                   MAX(CASE WHEN lower(COALESCE(TextValue,'')) IN ('true','false') THEN 1 ELSE 0 END)
             FROM FmsavePlayerFacts
             WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
             GROUP BY FactGroup,FieldKey
@@ -3963,6 +3964,8 @@ public sealed partial class ScoutDatabase
                     || group.Equals("accomplished_positions", StringComparison.OrdinalIgnoreCase))
                     continue;
                 var hasNumeric = reader.GetInt32(2) == 1;
+                var hasText = reader.GetInt32(3) == 1;
+                var hasBoolean = reader.GetInt32(4) == 1 && !hasNumeric && !hasText;
                 var category = group switch
                 {
                     "contract" => "Contract",
@@ -3974,7 +3977,9 @@ public sealed partial class ScoutDatabase
                     "raw_attributes" => "Raw attributes",
                     _ => HumanizeMetric(group)
                 };
-                var fieldType = hasNumeric ? AdvancedSearchFieldType.Number : AdvancedSearchFieldType.Text;
+                var fieldType = hasNumeric ? AdvancedSearchFieldType.Number
+                    : hasBoolean ? AdvancedSearchFieldType.Boolean
+                    : AdvancedSearchFieldType.Text;
                 fields.Add(new AdvancedSearchField("fact:" + group + ":" + key, HumanizeMetric(key), category, fieldType, "FmsavePlayerFacts"));
             }
         }
@@ -4089,6 +4094,12 @@ public sealed partial class ScoutDatabase
                     predicates.Add($"EXISTS (SELECT 1 FROM FmsavePlayerFacts f{index} WHERE f{index}.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND f{index}.PlayerSourceId=p.SourceId AND f{index}.FactGroup=$group{index} AND f{index}.FieldKey=$fact{index} AND f{index}.NumericValue IS NOT NULL AND ($min{index} IS NULL OR f{index}.NumericValue >= $min{index}) AND ($max{index} IS NULL OR f{index}.NumericValue <= $max{index}))");
                     cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
                     cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
+                }
+                else if (criterion.BooleanValue.HasValue)
+                {
+                    predicates.Add($"EXISTS (SELECT 1 FROM FmsavePlayerFacts f{index} WHERE f{index}.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND f{index}.PlayerSourceId=p.SourceId AND f{index}.FactGroup=$group{index} AND f{index}.FieldKey=$fact{index} AND (lower(COALESCE(f{index}.TextValue,''))=$bool{index} OR f{index}.NumericValue=$boolNumeric{index}))");
+                    cmd.Parameters.AddWithValue("$bool" + index, criterion.BooleanValue.Value ? "true" : "false");
+                    cmd.Parameters.AddWithValue("$boolNumeric" + index, criterion.BooleanValue.Value ? 1 : 0);
                 }
                 else if (!string.IsNullOrWhiteSpace(criterion.TextValue))
                 {
