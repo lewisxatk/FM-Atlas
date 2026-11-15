@@ -111,12 +111,10 @@ public partial class MainWindow
         actions.Children.Add(MonolithDesignSystem.ActionButton("ADVANCED", async (_, _) => await NavigateAsync("Advanced Search")));
         actions.Children.Add(ToolbarIcon("\\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
         actions.Children.Add(ToolbarIcon("\\uE823", "Activity Centre — current scan/import progress, elapsed time and cancellation.", (_, _) => ShowActivityCenter()));
-        actions.Children.Add(ToolbarIcon("\\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
         _liveLoadButton = ToolbarIcon("\\uE72C", "Connect to or refresh the currently loaded supported FM27 career.", async (_, _) => await LoadLiveCareerAsync());
         _liveLoadButton.IsEnabled = true;
         actions.Children.Add(_liveLoadButton);
         actions.Children.Add(ToolbarIcon("\\uE713", "Current appearance: " + _themeMode + ". Click to cycle appearance modes.", async (_, _) => await CycleThemeAsync()));
-        actions.Children.Add(ToolbarIcon("\\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
 
         _cancelImportButton = ToolbarIcon("\\uE711", "Cancel the active live scan or offline save import at a safe checkpoint.", (_, _) =>
         {
@@ -131,18 +129,12 @@ public partial class MainWindow
         });
         _cancelImportButton.IsEnabled = _saveImportCancellation is not null || _liveScanCancellation is not null;
         _cancelImportButton.Visibility = _cancelImportButton.IsEnabled ? Visibility.Visible : Visibility.Collapsed;
-        actions.Children.Add(_cancelImportButton);
         Grid.SetColumn(actions, 2);
         toolbarGrid.Children.Add(actions);
 
         var toolbarSurface = new Border
         {
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb(232, 42, 45, 51), 0),
-                    new GradientStop(Color.FromArgb(218, 20, 25, 31), 1)
-                }, new Point(0, 0), new Point(0, 1)),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
             BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(11),
@@ -227,12 +219,22 @@ public partial class MainWindow
         Grid.SetColumn(operation, 1);
         statusGrid.Children.Add(operation);
 
+        var footerRight = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        _cancelImportButton.MinWidth = 36;
+        _cancelImportButton.Height = 32;
+        footerRight.Children.Add(_cancelImportButton);
         var footerLabel = MonolithDesignSystem.DataText("FM ATLAS  /  LOCAL DATA", 9,
             MonolithDesignSystem.Solid(MonolithDesignSystem.Muted));
         footerLabel.VerticalAlignment = VerticalAlignment.Center;
-        footerLabel.HorizontalAlignment = HorizontalAlignment.Right;
-        Grid.SetColumn(footerLabel, 2);
-        statusGrid.Children.Add(footerLabel);
+        footerLabel.Margin = new Thickness(8, 0, 2, 0);
+        footerRight.Children.Add(footerLabel);
+        Grid.SetColumn(footerRight, 2);
+        statusGrid.Children.Add(footerRight);
 
         var footer = new Border
         {
