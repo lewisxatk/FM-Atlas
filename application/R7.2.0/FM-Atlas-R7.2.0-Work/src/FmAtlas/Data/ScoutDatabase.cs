@@ -24,7 +24,7 @@ public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int
 public sealed record FmTeamMatchMetric(string MatchDate, string CompetitionId, string HomeTeamId, string AwayTeamId, string MetricKey, double Value, bool FixtureMatched, string RawMatchJson, string? FixtureJson);
 public sealed record FmLeagueTableEntry(string? CompetitionId, string? CompetitionName, int? Position, string? ClubName, string? TeamId, int? Played, int? Won, int? Drawn, int? Lost, int? GoalsFor, int? GoalsAgainst, int? Points, string SourceJson);
 
-public sealed class ScoutDatabase
+public sealed partial class ScoutDatabase
 {
     private readonly string _connectionString;
     // All mutating operations across ScoutDatabase instances share one writer gate.
