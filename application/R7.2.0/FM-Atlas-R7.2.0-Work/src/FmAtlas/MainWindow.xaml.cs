@@ -2196,9 +2196,9 @@ public partial class MainWindow : Window
             {
                 if (!int.TryParse(profileCaInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ca) ||
                     !int.TryParse(profilePaInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pa) ||
-                    ca is < 0 or > 200 || pa is < 0 or > 200)
+                    ca is < 0 or > 200 || pa is < -10 or > 200)
                 {
-                    MessageBox.Show(this, "Enter CA and PA as whole numbers from 0 to 200.", "Profile editor");
+                    MessageBox.Show(this, "Enter CA from 0 to 200 and PA from -10 to 200 (negative PA values represent random-potential ranges).", "Profile editor");
                     return;
                 }
                 try
@@ -3840,8 +3840,8 @@ public partial class MainWindow : Window
         abilityRow.Children.Add(FieldLabel("CA")); abilityRow.Children.Add(caInput); abilityRow.Children.Add(FieldLabel("PA")); abilityRow.Children.Add(paInput);
         abilityRow.Children.Add(PrimaryButton("Save CA / PA locally", async (_, _) =>
         {
-            if (!int.TryParse(caInput.Text, out var ca) || !int.TryParse(paInput.Text, out var pa) || ca < 0 || ca > 200 || pa < 0 || pa > 200)
-            { MessageBox.Show(this, "Enter both CA and PA as whole numbers from 0 to 200.", "Local editor"); return; }
+            if (!int.TryParse(caInput.Text, out var ca) || !int.TryParse(paInput.Text, out var pa) || ca < 0 || ca > 200 || pa < -10 || pa > 200)
+            { MessageBox.Show(this, "Enter CA from 0 to 200 and PA from -10 to 200 (negative PA values represent random-potential ranges).", "Local editor"); return; }
             try
             {
                 await RunDatabaseAsync(() => _database.SaveLocalAbilitiesAsync(_selectedPlayer.SourceId, _selectedPlayer.Name, ca, pa));
@@ -3855,9 +3855,9 @@ public partial class MainWindow : Window
         }));
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            var liveAbilityApply = SoftButton("Live CA / PA Apply disabled in V8", (_, _) => { });
+            var liveAbilityApply = SoftButton("Live CA / PA is available in the live editor", (_, _) => { });
             liveAbilityApply.IsEnabled = false;
-            liveAbilityApply.ToolTip = "Live memory writes are hard-disabled. Save local changes to the FM Atlas database only.";
+            liveAbilityApply.ToolTip = "Open the live editor for staged, verified FM27 changes. This local button only saves Atlas data.";
             abilityRow.Children.Add(liveAbilityApply);
         }
         controls.Children.Add(abilityRow);
