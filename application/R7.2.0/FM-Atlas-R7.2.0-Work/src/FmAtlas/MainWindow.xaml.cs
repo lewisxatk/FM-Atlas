@@ -1328,8 +1328,8 @@ public partial class MainWindow : Window
             var scroll = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
             tab = new TabItem { Tag = player.SourceId, Content = scroll };
             var header = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            header.Children.Add(new TextBlock { Text = player.Name, FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = Brush("#F3F5F7"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 7, 0) });
-            var close = new Button { Content = "×", Width = 20, Height = 20, Padding = new Thickness(0), Margin = new Thickness(0, 0, 1, 0), Background = Brush("#2B333C"), Foreground = Brush("#F3F5F7"), BorderBrush = Brush("#46515C"), FontSize = 13, Cursor = Cursors.Hand, ToolTip = "Close player tab" };
+            header.Children.Add(new TextBlock { Text = player.Name, FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 7, 0) });
+            var close = new Button { Content = "×", Width = 20, Height = 20, Padding = new Thickness(0), Margin = new Thickness(0, 0, 1, 0), Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised), Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text), BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border), FontSize = 13, Cursor = Cursors.Hand, ToolTip = "Close player tab" };
             close.Click += (_, _) =>
             {
                 _openPlayerRecords.Remove(player.SourceId);
