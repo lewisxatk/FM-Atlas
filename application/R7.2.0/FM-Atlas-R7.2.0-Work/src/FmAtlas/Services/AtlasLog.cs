@@ -33,8 +33,8 @@ public static class AtlasLog
     {
         if (exception is null) { Write("ERROR", message); return; }
 
-        // Preserve the exception chain and WPF XAML line/position details. The old blanket
-        // quote-redaction hid the exact dependency-property name needed to diagnose startup.
+        // Preserve exception details and WPF XAML line/position, but keep normal identity
+        // redaction active for quoted player/manager names in application diagnostics.
         var details = new StringBuilder(message);
         for (Exception? current = exception; current is not null; current = current.InnerException)
         {
@@ -77,6 +77,10 @@ public static class AtlasLog
         // and standalone Football Manager save filenames before writing to the default support log.
         text = Regex.Replace(text, @"(?i)\b[A-Z]:\\[^\s""<>|]+", "[path redacted]");
         text = Regex.Replace(text, @"(?i)\b[^\\/\s]+\.(?:fm|fmf|dat)\b", "[save-file]");
+        // Keep entity identities out of default support logs without suppressing quoted XAML
+        // property names or dependency-property diagnostics.
+        text = Regex.Replace(text, @"(?i)(?:player|person|manager|staff|identity|name)\s*[:=]\s*'[^']*'", "$1='[redacted]'");
+        text = Regex.Replace(text, @"(?i)(?:reports?|belongs to|identified as)\s+'[^']*'", "$1 '[redacted]'");
         return text.Length > 12000 ? text[..12000] + "…" : text;
     }
 
