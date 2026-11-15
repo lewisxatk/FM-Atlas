@@ -61,6 +61,10 @@ Each entity has an independent field catalogue and condition builder.
 
 The field menus are source-discovered. They must only offer fields actually present in the latest imported save or current live field registry. The catalogue is not a claim that every possible internal FM27 memory field has been decoded.
 
+The live player scalar writer now includes CA, signed PA (including FM random-potential negative values), and all 52 player attributes. The five hidden attribute offsets are corroborated against the independent FM27 Game Pass 27.0.0+2493426 offset profile; its PE fingerprint matches Atlas's registered Game Pass profile (SizeOfImage 0x175DA000, timestamp 0x6AE563A1). The field writer still applies the same exact-build, UID/name, original-byte preflight, explicit session opt-in, read-back and rollback gates. A user must still verify the displayed values against their own in-game FM27 UI before relying on a specific build.
+
+The Home workspace exposes **Load Live Save** to connect to the career already loaded in Football Manager. **Save Career · In Progress** is intentionally not a fake save action: Atlas cannot invoke FM's native save command. After a successful live Apply, use Ctrl+S inside Football Manager to persist the changed memory to the career file. **Save Atlas** checkpoints Atlas-local data only.
+
 The live importer stores validation status and some values remain provisional. Do not present a field as verified solely because it can be read. Live-write safety gates remain unchanged; this UI update does not certify new memory offsets or authorize additional direct writes.
 
 Performance metrics in the separate Stats Search / Scouting Matrix remain their own data workflow. They must not be silently mixed into a player attribute criterion unless a field-specific query and unit/period semantics are implemented.
@@ -74,6 +78,8 @@ Performance metrics in the separate Stats Search / Scouting Matrix remain their 
 - Confirm dynamic field menus against a real FM27 save import.
 - Test numeric, text, boolean and ALL/ANY filters.
 - Test pitch ratings including zero, exact matching, At Least and Any of these.
+- Confirm CA, signed PA (including negative random-potential values), and all 52 live player attributes against the in-game FM27 UI on a disposable career copy.
+- Confirm live Apply/read-back/Undo, then save in FM and reload the disposable career to verify persistence.
 - Confirm saved player profiles still load with position criteria.
 - Confirm paging, sorting, record double-click and navigation.
 - Test 100% / 125% / 150% / 200% Windows DPI and smaller laptop display.
