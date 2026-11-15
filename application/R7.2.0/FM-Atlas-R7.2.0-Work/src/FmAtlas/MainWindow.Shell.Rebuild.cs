@@ -95,6 +95,20 @@ public partial class MainWindow
         System.Windows.Automation.AutomationProperties.SetName(_quickSearchBoxV9, "Quick Search players, staff and clubs");
         Grid.SetColumn(_quickSearchBoxV9, 1);
         quickSearchGrid.Children.Add(_quickSearchBoxV9);
+        var searchPlaceholder = MonolithDesignSystem.BodyText(
+            "Search players, staff, clubs or UID…", 13,
+            MonolithDesignSystem.Solid(MonolithDesignSystem.Muted));
+        searchPlaceholder.Margin = new Thickness(7, 0, 0, 0);
+        searchPlaceholder.IsHitTestVisible = false;
+        void RefreshQuickSearchPlaceholder()
+            => searchPlaceholder.Visibility = string.IsNullOrEmpty(_quickSearchBoxV9.Text)
+                && !_quickSearchBoxV9.IsKeyboardFocused ? Visibility.Visible : Visibility.Collapsed;
+        _quickSearchBoxV9.TextChanged += (_, _) => RefreshQuickSearchPlaceholder();
+        _quickSearchBoxV9.GotKeyboardFocus += (_, _) => RefreshQuickSearchPlaceholder();
+        _quickSearchBoxV9.LostKeyboardFocus += (_, _) => RefreshQuickSearchPlaceholder();
+        Grid.SetColumn(searchPlaceholder, 1);
+        quickSearchGrid.Children.Add(searchPlaceholder);
+        RefreshQuickSearchPlaceholder();
         var shortcut = MonolithDesignSystem.DataText("CTRL K", 9, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted));
         shortcut.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(shortcut, 2);
