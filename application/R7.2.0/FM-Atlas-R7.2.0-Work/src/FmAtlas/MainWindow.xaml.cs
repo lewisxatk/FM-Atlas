@@ -910,12 +910,13 @@ public partial class MainWindow : Window
         heroLeft.Children.Add(Txt("Your Football Manager intelligence workspace.", 25, true, Ink));
         heroLeft.Children.Add(Txt("Load an FM27 career and Atlas automatically indexes supported player, staff, club and manager identity data. The live scan is read-only, cancellable and limited to two minutes; offline save import adds historical and match data.", 11, false, Muted, wrap: true));
         heroGrid.Children.Add(heroLeft);
-        var heroActions = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Width = 185 };
-        heroActions.Children.Add(WhiteButton("Import career save", async (_, _) => await ImportCareerSaveAsync()));
-        var liveButton = new Button { Content = "Connect / Refresh career", Margin = new Thickness(3), Padding = new Thickness(12, 9, 12, 9), Foreground = Brush("#0D1117"), Background = Brush("#F08A42"), BorderBrush = Brush("#C86D34"), Template = RoundedButtonTemplate(12), FontWeight = FontWeights.SemiBold };
-        liveButton.ToolTip = "Connect to the current supported FM27 career or refresh the live index.";
+        var heroActions = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Width = 205 };
+        heroActions.Children.Add(WhiteButton("IMPORT SAVE COPY", async (_, _) => await ImportCareerSaveAsync()));
+        var liveButton = new Button { Content = "LOAD LIVE SAVE", Margin = new Thickness(3), Padding = new Thickness(12, 9, 12, 9), Foreground = Brush("#0D1117"), Background = Brush("#F08A42"), BorderBrush = Brush("#C86D34"), Template = RoundedButtonTemplate(0), FontWeight = FontWeights.SemiBold };
+        liveButton.ToolTip = "Connect to the currently loaded supported FM27 career. Open Football Manager and load your career first.";
         liveButton.Click += async (_, _) => await LoadLiveCareerAsync();
         heroActions.Children.Add(liveButton);
+        heroActions.Children.Add(SoftButton("SAVE CAREER · IN PROGRESS", (_, _) => ShowCareerSaveInProgress()));
         Grid.SetColumn(heroActions, 1);
         heroGrid.Children.Add(heroActions);
         root.Children.Add(Card(heroGrid, 23, new Thickness(0, 0, 0, 14)));
@@ -1310,6 +1311,10 @@ public partial class MainWindow : Window
         panel.Children.Add(Txt(
             "These values are read from the currently loaded FM27 career. Apply writes the selected, verified fields into the running game and reads each value back. Use a separate offline career copy for first testing, then save inside Football Manager to commit the changes to the career file.",
             9, false, Muted, wrap: true));
+        if (entityType == LiveEntityMemoryEditService.EntityKind.Player)
+            panel.Children.Add(Txt(
+                "PLAYER ATTRIBUTES · CA, PA and all 47 standard technical, mental, physical and goalkeeping attributes are in the supported live field catalogue. The five hidden attributes (Consistency, Important Matches, Injury Proneness, Dirtiness and Versatility) are IN PROGRESS and withheld from live writes until their FM27 offsets are independently witnessed.",
+                9, false, Muted, wrap: true));
 
         if (!_liveEditingEnabled)
         {
@@ -4419,6 +4424,16 @@ public partial class MainWindow : Window
             if (_liveLoadProgress is not null) { _liveLoadProgress.IsIndeterminate = false; _liveLoadProgress.Visibility = Visibility.Collapsed; }
             EndBackgroundOperation();
         }
+    }
+
+    private void ShowCareerSaveInProgress()
+    {
+        MessageBox.Show(this,
+            "SAVE CAREER · IN PROGRESS" + Environment.NewLine + Environment.NewLine
+            + "FM Atlas can connect to a supported live FM27 career and apply only its individually validated live fields. It does not yet invoke Football Manager's native Save Game command." + Environment.NewLine + Environment.NewLine
+            + "To persist a live edit, switch to Football Manager, press Ctrl+S and confirm the save dialog. Use a separate disposable career copy while testing." + Environment.NewLine + Environment.NewLine
+            + "The toolbar's Save Atlas action saves FM Atlas local data only; it does not save the Football Manager career.",
+            "FM Atlas · Save career", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private async Task ImportCareerSaveAsync()
