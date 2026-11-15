@@ -328,7 +328,7 @@ public sealed partial class ScoutDatabase
             FROM LiveClubFacts
             GROUP BY FieldKey;
             """;
-        await using (var reader = await live.ExecuteReaderAsync(cancellationToken: default).ConfigureAwait(false))
+        await using (var reader = await live.ExecuteReaderAsync().ConfigureAwait(false))
         {
             while (await reader.ReadAsync().ConfigureAwait(false))
             {
