@@ -28,8 +28,27 @@ public static class AtlasLog
 
     public static void Info(string message) => Write("INFO", message);
     public static void Warning(string message) => Write("WARN", message);
+
     public static void Error(string message, Exception? exception = null)
-        => Write("ERROR", exception is null ? message : message + " | " + exception.GetType().Name + ": " + exception.Message);
+    {
+        if (exception is null) { Write("ERROR", message); return; }
+
+        // Preserve the exception chain and WPF XAML line/position details. The old blanket
+        // quote-redaction hid the exact dependency-property name needed to diagnose startup.
+        var details = new StringBuilder(message);
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            details.Append(" | ").Append(current.GetType().FullName)
+                .Append(" (0x").Append(current.HResult.ToString("X8")).Append("): ")
+                .Append(current.Message);
+            if (current is System.Windows.Markup.XamlParseException xaml)
+                details.Append(" [XAML line ").Append(xaml.LineNumber)
+                    .Append(", position ").Append(xaml.LinePosition).Append(']');
+        }
+        if (!string.IsNullOrWhiteSpace(exception.StackTrace))
+            details.Append(" | stack: ").Append(exception.StackTrace);
+        Write("ERROR", details.ToString());
+    }
 
     /// <summary>Applies the same privacy rules used by the rolling support log.</summary>
     public static string RedactForSupport(string value) => Redact(value);
@@ -58,10 +77,7 @@ public static class AtlasLog
         // and standalone Football Manager save filenames before writing to the default support log.
         text = Regex.Replace(text, @"(?i)\b[A-Z]:\\[^\s""<>|]+", "[path redacted]");
         text = Regex.Replace(text, @"(?i)\b[^\\/\s]+\.(?:fm|fmf|dat)\b", "[save-file]");
-        // Identity-conflict diagnostics can contain actual and expected person names.
-        // Quoted values are not needed to diagnose the failure; omit them from support logs.
-        text = Regex.Replace(text, @"'[^']*'", "'[redacted]'");
-        return text.Length > 4000 ? text[..4000] + "…" : text;
+        return text.Length > 12000 ? text[..12000] + "…" : text;
     }
 
     private static void RotateIfNeeded()
