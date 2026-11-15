@@ -120,7 +120,7 @@ public partial class MainWindow
             else field.SelectedIndex = 0;
             if (minValue.HasValue) min.Text = minValue.Value.ToString(CultureInfo.InvariantCulture);
             if (maxValue.HasValue) max.Text = maxValue.Value.ToString(CultureInfo.InvariantCulture);
-            var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
+            var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(ThemeRadius(8)), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
             var remove = SoftButton("×", (_, _) => { filterPanel.Children.Remove(container); filterRows.RemoveAll(x => x.Container == container); });
             remove.Width = 35; remove.Height = 34; remove.Margin = new Thickness(0);
             var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 0) };
@@ -325,7 +325,7 @@ public partial class MainWindow
             if (field.SelectedIndex < 0) field.SelectedIndex = 0;
             var min = Input("Min 1–20"); min.Width = 88; min.Height = 34; min.Text = minimum?.ToString(CultureInfo.InvariantCulture) ?? ""; min.Margin = new Thickness(0, 0, 7, 0);
             var max = Input("Max 1–20"); max.Width = 88; max.Height = 34; max.Text = maximum?.ToString(CultureInfo.InvariantCulture) ?? ""; max.Margin = new Thickness(0, 0, 7, 0);
-            var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
+            var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(ThemeRadius(8)), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
             var row = new StackPanel { Orientation = Orientation.Horizontal }; row.Children.Add(field); row.Children.Add(min); row.Children.Add(max);
             var remove = SoftButton("×", (_, _) => { filterPanel.Children.Remove(container); filterRows.RemoveAll(x => x.Container == container); }); remove.Width = 35; remove.Height = 34; remove.Margin = new Thickness(0); row.Children.Add(remove); container.Child = row;
             filterRows.Add(new AttributeFilterUiRow(field, min, max, container)); filterPanel.Children.Add(container);
