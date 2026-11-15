@@ -714,7 +714,7 @@ public partial class MainWindow : Window
                 "Players" => await PlayerWorkspaceV9Async(false),
                 "Recruitment" => await PlayerWorkspaceV9Async(true),
                 "Clubs" => await ClubsPageAsync(),
-                "Staff" => await StaffPageAsync(),
+                "Staff" => await StaffWorkspaceV9Async(),
                 "Squad Architect" => await SquadArchitectPageAsync(),
                 "Transfers" => await TransfersPageAsync(),
                 "Tactical Lab" => await TacticalLabPageAsync(),
