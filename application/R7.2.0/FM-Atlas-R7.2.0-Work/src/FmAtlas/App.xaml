@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <!-- Monolith Glass V8 shared palette. The main window resolves the selected mode at runtime. -->
+        <!-- Monolith Glass V11 shared palette. -->
         <SolidColorBrush x:Key="Atlas.Background" Color="#080F19"/>
         <SolidColorBrush x:Key="Atlas.Surface" Color="#151719"/>
         <SolidColorBrush x:Key="Atlas.SurfaceRaised" Color="#202328"/>
@@ -25,7 +25,6 @@
             <Setter Property="MaxWidth" Value="340"/>
         </Style>
 
-        <!-- Shared Monolith Glass defaults for every secondary window and dialog. -->
         <Style TargetType="{x:Type Window}">
             <Setter Property="Background" Value="{DynamicResource Atlas.Background}"/>
             <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
@@ -33,7 +32,6 @@
             <Setter Property="UseLayoutRounding" Value="True"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
         </Style>
-
         <Style TargetType="{x:Type Button}">
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Background" Value="{DynamicResource Atlas.SurfaceRaised}"/>
@@ -45,7 +43,6 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
-
         <Style TargetType="{x:Type TextBox}">
             <Setter Property="Background" Value="{DynamicResource Atlas.Surface}"/>
             <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
@@ -56,7 +53,6 @@
             <Setter Property="Margin" Value="3"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
-
         <Style TargetType="{x:Type ComboBox}">
             <Setter Property="Background" Value="{DynamicResource Atlas.Surface}"/>
             <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
@@ -66,7 +62,6 @@
             <Setter Property="Margin" Value="3"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
-
         <Style TargetType="{x:Type CheckBox}">
             <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
             <Setter Property="Margin" Value="4"/>
@@ -76,7 +71,6 @@
             <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
             <Setter Property="Margin" Value="4"/>
         </Style>
-
         <Style TargetType="{x:Type DataGrid}">
             <Setter Property="Background" Value="{DynamicResource Atlas.Surface}"/>
             <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
@@ -110,15 +104,6 @@
             <Setter Property="Background" Value="{DynamicResource Atlas.Surface}"/>
             <Setter Property="Foreground" Value="{DynamicResource Atlas.Text}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
-        </Style>
-        <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#F0181A1F"/>
-            <Setter Property="Foreground" Value="#F1F6FC"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource Atlas.GlassBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,7"/>
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="MaxWidth" Value="340"/>
         </Style>
     </Application.Resources>
 </Application>
