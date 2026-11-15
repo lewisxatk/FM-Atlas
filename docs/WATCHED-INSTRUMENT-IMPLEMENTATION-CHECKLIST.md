@@ -42,6 +42,10 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 ## 3. Player finder and FMRTE-style search
 
 - [x] Retain indexed/paged player finder and existing CA/PA and position predicates.
+- [x] Keep the dynamic player field library searchable by field name, category and source key, with typed number/text/boolean value controls.
+- [x] Replace the position-rating tile list with an interactive full-pitch selector; all 15 positions retain their existing 0–20 rating inputs and saved-filter/query semantics.
+- [x] Add a Quick Search entity-scope picker for All types, Players, Staff and Clubs; player-only numeric filters disable cleanly for Staff/Club scopes.
+- [~] Staff and Club Quick Search use their existing source-backed directory queries; full FMRTE-style Staff/Club field catalogues and multi-condition builders are still outstanding.
 - [x] Automatically open a selected player full-width rather than leaving a narrow inspector beside the result list.
 - [~] Keep the last finder criteria and result page in memory when entering and leaving a player record.
 - [ ] Dedicated filter library with categories, searchable FM field names, supported operators, min/max ranges and include/exclude.
@@ -137,3 +141,16 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 | 2026-11-15 | Product metadata updated | Source committed; Windows build pending |
 
 **Current gate:** implementation is in progress. No Windows CI run, clean build, runtime launch or real-game witness has been recorded for this branch. Do not distribute it as release-ready.
+
+
+## 10. Latest continuation checkpoint — 15 November 2026
+
+- [x] Commit `0201ee1`: Advanced Search position familiarity is now presented on a horizontal football pitch, with editable 0–20 ratings at each of the 15 supported FM position points. Existing ALL/ANY and exact/at-least filter behaviour is retained.
+- [x] Commit `2b3607f`: Global Quick Search now has an explicit All types / Players / Staff / Clubs selector. Selecting Staff or Clubs focuses the corresponding results and disables player-only numeric filters instead of silently applying them to other entity types.
+- [x] Commit `ea9366f`: initialize the scope selector after the result tabs are created.
+- [ ] Fresh Windows .NET 8 Release build, automated tests and self-contained publish for these commits.
+- [ ] Visual acceptance of the pitch layout at 100%, 125% and 150% DPI, including smaller laptop windows.
+- [ ] Build the full Staff and Club advanced field catalogues and their independent condition builders. The new scope picker is not a claim of full FMRTE Staff/Club filter parity.
+- [ ] Continue the full-width Staff/Club record-tab migration and shared workspace-tab host.
+
+**Current code checkpoint:** `rebuild/watched-earth-fmrte-ui` at `ea9366f89331a6c878d72cf75c074ac4edcd58c7`. Draft PR #8 remains unmerged and is the isolated UI rebuild line. No new Windows validation result has been recorded for this head.
