@@ -21,8 +21,11 @@ public partial class MainWindow
     private async Task<UIElement> StaffWorkspaceV9Async()
     {
         // Search text is held separately and survives workspace navigation.
-        if (_staffPoolSearchTextV9.Length == 0)
-            _staffPoolSearchTextV9 = _pendingStaffSearchQuery ?? "";
+        if (!string.IsNullOrWhiteSpace(_pendingStaffSearchQuery))
+        {
+            _staffPoolSearchTextV9 = _pendingStaffSearchQuery.Trim();
+            _pendingStaffSearchQuery = null;
+        }
 
         var tabs = new TabControl
         {
