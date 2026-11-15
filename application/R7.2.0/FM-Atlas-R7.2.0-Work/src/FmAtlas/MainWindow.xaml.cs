@@ -1953,7 +1953,11 @@ public partial class MainWindow : Window
 
     private void CloseCurrentProfileTab()
     {
-        if (_profileTabs?.SelectedItem is not TabItem tab || Equals(tab.Tag, "__welcome")) return;
+        // The player database/recruitment pool is the persistent home tab.
+        // Ctrl+W must never close it and strand the user in an empty workspace.
+        if (_profileTabs?.SelectedItem is not TabItem tab
+            || Equals(tab.Tag, "__welcome")
+            || Equals(tab.Tag, "__player-pool")) return;
         var sourceId = tab.Tag?.ToString();
         if (!string.IsNullOrWhiteSpace(sourceId)) _openPlayerRecords.Remove(sourceId);
         _profileTabs.Items.Remove(tab);
@@ -1963,6 +1967,18 @@ public partial class MainWindow : Window
     private void ClearProfile(string message)
     {
         if (_profileTabs is null) return;
+
+        // In the rebuilt full-width player workspace, errors belong in the pool
+        // status line. Do not manufacture a second welcome tab beside the pool.
+        if (_profileTabs.Items.OfType<TabItem>().Any(x => Equals(x.Tag, "__player-pool")))
+        {
+            var pool = _profileTabs.Items.OfType<TabItem>().FirstOrDefault(x => Equals(x.Tag, "__player-pool"));
+            if (pool is not null) _profileTabs.SelectedItem = pool;
+            if (_playerPageStatus is not null) _playerPageStatus.Text = message;
+            _profilePanel = null;
+            return;
+        }
+
         if (_profileTabs.Items.Count == 0) { AddWelcomeProfileTab(); return; }
         if (_profileTabs.SelectedItem is not TabItem tab || tab.Tag?.ToString() != "__welcome")
         {
