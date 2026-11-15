@@ -3,6 +3,9 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
+using FmAtlas.Models;
+using FmAtlas.Services;
 
 namespace FmAtlas;
 
@@ -73,7 +76,7 @@ public partial class MainWindow
         heading.Children.Add(headingCopy);
 
         var actions = new WrapPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-        actions.Children.Add(SoftButton("ADVANCED SEARCH", (_, _) => ShowGlobalSearch()));
+        actions.Children.Add(SoftButton("ADVANCED SEARCH", async (_, _) => await NavigateAsync("Advanced Search")));
         actions.Children.Add(SoftButton("IMPORT REPORT", async (_, _) => await ImportIntelligenceReportAsync()));
         actions.Children.Add(PrimaryButton("ADD TO SHORTLIST", async (_, _) => await AddSelectedToShortlistAsync()));
         Grid.SetColumn(actions, 1);
