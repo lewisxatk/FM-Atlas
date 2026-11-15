@@ -147,6 +147,13 @@ public partial class MainWindow
         var pageOffset = 0;
         var hasNext = false;
 
+        StackPanel conditionPanel = new() { Margin = new Thickness(0, 8, 0, 0) };
+        TextBlock status = Txt("Add a condition or enter a search term, then run the search.", 10, false, Brush("#9CA1A6"));
+        Button previous = new();
+        Button next = new();
+        TextBlock pageLabel = Txt("No results", 9, false, Brush("#9CA1A6"));
+        DataGrid grid = new();
+
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -193,7 +200,6 @@ public partial class MainWindow
         filterHeader.Children.Add(fieldCount);
         filterStack.Children.Add(filterHeader);
 
-        var conditionPanel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
         var conditionScroll = new ScrollViewer
         {
             Content = conditionPanel,
@@ -208,21 +214,21 @@ public partial class MainWindow
         var dock = (DockPanel)resultCard.Child;
         var resultHeader = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         resultHeader.Children.Add(Txt(isStaff ? "STAFF MATCHES" : "CLUB MATCHES", 9, true, Brush("#E9823B")));
-        var status = Txt("Add a condition or enter a search term, then run the search.", 10, false, Brush("#9CA1A6"));
+        status = Txt("Add a condition or enter a search term, then run the search.", 10, false, Brush("#9CA1A6"));
         status.Margin = new Thickness(0, 4, 0, 0);
         resultHeader.Children.Add(status);
 
         var paging = new WrapPanel { Margin = new Thickness(0, 7, 0, 0) };
-        var previous = SoftButton("← Previous", async (_, _) => { if (pageOffset >= pageSize) { pageOffset -= pageSize; await RunSearchAsync(); } });
-        var next = SoftButton("Next →", async (_, _) => { if (hasNext) { pageOffset += pageSize; await RunSearchAsync(); } });
-        var pageLabel = Txt("No results", 9, false, Brush("#9CA1A6"));
+        previous = SoftButton("← Previous", async (_, _) => { if (pageOffset >= pageSize) { pageOffset -= pageSize; await RunSearchAsync(); } });
+        next = SoftButton("Next →", async (_, _) => { if (hasNext) { pageOffset += pageSize; await RunSearchAsync(); } });
+        pageLabel = Txt("No results", 9, false, Brush("#9CA1A6"));
         previous.IsEnabled = false; next.IsEnabled = false;
         paging.Children.Add(previous); paging.Children.Add(pageLabel); paging.Children.Add(next);
         resultHeader.Children.Add(paging);
         DockPanel.SetDock(resultHeader, Dock.Top);
         dock.Children.Add(resultHeader);
 
-        var grid = new DataGrid
+        grid = new DataGrid
         {
             AutoGenerateColumns = false,
             IsReadOnly = true,
