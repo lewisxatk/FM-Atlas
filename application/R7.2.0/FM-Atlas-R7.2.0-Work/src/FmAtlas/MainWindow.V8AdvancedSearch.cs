@@ -274,7 +274,7 @@ public partial class MainWindow
             positionTiles.Children.Add(new Border
             {
                 Width = 118, Background = Brush("#171F28"), BorderBrush = Line, BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(9), Padding = new Thickness(9, 8, 9, 8),
+                CornerRadius = new CornerRadius(ThemeRadius(9)), Padding = new Thickness(9, 8, 9, 8),
                 Margin = new Thickness(0, 0, 7, 7), Child = tileStack
             });
         }
@@ -804,7 +804,7 @@ public partial class MainWindow
                 Background = Brush("#171F28"),
                 BorderBrush = Line,
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
+                CornerRadius = new CornerRadius(ThemeRadius(12)),
                 Padding = new Thickness(10),
                 Margin = new Thickness(0, 5, 0, 5),
                 Child = rowPanel
@@ -1191,7 +1191,7 @@ public partial class MainWindow
             Background = Brush("#1C242E"),
             BorderBrush = Brush("#303943"),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(20),
+            CornerRadius = new CornerRadius(ThemeRadius(20)),
             Padding = new Thickness(10, 6, 10, 6),
             Margin = new Thickness(0, 0, 7, 0),
             Child = Txt(value, 9, true, Ink),
