@@ -2,16 +2,16 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <Version>11.0.0</Version>
-    <InformationalVersion>11.0.0-live-editor-diagnostics</InformationalVersion>
-    <AssemblyVersion>11.0.0.0</AssemblyVersion>
-    <FileVersion>11.0.0.0</FileVersion>
+    <Version>12.0.0</Version>
+    <InformationalVersion>12.0.0-fmrte-watched-search</InformationalVersion>
+    <AssemblyVersion>12.0.0.0</AssemblyVersion>
+    <FileVersion>12.0.0.0</FileVersion>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\FmAtlas.ico</ApplicationIcon>
     <RootNamespace>FmAtlas</RootNamespace>
-    <Product>FM Atlas V11 · Monolith Glass</Product>
+    <Product>FM Atlas · FMRTE × Watched</Product>
     <Company>FM Atlas</Company>
-    <Description>FM Atlas V11 · Monolith Glass scouting, analytics, squad planning and guarded live editing workspace.</Description>
+    <Description>FM Atlas with a Watched-inspired interface and FMRTE-style search, scouting, analytics, squad planning and guarded live editing.</Description>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
