@@ -1,12 +1,14 @@
-# FM Atlas V8 — Monolith Glass
+# FM Atlas — Watched Instrument (V8 continuation)
 
 FM Atlas is a Windows desktop application for Football Manager scouting, career intelligence, recruitment, squad analysis, editing research and graphics tools.
 
+> **Watched Instrument UI rebuild (15 November 2026):** Work is isolated on `rebuild/watched-earth-fmrte-ui`, based on the integrated V8 source. Draft PR [#8 — Watched Instrument UI and full-width player profiles](https://github.com/lewisxatk/FM-Atlas/pull/8) defines the new direction and starts the migration. The default visual direction is moving from Monolith Glass to a flat, high-contrast ink interface inspired by Watched.earth, with FMRTE-style record tabs and search workflows. Selected players now open in a full-width profile workspace. This is a work-in-progress branch: a fresh Windows Release build, automated tests and FM27 runtime acceptance are still required.
+
 > **V8 status (14 November 2026):** The integrated source remains on the isolated branch `rebuild/v8-full-product-rebuild`; draft PR [#4 — FM Atlas V8](https://github.com/lewisxatk/FM-Atlas/pull/4) is open against `fix/r7.2.0-release-build-integration`. This update adds read-only career/process/build/session detection, staff/human-manager extraction and live search/profile database integration, plus Monolith Glass. The read-only live entity-array scan runs only for exact supported profiles, with a two-minute deadline, toolbar cancellation and save-generation cancellation. FM performance and field-witness verification remain outstanding. Earlier Windows build/package runs #157 and #168 passed on older commits; they do **not** validate these newest changes. The current live-career regression tests and a fresh Windows Release build/test/publish run must pass before distributing this revision. Real Windows/Football Manager acceptance remains outstanding.
 
-## V8 design
+## V8 baseline design (historical)
 
-The primary visual identity is **Monolith Glass**: graphite/charcoal surfaces, restrained amber-orange accents, translucent raised navigation and toolbar materials, fine glass borders and minimal motion. Three alternate appearances remain available: **Glass Dark**, **Glass Light** and **Studio**. Monolith Glass is the first-run default; an existing saved theme choice is preserved.
+The V8 base branch's visual identity was **Monolith Glass**: graphite/charcoal surfaces, restrained amber-orange accents, translucent raised navigation and toolbar materials, fine glass borders and minimal motion. Three alternate appearances remain available: **Glass Dark**, **Glass Light** and **Studio**. Monolith Glass is the first-run default; an existing saved theme choice is preserved.
 
 The shell includes a glass-style top action toolbar, descriptive hover/focus tooltips, grouped collapsible side navigation, active-workspace highlighting, Ctrl+K Global Search and system-aware workspace motion. Data grids and detailed profile content retain solid, readable surfaces rather than blurring every cell.
 
