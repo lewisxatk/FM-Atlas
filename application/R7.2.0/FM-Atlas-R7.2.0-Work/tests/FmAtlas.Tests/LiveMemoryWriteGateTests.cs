@@ -200,7 +200,7 @@ public sealed class LiveMemoryWriteGateTests
             "passing", "penalty_taking", "tackling", "vision", "handling", "aerial_reach",
             "command_of_area", "communication", "kicking", "throwing", "anticipation", "decisions",
             "one_on_ones", "positioning", "reflexes", "first_touch", "technique", "flair", "corners",
-            "teamwork", "work_rate", "long_throws", "eccentricity", "rushing_out", "tendency_to_punch",
+            "teamwork", "work_rate", "long_throws", "eccentricity", "rushing_out", "punching",
             "acceleration", "free_kicks", "strength", "stamina", "pace", "jumping_reach", "leadership",
             "dirtiness", "balance", "bravery", "consistency", "aggression", "agility", "important_matches",
             "injury_proneness", "versatility", "natural_fitness", "determination", "composure", "concentration"
@@ -231,6 +231,9 @@ public sealed class LiveMemoryWriteGateTests
         var keys = fields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         Assert.Contains("ability.current_ability", keys);
         Assert.Contains("ability.potential_ability", keys);
+        var staffPa = fields.Single(x => x.Key == "ability.potential_ability");
+        Assert.Equal(-10, staffPa.Minimum);
+        Assert.Equal(200, staffPa.Maximum);
 
         var staffAttributes = new[]
         {
