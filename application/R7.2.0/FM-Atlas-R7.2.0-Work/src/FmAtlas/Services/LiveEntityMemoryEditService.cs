@@ -330,7 +330,11 @@ public static partial class LiveEntityMemoryEditService
             fields.Add(F("ability.potential_ability", "Potential Ability", entity, Place.Object, 0x266, 2, EncodingKind.Int16, 1, 200, -200, 200));
             fields.Add(F("date_of_birth", "Date of Birth (YYYYMMDD)", entity, Place.Object, 0x310, 4, EncodingKind.Date,
                 19400101, 20201231, 19000101, 21001231, shifted: true));
-            foreach (var a in PlayerAttributeSchema.Fields)
+            // Only the 47 standard footballing attributes have independently mapped FM27
+            // live offsets. The five hidden attributes in PlayerAttributeSchema are inherited
+            // FM26 leads and must remain out of the live-write catalogue until witnessed.
+            foreach (var a in PlayerAttributeSchema.Fields.Where(x =>
+                !x.Category.Equals("Hidden", StringComparison.OrdinalIgnoreCase)))
                 fields.Add(F("attribute." + a.Key, a.Label, entity, Place.Object, (ulong)a.Offset, 1, EncodingKind.ScaledAttribute, 1, 20, 0, 20));
             var positions = new[] { "gk","sw","dl","dc","dr","dm","ml","mc","mr","aml","amc","amr","st","wbl","wbr" };
             for (var i = 0; i < positions.Length; i++)
