@@ -165,6 +165,37 @@ Patterns to investigate:
 
 The public project says it is read-only; it is not a live editor. Its scanner and model tests are relevant to data ingestion and performance, not a complete replacement for the editor architecture.
 
+
+### 4.3.1 Scanner implementation findings
+
+Inspected the FMSuperScout source files `core/Dumper.cs`, `core/MemScan.Win.cs` and `core/Fields.cs`, rather than relying only on its README.
+
+Implementation patterns worth testing against FM Atlas:
+- Reads are organised around memory-region scans and reusable large buffers, not a fresh small byte-array allocation for every individual field.
+- The scanner uses thread-local result collections during parallel work, then merges them after scanning.
+- Buffer pooling is explicit; the source comments explain that allocating new large-object-heap buffers per scan caused heap growth.
+- It records phase timings, progress, scan state and errors in diagnostics.
+- It can use a process snapshot as a fallback for a consistent point-in-time read, but documents the extra commit-memory cost and does not make snapshotting the default path.
+- Memory availability is measured and used to adapt worker/cache decisions.
+
+This is a research pattern, not an instruction to copy its implementation. FM Atlas must benchmark its current per-entity read strategy against a chunked/batched strategy and choose based on measured peak memory, allocations, scan time and accuracy. Snapshotting must be opt-in/fallback only if the extra memory is acceptable.
+
+The FM Atlas importer currently allocates per-entity read buffers and dictionaries while traversing tens of thousands of player records. This is a concrete allocation hotspot to profile, but it is not proof by itself of the user's reported memory consumption.
+
+### 4.2.1 FMLibreEditor implementation findings
+
+Inspected its `crates/fmlibre-core/src/index.rs`, `locate.rs`, `edit.rs` and `profile.rs` in addition to its development notes.
+
+Important implementation lessons:
+- The build profile selects module-relative addresses, while the object layout separately describes field offsets. These are different layers and should remain separate.
+- A profile match is followed by structural checks; the editor can search for key structures when a profile is missing or no longer fits.
+- Memory probing is read-only and works over bounded chunks of writable, non-executable module data.
+- Field encodings are explicit (signed/unsigned widths, dates, flags, pointers and scaled attributes).
+- Pointer writes are checked against the expected object class; field writes revalidate the object and current bytes and read the result back.
+- Layouts are strict data contracts, with unknown fields rejected during deserialization.
+
+This supports a typed, versioned field catalogue and probe tool in FM Atlas, rather than scattering offsets and decoding assumptions through UI or importer code.
+
 ### 4.4 Football Manager 27 — authoritative product data
 
 Official source:
