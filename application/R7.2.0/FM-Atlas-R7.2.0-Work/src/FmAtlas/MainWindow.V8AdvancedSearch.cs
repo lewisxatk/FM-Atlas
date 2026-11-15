@@ -1230,7 +1230,7 @@ public partial class MainWindow
     {
         var pill = MonolithDesignSystem.Panel(
             MonolithDesignSystem.DataText(value, 9, MonolithDesignSystem.Solid(MonolithDesignSystem.Text)),
-            8, new Thickness(0, 0, 7, 0), new Thickness(9, 6), raised: true);
+            8, new Thickness(0, 0, 7, 0), new Thickness(9, 6, 9, 6), raised: true);
         pill.ToolTip = tooltip;
         ToolTipService.SetInitialShowDelay(pill, 350);
         return pill;
