@@ -739,24 +739,25 @@ public partial class MainWindow : Window
             button.Template = RoundedButtonTemplate(0);
         if (root is TextBox textBox)
         {
-            textBox.Background = Brush("#090A0C");
-            textBox.Foreground = Brush("#EEE9E1");
-            textBox.CaretBrush = Brush("#F08A42");
-            textBox.SelectionBrush = Brush("#6A3D25");
-            textBox.SelectionTextBrush = Brush("#EEE9E1");
+            // Search and editable query fields use the requested orange-on-black treatment.
+            textBox.Background = Brush("#050505");
+            textBox.Foreground = Brush("#F08A42");
+            textBox.CaretBrush = Brush("#FF9A50");
+            textBox.SelectionBrush = Brush("#633719");
+            textBox.SelectionTextBrush = Brush("#FF9A50");
             textBox.BorderBrush = Brush("#6A3D25");
         }
         if (root is ComboBox comboBox)
         {
-            comboBox.Background = Brush("#090A0C");
-            comboBox.Foreground = Brush("#EEE9E1");
+            comboBox.Background = Brush("#050505");
+            comboBox.Foreground = Brush("#F08A42");
             comboBox.BorderBrush = Brush("#6A3D25");
             comboBox.ItemContainerStyle = new Style(typeof(ComboBoxItem))
             {
                 Setters =
                 {
-                    new Setter(Control.BackgroundProperty, Brush("#111316")),
-                    new Setter(Control.ForegroundProperty, Brush("#EEE9E1")),
+                    new Setter(Control.BackgroundProperty, Brush("#050505")),
+                    new Setter(Control.ForegroundProperty, Brush("#F08A42")),
                     new Setter(Control.BorderBrushProperty, Brush("#35383C")),
                     new Setter(Control.PaddingProperty, new Thickness(8, 6, 8, 6))
                 },
