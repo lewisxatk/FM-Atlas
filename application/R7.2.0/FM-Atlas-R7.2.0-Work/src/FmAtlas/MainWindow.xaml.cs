@@ -713,7 +713,7 @@ public partial class MainWindow : Window
                 "Advanced Search" => await AdvancedSearchWorkspaceAsync(),
                 "Players" => await PlayerWorkspaceV9Async(false),
                 "Recruitment" => await PlayerWorkspaceV9Async(true),
-                "Clubs" => await ClubsPageAsync(),
+                "Clubs" => await ClubsWorkspaceV9Async(),
                 "Staff" => await StaffWorkspaceV9Async(),
                 "Squad Architect" => await SquadArchitectPageAsync(),
                 "Transfers" => await TransfersPageAsync(),
