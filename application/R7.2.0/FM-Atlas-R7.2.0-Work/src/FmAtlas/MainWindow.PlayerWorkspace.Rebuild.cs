@@ -19,7 +19,7 @@ public partial class MainWindow
         var workspaceTabs = new TabControl
         {
             FontSize = 11,
-            Background = Brush("#11161D"),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Canvas),
             BorderBrush = Brush("#303943"),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(5)
@@ -67,24 +67,24 @@ public partial class MainWindow
         heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var headingCopy = new StackPanel();
-        headingCopy.Children.Add(Txt(recruitmentMode ? "RECRUITMENT / PLAYER INTELLIGENCE" : "PLAYER INTELLIGENCE", 9, true, Teal));
-        _playerCountText = Txt("Player database", 25, true, Ink);
+        headingCopy.Children.Add(MonolithDesignSystem.MicroLabel(recruitmentMode ? "RECRUITMENT / PLAYER INTELLIGENCE" : "PLAYER INTELLIGENCE", true));
+        _playerCountText = MonolithDesignSystem.DisplayText("Player database", 25);
         headingCopy.Children.Add(_playerCountText);
-        headingCopy.Children.Add(Txt(
+        headingCopy.Children.Add(MonolithDesignSystem.BodyText(
             "Search the loaded FM career. Select a player to open a full workspace tab; source and field confidence stay visible.",
-            11, false, Muted, wrap: true));
+            11, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
         heading.Children.Add(headingCopy);
 
         var actions = new WrapPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-        actions.Children.Add(SoftButton("ADVANCED SEARCH", async (_, _) => await NavigateAsync("Advanced Search")));
-        actions.Children.Add(SoftButton("IMPORT REPORT", async (_, _) => await ImportIntelligenceReportAsync()));
-        actions.Children.Add(PrimaryButton("ADD TO SHORTLIST", async (_, _) => await AddSelectedToShortlistAsync()));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("ADVANCED SEARCH", async (_, _) => await NavigateAsync("Advanced Search")));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("IMPORT REPORT", async (_, _) => await ImportIntelligenceReportAsync()));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("ADD TO SHORTLIST", async (_, _) => await AddSelectedToShortlistAsync(), primary: true));
         Grid.SetColumn(actions, 1);
         heading.Children.Add(actions);
         Grid.SetRow(heading, 0);
         root.Children.Add(heading);
 
-        var searchCard = Card(new StackPanel(), 14, new Thickness(0, 0, 0, 12));
+        var searchCard = MonolithDesignSystem.Panel(new StackPanel(), 14, new Thickness(0, 0, 0, 12), new Thickness(0));
         var searchStack = (StackPanel)searchCard.Child;
         var searchRow = new Grid { Margin = new Thickness(12, 10, 12, 5) };
         searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -124,7 +124,7 @@ public partial class MainWindow
         Grid.SetColumn(_positionPicker, 1);
         searchRow.Children.Add(_positionPicker);
 
-        var searchButton = PrimaryButton("SEARCH", async (_, _) =>
+        var searchButton = MonolithDesignSystem.ActionButton("SEARCH", async (_, _) =>
         {
             _playerOffset = 0;
             await RefreshPlayerResultsAsync();
@@ -148,7 +148,7 @@ public partial class MainWindow
         filterRow.Children.Add(FilterControl("CA MAX · 1–200", _playerMaxCaInput, 84));
         filterRow.Children.Add(FilterControl("PA MIN · -10–200", _playerMinPaInput, 84));
         filterRow.Children.Add(FilterControl("PA MAX · -10–200", _playerMaxPaInput, 84));
-        filterRow.Children.Add(SoftButton("CLEAR ABILITY", (_, _) =>
+        filterRow.Children.Add(MonolithDesignSystem.ActionButton("CLEAR ABILITY", (_, _) =>
         {
             _playerMinCaInput.Text = "";
             _playerMaxCaInput.Text = "";
@@ -161,16 +161,16 @@ public partial class MainWindow
         Grid.SetRow(searchCard, 1);
         root.Children.Add(searchCard);
 
-        var resultsCard = Card(new DockPanel(), 14);
+        var resultsCard = MonolithDesignSystem.Panel(new DockPanel(), 14, padding: new Thickness(0));
         var resultsDock = (DockPanel)resultsCard.Child;
         var resultsHeader = new Grid { Margin = new Thickness(12, 10, 12, 8) };
         resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var resultsTitle = new StackPanel();
-        resultsTitle.Children.Add(Txt("SEARCH RESULTS", 9, true, Teal));
-        resultsTitle.Children.Add(Txt("Click a row to open its full player record in a new tab", 11, false, Muted));
+        resultsTitle.Children.Add(MonolithDesignSystem.MicroLabel("SEARCH RESULTS", true));
+        resultsTitle.Children.Add(MonolithDesignSystem.BodyText("Click a row to open its full player record in a new tab", 11, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
         resultsHeader.Children.Add(resultsTitle);
-        var evidence = Txt("SOURCE / CONFIDENCE · live fields remain provisional until witnessed against the FM27 UI", 9, false, Brush("#D69A63"));
+        var evidence = MonolithDesignSystem.DataText("SOURCE / CONFIDENCE · live fields remain provisional until witnessed against the FM27 UI", 9, MonolithDesignSystem.Solid("#D69A63"));
         evidence.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(evidence, 1);
         resultsHeader.Children.Add(evidence);
@@ -216,16 +216,16 @@ public partial class MainWindow
         resultsDock.Children.Add(_playerResultsGrid);
 
         var pageBar = new DockPanel { Margin = new Thickness(12, 8, 12, 10) };
-        _playerPageStatus = Txt("Search to begin", 10, false, Muted);
+        _playerPageStatus = MonolithDesignSystem.DataText("SEARCH TO BEGIN", 10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted));
         DockPanel.SetDock(_playerPageStatus, Dock.Left);
         pageBar.Children.Add(_playerPageStatus);
         var pageButtons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        _previousPlayerPageButton = SoftButton("← PREVIOUS", async (_, _) =>
+        _previousPlayerPageButton = MonolithDesignSystem.ActionButton("← PREVIOUS", async (_, _) =>
         {
             _playerOffset = Math.Max(0, _playerOffset - PlayerPageSize);
             await RefreshPlayerResultsAsync();
         });
-        _nextPlayerPageButton = SoftButton("NEXT →", async (_, _) =>
+        _nextPlayerPageButton = MonolithDesignSystem.ActionButton("NEXT →", async (_, _) =>
         {
             _playerOffset += PlayerPageSize;
             await RefreshPlayerResultsAsync();
