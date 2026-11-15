@@ -77,6 +77,7 @@ public partial class MainWindow : Window
     private Grid? _playerWorkspaceGrid;
     private ColumnDefinition? _playerResultsColumn;
     private ColumnDefinition? _playerProfileColumn;
+    private Border? _playerSearchCard;
     private bool _profileExpanded;
     private Button? _profileExpandButton;
     private TabControl? _profileTabs;
@@ -865,6 +866,7 @@ public partial class MainWindow : Window
             case PlayerRecord player:
                 await NavigateAsync("Players");
                 _selectedPlayer = player;
+                ToggleProfileExpanded(true);
                 try { await ShowPlayerProfileAsync(player); }
                 catch (Exception ex)
                 {
@@ -986,6 +988,7 @@ public partial class MainWindow : Window
         root.ColumnDefinitions.Add(_playerProfileColumn);
 
         var searchCard = Card(new StackPanel(), 15, new Thickness(0, 0, 0, 10));
+        _playerSearchCard = searchCard;
         var searchStack = (StackPanel)searchCard.Child;
         var top = new Grid();
         top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1092,6 +1095,7 @@ public partial class MainWindow : Window
             if (_playerResultsGrid.SelectedItem is PlayerRecord player)
             {
                 _selectedPlayer = player;
+                ToggleProfileExpanded(true);
                 await ShowPlayerProfileAsync(player);
             }
         };
@@ -1429,7 +1433,7 @@ public partial class MainWindow : Window
             }
             await PlayerComparisonWindow.ShowAsync(this, _database, selected);
         }));
-        _profileExpandButton = SoftButton(_profileExpanded ? "Show search results" : "Expand full profile", (_, _) => ToggleProfileExpanded(!_profileExpanded));
+        _profileExpandButton = SoftButton(_profileExpanded ? "Back to player search" : "Open full profile", (_, _) => ToggleProfileExpanded(!_profileExpanded));
         actions.Children.Add(_profileExpandButton);
         actions.Children.Add(SoftButton("Open in Editor Studio", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
         Grid.SetColumn(actions, 2); heroGrid.Children.Add(actions); hero.Child = heroGrid; profilePanel.Children.Add(hero);
@@ -1950,7 +1954,8 @@ public partial class MainWindow : Window
         if (_playerResultsColumn is null || _playerProfileColumn is null) return;
         _playerResultsColumn.Width = new GridLength(_profileExpanded ? 0 : .82, GridUnitType.Star);
         _playerProfileColumn.Width = new GridLength(_profileExpanded ? 1 : 1.18, GridUnitType.Star);
-        if (_profileExpandButton is not null) _profileExpandButton.Content = _profileExpanded ? "Show search results" : "Expand full profile";
+        if (_playerSearchCard is not null) _playerSearchCard.Visibility = _profileExpanded ? Visibility.Collapsed : Visibility.Visible;
+        if (_profileExpandButton is not null) _profileExpandButton.Content = _profileExpanded ? "Back to player search" : "Open full profile";
     }
 
     private void CloseCurrentProfileTab()
