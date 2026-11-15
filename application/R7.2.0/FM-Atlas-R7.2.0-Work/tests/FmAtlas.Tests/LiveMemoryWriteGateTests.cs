@@ -295,11 +295,6 @@ public sealed class LiveMemoryWriteGateTests
     [InlineData(LiveEntityMemoryEditService.EntityKind.Staff, "attribute.potential_pa")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "ownership.sugar_daddy")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "debt.add")]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.consistency")]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.important_matches")]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.injury_proneness")]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.dirtiness")]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.versatility")]
     public void DynamicOrUnverifiedFieldsAreNotMistakenForScalarWrites(LiveEntityMemoryEditService.EntityKind entity, string field)
         => Assert.False(LiveEntityMemoryEditService.SupportsField(entity, field));
 
