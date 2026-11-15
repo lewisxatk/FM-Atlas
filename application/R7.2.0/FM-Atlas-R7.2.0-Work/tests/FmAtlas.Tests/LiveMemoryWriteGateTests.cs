@@ -220,17 +220,28 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
-    public void LiveStaffCatalogueUsesStaffSpecificFieldsAndContracts()
+    public void LiveStaffCatalogueIncludesCaPaAndEveryMappedStaffAttribute()
     {
         var fields = LiveEntityMemoryEditService.GetEditableFields(LiveEntityMemoryEditService.EntityKind.Staff);
         var keys = fields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in new[]
+        Assert.Contains("ability.current_ability", keys);
+        Assert.Contains("ability.potential_ability", keys);
+
+        var staffAttributes = new[]
         {
-            "ability.current_ability", "ability.potential_ability", "reputation.world", "date_of_birth",
-            "attribute.goalkeeping", "attribute.judging_ability", "attribute.working_with_youngsters",
-            "attribute.authority", "personality.professionalism", "contract.wage"
-        })
-            Assert.Contains(key, keys);
+            "goalkeeping", "judging_ability", "judging_potential", "people_management", "motivating",
+            "physiotherapy", "tactical_knowledge", "attacking", "defending", "fitness", "possession",
+            "technical", "tactical", "data_analysis", "sports_science", "negotiating", "judging_staff",
+            "set_pieces", "determination", "authority", "working_with_youngsters"
+        };
+        Assert.Equal(21, staffAttributes.Length);
+        foreach (var key in staffAttributes)
+            Assert.Contains("attribute." + key, keys);
+
+        Assert.Contains("reputation.world", keys);
+        Assert.Contains("date_of_birth", keys);
+        Assert.Contains("personality.professionalism", keys);
+        Assert.Contains("contract.wage", keys);
         Assert.DoesNotContain("contract.expires", keys);
         Assert.DoesNotContain("contract.signed", keys);
         Assert.DoesNotContain("contract.joined", keys);
