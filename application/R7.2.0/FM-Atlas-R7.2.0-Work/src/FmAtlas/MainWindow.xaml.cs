@@ -165,138 +165,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void BuildShell()
-    {
-        RootGrid.Children.Clear();
-        _shell = new Grid();
-        _navColumn = new ColumnDefinition { Width = new GridLength(_navCollapsed ? 76 : 248) };
-        _shell.ColumnDefinitions.Add(_navColumn);
-        _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _shell.Background = new LinearGradientBrush(
-            Color.FromRgb(_themeMode == "Glass Light" ? (byte)239 : (byte)10, _themeMode == "Glass Light" ? (byte)244 : (byte)11, _themeMode == "Glass Light" ? (byte)250 : (byte)13),
-            Color.FromRgb(_themeMode == "Glass Light" ? (byte)222 : (byte)27, _themeMode == "Glass Light" ? (byte)232 : (byte)28, _themeMode == "Glass Light" ? (byte)244 : (byte)31), 35);
-        RootGrid.Children.Add(_shell);
-
-        var sidebar = BuildSidebar();
-        Grid.SetColumn(sidebar, 0);
-        _shell.Children.Add(sidebar);
-
-        var main = new Grid { Margin = new Thickness(20, 14, 20, 18) };
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64) });
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(88) });
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        Grid.SetColumn(main, 1);
-        _shell.Children.Add(main);
-
-        var headerGrid = new Grid();
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(15, 0, 12, 0) };
-        _pageTitle = Txt("Dashboard", 23, true, Ink);
-        _pageSubTitle = Txt("Career intelligence · scouting · analysis · squad planning", 10, false, Muted);
-        titleStack.Children.Add(_pageTitle);
-        titleStack.Children.Add(_pageSubTitle);
-        headerGrid.Children.Add(titleStack);
-
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 10, 0) };
-        actions.Children.Add(ToolbarIcon("\uE721", "Global search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
-        actions.Children.Add(ToolbarIcon("\uE71C", "Open Advanced Search and choose player, attribute or performance-stat filters.", async (_, _) => await NavigateAsync("Advanced Search")));
-        actions.Children.Add(ToolbarIcon("\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
-        _cancelImportButton = ToolbarIcon("\uE711", "Cancel the current live-game scan or career-save import. An uncommitted snapshot is not published.", (_, _) =>
-        {
-            if (_liveScanCancellation is not null)
-            {
-                _liveScanCancelledByUser = true;
-                _liveScanCancellation.Cancel();
-            }
-            _saveImportCancellation?.Cancel();
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Cancellation requested — safely stopping at the next scan/import checkpoint…";
-        });
-        _cancelImportButton.IsEnabled = _saveImportCancellation is not null || _liveScanCancellation is not null;
-        _cancelImportButton.Visibility = _saveImportCancellation is not null || _liveScanCancellation is not null ? Visibility.Visible : Visibility.Collapsed;
-        actions.Children.Add(_cancelImportButton);
-        actions.Children.Add(ToolbarIcon("\uE823", "Activity Centre — view the active live scan or save import, elapsed time and cancellation controls.", (_, _) => ShowActivityCenter()));
-        actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
-        actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
-        actions.Children.Add(ToolbarIcon("\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
-        actions.Children.Add(ToolbarIcon("\uE80F", "Open your human-manager profile in the Staff directory.", async (_, _) => await OpenMyManagerAsync()));
-        actions.Children.Add(ToolbarIcon("\uE77B", "Open your current club in the Club directory.", async (_, _) => await OpenMyClubAsync()));
-        _liveLoadButton = ToolbarIcon("\uE72C", "Connect to or refresh the currently loaded FM27 career. Atlas also detects save changes automatically.", async (_, _) => await LoadLiveCareerAsync());
-        _liveLoadButton.IsEnabled = true;
-        actions.Children.Add(_liveLoadButton);
-        actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle Monolith Glass, Glass Dark, Glass Light and Studio.", async (_, _) => await CycleThemeAsync()));
-        actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
-        Grid.SetColumn(actions, 1);
-        headerGrid.Children.Add(actions);
-
-        var header = new Border
-        {
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(_themeMode == "Glass Light"
-                        ? Color.FromArgb(240, 255, 255, 255)
-                        : Color.FromArgb(222, 38, 40, 45), 0),
-                    new GradientStop(_themeMode == "Glass Light"
-                        ? Color.FromArgb(220, 233, 241, 249)
-                        : Color.FromArgb(188, 20, 22, 27), 1)
-                },
-                new Point(0, 0), new Point(0, 1)),
-            BorderBrush = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb(172, 255, 255, 255), 0),
-                    new GradientStop(Color.FromArgb(68, 244, 155, 100), 1)
-                },
-                new Point(0, 0), new Point(0, 1)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(18),
-            Padding = new Thickness(3),
-            Effect = new DropShadowEffect
-            {
-                Color = Color.FromRgb(0, 0, 0),
-                BlurRadius = 20,
-                ShadowDepth = 3,
-                Opacity = _themeMode == "Glass Light" ? 0.08 : 0.22
-            },
-            Child = headerGrid
-        };
-        header.Margin = new Thickness(0, 0, 0, 12);
-        Grid.SetRow(header, 0);
-        main.Children.Add(header);
-
-        var career = Card(new Grid(), 16);
-        careerGridForBuild(career);
-        void careerGridForBuild(Border careerBorder)
-        {
-            var careerGrid = (Grid)careerBorder.Child;
-            careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var careerStack = new StackPanel();
-            careerStack.Children.Add(Txt("MONOLITH GLASS · LIVE CAREER", 9, true, Teal));
-            careerStack.Children.Add(Txt("Waiting for your FM27 career", 15, true, Ink));
-            _connectionSummary = Txt("Open Football Manager 27 and load a career, or import a local save copy.", 10, false, Muted);
-            careerStack.Children.Add(_connectionSummary);
-            _liveLoadStatus = Txt("Automatic career detection and bounded read-only indexing active", 9, false, Muted);
-            _liveLoadStatus.Margin = new Thickness(0, 5, 0, 0);
-            careerStack.Children.Add(_liveLoadStatus);
-            _liveLoadProgress = new ProgressBar { Height = 4, Minimum = 0, Maximum = 100, Value = 0, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 5, 0, 0), Foreground = Brush("#3988C8"), Background = Brush("#DCE8F2") };
-            careerStack.Children.Add(_liveLoadProgress);
-            careerGrid.Children.Add(careerStack);
-            var state = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            _connectionDot = new Ellipse { Width = 9, Height = 9, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 7, 0) };
-            state.Children.Add(_connectionDot);
-            state.Children.Add(Txt("Awaiting verified save", 10, true, Muted));
-            Grid.SetColumn(state, 1);
-            careerGrid.Children.Add(state);
-        }
-        Grid.SetRow(career, 1);
-        main.Children.Add(career);
-
-        _pageHost = new ContentControl { Margin = new Thickness(0, 14, 0, 0), ClipToBounds = true };
-        Grid.SetRow(_pageHost, 2);
-        main.Children.Add(_pageHost);
-    }
+    private void BuildShell() => BuildWatchedShell();
 
     private Button ToolbarIcon(string glyph, string description, RoutedEventHandler click)
     {
@@ -4740,69 +4609,48 @@ public partial class MainWindow : Window
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
     {
-        // Keep the original direct-child contract: many established workspaces populate
-        // Card(...).Child after construction. A nested visual host here breaks those
-        // callers at runtime. The material is therefore rendered by the Border itself.
+        if (_themeMode == "Watched Instrument")
+        {
+            return new Border
+            {
+                Background = Brush("#0C0E11"),
+                BorderBrush = Brush("#303943"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(0),
+                Padding = new Thickness(15),
+                Margin = margin ?? new Thickness(0),
+                SnapsToDevicePixels = true,
+                Child = child
+            };
+        }
+        // Legacy appearance modes remain available to existing user settings.
         var light = _themeMode == "Glass Light";
         var studio = _themeMode == "Studio";
         var monolith = _themeMode == "Monolith Glass";
         var top = light
             ? Color.FromArgb(246, 255, 255, 255)
-            : studio
-                ? Color.FromArgb(238, 23, 26, 32)
-                : monolith
-                    ? Color.FromArgb(236, 47, 48, 53)
-                    : Color.FromArgb(222, 26, 35, 46);
+            : studio ? Color.FromArgb(238, 23, 26, 32)
+            : monolith ? Color.FromArgb(236, 47, 48, 53)
+            : Color.FromArgb(222, 26, 35, 46);
         var bottom = light
             ? Color.FromArgb(232, 237, 244, 250)
-            : studio
-                ? Color.FromArgb(228, 13, 16, 21)
-                : monolith
-                    ? Color.FromArgb(224, 23, 24, 28)
-                    : Color.FromArgb(204, 15, 24, 35);
-        var edgeTop = light
-            ? Color.FromArgb(210, 255, 255, 255)
-            : monolith
-                ? Color.FromArgb(188, 242, 140, 69)
-                : Color.FromArgb(158, 244, 155, 100);
-        var edgeBottom = light
-            ? Color.FromArgb(132, 151, 178, 205)
-            : monolith
-                ? Color.FromArgb(88, 242, 140, 69)
-                : Color.FromArgb(58, 244, 155, 100);
-
+            : studio ? Color.FromArgb(228, 13, 16, 21)
+            : monolith ? Color.FromArgb(224, 23, 24, 28)
+            : Color.FromArgb(204, 15, 24, 35);
+        var edgeTop = light ? Color.FromArgb(210, 255, 255, 255)
+            : monolith ? Color.FromArgb(188, 242, 140, 69)
+            : Color.FromArgb(158, 244, 155, 100);
+        var edgeBottom = light ? Color.FromArgb(132, 151, 178, 205)
+            : monolith ? Color.FromArgb(88, 242, 140, 69)
+            : Color.FromArgb(58, 244, 155, 100);
         return new Border
         {
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(top, 0),
-                    new GradientStop(bottom, 1)
-                },
-                new Point(0, 0),
-                new Point(0, 1)),
-            BorderBrush = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(edgeTop, 0),
-                    new GradientStop(Color.FromArgb(light ? (byte)120 : monolith ? (byte)64 : (byte)50, 255, 255, 255), 0.42),
-                    new GradientStop(edgeBottom, 1)
-                },
-                new Point(0, 0),
-                new Point(0, 1)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(radius),
-            Padding = new Thickness(15),
+            Background = new LinearGradientBrush(new GradientStopCollection { new GradientStop(top, 0), new GradientStop(bottom, 1) }, new Point(0, 0), new Point(0, 1)),
+            BorderBrush = new LinearGradientBrush(new GradientStopCollection { new GradientStop(edgeTop, 0), new GradientStop(Color.FromArgb(light ? (byte)120 : monolith ? (byte)64 : (byte)50, 255, 255, 255), 0.42), new GradientStop(edgeBottom, 1) }, new Point(0, 0), new Point(0, 1)),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(radius), Padding = new Thickness(15),
             Margin = margin ?? new Thickness(0),
-            Effect = new DropShadowEffect
-            {
-                Color = light ? Color.FromRgb(111, 126, 145) : Color.FromRgb(0, 0, 0),
-                BlurRadius = monolith ? 26 : 22,
-                ShadowDepth = monolith ? 5 : 4,
-                Opacity = light ? 0.10 : monolith ? 0.30 : 0.24
-            },
-            SnapsToDevicePixels = true,
-            Child = child
+            Effect = new DropShadowEffect { Color = light ? Color.FromRgb(111, 126, 145) : Color.FromRgb(0, 0, 0), BlurRadius = monolith ? 26 : 22, ShadowDepth = monolith ? 5 : 4, Opacity = light ? 0.10 : monolith ? 0.30 : 0.24 },
+            SnapsToDevicePixels = true, Child = child
         };
     }
 
@@ -4837,7 +4685,7 @@ public partial class MainWindow : Window
         var template = new ControlTemplate(typeof(Button));
         var border = new FrameworkElementFactory(typeof(Border));
         border.Name = "AtlasButtonSurface";
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(_themeMode == "Watched Instrument" ? 0 : radius));
         border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
         border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty));
         border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Control.BorderThicknessProperty));
@@ -4870,20 +4718,37 @@ public partial class MainWindow : Window
 
     private static string LoadThemeMode()
     {
-        try
-        {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas", "theme.txt");
-            var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "Monolith Glass";
-            return value is "Monolith Glass" or "Glass Light" or "Studio" or "Glass Dark" ? value : "Monolith Glass";
-        }
-        catch { return "Monolith Glass"; }
+        // The rebuild ships with one deliberate default. Legacy theme preferences are
+        // migrated to Watched Instrument so an old Monolith selection cannot leak into
+        // the new visual system.
+        return "Watched Instrument";
     }
 
     private static Brush Brush(string hex)
     {
         var key = hex.ToUpperInvariant();
         string mapped;
-        if (_themeMode == "Glass Light")
+        if (_themeMode == "Watched Instrument")
+        {
+            mapped = key switch
+            {
+                "#E8EEF4" or "#E8F0FA" or "#F1F0ED" or "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" or "#344656" => "#EEE9E1",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" or "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" or "#F29A5C" or "#D97736" or "#C6F36B" => "#E9823B",
+                "#9EADB9" or "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9CA1A6",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#292C30",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#17191C",
+                "#0D1117" or "#111820" => "#090A0C",
+                "#171F28" or "#202A35" or "#1C242E" or "#151B22" => "#111316",
+                "#35424E" => "#35383C",
+                "#294765" => "#352319",
+                "#F08C96" => "#D77A82",
+                "#8BCFA6" => "#8CC7A0",
+                "#E6C477" => "#DDB36D",
+                "#F7A46A" or "#2A669C" or "#356C98" or "#75B9E7" or "#77BCE8" => "#F2A36C",
+                _ => key
+            };
+        }
+        else if (_themeMode == "Glass Light")
         {
             mapped = key switch
             {
