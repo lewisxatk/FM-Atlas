@@ -143,6 +143,21 @@ public sealed class GlobalSearchWindow : Window
         advanced.Children.Add(Filter("PREFERRED FOOT", _preferredFoot, 130));
         advanced.Children.Add(Filter("HOME-GROWN", _homeGrown, 150));
         Grid.SetRow(advanced, 1); Grid.SetColumnSpan(advanced, 3); filterGrid.Children.Add(advanced);
+        var note = Text("Tip: enter part of a name to search. Choose Players, Staff or Clubs above to focus the result set. Detailed numeric filters apply to player records only; staff and club searches use the source-backed fields currently available.", 10, false, Muted);
+        note.Margin = new Thickness(0, 8, 0, 0); Grid.SetRow(note, 2); Grid.SetColumnSpan(note, 3); filterGrid.Children.Add(note);
+        filters.Child = filterGrid; Grid.SetRow(filters, 1); root.Children.Add(filters);
+
+        ConfigureResultsGrid(_grid, _results);
+        ConfigureResultsGrid(_playerGrid, _playerResults);
+        ConfigureResultsGrid(_staffGrid, _staffResults);
+        ConfigureResultsGrid(_clubGrid, _clubResults);
+        _resultTabs.Items.Add(new TabItem { Header = "All", Tag = "All", Content = _grid });
+        _resultTabs.Items.Add(new TabItem { Header = "Players", Tag = "Players", Content = _playerGrid });
+        _resultTabs.Items.Add(new TabItem { Header = "Staff", Tag = "Staff", Content = _staffGrid });
+        _resultTabs.Items.Add(new TabItem { Header = "Clubs", Tag = "Clubs", Content = _clubGrid });
+        _resultTabs.SelectedIndex = 0;
+        Grid.SetRow(_resultTabs, 2); root.Children.Add(_resultTabs);
+
         void ApplyEntityScope()
         {
             var scope = _entityScope.SelectedItem?.ToString() ?? "All types";
@@ -162,21 +177,6 @@ public sealed class GlobalSearchWindow : Window
             }
         };
         ApplyEntityScope();
-
-        var note = Text("Tip: enter part of a name to search. Choose Players, Staff or Clubs above to focus the result set. Detailed numeric filters apply to player records only; staff and club searches use the source-backed fields currently available.", 10, false, Muted);
-        note.Margin = new Thickness(0, 8, 0, 0); Grid.SetRow(note, 2); Grid.SetColumnSpan(note, 3); filterGrid.Children.Add(note);
-        filters.Child = filterGrid; Grid.SetRow(filters, 1); root.Children.Add(filters);
-
-        ConfigureResultsGrid(_grid, _results);
-        ConfigureResultsGrid(_playerGrid, _playerResults);
-        ConfigureResultsGrid(_staffGrid, _staffResults);
-        ConfigureResultsGrid(_clubGrid, _clubResults);
-        _resultTabs.Items.Add(new TabItem { Header = "All", Tag = "All", Content = _grid });
-        _resultTabs.Items.Add(new TabItem { Header = "Players", Tag = "Players", Content = _playerGrid });
-        _resultTabs.Items.Add(new TabItem { Header = "Staff", Tag = "Staff", Content = _staffGrid });
-        _resultTabs.Items.Add(new TabItem { Header = "Clubs", Tag = "Clubs", Content = _clubGrid });
-        _resultTabs.SelectedIndex = 0;
-        Grid.SetRow(_resultTabs, 2); root.Children.Add(_resultTabs);
 
         var footer = new DockPanel { Margin = new Thickness(0, 12, 0, 0) };
         _status.Text = "Ready · enter a search term to begin"; _status.Foreground = Muted; _status.VerticalAlignment = VerticalAlignment.Center;
