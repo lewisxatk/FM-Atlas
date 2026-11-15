@@ -109,14 +109,14 @@ public partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Right
         };
         actions.Children.Add(MonolithDesignSystem.ActionButton("ADVANCED", async (_, _) => await NavigateAsync("Advanced Search")));
-        actions.Children.Add(ToolbarIcon("\\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
-        actions.Children.Add(ToolbarIcon("\\uE823", "Activity Centre — current scan/import progress, elapsed time and cancellation.", (_, _) => ShowActivityCenter()));
-        _liveLoadButton = ToolbarIcon("\\uE72C", "Connect to or refresh the currently loaded supported FM27 career.", async (_, _) => await LoadLiveCareerAsync());
+        actions.Children.Add(ToolbarIcon("\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
+        actions.Children.Add(ToolbarIcon("\uE823", "Activity Centre — current scan/import progress, elapsed time and cancellation.", (_, _) => ShowActivityCenter()));
+        _liveLoadButton = ToolbarIcon("\uE72C", "Connect to or refresh the currently loaded supported FM27 career.", async (_, _) => await LoadLiveCareerAsync());
         _liveLoadButton.IsEnabled = true;
         actions.Children.Add(_liveLoadButton);
-        actions.Children.Add(ToolbarIcon("\\uE713", "Current appearance: " + _themeMode + ". Click to cycle appearance modes.", async (_, _) => await CycleThemeAsync()));
+        actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle appearance modes.", async (_, _) => await CycleThemeAsync()));
 
-        _cancelImportButton = ToolbarIcon("\\uE711", "Cancel the active live scan or offline save import at a safe checkpoint.", (_, _) =>
+        _cancelImportButton = ToolbarIcon("\uE711", "Cancel the active live scan or offline save import at a safe checkpoint.", (_, _) =>
         {
             if (_liveScanCancellation is not null)
             {
