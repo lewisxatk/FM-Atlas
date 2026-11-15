@@ -846,7 +846,7 @@ public partial class MainWindow : Window
     private static UIElement NavigationLoadingPane(string page)
     {
         var panel = new StackPanel { Margin = new Thickness(28), VerticalAlignment = VerticalAlignment.Center };
-        panel.Children.Add(Txt("OPENING WORKSPACE", 10, true, Brush("#C6F36B")));
+        panel.Children.Add(Txt("OPENING WORKSPACE", 10, true, Brush("#F08A42")));
         panel.Children.Add(Txt(page, 24, true, Brush("#E8EEF4")));
         panel.Children.Add(Txt("Loading this workspace. Navigation stays available; your latest destination will open next.", 12, false, Brush("#9EADB9"), wrap: true));
         return panel;
@@ -1325,8 +1325,8 @@ public partial class MainWindow : Window
             var scroll = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
             tab = new TabItem { Tag = player.SourceId, Content = scroll };
             var header = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            header.Children.Add(new TextBlock { Text = player.Name, FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = Brush("#183B56"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 7, 0) });
-            var close = new Button { Content = "×", Width = 20, Height = 20, Padding = new Thickness(0), Margin = new Thickness(0, 0, 1, 0), Background = Brush("#EAF1F5"), Foreground = Brush("#526B7D"), BorderBrush = Brushes.Transparent, FontSize = 13, Cursor = Cursors.Hand, ToolTip = "Close player tab" };
+            header.Children.Add(new TextBlock { Text = player.Name, FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = Brush("#F3F5F7"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 7, 0) });
+            var close = new Button { Content = "×", Width = 20, Height = 20, Padding = new Thickness(0), Margin = new Thickness(0, 0, 1, 0), Background = Brush("#2B333C"), Foreground = Brush("#F3F5F7"), BorderBrush = Brush("#46515C"), FontSize = 13, Cursor = Cursors.Hand, ToolTip = "Close player tab" };
             close.Click += (_, _) =>
             {
                 _openPlayerRecords.Remove(player.SourceId);
@@ -1389,9 +1389,9 @@ public partial class MainWindow : Window
                 var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = 160; bitmap.UriSource = new Uri(facePath, UriKind.Absolute); bitmap.EndInit(); bitmap.Freeze();
                 avatarBorder.Child = new Image { Source = bitmap, Stretch = Stretch.UniformToFill };
             }
-            catch { avatarBorder.Child = Txt(Initials(player.Name), 22, true, Brush("#C6F36B")); }
+            catch { avatarBorder.Child = Txt(Initials(player.Name), 22, true, Brush("#F08A42")); }
         }
-        else avatarBorder.Child = new TextBlock { Text = Initials(player.Name), FontSize = 21, FontWeight = FontWeights.Bold, Foreground = Brush("#C6F36B"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        else avatarBorder.Child = new TextBlock { Text = Initials(player.Name), FontSize = 21, FontWeight = FontWeights.Bold, Foreground = Brush("#F08A42"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         heroGrid.Children.Add(avatarBorder);
         var heroStack = new StackPanel();
         heroStack.Children.Add(Txt(player.Name, 25, true, Ink));
@@ -1429,8 +1429,6 @@ public partial class MainWindow : Window
             }
             await PlayerComparisonWindow.ShowAsync(this, _database, selected);
         }));
-        _profileExpandButton = SoftButton(_profileExpanded ? "Show search results" : "Expand full profile", (_, _) => ToggleProfileExpanded(!_profileExpanded));
-        actions.Children.Add(_profileExpandButton);
         actions.Children.Add(SoftButton("Open in Editor Studio", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
         Grid.SetColumn(actions, 2); heroGrid.Children.Add(actions); hero.Child = heroGrid; profilePanel.Children.Add(hero);
 
@@ -3705,7 +3703,7 @@ public partial class MainWindow : Window
 
     private static Button PrimaryButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#2D75B6"), Foreground = Brush("#0D1117"), BorderBrush = Brush("#C6F36B"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#2D75B6"), Foreground = Brush("#0D1117"), BorderBrush = Brush("#F08A42"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
         button.Click += click; return button;
     }
 
