@@ -8,24 +8,27 @@
 
 ### Watched.earth — visual and interaction reference
 
-The live site requires JavaScript and WebGL, so its interactive scene cannot be fully inspected in a text-only browser. The research review and public project README describe the experience as a dark, high-contrast orbital control surface: an expressive 3D globe/visual focus, a direct search entry point, dense telemetry and status, an event timeline, precise orange reticles, and replayable detail. Its visual language mixes bold condensed display typography with restrained monospaced technical labels and an italic editorial accent. The design is striking because there is one clear focal visual and the supporting data is arranged around it, not because every card is decorated.
+The live site itself requires JavaScript and WebGL, so I also inspected its public design specification and MIT-licensed source repository. Its visual language is unusually disciplined: a dark ink canvas, flat square panels, hairline rules, warm bone/off-white text, one rare sodium-orange signal colour, restrained ice-blue secondary marks, condensed display typography, monospaced technical labels and a minimal italic serif accent. The design explicitly rejects gradients, glassmorphism, shadows, rounded cards, icon libraries, decorative sci-fi effects and fake numbers. Its layout uses an instrument-like inset bezel, corner readouts, a strong central visual, compact detail panels and event timelines. The aim is a precise instrument, not a generic SaaS or crypto dashboard.
+
+The underlying site is a WebGL orbital tracker; FM Atlas must not copy its globe or satellite motif literally. Translate its principles into football intelligence: make the player, club, pitch, performance chart or attribute map the main visual subject; arrange the search controls, result grid, evidence and timeline around the data relevant to that screen.
+
+Apply these principles:
+- deep ink / charcoal background; warm off-white text; extremely restrained secondary ice and orange;
+- flat, square panels with hairline borders, no gradient fills, no blur, no card shadows and no rounded-card aesthetic;
+- condensed bold display type for large workspace titles, clean sans-serif for readable body copy, monospaced data labels/UIDs/CA-PA/values, and a very occasional italic editorial accent;
+- sparse custom line glyphs, compact labels, tabular numerals and precise charts;
+- a clear central subject and generous negative space; dense tables remain highly readable and configurable;
+- instrument-like edge markers, source labels and status readouts where they improve orientation;
+- short, deliberate transitions; no decorative motion.
+
+Watched's strongest interaction ideas are direct search, a visible time/event sequence, replayable detail and a clear distinction between confirmed, likely and unknown. For Atlas, translate those into fast search, career/snapshot timelines, source-linked detail and explicit verified/provisional/unavailable field states.
+
+Important: Watched's own public design notes identify an accessibility weakness in its initial page structure. Atlas must improve on that: use semantic/accessible WPF controls, keyboard operation, visible focus, labels that do not depend on hover and strong text contrast. Essential information must never be communicated by colour alone.
 
 Sources:
 - https://www.watched.earth/
-- https://unique.rzen.dev/reviews/watched-earth/
-- https://websitedesignawards.com/site/watched
 - https://github.com/dev-Armaan/satellites
-
-Apply the visual principles, not satellite imagery or copied branding:
-- deep ink / graphite canvas with soft, deliberate surface separation;
-- a warm orange signal colour for selection, focus and active states;
-- restrained cool cyan/ice accents for neutral system/data states;
-- large, clear condensed section titles; quiet monospaced labels for IDs, values, dates and telemetry; limited italic editorial accents;
-- thin technical rules, small status marks, precise charts and data-linked visualisations;
-- one strong content focal area, with supporting filters, results and evidence panels;
-- subtle transitions only where they explain navigation or data changes.
-
-Watched's documented visual polish should not be copied at the expense of usability. All app controls must have semantic names, keyboard operation, focus states, sensible text scaling and strong contrast. Do not make labels hover-only or encode a status by colour alone.
+- https://github.com/dev-Armaan/satellites/blob/main/docs/DESIGN.md
 
 ### FMRTE — interaction and information architecture reference
 
@@ -63,26 +66,42 @@ Sources:
 
 ## 2. Design system — Watched × FMRTE, made for FM Atlas
 
-The target is an editorial, technical scouting instrument: atmospheric like Watched, dense and immediately usable like FMRTE.
+The target is a precise football intelligence instrument: Watched's editorial and technical visual discipline with FMRTE's practical density, tab navigation and edit workflows.
 
-### Visual tokens
+### Visual tokens and typography
 
-- **Canvas:** near-black ink / deep graphite, with subtle depth rather than flat pure black.
-- **Surfaces:** raised graphite panels; data tables use opaque, stable surfaces. Glass/translucency is limited to navigation, toolbar, command palette and floating actions.
-- **Primary signal:** burnt orange / amber for current selection, active tab, focus and key action.
-- **Secondary signal:** cool cyan for neutral live-system and information states; green/red only for grounded positive/negative status.
-- **Typography:** use locally installed, Windows-safe font fallbacks. Condensed bold display face for workspace titles; clean sans-serif for body and forms; monospaced face for UIDs, CA/PA, dates, source IDs and numeric telemetry; sparing italic serif accent. Do not bundle or redistribute font files without licence review.
-- **Density:** compact enough for thousands of records, but never tiny. Body copy and filter labels must remain readable at normal desktop scaling. Dense tables must support row height, font scaling, column sizing and clear focus/selection.
-- **Motion:** subtle, short and purposeful; honour Windows animation preferences and provide Reduce Motion.
-- **Accessibility:** labels and tooltips support both pointer and keyboard; visible focus rings; high-contrast mode; no colour-only statuses; no hover-only essential information.
+- **Canvas:** `#07080A`-style deep ink.
+- **Panels:** flat ink / charcoal surfaces with hairline separators only. No translucent glass, no decorative gradients, no shadows and no rounded cards.
+- **Text:** warm off-white / bone for primary content; softer bone for secondary copy. Do not use low-contrast grey for essential text.
+- **Signal:** restrained sodium orange for the active record, focus, live/selected state and primary action. Use sparingly.
+- **Secondary:** muted ice blue for a small, clearly defined category of neutral/radar/information indicators. It is not a second accent colour competing with orange.
+- **Caution:** amber/yellow is reserved for provisional, stale or incomplete source warnings. Positive/negative results use explicit labels and accessible marks as well as colour.
+- **Display type:** condensed bold face for major titles (Windows-safe `Bahnschrift` fallback).
+- **Body:** `Segoe UI` or a locally available equivalent, readable at normal Windows scaling.
+- **Data / mono:** `Consolas` for UIDs, CA/PA, numeric metrics, dates, build IDs and evidence references; tabular digits wherever practical.
+- **Editorial accent:** `Georgia` italic sparingly, never for controls or data.
+- Use system-installed font fallbacks. Do not silently bundle font binaries; any packaged typeface needs a licence and redistribution review.
+- Body copy should generally be 13–15px. Labels should remain legible (normally 10–11px minimum); important readouts should be 12–14px. Never shrink long data tables to solve layout problems—use column configuration, horizontal scrolling and density settings instead.
 
-### Shell and navigation
+### Layout and components
 
-- Persistent left navigation grouped by Home, Scouting, Analysis, Editing and Data & Tools. Collapsible to an icon rail, but labels remain accessible.
-- A compact command/action toolbar at the top with Quick Search, Open/Refresh career, active task centre, compare, shortlist, undo/history, settings and context-sensitive actions.
-- Ctrl+K opens a keyboard-first command/search palette. It searches all currently supported entity types and navigates to the chosen record.
-- Main content is a tabbed workspace. Search workspaces remain open as tabs; each opened player/staff/club record gets its own closable tab. Selecting a record tab gives it the full central workspace width.
-- Background imports and scans must not disable navigation. Jobs show stage, elapsed time, progress, cancellation and final outcome.
+- Use an inset instrument frame with fine border/corner markers only where they clarify the workspace; do not decorate every screen with a bezel.
+- 12-column content grid on wide workspaces, adapting to fewer columns on smaller windows. Filters dock left or above; results occupy the central area; contextual information sits to the side only when it does not steal the record workspace.
+- Main record tabs occupy the full workspace. No permanent narrow player inspector.
+- Section dividers use small monospaced notched labels (e.g. `02 / ATTRIBUTES`).
+- Tables, attribute cells and form controls use flat surfaces, clear row separators and direct hover/focus/selection marks.
+- Use custom simple line glyphs or built-in text glyphs; do not add a generic icon library for decoration.
+- One visualisation is the screen's focal point when meaningful: player attribute map, pitch/position map, performance chart, contract timeline or club squad structure. Never add an unrelated globe or decorative 3D view.
+
+### Interaction and accessibility
+
+- Persistent grouped side navigation plus compact toolbar.
+- Search opens quickly from Ctrl+K; a keyboard-first record picker searches all supported entity types.
+- Main workspace tabs host search pages and full-width player/staff/club record tabs. Tabs are closable and preserve their source record identity.
+- Use concise labels and tooltips, but labels remain visible and accessible without hover.
+- Strong focus outlines, keyboard operation, semantic control names, scalable text, high-contrast support and a Reduce Motion preference.
+- No bounce, spring overshoot or long transitions. Use 120–240ms feedback and short fades only.
+- Background jobs never block search/navigation; progress uses a textual stage, elapsed time, a thin progress line and a clear cancellation action.
 
 ## 3. Player workspace — required behaviour
 
