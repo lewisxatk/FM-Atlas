@@ -71,7 +71,11 @@ public partial class MainWindow
         DockPanel.SetDock(grid, Dock.Bottom); dock.Children.Add(grid);
         Grid.SetRow(stack, 0); root.Children.Add(stack);
         Grid.SetRow(body, 1); root.Children.Add(body);
-        grid.MouseDoubleClick += async (_, _) => { if (grid.SelectedItem is ValueFinderCandidate item) await ShowPlayerProfileAsync(item.Player); };
+        grid.MouseDoubleClick += async (_, _) =>
+        {
+            if (grid.SelectedItem is ValueFinderCandidate item)
+                await OpenPlayerRecordAsync(item.Player);
+        };
 
         async Task RunSearchAsync()
         {
