@@ -148,7 +148,7 @@ public partial class MainWindow : Window
         try
         {
             await RunDatabaseAsync(() => _database.InitialiseAsync());
-            BuildShell();
+            BuildShellV9();
             RefreshConnectionStatus();
             await RefreshCareerStatusAsync();
             await NavigateAsync("Dashboard");
@@ -545,7 +545,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { AtlasLog.Warning("Could not persist Atlas appearance preference: " + ex.Message); }
         var page = _activePage;
-        BuildShell();
+        BuildShellV9();
         await NavigateAsync(page);
     }
 
@@ -553,7 +553,7 @@ public partial class MainWindow : Window
     {
         _navCollapsed = !_navCollapsed;
         var page = _activePage;
-        BuildShell();
+        BuildShellV9();
         await NavigateAsync(page);
     }
 
@@ -769,9 +769,12 @@ public partial class MainWindow : Window
             foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>())
             {
                 var active = string.Equals(button.Tag?.ToString(), page, StringComparison.OrdinalIgnoreCase);
-                button.Background = active ? Brush("#294765") : Brushes.Transparent;
+                button.Background = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft) : Brushes.Transparent;
                 if (button.Content is StackPanel row)
-                    foreach (var tb in row.Children.OfType<TextBlock>()) tb.Foreground = active ? Brush("#A9D6FF") : (tb.Text.Trim() == page ? Ink : Muted);
+                    foreach (var tb in row.Children.OfType<TextBlock>())
+                        tb.Foreground = active
+                            ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)
+                            : (tb.Text.Trim() == page ? Ink : Muted);
             }
 
             _pageHost.Content = NavigationLoadingPane(page);
