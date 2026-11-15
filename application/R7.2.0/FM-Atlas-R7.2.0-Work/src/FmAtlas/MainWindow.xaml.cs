@@ -135,6 +135,18 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 ShowGlobalSearch();
             }
+            else if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && e.Key == Key.W)
+            {
+                e.Handled = true;
+                if (_profileTabs?.SelectedItem is TabItem selected)
+                    CloseOtherRecordTabsV9(selected, closeToRight: false);
+            }
+            else if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift | ModifierKeys.Alt) && e.Key == Key.W)
+            {
+                e.Handled = true;
+                if (_profileTabs?.SelectedItem is TabItem selected)
+                    CloseOtherRecordTabsV9(selected, closeToRight: true);
+            }
             else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.W)
             {
                 e.Handled = true;
