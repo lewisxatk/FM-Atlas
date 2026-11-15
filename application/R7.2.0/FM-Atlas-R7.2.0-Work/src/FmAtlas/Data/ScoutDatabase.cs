@@ -3998,7 +3998,7 @@ public sealed partial class ScoutDatabase
         AdvancedPositionFilter? positionFilter = null)
     {
         positionFilter = AdvancedPositionFilterRules.Normalize(positionFilter);
-        if (criteria.Count == 0 && positionFilter is null) return new();
+        if (criteria.Count == 0 && positionFilter is null && string.IsNullOrWhiteSpace(search)) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 conditions in one advanced player search.");
 
         var coreColumns = new Dictionary<string, (string Column, AdvancedSearchFieldType Type)>(StringComparer.OrdinalIgnoreCase)
