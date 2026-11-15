@@ -255,12 +255,13 @@ public partial class MainWindow
             Width = 940, Height = 340, BorderBrush = Brush("#52665B"), BorderThickness = new Thickness(1),
             Background = Brushes.Transparent, IsHitTestVisible = false
         });
-        pitchCanvas.Children.Add(new Border
+        var centreLine = new Border
         {
             Width = 1, Height = 338, Background = Brush("#52665B"), IsHitTestVisible = false
-        });
-        Canvas.SetLeft(pitchCanvas.Children[^1], 470);
-        Canvas.SetTop(pitchCanvas.Children[^1], 1);
+        };
+        Canvas.SetLeft(centreLine, 470);
+        Canvas.SetTop(centreLine, 1);
+        pitchCanvas.Children.Add(centreLine);
         var centreCircle = new Border
         {
             Width = 86, Height = 86, CornerRadius = new CornerRadius(43),
@@ -276,14 +277,15 @@ public partial class MainWindow
             (0d, 120d, 48d, 100d), (892d, 120d, 48d, 100d)
         })
         {
-            pitchCanvas.Children.Add(new Border
+            var marking = new Border
             {
                 Width = width, Height = height, BorderBrush = Brush("#52665B"),
                 BorderThickness = new Thickness(1), Background = Brushes.Transparent,
                 IsHitTestVisible = false
-            });
-            Canvas.SetLeft(pitchCanvas.Children[^1], left);
-            Canvas.SetTop(pitchCanvas.Children[^1], top);
+            };
+            Canvas.SetLeft(marking, left);
+            Canvas.SetTop(marking, top);
+            pitchCanvas.Children.Add(marking);
         }
 
         void AddPositionNode(string code, string label, double left, double top)
