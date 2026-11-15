@@ -176,36 +176,33 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
-    public void LivePlayerCatalogueIncludesCaPaAndAllFortySevenStandardAttributesButQuarantinesHiddenLeads()
+    public void LivePlayerCatalogueIncludesCaPaAndAllFiftyTwoAttributesIncludingHiddenFields()
     {
         var fields = LiveEntityMemoryEditService.GetEditableFields(LiveEntityMemoryEditService.EntityKind.Player);
-        var keys = fields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var byKey = fields.ToDictionary(x => x.Key, StringComparer.OrdinalIgnoreCase);
 
-        Assert.Contains("ability.current_ability", keys);
-        Assert.Contains("ability.potential_ability", keys);
-        var standardAttributes = new[]
-        {
-            "crossing", "dribbling", "finishing", "heading", "long_shots", "marking", "passing", "tackling",
-            "technique", "first_touch", "corners", "free_kicks", "long_throws", "penalty_taking",
-            "aggression", "anticipation", "bravery", "composure", "concentration", "decisions", "flair",
-            "leadership", "off_the_ball", "positioning", "teamwork", "vision", "work_rate", "determination",
-            "acceleration", "agility", "balance", "jumping_reach", "natural_fitness", "pace", "stamina", "strength",
-            "handling", "aerial_reach", "command_of_area", "communication", "kicking", "throwing",
-            "one_on_ones", "reflexes", "eccentricity", "rushing_out", "punching"
-        };
-        Assert.Equal(47, standardAttributes.Length);
-        foreach (var key in standardAttributes)
-            Assert.Contains("attribute." + key, keys);
+        Assert.Contains("ability.current_ability", byKey.Keys);
+        Assert.Contains("ability.potential_ability", byKey.Keys);
+        Assert.Equal(-10, byKey["ability.potential_ability"].Minimum);
+        Assert.Equal(200, byKey["ability.potential_ability"].Maximum);
 
-        var hiddenLeads = new[]
+        var attributes = new[]
         {
-            "attribute.consistency", "attribute.important_matches", "attribute.injury_proneness",
-            "attribute.dirtiness", "attribute.versatility"
+            "crossing", "dribbling", "finishing", "heading", "long_shots", "marking", "off_the_ball",
+            "passing", "penalty_taking", "tackling", "vision", "handling", "aerial_reach",
+            "command_of_area", "communication", "kicking", "throwing", "anticipation", "decisions",
+            "one_on_ones", "positioning", "reflexes", "first_touch", "technique", "flair", "corners",
+            "teamwork", "work_rate", "long_throws", "eccentricity", "rushing_out", "tendency_to_punch",
+            "acceleration", "free_kicks", "strength", "stamina", "pace", "jumping_reach", "leadership",
+            "dirtiness", "balance", "bravery", "consistency", "aggression", "agility", "important_matches",
+            "injury_proneness", "versatility", "natural_fitness", "determination", "composure", "concentration"
         };
-        foreach (var key in hiddenLeads)
+        Assert.Equal(52, attributes.Length);
+        foreach (var key in attributes)
         {
-            Assert.DoesNotContain(key, keys);
-            Assert.False(LiveEntityMemoryEditService.SupportsField(LiveEntityMemoryEditService.EntityKind.Player, key));
+            Assert.Contains("attribute." + key, byKey.Keys);
+            Assert.True(LiveEntityMemoryEditService.SupportsField(
+                LiveEntityMemoryEditService.EntityKind.Player, "attribute." + key));
         }
 
         foreach (var key in new[]
@@ -216,7 +213,7 @@ public sealed class LiveMemoryWriteGateTests
             "contract.squad_number", "contract.squad_status", "contract.transfer_listed", "contract.loan_listed",
             "contract.loyalty_bonus", "contract.happiness", "contract.playing_time_happiness"
         })
-            Assert.Contains(key, keys);
+            Assert.Contains(key, byKey.Keys);
     }
 
     [Fact]
