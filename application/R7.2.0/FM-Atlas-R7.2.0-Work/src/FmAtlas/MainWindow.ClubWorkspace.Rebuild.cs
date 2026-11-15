@@ -291,7 +291,7 @@ public partial class MainWindow
         try
         {
             var isLive = club.DataSource.Contains("live", StringComparison.OrdinalIgnoreCase);
-            var (facts, squadRows, clubStaff, squadWages) = await Task.Run(async () =>
+            var (facts, squadRows, clubStaff, squadWages, matchStats) = await Task.Run(async () =>
             {
                 var loadedFacts = isLive
                     ? await _database.GetLiveClubFactsAsync(club.SourceId).ConfigureAwait(false)
@@ -305,7 +305,10 @@ public partial class MainWindow
                 var loadedWages = isLive
                     ? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
                     : await _database.GetLatestPlayerWageFactsAsync(loadedSquad.Select(x => x.SourceId).ToList()).ConfigureAwait(false);
-                return (loadedFacts, loadedSquad, loadedStaff, loadedWages);
+                var loadedMatchStats = isLive
+                    ? new List<AtlasClubMatchStats>()
+                    : await _database.GetFmsaveClubMatchStatsAsync(club.SourceId, 1000).ConfigureAwait(false);
+                return (loadedFacts, loadedSquad, loadedStaff, loadedWages, loadedMatchStats);
             });
             content.Children.Add(MonolithDesignSystem.MicroLabel("CLUB RECORD", true));
             var clubUid = club.SourceId.StartsWith("FMSAVE:", StringComparison.OrdinalIgnoreCase)
@@ -366,7 +369,7 @@ public partial class MainWindow
             foreach (var group in facts.GroupBy(x => x.Group))
             {
                 content.Children.Add(MonolithDesignSystem.MicroLabel(group.Key.Replace('_', ' ').ToUpperInvariant()));
-                foreach (var fact in group.Take(80))
+                foreach (var fact in group)
                     AddDetailRow(content, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
             }
 
@@ -396,6 +399,97 @@ public partial class MainWindow
                     await NavigateAsync("Staff");
                 };
                 content.Children.Add(staffGrid);
+            }
+
+            content.Children.Add(MonolithDesignSystem.MicroLabel("TEAM MATCH REPORTS", true));
+            if (isLive)
+            {
+                content.Children.Add(MonolithDesignSystem.BodyText(
+                    "The current live-memory reader does not expose team match-report rows. Import a read-only FM27 save snapshot to view retained match statistics.",
+                    11, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+            }
+            else if (matchStats.Count == 0)
+            {
+                content.Children.Add(MonolithDesignSystem.BodyText(
+                    "No team match reports were retained for this club in the current save snapshot. A missing report is not a zero-stat result.",
+                    11, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+            }
+            else
+            {
+                AddDetailRow(content, "Retained team reports", matchStats.Count.ToString("N0", CultureInfo.InvariantCulture));
+                content.Children.Add(MonolithDesignSystem.BodyText(
+                    "Each row is one team in one match. Team totals cover the matchday squad; progressive passes are only present when the game retained a detailed report.",
+                    10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+                var matchGrid = CreateGrid();
+                matchGrid.RowHeight = 36;
+                matchGrid.Columns.Add(Column("DATE", "Date", .72));
+                matchGrid.Columns.Add(Column("TIME", "KickOffTime", .55));
+                matchGrid.Columns.Add(Column("TEAM SLOT", "TeamSlot", .55));
+                matchGrid.Columns.Add(Column("COMPETITION", "Competition", 1.0));
+                matchGrid.Columns.Add(Column("OPPONENT", "Opponent", 1.15));
+                matchGrid.Columns.Add(Column("H/A", "Venue", .42));
+                matchGrid.Columns.Add(Column("RESULT", "Result", .58));
+                matchGrid.Columns.Add(Column("SHOTS", "Shots", .42));
+                matchGrid.Columns.Add(Column("ON TARGET", "ShotsOnTarget", .48));
+                matchGrid.Columns.Add(Column("XG", "ExpectedGoals", .45));
+                matchGrid.Columns.Add(Column("POSSESSION", "PossessionPercent", .58));
+                matchGrid.Columns.Add(Column("PASSES", "PassesCompleted", .48));
+                matchGrid.Columns.Add(Column("TACKLES", "TacklesCompleted", .48));
+                matchGrid.Columns.Add(Column("AERIALS", "HeadersWon", .48));
+                matchGrid.Columns.Add(Column("FOULS", "FoulsMade", .42));
+                matchGrid.Columns.Add(Column("YELLOW", "YellowCards", .42));
+                matchGrid.Columns.Add(Column("RED", "RedCards", .38));
+                matchGrid.Columns.Add(Column("DISTANCE KM", "DistanceKm", .62));
+                matchGrid.ItemsSource = matchStats;
+                matchGrid.Height = Math.Min(340, Math.Max(170, Math.Min(matchStats.Count, 8) * 38));
+
+                var matchDetail = new StackPanel { Margin = new Thickness(10) };
+                var matchDetailBorder = new Border
+                {
+                    Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
+                    BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+                    BorderThickness = new Thickness(1),
+                    Padding = new Thickness(4),
+                    Child = matchDetail
+                };
+                var detailExpander = new Expander
+                {
+                    Header = "SELECTED MATCH · FULL STAT LINE",
+                    Content = matchDetailBorder,
+                    IsExpanded = false,
+                    Margin = new Thickness(0, 6, 0, 10)
+                };
+                matchGrid.SelectionChanged += (_, _) =>
+                {
+                    matchDetail.Children.Clear();
+                    if (matchGrid.SelectedItem is not AtlasClubMatchStats row) return;
+                    string FI(int? value) => value?.ToString("N0", CultureInfo.InvariantCulture) ?? "—";
+                    string FD(double? value) => value?.ToString("0.##", CultureInfo.InvariantCulture) ?? "—";
+                    AddDetailRow(matchDetail, "Date / kick-off", row.Date + " · " + row.KickOffTime);
+                    AddDetailRow(matchDetail, "Competition", row.Competition);
+                    AddDetailRow(matchDetail, "Team slot", row.TeamSlot);
+                    AddDetailRow(matchDetail, "Opponent", row.Opponent);
+                    AddDetailRow(matchDetail, "Venue / result", row.Venue + " · " + row.Result);
+                    AddDetailRow(matchDetail, "Matchday players", FI(row.Players));
+                    AddDetailRow(matchDetail, "Shots / on target", FI(row.Shots) + " / " + FI(row.ShotsOnTarget));
+                    AddDetailRow(matchDetail, "Blocked / outside box", FI(row.BlockedShots) + " / " + FI(row.ShotsOutsideBox));
+                    AddDetailRow(matchDetail, "Clear-cut chances / woodwork", FI(row.ClearCutChances) + " / " + FI(row.Woodwork));
+                    AddDetailRow(matchDetail, "Expected goals / npxG", FD(row.ExpectedGoals) + " / " + FD(row.NonPenaltyExpectedGoals));
+                    AddDetailRow(matchDetail, "Corners", FI(row.Corners));
+                    AddDetailRow(matchDetail, "Passes attempted / completed", FI(row.PassesAttempted) + " / " + FI(row.PassesCompleted));
+                    AddDetailRow(matchDetail, "Final-third / progressive passes", FI(row.FinalThirdPasses) + " / " + FI(row.ProgressivePasses));
+                    AddDetailRow(matchDetail, "Possession / ball distribution", FI(row.PossessionPercent) + "% / " + FI(row.BallDistributionPercent) + "%");
+                    AddDetailRow(matchDetail, "Crosses attempted / completed", FI(row.CrossesAttempted) + " / " + FI(row.CrossesCompleted));
+                    AddDetailRow(matchDetail, "Tackles attempted / completed", FI(row.TacklesAttempted) + " / " + FI(row.TacklesCompleted));
+                    AddDetailRow(matchDetail, "Aerials attempted / headers won", FI(row.AerialChallengesAttempted) + " / " + FI(row.HeadersWon));
+                    AddDetailRow(matchDetail, "Fouls / offsides", FI(row.FoulsMade) + " / " + FI(row.Offsides));
+                    AddDetailRow(matchDetail, "Yellow / red cards", FI(row.YellowCards) + " / " + FI(row.RedCards));
+                    AddDetailRow(matchDetail, "Distance covered (km)", FD(row.DistanceKm));
+                    AddDetailRow(matchDetail, "Detailed report", row.DetailedReport ? "Yes" : "No");
+                };
+                if (matchStats.Count > 0) matchGrid.SelectedIndex = 0;
+                content.Children.Add(matchGrid);
+                content.Children.Add(detailExpander);
             }
 
             content.Children.Add(MonolithDesignSystem.MicroLabel("CLUB SQUAD", true));

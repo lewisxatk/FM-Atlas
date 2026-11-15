@@ -30,6 +30,50 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public async Task ClubMatchStatsJoinToClubTeamAndFixtureAndPreserveMatchReportFields()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "club-match-stats", playerManifestCount: 1,
+            includeContractRow: false, includeClubMatchStatsRow: true);
+
+        var result = await database.ImportFmsaveSnapshotAsync(bundle);
+        var stats = await database.GetFmsaveClubMatchStatsAsync("club-10");
+
+        Assert.Equal(2, result.ExtraRowsImported);
+        Assert.Single(stats);
+        Assert.Equal("Opposition FC", stats[0].Opponent);
+        Assert.Equal("W 2–1", stats[0].Result);
+        Assert.Equal("0", stats[0].TeamSlot);
+        Assert.Equal(12, stats[0].Shots);
+        Assert.Equal(5, stats[0].ShotsOnTarget);
+        Assert.Equal(1.42, stats[0].ExpectedGoals!.Value, 2);
+        Assert.Equal(57, stats[0].PossessionPercent);
+        Assert.Equal(22, stats[0].ProgressivePasses);
+    }
+
+    [Fact]
+    public async Task PlayerSeasonStatsRemainDistinctPerCompetitionTypeAndTeam()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "scouting.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+        var bundle = CreateBundle(temp.Path, "multi-season-stat-rows", playerManifestCount: 1,
+            includeContractRow: false, includeSeasonStatsRow: true, includeSecondSeasonStatsRow: true);
+        await database.ImportFmsaveSnapshotAsync(bundle);
+
+        var facts = await database.GetPlayerPerformanceFactsAsync("FMSAVE:FM27:test-db:1001");
+        var goals = facts.Where(x => x.Field.EndsWith("· Goals", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        Assert.Equal(2, goals.Count);
+        Assert.Contains(goals, x => x.Field.Contains("League", StringComparison.OrdinalIgnoreCase) && x.Value == "10");
+        Assert.Contains(goals, x => x.Field.Contains("Cup", StringComparison.OrdinalIgnoreCase) && x.Value == "3");
+    }
+
+    [Fact]
     public async Task PlayerManifestCountMismatchRollsBackNewSnapshot()
     {
         using var temp = new TemporaryFolder();
@@ -1503,6 +1547,8 @@ public sealed class FmsaveNdjsonImportTests
         bool malformedContractRow = false,
         bool includeInvalidStaffRow = false,
         bool includeSeasonStatsRow = false,
+        bool includeSecondSeasonStatsRow = false,
+        bool includeClubMatchStatsRow = false,
         int currentAbility = 120,
         int potentialAbility = 150,
         string gameDate = "2026-11-14")
@@ -1514,9 +1560,11 @@ public sealed class FmsaveNdjsonImportTests
         {
             ["players"] = playerManifestCount,
             ["staff"] = includeInvalidStaffRow ? 1 : 0,
-            ["clubs"] = 0,
+            ["clubs"] = includeClubMatchStatsRow ? 1 : 0,
             ["contracts"] = includeContractRow ? 1 : 0,
-            ["player_season_stats"] = includeSeasonStatsRow ? 1 : 0
+            ["player_season_stats"] = (includeSeasonStatsRow ? 1 : 0) + (includeSecondSeasonStatsRow ? 1 : 0),
+            ["fixtures"] = includeClubMatchStatsRow ? 1 : 0,
+            ["team_match_stats"] = includeClubMatchStatsRow ? 1 : 0
         };
         var manifest = new
         {
@@ -1572,12 +1620,103 @@ public sealed class FmsaveNdjsonImportTests
             var stats = new
             {
                 player_uid = "player-uid-1001",
-                season = "2026/27",
-                minutes_played = 900,
+                kind = 1,
+                kind_label = "League",
+                club_uid = "club-10",
+                club_name = "Fixture FC",
+                team_id = 10,
+                team_slot = 0,
+                minutes = 900,
                 goals = 10,
                 assists = 8
             };
-            File.WriteAllText(Path.Combine(folder, "player_season_stats.ndjson"), JsonSerializer.Serialize(stats) + Environment.NewLine);
+            var lines = new List<string> { JsonSerializer.Serialize(stats) };
+            if (includeSecondSeasonStatsRow)
+            {
+                var cupStats = new
+                {
+                    player_uid = "player-uid-1001",
+                    kind = 2,
+                    kind_label = "Cup",
+                    club_uid = "club-10",
+                    club_name = "Fixture FC",
+                    team_id = 10,
+                    team_slot = 0,
+                    minutes = 300,
+                    goals = 3,
+                    assists = 1
+                };
+                lines.Add(JsonSerializer.Serialize(cupStats));
+            }
+            File.WriteAllText(Path.Combine(folder, "player_season_stats.ndjson"), string.Join(Environment.NewLine, lines) + Environment.NewLine);
+        }
+
+        if (includeClubMatchStatsRow)
+        {
+            var club = new
+            {
+                uid = "club-10",
+                unique_id = 10,
+                name = "Fixture FC",
+                nation_id = 1,
+                teams = new[] { new { team_id = 10, slot = 0, club_uid = "club-10" } }
+            };
+            var fixture = new
+            {
+                competition_id = 7,
+                home_team_id = 10,
+                away_team_id = 20,
+                date = "2026-11-14",
+                kick_off_time = "15:00:00",
+                home_club_uid = "club-10",
+                home_club_name = "Fixture FC",
+                away_club_uid = "club-20",
+                away_club_name = "Opposition FC",
+                home_goals = 2,
+                away_goals = 1,
+                competition_name = "Test League"
+            };
+            var teamStats = new
+            {
+                competition_id = 7,
+                home_team_id = 10,
+                away_team_id = 20,
+                date = "2026-11-14",
+                kick_off_time = "15:00:00",
+                team_id = 10,
+                is_home = true,
+                detailed_report = true,
+                players = 16,
+                shots = 12,
+                shots_on_target = 5,
+                blocked_shots = 2,
+                shots_outside_box = 4,
+                clear_cut_chances = 3,
+                woodwork = 1,
+                fouls_made = 8,
+                offsides = 2,
+                yellow_cards = 1,
+                red_cards = 0,
+                crosses_attempted = 15,
+                crosses_completed = 4,
+                tackles_attempted = 18,
+                tackles_completed = 14,
+                aerial_challenges_attempted = 22,
+                headers_won = 12,
+                distance_km = 109.4,
+                expected_goals = 1.42,
+                non_penalty_expected_goals = 1.21,
+                corners = 6,
+                passes_attempted = 412,
+                passes_completed = 355,
+                final_third_passes = 78,
+                progressive_passes = 22,
+                possession_percent = 57,
+                ball_distribution_percent = 62
+            };
+            File.WriteAllText(Path.Combine(folder, "clubs.ndjson"), JsonSerializer.Serialize(club) + Environment.NewLine);
+            File.WriteAllText(Path.Combine(folder, "fixtures.ndjson"), JsonSerializer.Serialize(fixture) + Environment.NewLine);
+            File.WriteAllText(Path.Combine(folder, "team_match_stats.ndjson"), JsonSerializer.Serialize(teamStats) + Environment.NewLine);
         }
 
         return folder;

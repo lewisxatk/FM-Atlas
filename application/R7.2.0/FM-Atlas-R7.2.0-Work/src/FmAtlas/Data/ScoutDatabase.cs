@@ -12,6 +12,13 @@ public sealed record LiveClubSummary(long ClubUid, string Name, string Validatio
 public sealed record WorkspaceMetrics(int LivePlayers, int LiveClubs, int LiveStaff, int SavePlayers, int SaveClubs, int SaveStaff, int LocalAttributeFacts, int LiveFacts, string? LastSaveImportUtc, string? LastLiveImportUtc, string? LastSaveFileName, string? SaveGame, string? SaveBuild, bool? SaveBuildKnown, string? SaveGameDate, string? SaveValidationJson, string? CurrentManager, string? CurrentManagerClub, string? CurrentManagerNation = null, long? LiveSaveLoadCounter = null);
 public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club, string? Job, int? Age, string? Nation, string ValidationStatus, int? CurrentAbility = null, int? PotentialAbility = null, bool IsHumanManager = false);
 public sealed record AtlasClubRecord(string SourceId, string Name, string? Nation, int PlayerCount, string DataSource);
+public sealed record AtlasClubMatchStats(
+    string Date, string KickOffTime, string TeamSlot, string Competition, string Opponent, string Venue, string Result,
+    int? Players, int? Shots, int? ShotsOnTarget, int? BlockedShots, int? ShotsOutsideBox, int? ClearCutChances, int? Woodwork,
+    int? FoulsMade, int? Offsides, int? YellowCards, int? RedCards, int? CrossesAttempted, int? CrossesCompleted,
+    int? TacklesAttempted, int? TacklesCompleted, int? AerialChallengesAttempted, int? HeadersWon, double? DistanceKm,
+    double? ExpectedGoals, double? NonPenaltyExpectedGoals, int? Corners, int? PassesAttempted, int? PassesCompleted,
+    int? FinalThirdPasses, int? ProgressivePasses, int? PossessionPercent, int? BallDistributionPercent, bool DetailedReport);
 public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerName, string FieldName, string? OldValue, string? NewValue, string ChangedUtc, string ChangeSource);
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
@@ -1862,7 +1869,7 @@ public sealed class ScoutDatabase
             warnings.Add($"Club rows skipped during indexing: read={scannedClubs:N0}, indexed={clubCount:N0}. Rows without a usable identity or name were excluded.");
 
         // Keep all additional save tables in a lossless JSON sidecar table so later modules can build on them.
-        var extraNames = new[] { "managed_clubs", "staff_lists", "contracts", "suspensions", "finances", "sponsorships", "facilities", "stadiums", "affiliates", "job_vacancies", "stages", "competitions", "nations", "injury_types", "injuries", "player_season_stats", "player_season_history", "player_match_stats", "fixtures", "league_tables", "competition_rules", "transfer_windows", "tactics", "training", "mentoring", "set_pieces", "selections" };
+        var extraNames = new[] { "managed_clubs", "staff_lists", "contracts", "suspensions", "finances", "sponsorships", "facilities", "stadiums", "affiliates", "job_vacancies", "stages", "competitions", "nations", "injury_types", "injuries", "player_season_stats", "player_season_history", "player_match_stats", "fixtures", "team_match_stats", "league_tables", "competition_rules", "transfer_windows", "tactics", "training", "mentoring", "set_pieces", "selections" };
         var extraInsert = db.CreateCommand(); extraInsert.Transaction = (SqliteTransaction)tx;
         extraInsert.CommandText = "INSERT INTO FmsaveExtraTables(SnapshotId,TableName,RowIndex,RawJson) VALUES($snapshot,$table,$index,$raw);";
         extraInsert.Parameters.AddWithValue("$snapshot", snapshotId); extraInsert.Parameters.Add("$table", SqliteType.Text); extraInsert.Parameters.Add("$index", SqliteType.Integer); extraInsert.Parameters.Add("$raw", SqliteType.Text);
@@ -1890,9 +1897,7 @@ public sealed class ScoutDatabase
                     var uid = GetFirstJsonString(row, "player_uid", "player_id", "uid", "unique_id", "person_uid");
                     if (!string.IsNullOrWhiteSpace(uid))
                     {
-                        var period = tableName == "player_match_stats"
-                            ? GetFirstJsonString(row, "fixture_uid", "match_uid", "fixture_id", "match_id", "date", "match_date") ?? $"Match #{currentIndex + 1}"
-                            : GetFirstJsonString(row, "season", "season_name", "year") ?? "Season unavailable";
+                        var period = BuildPlayerStatPeriod(tableName, row);
                         double? minutes = null;
                         foreach (var key in new[] { "minutes_played", "playing_time_minutes", "minutes", "mins_played", "total_minutes", "minutes_on_pitch" })
                             if (TryFindNumeric(row, key, out var mins) && mins > 0) { minutes = mins; break; }
@@ -2320,14 +2325,36 @@ public sealed class ScoutDatabase
                 parameters.Add(key);
                 indexed.Parameters.AddWithValue(key, uid);
             }
-            indexed.CommandText = $"SELECT TableName,PeriodKey,FieldKey,NumericValue FROM FmsaveStatFacts WHERE SnapshotId=$snapshot AND PlayerUid IN ({string.Join(",", parameters)}) ORDER BY TableName,RowIndex,FieldKey;";
+            indexed.CommandText = $"""
+                SELECT f.TableName,f.RowIndex,f.PeriodKey,f.FieldKey,f.NumericValue,
+                       CASE WHEN f.PeriodKey IN ('Season unavailable','Match period unavailable','Period unavailable')
+                            THEN e.RawJson END
+                FROM FmsaveStatFacts f
+                LEFT JOIN FmsaveExtraTables e
+                  ON e.SnapshotId=f.SnapshotId AND e.TableName=f.TableName AND e.RowIndex=f.RowIndex
+                WHERE f.SnapshotId=$snapshot AND f.PlayerUid IN ({string.Join(",", parameters)})
+                ORDER BY f.TableName,f.RowIndex,f.FieldKey;
+                """;
             await using var reader = await indexed.ExecuteReaderAsync().ConfigureAwait(false);
+            var periodCache = new Dictionary<(string Table, int RowIndex), string>();
             while (await reader.ReadAsync().ConfigureAwait(false))
             {
                 var table = reader.GetString(0);
-                var period = reader.GetString(1);
-                var key = reader.GetString(2);
-                var value = reader.GetDouble(3);
+                var rowIndex = reader.GetInt32(1);
+                var period = reader.GetString(2);
+                if (!reader.IsDBNull(5))
+                {
+                    var cacheKey = (table, rowIndex);
+                    if (!periodCache.TryGetValue(cacheKey, out var resolvedPeriod))
+                    {
+                        using var rowDoc = JsonDocument.Parse(reader.GetString(5));
+                        resolvedPeriod = BuildPlayerStatPeriod(table, rowDoc.RootElement);
+                        periodCache[cacheKey] = resolvedPeriod;
+                    }
+                    period = resolvedPeriod;
+                }
+                var key = reader.GetString(3);
+                var value = reader.GetDouble(4);
                 var leaf = key.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? key;
                 if (IsAnalyticsIdentityKey(leaf) || IsNonMetricNumericField(leaf) || !double.IsFinite(value)) continue;
                 var category = StatCategory(leaf, key);
@@ -2339,7 +2366,7 @@ public sealed class ScoutDatabase
                     "player_match_stats" => "Match",
                     _ => table
                 };
-                var identity = category + "\0" + sourceLabel + "\0" + period + "\0" + fieldLabel;
+                var identity = category + "\0" + sourceLabel + "\0" + period + "\0" + rowIndex.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\0" + fieldLabel;
                 if (!seen.Add(identity)) continue;
                 facts.Add(new AtlasFactRecord(category, $"{sourceLabel} · {period} · {fieldLabel}", value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)));
             }
@@ -2347,7 +2374,7 @@ public sealed class ScoutDatabase
         else if (snapshotId.HasValue && playerUids.Count > 0)
         {
             var legacy = db.CreateCommand();
-            legacy.CommandText = "SELECT TableName,RawJson FROM FmsaveExtraTables WHERE SnapshotId=$snapshot AND TableName IN ('player_season_stats','player_season_history','player_match_stats') ORDER BY CASE TableName WHEN 'player_season_stats' THEN 0 WHEN 'player_match_stats' THEN 1 ELSE 2 END,RowIndex;";
+            legacy.CommandText = "SELECT TableName,RowIndex,RawJson FROM FmsaveExtraTables WHERE SnapshotId=$snapshot AND TableName IN ('player_season_stats','player_season_history','player_match_stats') ORDER BY CASE TableName WHEN 'player_season_stats' THEN 0 WHEN 'player_match_stats' THEN 1 ELSE 2 END,RowIndex;";
             legacy.Parameters.AddWithValue("$snapshot", snapshotId.Value);
             await using var reader = await legacy.ExecuteReaderAsync().ConfigureAwait(false);
             while (await reader.ReadAsync().ConfigureAwait(false))
@@ -2355,13 +2382,12 @@ public sealed class ScoutDatabase
                 try
                 {
                     var table = reader.GetString(0);
-                    using var doc = JsonDocument.Parse(reader.GetString(1));
+                    var rowIndex = reader.GetInt32(1);
+                    using var doc = JsonDocument.Parse(reader.GetString(2));
                     var row = doc.RootElement;
                     var uid = GetFirstJsonString(row, "player_uid", "player_id", "uid", "unique_id", "person_uid");
                     if (string.IsNullOrWhiteSpace(uid) || !playerUids.Contains(uid)) continue;
-                    var period = table == "player_match_stats"
-                        ? GetFirstJsonString(row, "fixture_uid", "match_uid", "fixture_id", "match_id", "date", "match_date") ?? "Match period unavailable"
-                        : GetFirstJsonString(row, "season", "season_name", "year") ?? "Season unavailable";
+                    var period = BuildPlayerStatPeriod(table, row);
                     var sourceLabel = table switch { "player_season_stats" => "Season", "player_season_history" => "Career history", _ => "Match" };
                     foreach (var item in EnumerateNumericPaths(row))
                     {
@@ -2369,7 +2395,7 @@ public sealed class ScoutDatabase
                         if (IsAnalyticsIdentityKey(leaf) || IsNonMetricNumericField(leaf) || !double.IsFinite(item.Value)) continue;
                         var category = StatCategory(leaf, item.Key);
                         var fieldLabel = HumanizeMetric(leaf);
-                        var identity = category + "\0" + sourceLabel + "\0" + period + "\0" + fieldLabel;
+                        var identity = category + "\0" + sourceLabel + "\0" + period + "\0" + rowIndex.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\0" + fieldLabel;
                         if (!seen.Add(identity)) continue;
                         facts.Add(new AtlasFactRecord(category, $"{sourceLabel} · {period} · {fieldLabel}", item.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)));
                     }
@@ -2613,30 +2639,155 @@ public sealed class ScoutDatabase
         var club = db.CreateCommand();
         club.CommandText = "SELECT RawJson FROM FmsaveClubDirectory WHERE ClubUid=$uid AND SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) LIMIT 1;";
         club.Parameters.AddWithValue("$uid", clubUid);
-        var json = Convert.ToString(await club.ExecuteScalarAsync());
+        var json = Convert.ToString(await club.ExecuteScalarAsync().ConfigureAwait(false));
         if (!string.IsNullOrWhiteSpace(json))
         {
             using var doc = JsonDocument.Parse(json);
-            facts.AddRange(FlattenScalarFacts(doc.RootElement).Take(120).Select(x => new AtlasFactRecord("Club", x.Key, x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)));
+            facts.AddRange(FlattenScalarFacts(doc.RootElement).Select(x => new AtlasFactRecord("Club", x.Key, x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)));
         }
 
         var related = db.CreateCommand();
-        related.CommandText = "SELECT TableName,RawJson FROM FmsaveExtraTables WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND TableName IN ('finances','facilities','stadiums','affiliates','managed_clubs');";
-        await using var reader = await related.ExecuteReaderAsync();
+        related.CommandText = "SELECT TableName,RawJson FROM FmsaveExtraTables WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND TableName IN ('finances','facilities','stadiums','affiliates','managed_clubs','league_tables');";
+        await using var reader = await related.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             var table = reader.GetString(0); var raw = reader.GetString(1);
             try
             {
                 using var doc = JsonDocument.Parse(raw);
+                if (table.Equals("league_tables", StringComparison.OrdinalIgnoreCase))
+                {
+                    var competition = GetFirstJsonString(doc.RootElement, "competition_name", "name") ?? "Competition";
+                    if (doc.RootElement.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var tableRow in rows.EnumerateArray())
+                        {
+                            if (!string.Equals(GetFirstJsonString(tableRow, "club_uid"), clubUid, StringComparison.OrdinalIgnoreCase)) continue;
+                            foreach (var item in FlattenScalarFacts(tableRow))
+                                facts.Add(new AtlasFactRecord("League table · " + competition, item.Key,
+                                    item.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? item.TextValue));
+                        }
+                    }
+                    continue;
+                }
                 if (!ReferencesClub(doc.RootElement, clubUid)) continue;
-                foreach (var item in FlattenScalarFacts(doc.RootElement).Take(80))
+                foreach (var item in FlattenScalarFacts(doc.RootElement))
                     facts.Add(new AtlasFactRecord(table, item.Key, item.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? item.TextValue));
             }
             catch (JsonException) { /* A malformed optional row does not stop the rest of the club profile. */ }
-            if (facts.Count >= 400) break;
         }
         return facts;
+    }
+
+    public async Task<List<AtlasClubMatchStats>> GetFmsaveClubMatchStatsAsync(string clubUid, int limit = 1000)
+    {
+        if (string.IsNullOrWhiteSpace(clubUid)) return new();
+        var safeLimit = Math.Clamp(limit, 1, 5000);
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+
+        var clubCommand = db.CreateCommand();
+        clubCommand.CommandText = "SELECT RawJson FROM FmsaveClubDirectory WHERE ClubUid=$uid AND SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) LIMIT 1;";
+        clubCommand.Parameters.AddWithValue("$uid", clubUid);
+        var clubJson = Convert.ToString(await clubCommand.ExecuteScalarAsync().ConfigureAwait(false));
+        if (string.IsNullOrWhiteSpace(clubJson)) return new();
+
+        var teamSlots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using (var clubDoc = JsonDocument.Parse(clubJson))
+        {
+            if (clubDoc.RootElement.TryGetProperty("teams", out var teams) && teams.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var team in teams.EnumerateArray())
+                {
+                    var teamId = GetFirstJsonString(team, "team_id");
+                    if (!string.IsNullOrWhiteSpace(teamId))
+                        teamSlots[teamId] = GetFirstJsonString(team, "slot") ?? "—";
+                }
+            }
+        }
+        if (teamSlots.Count == 0) return new();
+
+        static string FixtureKey(string? competition, string? home, string? away, string? date)
+            => string.Join("|", competition ?? "", home ?? "", away ?? "", date ?? "");
+
+        var fixtureLookup = new Dictionary<string, (string? HomeName, string? AwayName, string? Competition, string? HomeGoals, string? AwayGoals)>(StringComparer.OrdinalIgnoreCase);
+        var fixtureCommand = db.CreateCommand();
+        fixtureCommand.CommandText = "SELECT RawJson FROM FmsaveExtraTables WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND TableName='fixtures';";
+        await using (var fixtureReader = await fixtureCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await fixtureReader.ReadAsync().ConfigureAwait(false))
+            {
+                try
+                {
+                    using var fixtureDoc = JsonDocument.Parse(fixtureReader.GetString(0));
+                    var row = fixtureDoc.RootElement;
+                    var key = FixtureKey(GetFirstJsonString(row, "competition_id"), GetFirstJsonString(row, "home_team_id"),
+                        GetFirstJsonString(row, "away_team_id"), GetFirstJsonString(row, "date"));
+                    fixtureLookup[key] = (
+                        GetFirstJsonString(row, "home_club_name"),
+                        GetFirstJsonString(row, "away_club_name"),
+                        GetFirstJsonString(row, "competition_name"),
+                        GetFirstJsonString(row, "home_goals"),
+                        GetFirstJsonString(row, "away_goals"));
+                }
+                catch (JsonException) { }
+            }
+        }
+
+        static string MatchResult(bool isHome, string? homeText, string? awayText)
+        {
+            if (!int.TryParse(homeText, out var homeGoals) || !int.TryParse(awayText, out var awayGoals)) return "—";
+            var forGoals = isHome ? homeGoals : awayGoals;
+            var againstGoals = isHome ? awayGoals : homeGoals;
+            var outcome = forGoals > againstGoals ? "W" : forGoals < againstGoals ? "L" : "D";
+            return $"{outcome} {forGoals}–{againstGoals}";
+        }
+
+        var results = new List<AtlasClubMatchStats>();
+        var statsCommand = db.CreateCommand();
+        statsCommand.CommandText = "SELECT RawJson FROM FmsaveExtraTables WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND TableName='team_match_stats';";
+        await using (var statsReader = await statsCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await statsReader.ReadAsync().ConfigureAwait(false))
+            {
+                try
+                {
+                    using var statsDoc = JsonDocument.Parse(statsReader.GetString(0));
+                    var row = statsDoc.RootElement;
+                    var teamId = GetFirstJsonString(row, "team_id");
+                    if (string.IsNullOrWhiteSpace(teamId) || !teamSlots.TryGetValue(teamId, out var teamSlot)) continue;
+                    var competitionId = GetFirstJsonString(row, "competition_id");
+                    var homeTeamId = GetFirstJsonString(row, "home_team_id");
+                    var awayTeamId = GetFirstJsonString(row, "away_team_id");
+                    var date = GetFirstJsonString(row, "date");
+                    fixtureLookup.TryGetValue(FixtureKey(competitionId, homeTeamId, awayTeamId, date), out var fixture);
+                    var isHome = row.TryGetProperty("is_home", out var homeValue) && homeValue.ValueKind == JsonValueKind.True;
+                    int? IntField(string key) => TryFindNumeric(row, key, out var value) ? (int?)Convert.ToInt32(value) : null;
+                    double? NumberField(string key) => TryFindNumeric(row, key, out var value) ? value : null;
+
+                    results.Add(new AtlasClubMatchStats(
+                        date ?? "—",
+                        GetFirstJsonString(row, "kick_off_time") ?? "—",
+                        teamSlot,
+                        fixture.Competition ?? (competitionId is null ? "—" : "Competition " + competitionId),
+                        (isHome ? fixture.AwayName : fixture.HomeName) ?? "—",
+                        isHome ? "Home" : "Away",
+                        MatchResult(isHome, fixture.HomeGoals, fixture.AwayGoals),
+                        IntField("players"), IntField("shots"), IntField("shots_on_target"), IntField("blocked_shots"),
+                        IntField("shots_outside_box"), IntField("clear_cut_chances"), IntField("woodwork"), IntField("fouls_made"),
+                        IntField("offsides"), IntField("yellow_cards"), IntField("red_cards"), IntField("crosses_attempted"),
+                        IntField("crosses_completed"), IntField("tackles_attempted"), IntField("tackles_completed"),
+                        IntField("aerial_challenges_attempted"), IntField("headers_won"), NumberField("distance_km"),
+                        NumberField("expected_goals"), NumberField("non_penalty_expected_goals"), IntField("corners"),
+                        IntField("passes_attempted"), IntField("passes_completed"), IntField("final_third_passes"),
+                        IntField("progressive_passes"), IntField("possession_percent"), IntField("ball_distribution_percent"),
+                        row.TryGetProperty("detailed_report", out var detailed) && detailed.ValueKind == JsonValueKind.True));
+                }
+                catch (JsonException) { }
+            }
+        }
+        return results.OrderByDescending(x => x.Date, StringComparer.Ordinal)
+            .ThenByDescending(x => x.KickOffTime, StringComparer.Ordinal).Take(safeLimit).ToList();
     }
 
     private static bool ReferencesClub(JsonElement element, string clubUid)
@@ -4313,6 +4464,45 @@ public sealed class ScoutDatabase
         foreach(var p in e.EnumerateObject()) if(p.Value.ValueKind==JsonValueKind.Object) { var found=GetFirstJsonString(p.Value,keys); if(found is not null) return found; }
         return null;
     }
+    private static string BuildPlayerStatPeriod(string tableName, JsonElement row)
+    {
+        var club = GetFirstJsonString(row, "club_name", "club_short_name");
+        var teamSlot = GetFirstJsonString(row, "team_slot");
+        var teamId = GetFirstJsonString(row, "team_id");
+        if (tableName == "player_season_stats")
+        {
+            var season = GetFirstJsonString(row, "season", "season_name", "year") ?? "Current season";
+            var kind = GetFirstJsonString(row, "kind_label", "kind", "competition_type");
+            return string.Join(" · ", new[] {
+                season, kind is null ? null : "Type " + kind, club,
+                teamSlot is null ? null : "Team slot " + teamSlot,
+                teamId is null ? null : "Team ID " + teamId
+            }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        }
+        if (tableName == "player_season_history")
+        {
+            var season = GetFirstJsonString(row, "season_year", "season", "season_name", "year") ?? "Season unavailable";
+            var competition = GetFirstJsonString(row, "competition_name", "competition_reference", "competition_id");
+            return string.Join(" · ", new[] {
+                season, competition is null ? null : "Competition " + competition, club,
+                teamSlot is null ? null : "Team slot " + teamSlot,
+                teamId is null ? null : "Team ID " + teamId
+            }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        }
+        if (tableName == "player_match_stats")
+        {
+            var date = GetFirstJsonString(row, "date", "match_date") ?? "Match date unavailable";
+            var opponent = GetFirstJsonString(row, "opponent_club_name", "opponent_club_short_name") ?? "Opponent unavailable";
+            var competition = GetFirstJsonString(row, "competition_name", "competition_id");
+            var opponentSlot = GetFirstJsonString(row, "opponent_team_slot");
+            return string.Join(" · ", new[] {
+                date, opponent, competition is null ? null : "Competition " + competition,
+                opponentSlot is null ? null : "Opponent team slot " + opponentSlot
+            }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        }
+        return "Period unavailable";
+    }
+
     private static bool TryFindNumeric(JsonElement e,string key,out double value)
     {
         value=0;

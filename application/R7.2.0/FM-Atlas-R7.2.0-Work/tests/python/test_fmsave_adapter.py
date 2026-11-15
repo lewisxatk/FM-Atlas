@@ -110,8 +110,21 @@ class FakeSave:
                 return FakeTable([{
                     "player_uid": "P-100",
                     "season": "2026/27",
-                    "minutes_played": 900,
+                    "kind": "League",
+                    "club_name": "Example FC",
+                    "team_slot": 0,
+                    "team_id": 10,
+                    "minutes": 900,
                     "goals": 10,
+                }])
+            if name == "team_match_stats":
+                return FakeTable([{
+                    "competition_id": 7, "home_team_id": 10, "away_team_id": 20,
+                    "date": "2026-11-14", "kick_off_time": "15:00:00",
+                    "team_id": 10, "is_home": True, "detailed_report": True,
+                    "players": 16, "shots": 12, "shots_on_target": 5,
+                    "expected_goals": 1.42, "possession_percent": 57,
+                    "progressive_passes": 22
                 }])
             return FakeTable([])
 
@@ -151,6 +164,7 @@ class FmsaveAdapterStreamingTests(unittest.TestCase):
             self.assertEqual(manifest["counts"]["staff"], 1)
             self.assertEqual(manifest["counts"]["clubs"], 1)
             self.assertEqual(manifest["counts"]["player_season_stats"], 1)
+            self.assertEqual(manifest["counts"]["team_match_stats"], 1)
 
             player_rows = [json.loads(line) for line in (output / "players.ndjson").read_text(encoding="utf-8").splitlines()]
             self.assertEqual(len(player_rows), 1)
@@ -164,9 +178,13 @@ class FmsaveAdapterStreamingTests(unittest.TestCase):
             staff_rows = [json.loads(line) for line in (output / "staff.ndjson").read_text(encoding="utf-8").splitlines()]
             club_rows = [json.loads(line) for line in (output / "clubs.ndjson").read_text(encoding="utf-8").splitlines()]
             stats_rows = [json.loads(line) for line in (output / "player_season_stats.ndjson").read_text(encoding="utf-8").splitlines()]
+            team_stats_rows = [json.loads(line) for line in (output / "team_match_stats.ndjson").read_text(encoding="utf-8").splitlines()]
             self.assertEqual(staff_rows[0]["job_title"], "Manager")
             self.assertEqual(club_rows[0]["name"], "Example FC")
             self.assertEqual(stats_rows[0]["goals"], 10)
+            self.assertEqual(stats_rows[0]["kind_label"], "League")
+            self.assertEqual(team_stats_rows[0]["shots"], 12)
+            self.assertEqual(team_stats_rows[0]["expected_goals"], 1.42)
 
             # The bundle keeps only a small JSON manifest plus one-row-per-line table streams.
             self.assertFalse(list(output.glob("*.raw.ndjson")))

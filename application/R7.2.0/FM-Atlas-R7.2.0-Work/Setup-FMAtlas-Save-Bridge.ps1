@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-Write-Host 'FM Atlas 27 - local save reader setup (fmsave 0.12.4)' -ForegroundColor Cyan
+Write-Host 'FM Atlas 27 - local save reader setup (fmsave 0.12.5)' -ForegroundColor Cyan
 Write-Host 'Installs the read-only fmsave package for the current Windows user.'
 Write-Host 'The selected save remains on your computer and is not uploaded or modified.'
 if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
@@ -12,7 +12,7 @@ if ($parts.Count -lt 2 -or [int]$parts[0] -lt 3 -or ([int]$parts[0] -eq 3 -and [
     throw "Python $version is too old. fmsave requires Python 3.12 or newer."
 }
 Write-Host "Using Python $version" -ForegroundColor Gray
-& py -3 -m pip install --upgrade fmsave==0.12.4
+& py -3 -m pip install --upgrade fmsave==0.12.5
 if ($LASTEXITCODE -ne 0) { throw 'Could not install fmsave. Check your internet connection and pip setup.' }
 & py -3 -c "import fmsave; print('fmsave bridge ready')"
 if ($LASTEXITCODE -ne 0) { throw 'fmsave installed but could not be imported.' }

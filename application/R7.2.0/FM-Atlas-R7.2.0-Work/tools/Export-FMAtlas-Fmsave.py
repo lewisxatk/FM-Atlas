@@ -153,7 +153,15 @@ def stream_table(save: Any, name: str, output_path: pathlib.Path, warnings: list
         count = 0
         with output_path.open("w", encoding="utf-8", newline="\n") as handle:
             for row in rows:
-                write_json_line(handle, plain(row))
+                mapped = plain(row)
+                if name in ("player_season_stats", "player_season_history") and isinstance(mapped, dict):
+                    raw_kind = getattr(row, "kind", None)
+                    if raw_kind is None and isinstance(row, dict):
+                        raw_kind = row.get("kind")
+                    kind_label = value_label(raw_kind)
+                    if kind_label is not None:
+                        mapped["kind_label"] = kind_label
+                write_json_line(handle, mapped)
                 count += 1
         print(f"Read {count:,} rows from {name}", file=sys.stderr, flush=True)
         return count
@@ -348,7 +356,7 @@ def main() -> int:
         "players", "contracts", "suspensions", "staff", "staff_lists",
         "clubs", "managed_clubs", "finances", "sponsorships", "facilities",
         "stadiums", "affiliates", "job_vacancies", "stages", "competitions",
-        "fixtures", "league_tables", "competition_rules", "transfer_windows",
+        "fixtures", "team_match_stats", "league_tables", "competition_rules", "transfer_windows",
         "player_match_stats", "player_season_stats", "player_season_history",
         "nations", "injury_types", "injuries", "training", "mentoring",
         "tactics", "set_pieces", "selections"
