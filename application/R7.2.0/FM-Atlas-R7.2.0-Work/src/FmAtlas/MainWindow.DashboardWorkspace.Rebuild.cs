@@ -155,7 +155,7 @@ public partial class MainWindow
         // TWO COLUMN CAREER + PROVENANCE INSPECTOR.
         var detailGrid = new Grid { Margin = new Thickness(0, 2, 0, 12) };
         detailGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        detailGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) };
+        detailGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var careerStack = new StackPanel();
         careerStack.Children.Add(Micro("CURRENT CAREER", true));
