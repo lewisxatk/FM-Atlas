@@ -173,6 +173,13 @@ public partial class MainWindow
         var query = Input(isStaff ? "Name, club, job, nationality or imported value" : "Club, nation, facility, debt or finance field");
         query.Width = 380;
         query.Height = 38;
+        query.KeyDown += async (_, e) =>
+        {
+            if (e.Key != Key.Enter) return;
+            e.Handled = true;
+            pageOffset = 0;
+            await RunSearchAsync();
+        };
         var logic = new ComboBox
         {
             Width = 172, Height = 38, Margin = new Thickness(3, 3, 8, 8),
