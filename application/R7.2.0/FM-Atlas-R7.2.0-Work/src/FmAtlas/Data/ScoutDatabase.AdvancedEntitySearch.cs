@@ -43,7 +43,7 @@ public sealed partial class ScoutDatabase
             (text.Equals("true", StringComparison.OrdinalIgnoreCase) || text.Equals("false", StringComparison.OrdinalIgnoreCase));
         var old = fields.TryGetValue(key, out var present)
             ? present
-            : (HumanizeAdvancedField(path), AdvancedCategory(path, categoryFallback), false, false, false);
+            : (Display: HumanizeAdvancedField(path), Category: AdvancedCategory(path, categoryFallback), Number: false, Text: false, Boolean: false);
         fields[key] = (old.Display, old.Category, old.Number || number.HasValue, old.Text || (text is not null && !isBoolean), old.Boolean || isBoolean);
     }
 
