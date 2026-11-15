@@ -56,7 +56,7 @@ internal static class PlayerAttributeSchema
         new("eccentricity", "Eccentricity", "Goalkeeping", 0x17E),
         new("rushing_out", "Rushing Out", "Goalkeeping", 0x17F),
         new("punching", "Punching", "Goalkeeping", 0x180),
-        // Hidden attributes: inherited FM26 offsets; retain provisional status until live witnesses confirm.
+        // Hidden attributes: corroborated against the independent FM27 profile at +0x188..+0x190.
         new("consistency", "Consistency", "Hidden", 0x18B),
         new("important_matches", "Important Matches", "Hidden", 0x18E),
         new("injury_proneness", "Injury Proneness", "Hidden", 0x18F),
