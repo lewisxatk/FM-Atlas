@@ -484,7 +484,7 @@ public partial class MainWindow : Window
         logoLine.Children.Add(logo);
         var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
         word.Children.Add(Txt("FM ATLAS", 16, true, Ink));
-        word.Children.Add(Txt(_themeMode == "Monolith Glass" ? "MONOLITH GLASS" : "V8 · ATLAS LIQUID", 8, true, Muted));
+        word.Children.Add(Txt("FMRTE × WATCHED", 8, true, Muted));
         logoLine.Children.Add(word);
         Grid.SetColumn(logoLine, 0);
         brand.Children.Add(logoLine);
@@ -4039,7 +4039,7 @@ public partial class MainWindow : Window
 
         var design = Card(new StackPanel(), 16); var ds = (StackPanel)design.Child; ds.Children.Add(Txt("OFFICIAL BRANDING", 9, true, Teal));
         ds.Children.Add(new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Logo.png", UriKind.Absolute)), Height = 150, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 12) });
-        ds.Children.Add(Txt("Monolith Glass · FM Atlas 27", 20, true, Ink)); ds.Children.Add(Txt("Graphite surfaces, warm off-white typography, amber-orange accents, translucent raised cards, restrained shadows and precise editorial layouts.", 10, false, Muted, wrap: true)); root.Children.Add(design);
+        ds.Children.Add(Txt("Watched × FMRTE · FM Atlas 27", 20, true, Ink)); ds.Children.Add(Txt("A flat, instrument-like interface: graphite surfaces, warm off-white typography, restrained orange signals, fine borders, compact data grids and no decorative glass effects.", 10, false, Muted, wrap: true)); root.Children.Add(design);
         var graphics = Card(new StackPanel(), 16); var gs = (StackPanel)graphics.Child;
         gs.Children.Add(Txt("INSTALLED GRAPHICS", 9, true, Teal));
         gs.Children.Add(Txt("Reuse the faces, club logos, competition badges and flags already installed in your Football Manager 27 graphics folder. Atlas reads config.xml mappings and does not bundle or duplicate graphics packs.", 10, false, Muted, wrap: true));
