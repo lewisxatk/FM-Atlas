@@ -165,6 +165,14 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
+    public void GamePass2493426FingerprintMatchesTheRegisteredLiveProfile()
+    {
+        var profile = Fm27BuildProfiles.Match(0x175DA000, 0x6AE563A1);
+        Assert.NotNull(profile);
+        Assert.Equal("gamepass-0.9.2409.0", profile!.Id);
+    }
+
+    [Fact]
     public void CurrentRetailSteamAndGamePassProfilesHaveTacticalManagerPointers()
     {
         var steam = Fm27BuildProfiles.All.Single(x => x.Id == "steam-26385295");
