@@ -109,6 +109,48 @@ public partial class MainWindow
             _profileTabs.SelectedItem = keep;
     }
 
+    private static Dictionary<string, bool> LoadPlayerColumnPreferencesV9()
+    {
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FMAtlas", "player-columns.json");
+        try
+        {
+            if (!File.Exists(path)) return new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            var loaded = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, bool>>(File.ReadAllText(path));
+            return loaded is null
+                ? new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, bool>(loaded, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            AtlasLog.Warning("Could not load player result-column preferences: " + ex.Message);
+            return new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private void SavePlayerColumnPreferencesV9()
+    {
+        if (_playerResultsGrid is null) return;
+        try
+        {
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas");
+            Directory.CreateDirectory(folder);
+            var preferences = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (var column in _playerResultsGrid.Columns)
+            {
+                var header = column.Header?.ToString();
+                if (!string.IsNullOrWhiteSpace(header))
+                    preferences[header] = column.Visibility == Visibility.Visible;
+            }
+            File.WriteAllText(Path.Combine(folder, "player-columns.json"),
+                System.Text.Json.JsonSerializer.Serialize(preferences));
+        }
+        catch (Exception ex)
+        {
+            AtlasLog.Warning("Could not save player result-column preferences: " + ex.Message);
+        }
+    }
+
     // Full-width, record-tab player experience.
     // The player pool remains open as its own tab; each selected player opens
     // as a sibling tab in the main workspace, not as a narrow side inspector.
@@ -279,6 +321,7 @@ public partial class MainWindow
         var resultsHeader = new Grid { Margin = new Thickness(12, 10, 12, 8) };
         resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var resultsTitle = new StackPanel();
         resultsTitle.Children.Add(MonolithDesignSystem.MicroLabel("SEARCH RESULTS", true));
         resultsTitle.Children.Add(MonolithDesignSystem.BodyText("Click a row to open its full player record in a new tab", 11, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
@@ -287,6 +330,17 @@ public partial class MainWindow
         evidence.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(evidence, 1);
         resultsHeader.Children.Add(evidence);
+        var columnMenu = new ContextMenu { Placement = PlacementMode.Bottom };
+        Button columnsButton = null!;
+        columnsButton = MonolithDesignSystem.ActionButton("COLUMNS ▾", (_, _) =>
+        {
+            columnMenu.PlacementTarget = columnsButton;
+            columnMenu.IsOpen = true;
+        });
+        columnsButton.ToolTip = "Choose visible player search-result columns. Preferences are saved on this PC.";
+        columnsButton.ContextMenu = columnMenu;
+        Grid.SetColumn(columnsButton, 2);
+        resultsHeader.Children.Add(columnsButton);
         DockPanel.SetDock(resultsHeader, Dock.Top);
         resultsDock.Children.Add(resultsHeader);
 
@@ -309,6 +363,45 @@ public partial class MainWindow
         _playerResultsGrid.Columns.Add(Column("HOME-GROWN · CLUB", "DisplayHomeGrownClub", .78));
         _playerResultsGrid.Columns.Add(Column("HOME-GROWN · NATION", "DisplayHomeGrownNation", .8));
         _playerResultsGrid.Columns.Add(Column("SOURCE / CONFIDENCE", "DataOrigin", .98));
+        var savedColumnPreferences = LoadPlayerColumnPreferencesV9();
+        foreach (var column in _playerResultsGrid.Columns)
+        {
+            var header = column.Header?.ToString() ?? "";
+            if (savedColumnPreferences.TryGetValue(header, out var visible))
+                column.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+        foreach (var column in _playerResultsGrid.Columns)
+        {
+            var header = column.Header?.ToString() ?? "Column";
+            var menuItem = new MenuItem
+            {
+                Header = header,
+                IsCheckable = true,
+                IsChecked = column.Visibility == Visibility.Visible,
+                Tag = column,
+                IsEnabled = !header.Equals("PLAYER", StringComparison.OrdinalIgnoreCase)
+            };
+            menuItem.Click += (_, _) =>
+            {
+                if (menuItem.Tag is DataGridColumn selectedColumn)
+                {
+                    selectedColumn.Visibility = menuItem.IsChecked ? Visibility.Visible : Visibility.Collapsed;
+                    SavePlayerColumnPreferencesV9();
+                }
+            };
+            columnMenu.Items.Add(menuItem);
+        }
+        columnMenu.Items.Add(new Separator());
+        var resetColumns = new MenuItem { Header = "RESET DEFAULT COLUMNS" };
+        resetColumns.Click += (_, _) =>
+        {
+            foreach (var column in _playerResultsGrid.Columns)
+                column.Visibility = Visibility.Visible;
+            foreach (var item in columnMenu.Items.OfType<MenuItem>())
+                if (item.Tag is DataGridColumn taggedColumn) item.IsChecked = taggedColumn.Visibility == Visibility.Visible;
+            SavePlayerColumnPreferencesV9();
+        };
+        columnMenu.Items.Add(resetColumns);
         _playerResultsGrid.ItemsSource = _players;
         _playerResultsGrid.SelectionChanged += async (_, _) =>
         {
