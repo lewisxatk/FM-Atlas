@@ -780,8 +780,8 @@ public partial class MainWindow : Window
             {
                 "Dashboard" => await DashboardPageAsync(),
                 "Advanced Search" => await AdvancedSearchWorkspaceAsync(),
-                "Players" => await PlayerWorkspaceAsync(false),
-                "Recruitment" => await PlayerWorkspaceAsync(true),
+                "Players" => await PlayerWorkspaceV9Async(false),
+                "Recruitment" => await PlayerWorkspaceV9Async(true),
                 "Clubs" => await ClubsPageAsync(),
                 "Staff" => await StaffPageAsync(),
                 "Squad Architect" => await SquadArchitectPageAsync(),
