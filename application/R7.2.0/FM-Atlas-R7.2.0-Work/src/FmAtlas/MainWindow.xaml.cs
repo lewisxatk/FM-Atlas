@@ -1608,7 +1608,13 @@ public partial class MainWindow : Window
             attributes[fact.FieldKey] = fact.NumericValue!.Value;
 
         profilePanel.Children.Add(Txt("PLAYER PROFILE", 9, true, Teal));
-        var hero = new Border { Background = new LinearGradientBrush(Color.FromRgb(29, 39, 49), Color.FromRgb(18, 25, 33), 25), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 13) };
+        var hero = new Border
+        {
+            Background = _themeMode == "Watched" ? Brush("#0C0E11") : new LinearGradientBrush(Color.FromRgb(29, 39, 49), Color.FromRgb(18, 25, 33), 25),
+            BorderBrush = Line, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(_themeMode == "Watched" ? 0 : 16),
+            Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 13)
+        };
         var heroGrid = new Grid();
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(82) });
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1616,7 +1622,7 @@ public partial class MainWindow : Window
         var graphicsUid = player.SourceId.StartsWith("FMSAVE:", StringComparison.OrdinalIgnoreCase) ? player.SourceId[7..]
             : player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) ? player.SourceId[5..] : null;
         var facePath = await Task.Run(() => GraphicsResolver.Shared.ResolveFace(graphicsUid));
-        var avatarBorder = new Border { Width = 68, Height = 68, CornerRadius = new CornerRadius(14), Background = Brush("#202A35"), BorderBrush = Brush("#485562"), BorderThickness = new Thickness(1), ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
+        var avatarBorder = new Border { Width = 68, Height = 68, CornerRadius = new CornerRadius(_themeMode == "Watched" ? 0 : 14), Background = Brush("#202A35"), BorderBrush = Brush("#485562"), BorderThickness = new Thickness(1), ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
         if (!string.IsNullOrWhiteSpace(facePath) && File.Exists(facePath))
         {
             try
@@ -1677,7 +1683,7 @@ public partial class MainWindow : Window
         ability.Children.Add(ProfileMetric("AGE", player.Age?.ToString() ?? "—", player.DateOfBirth?.ToString("dd MMM yyyy") ?? "Date of birth unavailable"));
         profilePanel.Children.Add(ability);
 
-        var detailCard = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(13), Margin = new Thickness(0, 0, 0, 12) };
+        var detailCard = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(_themeMode == "Watched" ? 0 : 12), Padding = new Thickness(13), Margin = new Thickness(0, 0, 0, 12) };
         var detailGrid = new UniformGrid { Columns = 2 };
         AddDetailRow(detailGrid, "Nationality", player.Nation ?? "Not decoded");
         AddDetailRow(detailGrid, "League", player.League ?? "Not decoded");
@@ -1862,7 +1868,7 @@ public partial class MainWindow : Window
         panel.Children.Add(Txt(label, 8, true, Brush("#9EADB9")));
         panel.Children.Add(Txt(value, 22, true, Brush("#E8EEF4")));
         panel.Children.Add(Txt(note, 8, false, Brush("#9EADB9"), wrap: true));
-        return new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(11), Margin = new Thickness(0, 0, 8, 0), Child = panel };
+        return new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(_themeMode == "Watched" ? 0 : 10), Padding = new Thickness(11), Margin = new Thickness(0, 0, 8, 0), Child = panel };
     }
 
 
@@ -2165,7 +2171,7 @@ public partial class MainWindow : Window
         var name = Txt(label, 10, false, Brush("#C4CED8"));
         row.Children.Add(name);
         var valueBrush = !numeric.HasValue ? Brush("#9EADB9") : numeric.Value >= 15 ? Brush("#8BCFA6") : numeric.Value >= 11 ? Brush("#E6C477") : Brush("#F08C96");
-        var pill = new Border { Background = !numeric.HasValue ? Brush("#202A35") : numeric.Value >= 15 ? Brush("#20342C") : numeric.Value >= 11 ? Brush("#30291D") : Brush("#35252A"), CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 3, 8, 3), MinWidth = 34, Child = Txt(value, 10, true, valueBrush) };
+        var pill = new Border { Background = !numeric.HasValue ? Brush("#202A35") : numeric.Value >= 15 ? Brush("#20342C") : numeric.Value >= 11 ? Brush("#30291D") : Brush("#35252A"), BorderBrush = Brush("#303943"), BorderThickness = _themeMode == "Watched" ? new Thickness(1) : new Thickness(0), CornerRadius = new CornerRadius(_themeMode == "Watched" ? 0 : 6), Padding = new Thickness(8, 3, 8, 3), MinWidth = 34, Child = Txt(value, 10, true, valueBrush) };
         Grid.SetColumn(pill, 1); row.Children.Add(pill);
         return new Border { BorderBrush = Brush("#303943"), BorderThickness = new Thickness(0, 0, 0, 1), Padding = new Thickness(3, 5, 3, 5), Child = row };
     }
@@ -3777,7 +3783,7 @@ public partial class MainWindow : Window
 
     private static void AddAbilityTile(Grid grid, int column, string label, string value)
     {
-        var border = new Border { Background = Brush("#EAF2F9"), CornerRadius = new CornerRadius(11), Padding = new Thickness(10), Margin = new Thickness(0, 7, 6, 7) };
+        var border = new Border { Background = Brush("#EAF2F9"), BorderBrush = _themeMode == "Watched" ? Brush("#303943") : Brushes.Transparent, BorderThickness = _themeMode == "Watched" ? new Thickness(1) : new Thickness(0), CornerRadius = new CornerRadius(_themeMode == "Watched" ? 0 : 11), Padding = new Thickness(10), Margin = new Thickness(0, 7, 6, 7) };
         var stack = new StackPanel(); stack.Children.Add(Txt(label, 8, true, Muted)); stack.Children.Add(Txt(value, 20, true, Ink)); border.Child = stack; Grid.SetColumn(border, column); grid.Children.Add(border);
     }
 
@@ -4057,7 +4063,7 @@ public partial class MainWindow : Window
                 "#E8EEF4" or "#E8F0FA" or "#C4CED8" => "#ECE8E0",
                 "#C6F36B" or "#D5E5C3" or "#A9D6FF" or "#79BDEB" or "#F08A42" or "#FFD0AA" or "#F08C96" => "#FF6A1A",
                 "#294765" or "#483022" => "#14171C",
-                "#9EADB9" or "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#A9C7D3",
+                "#9EADB9" or "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#B8B4AC",
                 "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#30343A",
                 "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#0C0E11",
                 "#0D1117" or "#111820" => "#07080A",
