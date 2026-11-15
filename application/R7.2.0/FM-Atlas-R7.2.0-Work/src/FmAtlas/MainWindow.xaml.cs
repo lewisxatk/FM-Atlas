@@ -590,13 +590,16 @@ public partial class MainWindow : Window
 
     private static TextBlock Configure(TextBlock t, Thickness margin) { t.Margin = margin; return t; }
 
-    private void AddNav(string icon, string label)
+    private void AddNav(string icon, string label, bool inProgress = false)
     {
         if (_navPanel is null) return;
-        var glyph = Txt(icon, 15, true, TealDark);
+        var displayLabel = inProgress ? label + " · IN PROGRESS" : label;
+        var progressHelp = "IN PROGRESS — Wyscout / StatsBomb and performance-stat scouting is parked until the core career and editor workflow has been tested.";
+        var help = inProgress ? progressHelp : PageDescription(label);
+        var glyph = Txt(icon, 15, true, inProgress ? Muted : TealDark);
         glyph.Width = 22;
         glyph.TextAlignment = TextAlignment.Center;
-        var caption = Txt(_navCollapsed ? "" : label, 11, true, Ink);
+        var caption = Txt(_navCollapsed ? "" : displayLabel, 11, true, inProgress ? Muted : Ink);
         caption.Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible;
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(glyph);
@@ -611,17 +614,20 @@ public partial class MainWindow : Window
             Background = Brushes.Transparent,
             BorderBrush = Brushes.Transparent,
             BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand,
-            ToolTip = PageDescription(label),
-            MinHeight = 42
+            Cursor = inProgress ? Cursors.Arrow : Cursors.Hand,
+            ToolTip = help,
+            MinHeight = 42,
+            IsEnabled = !inProgress,
+            Opacity = inProgress ? 0.58 : 1.0
         };
         ToolTipService.SetInitialShowDelay(button, 350);
         ToolTipService.SetShowDuration(button, 30000);
         ToolTipService.SetShowOnDisabled(button, true);
-        System.Windows.Automation.AutomationProperties.SetName(button, label);
-        System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
+        System.Windows.Automation.AutomationProperties.SetName(button, displayLabel);
+        System.Windows.Automation.AutomationProperties.SetHelpText(button, help);
         button.Template = RoundedButtonTemplate(13);
-        button.Click += async (_, _) => await NavigateAsync(label);
+        if (!inProgress)
+            button.Click += async (_, _) => await NavigateAsync(label);
         _navPanel.Children.Add(button);
     }
 
