@@ -4763,7 +4763,7 @@ public partial class MainWindow : Window
         => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
 
     private static TextBox Input(string placeholder)
-        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#090A0C"), Foreground = Brush("#EEE9E1"), CaretBrush = Brush("#F08A42"), BorderBrush = Brush("#6A3D25"), BorderThickness = new Thickness(1), FontSize = 12, SelectionBrush = Brush("#6A3D25"), SelectionTextBrush = Brush("#EEE9E1") };
+        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#050505"), Foreground = Brush("#F08A42"), CaretBrush = Brush("#FF9A50"), BorderBrush = Brush("#6A3D25"), BorderThickness = new Thickness(1), FontSize = 12, SelectionBrush = Brush("#633719"), SelectionTextBrush = Brush("#FF9A50") };
 
     private static TextBlock FieldLabel(string label) => Txt(label, 9, true, Muted);
 
