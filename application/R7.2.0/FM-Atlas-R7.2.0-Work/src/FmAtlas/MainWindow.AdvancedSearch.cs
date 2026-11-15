@@ -90,6 +90,26 @@ public partial class MainWindow
         grid.Columns.Add(Column("SEASON / MATCH", "Period", .8));
         grid.Columns.Add(Column("MINUTES", "Minutes", .6));
         grid.Columns.Add(Column("MATCHED METRICS", "ValuesSummary", 2.0));
+        grid.MouseDoubleClick += async (_, _) =>
+        {
+            if (grid.SelectedItem is not StatSearchResult selected) return;
+            try
+            {
+                var player = await RunDatabaseAsync(() => _database.GetPlayerBySourceIdAsync(selected.SourceId));
+                if (player is null)
+                {
+                    status.Text = $"The source player record ({selected.SourceId}) is no longer in the active imported snapshot.";
+                    return;
+                }
+                await OpenPlayerRecordAsync(player);
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Opening a player from statistical search failed.", ex);
+                status.Text = "The linked player record could not be opened: " + ex.Message;
+            }
+        };
+        resultHeader.Children.Add(Txt("DOUBLE-CLICK A PLAYER-PERIOD RESULT TO OPEN THE FULL PLAYER RECORD.", 9, true, Muted));
         dock.Children.Add(grid);
         Grid.SetRow(resultCard, 1); root.Children.Add(resultCard);
 
