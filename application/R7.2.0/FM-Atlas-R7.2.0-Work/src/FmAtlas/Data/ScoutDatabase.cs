@@ -262,7 +262,8 @@ public sealed class ScoutDatabase
             CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_Search ON FmsaveStatFacts(SnapshotId,FieldKey COLLATE NOCASE,NumericValue,TableName,RowIndex);
             CREATE TABLE IF NOT EXISTS ExternalStatImportRuns (
               ImportId INTEGER PRIMARY KEY AUTOINCREMENT, FileName TEXT NOT NULL, ImportedUtc TEXT NOT NULL,
-              RowsSeen INTEGER NOT NULL DEFAULT 0, RowsImported INTEGER NOT NULL DEFAULT 0, Notes TEXT NULL
+              RowsSeen INTEGER NOT NULL DEFAULT 0, RowsImported INTEGER NOT NULL DEFAULT 0, Notes TEXT NULL,
+              SnapshotId INTEGER NULL
             );
             CREATE TABLE IF NOT EXISTS ExternalStatRows (
               ImportId INTEGER NOT NULL, RowIndex INTEGER NOT NULL, PlayerIdentity TEXT NOT NULL,
@@ -274,6 +275,12 @@ public sealed class ScoutDatabase
             CREATE INDEX IF NOT EXISTS IX_ExternalStatRows_Source ON ExternalStatRows(PlayerSourceId);
             """;
         await snapshotSchema.ExecuteNonQueryAsync();
+        // Tie game-view exports to the exact save snapshot that supplied the player UID mapping.
+        // Legacy rows migrate with NULL and are visible only when there is no active save snapshot.
+        await EnsureColumnAsync(db, "ExternalStatImportRuns", "SnapshotId", "INTEGER NULL");
+        var externalSnapshotIndex = db.CreateCommand();
+        externalSnapshotIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_ExternalStatImportRuns_Snapshot ON ExternalStatImportRuns(SnapshotId, ImportId);";
+        await externalSnapshotIndex.ExecuteNonQueryAsync();
         await SeedFieldTargetsAsync(db);
         await EnsureColumnAsync(db, "LivePlayers", "TeamObjectAddress", "TEXT NULL");
         await EnsureColumnAsync(db, "LivePlayers", "DateOfBirth", "TEXT NULL");
@@ -2024,13 +2031,25 @@ public sealed class ScoutDatabase
         await db.OpenAsync().ConfigureAwait(false);
         await using var tx = await db.BeginTransactionAsync().ConfigureAwait(false);
         var now = DateTime.UtcNow.ToString("O");
+        var activeSnapshotCommand = db.CreateCommand();
+        activeSnapshotCommand.Transaction = (SqliteTransaction)tx;
+        activeSnapshotCommand.CommandText = "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;";
+        var activeSnapshotValue = await activeSnapshotCommand.ExecuteScalarAsync().ConfigureAwait(false);
+        var activeSnapshotId = activeSnapshotValue is null || activeSnapshotValue == DBNull.Value
+            ? (int?)null
+            : Convert.ToInt32(activeSnapshotValue, CultureInfo.InvariantCulture);
+
         var run = db.CreateCommand(); run.Transaction = (SqliteTransaction)tx;
-        run.CommandText = "INSERT INTO ExternalStatImportRuns(FileName,ImportedUtc,RowsSeen,RowsImported,Notes) VALUES($file,$utc,$seen,0,'FM View Exporter CSV · source columns retained as imported'); SELECT last_insert_rowid();";
-        run.Parameters.AddWithValue("$file", Path.GetFileName(csvPath)); run.Parameters.AddWithValue("$utc", now); run.Parameters.AddWithValue("$seen", lines.Length - 1);
+        run.CommandText = "INSERT INTO ExternalStatImportRuns(FileName,ImportedUtc,RowsSeen,RowsImported,Notes,SnapshotId) VALUES($file,$utc,$seen,0,'FM View Exporter CSV · source columns retained as imported',$snapshot); SELECT last_insert_rowid();";
+        run.Parameters.AddWithValue("$file", Path.GetFileName(csvPath));
+        run.Parameters.AddWithValue("$utc", now);
+        run.Parameters.AddWithValue("$seen", lines.Length - 1);
+        run.Parameters.AddWithValue("$snapshot", (object?)activeSnapshotId ?? DBNull.Value);
         var importId = Convert.ToInt32(await run.ExecuteScalarAsync().ConfigureAwait(false));
         var existingIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var mapCmd = db.CreateCommand(); mapCmd.Transaction = (SqliteTransaction)tx;
-        mapCmd.CommandText = "SELECT PlayerUid,PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns);";
+        mapCmd.CommandText = "SELECT PlayerUid,PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId IS $snapshot;";
+        mapCmd.Parameters.AddWithValue("$snapshot", (object?)activeSnapshotId ?? DBNull.Value);
         await using (var mr = await mapCmd.ExecuteReaderAsync().ConfigureAwait(false))
             while (await mr.ReadAsync().ConfigureAwait(false)) if (!mr.IsDBNull(0) && !mr.IsDBNull(1)) existingIds[mr.GetString(0)] = mr.GetString(1);
 
@@ -2422,7 +2441,7 @@ public sealed class ScoutDatabase
         // FM View Exporter data supplements save-reader stats. It is linked by person UID or
         // the Atlas source ID created during import; original column names are retained.
         var external = db.CreateCommand();
-        external.CommandText = "SELECT PlayerIdentity,PlayerSourceId,RawJson FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns) ORDER BY RowIndex;";
+        external.CommandText = "SELECT PlayerIdentity,PlayerSourceId,RawJson FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns WHERE SnapshotId IS (SELECT MAX(SnapshotId) FROM FmsaveImportRuns)) ORDER BY RowIndex;";
         await using (var reader = await external.ExecuteReaderAsync().ConfigureAwait(false))
         {
             while (await reader.ReadAsync().ConfigureAwait(false))
