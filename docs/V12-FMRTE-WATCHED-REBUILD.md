@@ -65,7 +65,7 @@ The live player scalar writer now includes CA, signed PA (including FM random-po
 
 The Home workspace exposes **Load Live Save** to connect to the career already loaded in Football Manager. **Save Career · In Progress** is intentionally not a fake save action: Atlas cannot invoke FM's native save command. After a successful live Apply, use Ctrl+S inside Football Manager to persist the changed memory to the career file. **Save Atlas** checkpoints Atlas-local data only.
 
-The live importer stores validation status and some values remain provisional. Do not present a field as verified solely because it can be read. Live-write safety gates remain unchanged; this UI update does not certify new memory offsets or authorize additional direct writes.
+The live importer stores validation status and some values remain provisional. Do not present a field as verified solely because it can be read. The 52 player attribute mappings cited above are explicitly supported by the FM27 source profile; unrelated fields remain provisional unless their own evidence and tests support them. UI changes do not weaken the exact-build, identity, preflight, read-back or rollback gates.
 
 Performance metrics in the separate Stats Search / Scouting Matrix remain their own data workflow. They must not be silently mixed into a player attribute criterion unless a field-specific query and unit/period semantics are implemented.
 
@@ -97,10 +97,12 @@ The current priority is to get the base application, career connection, standard
 - **SAVE ATLAS DATA** persists FM Atlas's own local database/settings only.
 - **SAVE FM CAREER · IN PROGRESS** is deliberately not presented as a working game-save writer. Live edits are written to the running game process; to persist them, use Football Manager's own Ctrl+S save command and confirm its dialog. Do not assume the Atlas local save action saves the FM career.
 
-### Player CA / PA / attributes
+### Player and staff CA / PA / attributes
 
-The active live scalar catalogue includes CA and PA plus 47 standard technical, mental, physical and goalkeeper attributes. The five hidden attributes (Consistency, Important Matches, Injury Proneness, Dirtiness and Versatility) are explicitly withheld from live writes and labelled **IN PROGRESS** because their candidate offsets are inherited from FM26 and have not been independently witnessed against FM27. Their omission is an intentional safety gate, not a claim that the UI editor is complete.
+The active player live scalar catalogue includes Current Ability, signed Potential Ability (including Football Manager's negative random-potential ranges), and all 52 FM27 player attributes: the 47 standard technical, set-piece, mental, physical and goalkeeper ratings plus Consistency, Important Matches, Injury Proneness, Dirtiness and Versatility. The five hidden offsets are present in the independent FM27 profile [FMLibreEditor `profiles/fm27/layout.toml`](https://github.com/tozmoz/FMLibreEditor/blob/main/profiles/fm27/layout.toml) and are included in Atlas's 52-field catalogue test. The registered Game Pass PE fingerprint is also pinned by a regression test. These mappings are only used when the exact supported build and the selected player identity resolve; live writes still require original-byte preflight, validated ranges, explicit session opt-in, read-back and rollback.
+
+The staff catalogue has its own staff-specific CA/PA layout, signed PA range and 21 mapped coaching/person ratings. Staff fields are resolved separately from player fields; this is not a claim that all staff, player-coach or contract structures are editable.
 
 ### Test boundary
 
-Automated Windows restore/build/test and self-contained publish must pass on the current commit. The live acceptance step still requires the user to run the build with an actual FM27 installation and a disposable copy of a career save. Verify load/refresh, player CA/PA, each standard attribute, undo, in-game Ctrl+S, close/reopen and re-import before calling the live workflow accepted. No live game process or user save file is available to this automated repository session, so that final acceptance cannot be claimed here.
+Automated Windows restore/build/test and self-contained publish must pass on the current commit. The live acceptance step still requires the user to run the build with an actual FM27 installation and a disposable copy of a career save. Verify load/refresh, player CA/PA, all 52 attributes, staff CA/PA and mapped staff ratings, undo, in-game Ctrl+S, close/reopen and re-import before calling the live workflow accepted. No live game process or user save file is available to this automated repository session, so that final acceptance cannot be claimed here.
