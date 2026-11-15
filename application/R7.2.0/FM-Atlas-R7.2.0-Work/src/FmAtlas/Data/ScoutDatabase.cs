@@ -763,7 +763,7 @@ public sealed partial class ScoutDatabase
         try
         {
         if (currentAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(currentAbility), "CA must be between 0 and 200.");
-        if (potentialAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(potentialAbility), "PA must be between 0 and 200.");
+        if (potentialAbility is < -10 or > 200) throw new ArgumentOutOfRangeException(nameof(potentialAbility), "PA must be between -10 and 200; negative values represent random-potential ranges.");
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         await using var tx = await db.BeginTransactionAsync().ConfigureAwait(false);
