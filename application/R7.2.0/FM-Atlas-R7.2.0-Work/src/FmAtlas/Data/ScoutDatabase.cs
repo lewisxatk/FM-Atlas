@@ -2918,7 +2918,7 @@ public sealed class ScoutDatabase
             }
         }
         var external = db.CreateCommand();
-        external.CommandText = "SELECT RawJson FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns) ORDER BY RowIndex;";
+        external.CommandText = "SELECT RawJson FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns WHERE SnapshotId IS (SELECT MAX(SnapshotId) FROM FmsaveImportRuns)) ORDER BY RowIndex;";
         await using (var externalReader = await external.ExecuteReaderAsync().ConfigureAwait(false))
         {
             while (await externalReader.ReadAsync().ConfigureAwait(false))
@@ -3094,7 +3094,7 @@ public sealed class ScoutDatabase
         }
         }
         var externalRows = db.CreateCommand();
-        externalRows.CommandText = "SELECT RowIndex,RawJson FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns) ORDER BY RowIndex;";
+        externalRows.CommandText = "SELECT RowIndex,RawJson FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns WHERE SnapshotId IS (SELECT MAX(SnapshotId) FROM FmsaveImportRuns)) ORDER BY RowIndex;";
         await using (var r = await externalRows.ExecuteReaderAsync().ConfigureAwait(false))
         {
             while (await r.ReadAsync().ConfigureAwait(false))
@@ -3141,7 +3141,7 @@ public sealed class ScoutDatabase
             }
 
             var externalMap = db.CreateCommand();
-            externalMap.CommandText = $"SELECT DISTINCT PlayerIdentity,PlayerSourceId,PlayerName,Club FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns) AND PlayerIdentity IN ({string.Join(",", placeholders)});";
+            externalMap.CommandText = $"SELECT DISTINCT PlayerIdentity,PlayerSourceId,PlayerName,Club FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns WHERE SnapshotId IS (SELECT MAX(SnapshotId) FROM FmsaveImportRuns)) AND PlayerIdentity IN ({string.Join(",", placeholders)});";
             for (var i = 0; i < uidChunk.Length; i++) externalMap.Parameters.AddWithValue(placeholders[i], uidChunk[i]);
             await using var externalReader = await externalMap.ExecuteReaderAsync().ConfigureAwait(false);
             while (await externalReader.ReadAsync().ConfigureAwait(false))
