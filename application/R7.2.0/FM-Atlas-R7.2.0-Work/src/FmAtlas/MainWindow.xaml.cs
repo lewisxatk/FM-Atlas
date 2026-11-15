@@ -835,7 +835,7 @@ public partial class MainWindow : Window
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var heroLeft = new StackPanel();
-        heroLeft.Children.Add(Txt("FM ATLAS · MONOLITH GLASS", 9, true, Teal));
+        heroLeft.Children.Add(Txt("FMRTE × WATCHED", 9, true, Teal));
         heroLeft.Children.Add(Txt("Your Football Manager intelligence workspace.", 25, true, Ink));
         heroLeft.Children.Add(Txt("Load an FM27 career and Atlas automatically indexes supported player, staff, club and manager identity data. The live scan is read-only, cancellable and limited to two minutes; offline save import adds historical and match data.", 11, false, Muted, wrap: true));
         heroGrid.Children.Add(heroLeft);
@@ -912,7 +912,7 @@ public partial class MainWindow : Window
         headline.Children.Add(Txt("Search results are paged and virtualized. The 40K identity count is not a count of fully decoded player profiles or attribute sets.", 10, false, Muted, wrap: true));
         top.Children.Add(headline);
         var headButtons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        headButtons.Children.Add(SoftButton("⌕ Advanced Search", (_, _) => ShowGlobalSearch()));
+        headButtons.Children.Add(SoftButton("⌕ Advanced Search", async (_, _) => await NavigateAsync("Advanced Search")));
         headButtons.Children.Add(SoftButton("Import report", async (_, _) => await ImportIntelligenceReportAsync()));
         headButtons.Children.Add(PrimaryButton("＋ Shortlist", async (_, _) => await AddSelectedToShortlistAsync()));
         Grid.SetColumn(headButtons, 1); top.Children.Add(headButtons);
