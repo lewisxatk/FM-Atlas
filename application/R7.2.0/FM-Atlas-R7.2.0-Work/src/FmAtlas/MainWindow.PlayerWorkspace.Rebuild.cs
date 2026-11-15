@@ -111,7 +111,7 @@ public partial class MainWindow
         searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) });
         searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        _playerSearch = Input("Search by player, club, nation or UID");
+        _playerSearch = MonolithDesignSystem.TextInput("Search by player, club, nation or UID", 13);
         _playerSearch.Text = _playerPoolSearchTextV9;
         _playerSearch.Height = 42;
         _playerSearch.FontSize = 13;
@@ -164,10 +164,10 @@ public partial class MainWindow
             Margin = new Thickness(12, 0, 12, 10),
             VerticalAlignment = VerticalAlignment.Center
         };
-        _playerMinCaInput = Input("Min CA"); _playerMinCaInput.Text = _playerPoolMinCaV9; _playerMinCaInput.Width = 76; _playerMinCaInput.MaxLength = 3;
-        _playerMaxCaInput = Input("Max CA"); _playerMaxCaInput.Text = _playerPoolMaxCaV9; _playerMaxCaInput.Width = 76; _playerMaxCaInput.MaxLength = 3;
-        _playerMinPaInput = Input("Min PA"); _playerMinPaInput.Text = _playerPoolMinPaV9; _playerMinPaInput.Width = 76; _playerMinPaInput.MaxLength = 3;
-        _playerMaxPaInput = Input("Max PA"); _playerMaxPaInput.Text = _playerPoolMaxPaV9; _playerMaxPaInput.Width = 76; _playerMaxPaInput.MaxLength = 3;
+        _playerMinCaInput = MonolithDesignSystem.TextInput("Min CA"); _playerMinCaInput.Text = _playerPoolMinCaV9; _playerMinCaInput.Width = 76; _playerMinCaInput.MaxLength = 3;
+        _playerMaxCaInput = MonolithDesignSystem.TextInput("Max CA"); _playerMaxCaInput.Text = _playerPoolMaxCaV9; _playerMaxCaInput.Width = 76; _playerMaxCaInput.MaxLength = 3;
+        _playerMinPaInput = MonolithDesignSystem.TextInput("Min PA"); _playerMinPaInput.Text = _playerPoolMinPaV9; _playerMinPaInput.Width = 76; _playerMinPaInput.MaxLength = 3;
+        _playerMaxPaInput = MonolithDesignSystem.TextInput("Max PA"); _playerMaxPaInput.Text = _playerPoolMaxPaV9; _playerMaxPaInput.Width = 76; _playerMaxPaInput.MaxLength = 3;
         filterRow.Children.Add(FilterControl("CA MIN · 1–200", _playerMinCaInput, 84));
         filterRow.Children.Add(FilterControl("CA MAX · 1–200", _playerMaxCaInput, 84));
         filterRow.Children.Add(FilterControl("PA MIN · -10–200", _playerMinPaInput, 84));
