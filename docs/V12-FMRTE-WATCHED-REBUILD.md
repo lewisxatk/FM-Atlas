@@ -78,3 +78,23 @@ Performance metrics in the separate Stats Search / Scouting Matrix remain their 
 - Confirm paging, sorting, record double-click and navigation.
 - Test 100% / 125% / 150% / 200% Windows DPI and smaller laptop display.
 - Real FM27 acceptance is required before claiming full field coverage or live-write support.
+
+
+## Core-first testing update
+
+The current priority is to get the base application, career connection, standard player editing and save workflow ready for hands-on testing. Wyscout, StatsBomb and performance-stat scouting surfaces are parked: Stats Search and Scouting Matrix are visibly labelled **IN PROGRESS** and disabled in the main navigation until the core pass is accepted.
+
+### Career load and save actions
+
+- **LOAD LIVE SAVE** connects to the currently running, supported FM27 career. Open Football Manager and load the career first.
+- **IMPORT SAVE COPY** is a separate, read-only offline snapshot import. Use a copy of the career file.
+- **SAVE ATLAS DATA** persists FM Atlas's own local database/settings only.
+- **SAVE FM CAREER · IN PROGRESS** is deliberately not presented as a working game-save writer. Live edits are written to the running game process; to persist them, use Football Manager's own Ctrl+S save command and confirm its dialog. Do not assume the Atlas local save action saves the FM career.
+
+### Player CA / PA / attributes
+
+The active live scalar catalogue includes CA and PA plus 47 standard technical, mental, physical and goalkeeper attributes. The five hidden attributes (Consistency, Important Matches, Injury Proneness, Dirtiness and Versatility) are explicitly withheld from live writes and labelled **IN PROGRESS** because their candidate offsets are inherited from FM26 and have not been independently witnessed against FM27. Their omission is an intentional safety gate, not a claim that the UI editor is complete.
+
+### Test boundary
+
+Automated Windows restore/build/test and self-contained publish must pass on the current commit. The live acceptance step still requires the user to run the build with an actual FM27 installation and a disposable copy of a career save. Verify load/refresh, player CA/PA, each standard attribute, undo, in-game Ctrl+S, close/reopen and re-import before calling the live workflow accepted. No live game process or user save file is available to this automated repository session, so that final acceptance cannot be claimed here.
