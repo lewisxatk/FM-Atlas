@@ -66,7 +66,6 @@ public partial class MainWindow
             _liveLoadButton = ToolbarIcon("\uE72C", "Connect to or refresh the currently loaded supported FM27 career.", async (_, _) => await LoadLiveCareerAsync());
             _liveLoadButton.IsEnabled = true;
             actions.Children.Add(_liveLoadButton);
-            actions.Children.Add(ToolbarIcon("\uE713", "Appearance settings — Watched Instrument is the default.", async (_, _) => await CycleThemeAsync()));
             actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
             Grid.SetColumn(actions, 1);
             headerGrid.Children.Add(actions);
