@@ -740,7 +740,7 @@ public partial class MainWindow : Window
         if (root is TextBox textBox)
         {
             textBox.Background = Brush("#090A0C");
-            textBox.Foreground = Brush("#F08A42");
+            textBox.Foreground = Brush("#EEE9E1");
             textBox.CaretBrush = Brush("#F08A42");
             textBox.SelectionBrush = Brush("#6A3D25");
             textBox.SelectionTextBrush = Brush("#EEE9E1");
@@ -749,14 +749,14 @@ public partial class MainWindow : Window
         if (root is ComboBox comboBox)
         {
             comboBox.Background = Brush("#090A0C");
-            comboBox.Foreground = Brush("#F08A42");
+            comboBox.Foreground = Brush("#EEE9E1");
             comboBox.BorderBrush = Brush("#6A3D25");
             comboBox.ItemContainerStyle = new Style(typeof(ComboBoxItem))
             {
                 Setters =
                 {
                     new Setter(Control.BackgroundProperty, Brush("#111316")),
-                    new Setter(Control.ForegroundProperty, Brush("#F08A42")),
+                    new Setter(Control.ForegroundProperty, Brush("#EEE9E1")),
                     new Setter(Control.BorderBrushProperty, Brush("#35383C")),
                     new Setter(Control.PaddingProperty, new Thickness(8, 6, 8, 6))
                 },
@@ -779,7 +779,7 @@ public partial class MainWindow : Window
                         Setters =
                         {
                             new Setter(Control.BackgroundProperty, Brush("#483022")),
-                            new Setter(Control.ForegroundProperty, Brush("#F08A42"))
+                            new Setter(Control.ForegroundProperty, Brush("#EEE9E1"))
                         }
                     }
                 }
@@ -788,11 +788,11 @@ public partial class MainWindow : Window
         if (root is ComboBoxItem comboItem)
         {
             comboItem.Background = Brush("#111316");
-            comboItem.Foreground = Brush("#F08A42");
+            comboItem.Foreground = Brush("#EEE9E1");
         }
         if (root is CheckBox checkBox)
         {
-            checkBox.Foreground = Brush("#F08A42");
+            checkBox.Foreground = Brush("#EEE9E1");
         }
         if (root is DataGrid dataGrid)
         {
@@ -4762,7 +4762,7 @@ public partial class MainWindow : Window
         => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
 
     private static TextBox Input(string placeholder)
-        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#090A0C"), Foreground = Brush("#F08A42"), CaretBrush = Brush("#F08A42"), BorderBrush = Brush("#6A3D25"), BorderThickness = new Thickness(1), FontSize = 12, SelectionBrush = Brush("#6A3D25"), SelectionTextBrush = Brush("#EEE9E1") };
+        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#090A0C"), Foreground = Brush("#EEE9E1"), CaretBrush = Brush("#F08A42"), BorderBrush = Brush("#6A3D25"), BorderThickness = new Thickness(1), FontSize = 12, SelectionBrush = Brush("#6A3D25"), SelectionTextBrush = Brush("#EEE9E1") };
 
     private static TextBlock FieldLabel(string label) => Txt(label, 9, true, Muted);
 
