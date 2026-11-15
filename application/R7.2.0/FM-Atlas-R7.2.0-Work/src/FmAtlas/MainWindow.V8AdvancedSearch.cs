@@ -5,6 +5,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Shapes;
 using System.Windows.Media;
 using FmAtlas.Models;
 using FmAtlas.Services;
@@ -68,7 +69,7 @@ public partial class MainWindow
         var content = new StackPanel { Margin = new Thickness(2, 0, 2, 18) };
         var introduction = Card(new StackPanel(), 18, new Thickness(0, 0, 0, 12));
         var intro = (StackPanel)introduction.Child;
-        intro.Children.Add(Txt("ATLAS SEARCH STUDIO", 9, true, Teal));
+        intro.Children.Add(Txt("FMRTE SEARCH WORKSPACE · PLAYER", 9, true, Teal));
         intro.Children.Add(Txt("Advanced Search", 27, true, Ink));
         intro.Children.Add(Txt("Build one player search across core profile fields, imported attributes, personality, contract facts, positions and other available save facts. Choose whether ALL conditions or ANY condition must match. The field library is discovered from actual imported data; unsupported or missing fields are not invented.", 11, false, Muted, wrap: true));
         var summary = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
@@ -247,38 +248,133 @@ public partial class MainWindow
         positionOptions.Children.Add(positionAny);
         positionOptions.Children.Add(positionAtLeast);
         positionStack.Children.Add(positionOptions);
-        var positionTiles = new WrapPanel { Margin = new Thickness(0, 2, 0, 0) };
-        var positionLabels = new (string Code, string Label)[]
+        // Interactive 2D pitch selector. The 15 values remain the canonical FM
+        // position-rating fields used by AdvancedPositionFilterRules; the pitch is only
+        // a more direct way to enter those source-backed ratings.
+        var pitchCanvas = new Canvas
         {
-            ("GK", "Goalkeeper"), ("SW", "Sweeper"), ("DL", "Left defender"), ("DC", "Centre back"), ("DR", "Right defender"),
-            ("WBL", "Left wing-back"), ("WBR", "Right wing-back"), ("DM", "Defensive midfield"), ("ML", "Left midfield"),
-            ("MC", "Central midfield"), ("MR", "Right midfield"), ("AML", "Left attack"), ("AMC", "Central attack"),
-            ("AMR", "Right attack"), ("STC", "Striker")
+            Width = 800,
+            Height = 360,
+            Background = Brush("#111316"),
+            ClipToBounds = true
         };
-        foreach (var position in positionLabels)
+        var pitchLine = Brush("#51575A");
+        void AddPitchMark(Shape shape, double left, double top)
         {
-            var tileStack = new StackPanel();
-            tileStack.Children.Add(Txt(position.Code, 11, true, Ink));
-            tileStack.Children.Add(Txt(position.Label, 8, false, Muted, wrap: true));
+            shape.Stroke = pitchLine;
+            shape.StrokeThickness = 1.3;
+            shape.IsHitTestVisible = false;
+            Canvas.SetLeft(shape, left);
+            Canvas.SetTop(shape, top);
+            pitchCanvas.Children.Add(shape);
+        }
+        AddPitchMark(new Rectangle { Width = 760, Height = 320, Fill = Brushes.Transparent }, 20, 20);
+        AddPitchMark(new Line { X1 = 0, Y1 = 0, X2 = 0, Y2 = 320 }, 400, 20);
+        AddPitchMark(new Ellipse { Width = 96, Height = 96, Fill = Brushes.Transparent }, 352, 132);
+        AddPitchMark(new Ellipse { Width = 5, Height = 5, Fill = pitchLine }, 397.5, 177.5);
+        AddPitchMark(new Rectangle { Width = 108, Height = 176, Fill = Brushes.Transparent }, 20, 92);
+        AddPitchMark(new Rectangle { Width = 48, Height = 88, Fill = Brushes.Transparent }, 20, 136);
+        AddPitchMark(new Rectangle { Width = 108, Height = 176, Fill = Brushes.Transparent }, 672, 92);
+        AddPitchMark(new Rectangle { Width = 48, Height = 88, Fill = Brushes.Transparent }, 732, 136);
+        AddPitchMark(new Ellipse { Width = 5, Height = 5, Fill = pitchLine }, 102, 177);
+        AddPitchMark(new Ellipse { Width = 5, Height = 5, Fill = pitchLine }, 698, 177);
+        pitchStack.Children.Add(Txt("SELECT A POSITION ON THE PITCH · ENTER ITS FM RATING FROM 0–20", 8, true, Muted));
+        var positionPitchView = new Viewbox
+        {
+            Stretch = Stretch.Uniform,
+            StretchDirection = StretchDirection.Both,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Child = pitchCanvas,
+            MaxHeight = 370
+        };
+        var pitchBorder = new Border
+        {
+            Background = Brush("#111316"),
+            BorderBrush = Brush("#303943"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(0),
+            Padding = new Thickness(6),
+            Child = positionPitchView
+        };
+        var positionNodes = new (string Code, string Label, double X, double Y)[]
+        {
+            ("GK", "Goalkeeper", 22, 153),
+            ("SW", "Sweeper", 112, 153),
+            ("DL", "Left defender", 200, 45),
+            ("DC", "Centre back", 200, 153),
+            ("DR", "Right defender", 200, 261),
+            ("WBL", "Left wing-back", 292, 45),
+            ("DM", "Defensive mid", 312, 153),
+            ("WBR", "Right wing-back", 292, 261),
+            ("ML", "Left midfield", 407, 45),
+            ("MC", "Centre midfield", 407, 153),
+            ("MR", "Right midfield", 407, 261),
+            ("AML", "Left attack", 520, 45),
+            ("AMC", "Centre attack", 520, 153),
+            ("AMR", "Right attack", 520, 261),
+            ("STC", "Striker", 642, 153)
+        };
+        foreach (var position in positionNodes)
+        {
+            var tile = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            var code = Txt(position.Code, 10, true, Brush("#EEE9E1"));
+            code.TextAlignment = TextAlignment.Center;
+            var label = Txt(position.Label, 7, false, Brush("#9CA1A6"));
+            label.TextAlignment = TextAlignment.Center;
             var rating = new TextBox
             {
-                Text = "0", Width = 54, Height = 30, Margin = new Thickness(0, 5, 0, 0),
-                Padding = new Thickness(5, 3, 5, 3), FontSize = 11, FontWeight = FontWeights.SemiBold,
-                TextAlignment = TextAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
-                Background = Brush("#111820"), Foreground = Ink, BorderBrush = Line, BorderThickness = new Thickness(1),
-                ToolTip = position.Label + " familiarity · 0–20 · zero disables this requirement"
+                Text = "0",
+                Width = 42,
+                Height = 22,
+                Margin = new Thickness(0, 3, 0, 0),
+                Padding = new Thickness(2),
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                Background = Brush("#090A0C"),
+                Foreground = Brush("#EEE9E1"),
+                BorderBrush = Brush("#454B4F"),
+                BorderThickness = new Thickness(1),
+                ToolTip = position.Label + " familiarity rating, 0–20. Zero means no requirement."
             };
-            System.Windows.Automation.AutomationProperties.SetName(rating, position.Code + " position familiarity rating 0 to 20");
+            System.Windows.Automation.AutomationProperties.SetName(rating, position.Code + " FM position familiarity rating, zero to twenty");
             positionInputs[position.Code] = rating;
-            tileStack.Children.Add(rating);
-            positionTiles.Children.Add(new Border
+            tile.Children.Add(code);
+            tile.Children.Add(label);
+            tile.Children.Add(rating);
+
+            var marker = new Border
             {
-                Width = 118, Background = Brush("#171F28"), BorderBrush = Line, BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(9), Padding = new Thickness(9, 8, 9, 8),
-                Margin = new Thickness(0, 0, 7, 7), Child = tileStack
-            });
+                Width = 78,
+                Height = 76,
+                Background = Brush("#17191C"),
+                BorderBrush = Brush("#454B4F"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(0),
+                Padding = new Thickness(3),
+                Child = tile,
+                ToolTip = position.Label + " · enter a value from 0 to 20",
+                Cursor = Cursors.Hand
+            };
+            marker.MouseLeftButtonDown += (_, e) =>
+            {
+                rating.Focus();
+                rating.SelectAll();
+                e.Handled = true;
+            };
+            rating.TextChanged += (_, _) =>
+            {
+                var active = int.TryParse(rating.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value > 0;
+                marker.BorderBrush = Brush(active ? "#E9823B" : "#454B4F");
+                marker.Background = Brush(active ? "#352319" : "#17191C");
+            };
+            Canvas.SetLeft(marker, position.X);
+            Canvas.SetTop(marker, position.Y);
+            pitchCanvas.Children.Add(marker);
         }
-        positionStack.Children.Add(positionTiles);
+        positionStack.Children.Add(pitchBorder);
         builderStack.Children.Add(positionCard);
 
         status = Txt(fields.Count == 0 ? "No fields are available yet. Import a career save copy or add local scouting data." : "Add one or more conditions, then run the search.", 10, false, Muted, wrap: true);
