@@ -1090,19 +1090,29 @@ public partial class MainWindow : Window
         search.ShowDialog();
     }
 
+    private async Task OpenPlayerRecordAsync(PlayerRecord player)
+    {
+        if (player is null) return;
+        await NavigateAsync("Players");
+        _selectedPlayer = player;
+        ToggleProfileExpanded(true);
+        try
+        {
+            await ShowPlayerProfileAsync(player);
+        }
+        catch (Exception ex)
+        {
+            AtlasLog.Error("Opening linked player record failed.", ex);
+            ClearProfile("The player record could not be opened: " + ex.Message);
+        }
+    }
+
     private async Task OpenGlobalSearchHitAsync(GlobalSearchHit hit)
     {
         switch (hit.Record)
         {
             case PlayerRecord player:
-                await NavigateAsync("Players");
-                _selectedPlayer = player;
-                ToggleProfileExpanded(true);
-                try { await ShowPlayerProfileAsync(player); }
-                catch (Exception ex)
-                {
-                    ClearProfile("The player record could not be opened: " + ex.Message);
-                }
+                await OpenPlayerRecordAsync(player);
                 break;
             case AtlasClubRecord club:
                 _pendingClubSourceId = club.SourceId;
