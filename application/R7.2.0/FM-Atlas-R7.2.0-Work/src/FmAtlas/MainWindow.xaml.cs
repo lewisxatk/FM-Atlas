@@ -136,7 +136,7 @@ public partial class MainWindow : Window
             else if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.F)
             {
                 e.Handled = true;
-                ShowGlobalSearch();
+                _ = NavigateAsync("Advanced Search");
             }
             else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.W)
             {
@@ -4767,7 +4767,7 @@ public partial class MainWindow : Window
             mapped = key switch
             {
                 "#E8EEF4" or "#E8F0FA" or "#F1F0ED" or "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" or "#344656" => "#EEE9E1",
-                "#C6F36B" or "#D5E5C3" or "#A9D6FF" or "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" or "#F29A5C" or "#D97736" or "#C6F36B" => "#E9823B",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" or "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" or "#F29A5C" or "#D97736" => "#E9823B",
                 "#9EADB9" or "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9CA1A6",
                 "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#292C30",
                 "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#17191C",
