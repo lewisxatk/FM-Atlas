@@ -70,11 +70,19 @@ public partial class MainWindow
 
     private void CloseRecordTabV9(TabItem tab)
     {
-        if (_profileTabs is null
-            || Equals(tab.Tag, "__player-pool")
-            || Equals(tab.Tag, "__welcome")) return;
-        var sourceId = tab.Tag?.ToString();
-        if (!string.IsNullOrWhiteSpace(sourceId)) _openPlayerRecords.Remove(sourceId);
+        if (_profileTabs is null) return;
+        var tag = tab.Tag?.ToString() ?? "";
+        if (Equals(tag, "__welcome")
+            || tag.StartsWith("__", StringComparison.OrdinalIgnoreCase) && tag.EndsWith("-pool", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (tag.StartsWith("STAFF|", StringComparison.OrdinalIgnoreCase))
+            _openStaffRecordsV9.Remove(tag["STAFF|".Length..]);
+        else if (tag.StartsWith("CLUB|", StringComparison.OrdinalIgnoreCase))
+            _openClubRecordsV9.Remove(tag["CLUB|".Length..]);
+        else
+            _openPlayerRecords.Remove(tag);
+
         _profileTabs.Items.Remove(tab);
         if (_profileTabs.Items.Count == 0) AddWelcomeProfileTab();
     }
@@ -91,7 +99,9 @@ public partial class MainWindow
             : tabs.Where(x => !ReferenceEquals(x, keep));
 
         foreach (var tab in toClose
-            .Where(x => !Equals(x.Tag, "__player-pool") && !Equals(x.Tag, "__welcome"))
+            .Where(x => !Equals(x.Tag, "__welcome")
+                && !(x.Tag?.ToString()?.StartsWith("__", StringComparison.OrdinalIgnoreCase) == true
+                    && x.Tag.ToString()!.EndsWith("-pool", StringComparison.OrdinalIgnoreCase)))
             .ToList())
             CloseRecordTabV9(tab);
 
