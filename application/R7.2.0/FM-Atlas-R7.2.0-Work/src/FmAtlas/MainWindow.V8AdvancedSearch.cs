@@ -65,23 +65,21 @@ public partial class MainWindow
         ComboBox secondarySortPicker = null!;
         ComboBox secondarySortDirection = null!;
 
-        var content = new StackPanel { Margin = new Thickness(2, 0, 2, 18) };
-        var introduction = Card(new StackPanel(), 18, new Thickness(0, 0, 0, 12));
+        var introduction = MonolithDesignSystem.Panel(new StackPanel(), 14, new Thickness(0, 0, 0, 12), new Thickness(16));
         var intro = (StackPanel)introduction.Child;
-        intro.Children.Add(Txt("ATLAS SEARCH STUDIO", 9, true, Teal));
-        intro.Children.Add(Txt("Advanced Search", 27, true, Ink));
-        intro.Children.Add(Txt("Build one player search across core profile fields, imported attributes, personality, contract facts, positions and other available save facts. Choose whether ALL conditions or ANY condition must match. The field library is discovered from actual imported data; unsupported or missing fields are not invented.", 11, false, Muted, wrap: true));
+        intro.Children.Add(MonolithDesignSystem.MicroLabel("ATLAS SEARCH STUDIO", true));
+        intro.Children.Add(MonolithDesignSystem.DisplayText("Advanced Search", 27));
+        intro.Children.Add(MonolithDesignSystem.BodyText("Build one player search across core profile fields, imported attributes, personality, contract facts, positions and other available save facts. Choose whether ALL conditions or ANY condition must match. The field library is discovered from actual imported data; unsupported or missing fields are not invented.", 12, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
         var summary = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         summary.Children.Add(StatusPill($"{fields.Count:N0} searchable fields", "Available core player fields plus fields actually present in the latest imported save and local Atlas facts."));
         summary.Children.Add(StatusPill($"{categories.Count - 1:N0} categories", "Categories are derived from fields present in the active data."));
         summary.Children.Add(StatusPill("60 conditions", "Maximum conditions in one query."));
         intro.Children.Add(summary);
-        content.Children.Add(introduction);
 
-        var builder = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 12));
+        var builder = MonolithDesignSystem.Panel(new StackPanel(), 14, new Thickness(0, 0, 0, 10), new Thickness(14));
         var builderStack = (StackPanel)builder.Child;
-        builderStack.Children.Add(Txt("PLAYER FILTER BUILDER", 9, true, Teal));
-        builderStack.Children.Add(Txt("Combine general, contract, attributes, positions and save facts", 17, true, Ink));
+        builderStack.Children.Add(MonolithDesignSystem.MicroLabel("PLAYER FILTER BUILDER", true));
+        builderStack.Children.Add(MonolithDesignSystem.DisplayText("Combine general, contract, attributes, positions and save facts", 17));
 
         var searchText = Input("Optional player, club, nation or player ID search");
         searchText.Width = 310;
@@ -236,10 +234,10 @@ public partial class MainWindow
 
         // Independent FMRTE-style position group: zero is a no-op; ALL/ANY never
         // changes the existing global AND/OR logic.
-        var positionCard = Card(new StackPanel(), 14, new Thickness(0, 10, 0, 8));
+        var positionCard = MonolithDesignSystem.Panel(new StackPanel(), 12, new Thickness(0, 10, 0, 8), new Thickness(12), raised: true);
         var positionStack = (StackPanel)positionCard.Child;
-        positionStack.Children.Add(Txt("POSITION FAMILIARITY", 9, true, Teal));
-        positionStack.Children.Add(Txt("Set a 0–20 rating for any of the 15 FM positions", 15, true, Ink));
+        positionStack.Children.Add(MonolithDesignSystem.MicroLabel("POSITION FAMILIARITY", true));
+        positionStack.Children.Add(MonolithDesignSystem.DisplayText("Set a 0–20 rating for any of the 15 FM positions", 15));
         positionStack.Children.Add(Txt("Zero means no requirement. Exact matches are used by default; turn on At Least to treat each entered rating as a minimum. Save-reader position values may remain provisional until checked in FM27.", 10, false, Muted, wrap: true));
         var positionOptions = new WrapPanel { Margin = new Thickness(0, 8, 0, 5) };
         positionAny = new CheckBox { Content = "Any of these", Foreground = Ink, FontSize = 10, Margin = new Thickness(0, 3, 18, 5), ToolTip = "A player needs to match at least one entered position. Otherwise every entered position must match." };
@@ -265,7 +263,7 @@ public partial class MainWindow
                 Text = "0", Width = 54, Height = 30, Margin = new Thickness(0, 5, 0, 0),
                 Padding = new Thickness(5, 3, 5, 3), FontSize = 11, FontWeight = FontWeights.SemiBold,
                 TextAlignment = TextAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
-                Background = Brush("#111820"), Foreground = Ink, BorderBrush = Line, BorderThickness = new Thickness(1),
+                Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised), Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text), BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border), BorderThickness = new Thickness(1),
                 ToolTip = position.Label + " familiarity · 0–20 · zero disables this requirement"
             };
             System.Windows.Automation.AutomationProperties.SetName(rating, position.Code + " position familiarity rating 0 to 20");
@@ -273,7 +271,7 @@ public partial class MainWindow
             tileStack.Children.Add(rating);
             positionTiles.Children.Add(new Border
             {
-                Width = 118, Background = Brush("#171F28"), BorderBrush = Line, BorderThickness = new Thickness(1),
+                Width = 118, Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised), BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border), BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(9), Padding = new Thickness(9, 8, 9, 8),
                 Margin = new Thickness(0, 0, 7, 7), Child = tileStack
             });
@@ -284,12 +282,11 @@ public partial class MainWindow
         status = Txt(fields.Count == 0 ? "No fields are available yet. Import a career save copy or add local scouting data." : "Add one or more conditions, then run the search.", 10, false, Muted, wrap: true);
         status.Margin = new Thickness(2, 8, 2, 0);
         builderStack.Children.Add(status);
-        content.Children.Add(builder);
 
-        var resultCard = Card(new DockPanel(), 16);
+        var resultCard = MonolithDesignSystem.Panel(new DockPanel(), 14, padding: new Thickness(14));
         var dock = (DockPanel)resultCard.Child;
         var resultHeader = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
-        resultHeader.Children.Add(Txt("PLAYER MATCHES", 9, true, Teal));
+        resultHeader.Children.Add(MonolithDesignSystem.MicroLabel("PLAYER MATCHES", true));
         resultHeader.Children.Add(Txt("Double-click a result to open its player profile. Source origin is shown so live identities, save records and local records stay distinguishable.", 10, false, Muted, wrap: true));
         var pager = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 7, 0, 0) };
         previousPageButton = SoftButton("← Previous", async (_, _) =>
@@ -366,8 +363,8 @@ public partial class MainWindow
             columnChecks[item.Key] = check;
             columnPanel.Children.Add(check);
         }
-        var columnCard = Card(new StackPanel(), 12, new Thickness(0, 0, 0, 8));
-        ((StackPanel)columnCard.Child).Children.Add(Txt("RESULT COLUMNS", 8, true, Muted));
+        var columnCard = MonolithDesignSystem.Panel(new StackPanel(), 10, new Thickness(0, 0, 0, 8), new Thickness(10), raised: true);
+        ((StackPanel)columnCard.Child).Children.Add(MonolithDesignSystem.MicroLabel("RESULT COLUMNS"));
         ((StackPanel)columnCard.Child).Children.Add(columnPanel);
         DockPanel.SetDock(columnCard, Dock.Top);
         dock.Children.Add(columnCard);
@@ -395,7 +392,6 @@ public partial class MainWindow
             catch (Exception ex) { ClearProfile("The player profile could not be opened: " + ex.Message); }
         };
         dock.Children.Add(grid);
-        content.Children.Add(resultCard);
 
 
         List<PlayerRecord> CaptureSelectedPlayers(int minimum, int maximum)
@@ -1173,30 +1169,69 @@ public partial class MainWindow
         specialist.Children.Add(SoftButton("Open Performance / Moneyball Search", async (_, _) => await NavigateAsync("Stats Search")));
         specialist.Children.Add(SoftButton("Open Global Search", (_, _) => ShowGlobalSearch()));
         specialist.Children.Add(SoftButton("Open Attribute Search", async (_, _) => await NavigateAsync("Attribute Search")));
-        content.Children.Add(specialist);
+        // FMRTE-style workspace split: the filter library/builder stays on the
+        // left and the live result table stays visible on the right. Both panes
+        // scroll independently and the divider can be resized by the user.
+        var root = new Grid { Margin = new Thickness(2, 0, 2, 12) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        Grid.SetRow(introduction, 0);
+        root.Children.Add(introduction);
 
-        var scroll = new ScrollViewer
+        var workArea = new Grid { Margin = new Thickness(0, 0, 0, 2) };
+        workArea.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.96, GridUnitType.Star), MinWidth = 320 });
+        workArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        workArea.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.12, GridUnitType.Star), MinWidth = 360 });
+
+        var builderStackV9 = new StackPanel();
+        builderStackV9.Children.Add(builder);
+        builderStackV9.Children.Add(specialist);
+        var builderScroll = new ScrollViewer
         {
-            Content = content,
+            Content = builderStackV9,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Padding = new Thickness(0, 0, 8, 0)
         };
-        return scroll;
+        Grid.SetColumn(builderScroll, 0);
+        workArea.Children.Add(builderScroll);
+
+        var splitter = new GridSplitter
+        {
+            Width = 7,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            ResizeDirection = GridResizeDirection.Columns,
+            ResizeBehavior = GridResizeBehavior.PreviousAndNext,
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            ShowsPreview = false,
+            Focusable = true,
+            ToolTip = "Drag to resize the filter builder and results panes."
+        };
+        Grid.SetColumn(splitter, 1);
+        workArea.Children.Add(splitter);
+
+        var resultScroll = new ScrollViewer
+        {
+            Content = resultCard,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Padding = new Thickness(8, 0, 0, 0)
+        };
+        Grid.SetColumn(resultScroll, 2);
+        workArea.Children.Add(resultScroll);
+
+        Grid.SetRow(workArea, 1);
+        root.Children.Add(workArea);
+        return root;
     }
 
     private static Border StatusPill(string value, string tooltip)
     {
-        var pill = new Border
-        {
-            Background = Brush("#1C242E"),
-            BorderBrush = Brush("#303943"),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(20),
-            Padding = new Thickness(10, 6, 10, 6),
-            Margin = new Thickness(0, 0, 7, 0),
-            Child = Txt(value, 9, true, Ink),
-            ToolTip = tooltip
-        };
+        var pill = MonolithDesignSystem.Panel(
+            MonolithDesignSystem.DataText(value, 9, MonolithDesignSystem.Solid(MonolithDesignSystem.Text)),
+            8, new Thickness(0, 0, 7, 0), new Thickness(9, 6), raised: true);
+        pill.ToolTip = tooltip;
         ToolTipService.SetInitialShowDelay(pill, 350);
         return pill;
     }
