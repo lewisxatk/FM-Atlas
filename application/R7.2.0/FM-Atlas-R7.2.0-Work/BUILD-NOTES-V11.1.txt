@@ -1,0 +1,4 @@
+FM Atlas V11.1 startup hardening build trigger.
+- Removed redundant XAML formatting-mode override from the main window root.
+- Removed duplicate implicit ToolTip style declaration from application resources.
+- Expanded exception logging to retain XAML line/position and inner exception diagnostics while continuing to redact local paths and save filenames.
