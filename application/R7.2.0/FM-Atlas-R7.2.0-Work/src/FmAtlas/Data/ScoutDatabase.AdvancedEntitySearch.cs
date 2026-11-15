@@ -344,6 +344,37 @@ public sealed partial class ScoutDatabase
         return BuildAdvancedFieldList(fields, "Latest FM save, linked club tables and live career fields");
     }
 
+    private static void CollectClubReferences(JsonElement element, HashSet<string> clubIds)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Name.Equals("club_uid", StringComparison.OrdinalIgnoreCase)
+                    || property.Name.Equals("owner_club_uid", StringComparison.OrdinalIgnoreCase)
+                    || property.Name.Equals("parent_club_uid", StringComparison.OrdinalIgnoreCase))
+                {
+                    var id = property.Value.ToString();
+                    if (!string.IsNullOrWhiteSpace(id)) clubIds.Add(id);
+                }
+                else if (property.Name.Equals("club_uids", StringComparison.OrdinalIgnoreCase)
+                    && property.Value.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var value in property.Value.EnumerateArray())
+                    {
+                        var id = value.ToString();
+                        if (!string.IsNullOrWhiteSpace(id)) clubIds.Add(id);
+                    }
+                }
+                CollectClubReferences(property.Value, clubIds);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var child in element.EnumerateArray()) CollectClubReferences(child, clubIds);
+        }
+    }
+
     public async Task<List<AtlasClubRecord>> SearchAdvancedClubsAsync(
         string? search,
         IReadOnlyList<AdvancedSearchCriterion> criteria,
@@ -408,6 +439,28 @@ public sealed partial class ScoutDatabase
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                 extraRows.Add((reader.GetString(0), reader.GetString(1)));
 
+        // Parse each linked FM table row once, then index it by the club UID references
+        // in the payload. This avoids reparsing every extra row for every club in a large
+        // career database.
+        var extraValuesByClub = new Dictionary<string, Dictionary<string, AdvancedEntityValue>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var extraRow in extraRows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                using var doc = JsonDocument.Parse(extraRow.Json);
+                var clubIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                CollectClubReferences(doc.RootElement, clubIds);
+                foreach (var clubId in clubIds)
+                {
+                    if (!extraValuesByClub.TryGetValue(clubId, out var linkedValues))
+                        extraValuesByClub[clubId] = linkedValues = new Dictionary<string, AdvancedEntityValue>(StringComparer.OrdinalIgnoreCase);
+                    AddAdvancedJsonValues(linkedValues, doc.RootElement, "club:extra:" + extraRow.Table + ".");
+                }
+            }
+            catch (JsonException) { /* Skip malformed optional rows without failing the search. */ }
+        }
+
         var matches = new List<AtlasClubRecord>();
         foreach (var club in all)
         {
@@ -418,18 +471,10 @@ public sealed partial class ScoutDatabase
             AddAdvancedValue(values, "club:PlayerCount", club.PlayerCount, null);
             AddAdvancedValue(values, "club:DataSource", null, club.DataSource);
 
-            if (club.DataSource.StartsWith("FMSave", StringComparison.OrdinalIgnoreCase))
+            if (club.DataSource.StartsWith("FMSave", StringComparison.OrdinalIgnoreCase)
+                && extraValuesByClub.TryGetValue(club.SourceId, out var linkedFacts))
             {
-                foreach (var extraRow in extraRows)
-                {
-                    try
-                    {
-                        using var doc = JsonDocument.Parse(extraRow.Json);
-                        if (!ReferencesClub(doc.RootElement, club.SourceId)) continue;
-                        AddAdvancedJsonValues(values, doc.RootElement, "club:extra:" + extraRow.Table + ".");
-                    }
-                    catch (JsonException) { /* Skip malformed unrelated rows. */ }
-                }
+                foreach (var fact in linkedFacts) values[fact.Key] = fact.Value;
             }
 
             if (!MatchesAdvancedEntityText(values, search)) continue;
