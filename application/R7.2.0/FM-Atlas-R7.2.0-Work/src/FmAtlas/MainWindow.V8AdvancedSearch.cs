@@ -330,11 +330,14 @@ public partial class MainWindow
         foreach (var position in pitchPositions)
             AddPositionNode(position.Code, position.Label, position.X, position.Y);
 
-        var pitchView = new Viewbox
+        // Keep the pitch at a readable native size; narrower windows scroll horizontally
+        // rather than shrinking labels and rating inputs below a usable size.
+        var pitchView = new ScrollViewer
         {
-            Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Child = pitchCanvas, MaxHeight = 360, Margin = new Thickness(0, 8, 0, 2)
+            Height = 360, Content = pitchCanvas, Margin = new Thickness(0, 8, 0, 2)
         };
         positionStack.Children.Add(pitchView);
         builderStack.Children.Add(positionCard);
