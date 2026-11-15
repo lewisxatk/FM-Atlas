@@ -176,19 +176,44 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
-    public void LivePlayerCatalogueIncludesVisibleHiddenPositionPersonalityTraitAndContractFields()
+    public void LivePlayerCatalogueIncludesCaPaAndAllFortySevenStandardAttributesButQuarantinesHiddenLeads()
     {
         var fields = LiveEntityMemoryEditService.GetEditableFields(LiveEntityMemoryEditService.EntityKind.Player);
         var keys = fields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        Assert.Contains("ability.current_ability", keys);
+        Assert.Contains("ability.potential_ability", keys);
+        var standardAttributes = new[]
+        {
+            "crossing", "dribbling", "finishing", "heading", "long_shots", "marking", "passing", "tackling",
+            "technique", "first_touch", "corners", "free_kicks", "long_throws", "penalty_taking",
+            "aggression", "anticipation", "bravery", "composure", "concentration", "decisions", "flair",
+            "leadership", "off_the_ball", "positioning", "teamwork", "vision", "work_rate", "determination",
+            "acceleration", "agility", "balance", "jumping_reach", "natural_fitness", "pace", "stamina", "strength",
+            "handling", "aerial_reach", "command_of_area", "communication", "kicking", "throwing",
+            "one_on_ones", "reflexes", "eccentricity", "rushing_out", "punching"
+        };
+        Assert.Equal(47, standardAttributes.Length);
+        foreach (var key in standardAttributes)
+            Assert.Contains("attribute." + key, keys);
+
+        var hiddenLeads = new[]
+        {
+            "attribute.consistency", "attribute.important_matches", "attribute.injury_proneness",
+            "attribute.dirtiness", "attribute.versatility"
+        };
+        foreach (var key in hiddenLeads)
+        {
+            Assert.DoesNotContain(key, keys);
+            Assert.False(LiveEntityMemoryEditService.SupportsField(LiveEntityMemoryEditService.EntityKind.Player, key));
+        }
+
         foreach (var key in new[]
         {
-            "attribute.finishing", "attribute.consistency", "attribute.important_matches",
-            "attribute.injury_proneness", "attribute.dirtiness", "attribute.versatility",
             "date_of_birth", "contract.unhappiness", "loan.expires", "loan.option_fee",
-            "position.gk", "position.amc", "personality.professionalism",
-            "left_foot", "right_foot", "trait.0", "trait.63",
-            "contract.wage", "contract.signed", "contract.expires", "contract.joined", "contract.squad_number",
-            "contract.squad_status", "contract.transfer_listed", "contract.loan_listed",
+            "position.gk", "position.amc", "personality.professionalism", "left_foot", "right_foot",
+            "trait.0", "trait.63", "contract.wage", "contract.signed", "contract.expires", "contract.joined",
+            "contract.squad_number", "contract.squad_status", "contract.transfer_listed", "contract.loan_listed",
             "contract.loyalty_bonus", "contract.happiness", "contract.playing_time_happiness"
         })
             Assert.Contains(key, keys);
@@ -238,7 +263,6 @@ public sealed class LiveMemoryWriteGateTests
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "supporters.mix.core")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "supporters.trait.passion")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "finance.ticket_price_pence")]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.consistency")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "trait.63")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.transfer_listed")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Staff, "attribute.sports_science")]
@@ -255,6 +279,11 @@ public sealed class LiveMemoryWriteGateTests
     [InlineData(LiveEntityMemoryEditService.EntityKind.Staff, "attribute.potential_pa")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "ownership.sugar_daddy")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "debt.add")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.consistency")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.important_matches")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.injury_proneness")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.dirtiness")]
+    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.versatility")]
     public void DynamicOrUnverifiedFieldsAreNotMistakenForScalarWrites(LiveEntityMemoryEditService.EntityKind entity, string field)
         => Assert.False(LiveEntityMemoryEditService.SupportsField(entity, field));
 
