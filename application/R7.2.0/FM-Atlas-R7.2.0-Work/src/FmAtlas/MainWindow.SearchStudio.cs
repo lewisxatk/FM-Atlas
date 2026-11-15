@@ -173,13 +173,7 @@ public partial class MainWindow
         var query = Input(isStaff ? "Name, club, job, nationality or imported value" : "Club, nation, facility, debt or finance field");
         query.Width = 380;
         query.Height = 38;
-        query.KeyDown += async (_, e) =>
-        {
-            if (e.Key != Key.Enter) return;
-            e.Handled = true;
-            pageOffset = 0;
-            await RunSearchAsync();
-        };
+        // Initialise the captured logic selector before attaching handlers that call RunSearchAsync.
         var logic = new ComboBox
         {
             Width = 172, Height = 38, Margin = new Thickness(3, 3, 8, 8),
@@ -189,6 +183,13 @@ public partial class MainWindow
         logic.Items.Add("ALL conditions");
         logic.Items.Add("ANY condition");
         logic.SelectedIndex = 0;
+        query.KeyDown += async (_, e) =>
+        {
+            if (e.Key != Key.Enter) return;
+            e.Handled = true;
+            pageOffset = 0;
+            await RunSearchAsync();
+        };
         searchBar.Children.Add(query);
         searchBar.Children.Add(logic);
         searchBar.Children.Add(PrimaryButton("SEARCH", async (_, _) => { pageOffset = 0; await RunSearchAsync(); }));
