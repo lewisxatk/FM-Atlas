@@ -26,7 +26,7 @@ public partial class MainWindow
         public Border Container { get; init; } = null!;
     }
 
-    private async Task<UIElement> AdvancedSearchWorkspaceAsync()
+    private async Task<UIElement> PlayerAdvancedSearchWorkspaceAsync()
     {
         var fields = await RunDatabaseAsync(() => _database.GetAdvancedPlayerSearchFieldsAsync());
         var categories = new[] { "All categories" }
