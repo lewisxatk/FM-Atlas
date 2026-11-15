@@ -98,7 +98,7 @@ public partial class MainWindow
             }
             catch (Exception ex)
             {
-                AtlasLog.Error($"Could not open {mode} advanced search.", ex);
+                System.Diagnostics.Debug.WriteLine($"Could not open {mode} advanced search: {ex}");
                 host.Content = ErrorPanel("SEARCH WORKSPACE UNAVAILABLE", ex.Message);
             }
             finally { Mouse.OverrideCursor = null; }
@@ -436,7 +436,7 @@ public partial class MainWindow
             }
             catch (Exception ex)
             {
-                AtlasLog.Error($"Advanced {entity.ToLowerInvariant()} search failed.", ex);
+                System.Diagnostics.Debug.WriteLine($"Advanced {entity.ToLowerInvariant()} search failed: {ex}");
                 status.Text = $"Search failed: {ex.Message}";
             }
             finally
