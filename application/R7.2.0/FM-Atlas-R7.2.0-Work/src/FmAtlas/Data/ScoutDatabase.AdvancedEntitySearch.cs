@@ -162,12 +162,11 @@ public sealed partial class ScoutDatabase
                    MAX(CASE WHEN NumericValue IS NOT NULL THEN 1 ELSE 0 END),
                    MAX(CASE WHEN TextValue IS NOT NULL THEN 1 ELSE 0 END),
                    MAX(CASE WHEN lower(COALESCE(TextValue,'')) IN ('true','false') THEN 1 ELSE 0 END)
-            FROM LiveStaffFacts
-            WHERE StaffUid IN (
-                SELECT StaffUid FROM LiveStaff
-                WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
-            )
-            GROUP BY FieldKey;
+            FROM LiveStaffFacts f
+            JOIN LiveStaff s ON s.StaffUid=f.StaffUid
+            WHERE s.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND f.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            GROUP BY f.FieldKey;
             """;
         await using (var reader = await live.ExecuteReaderAsync().ConfigureAwait(false))
         {
@@ -224,7 +223,8 @@ public sealed partial class ScoutDatabase
         live.CommandText = """
             SELECT StaffUid,FieldKey,NumericValue,TextValue
             FROM LiveStaffFacts
-            WHERE StaffUid IN (
+            WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND StaffUid IN (
                 SELECT StaffUid FROM LiveStaff
                 WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
             );
@@ -326,6 +326,7 @@ public sealed partial class ScoutDatabase
                    MAX(CASE WHEN TextValue IS NOT NULL THEN 1 ELSE 0 END),
                    MAX(CASE WHEN lower(COALESCE(TextValue,'')) IN ('true','false') THEN 1 ELSE 0 END)
             FROM LiveClubFacts
+            WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
             GROUP BY FieldKey;
             """;
         await using (var reader = await live.ExecuteReaderAsync().ConfigureAwait(false))
@@ -383,7 +384,7 @@ public sealed partial class ScoutDatabase
         }
 
         var live = db.CreateCommand();
-        live.CommandText = "SELECT ClubUid,FieldKey,NumericValue,TextValue FROM LiveClubFacts;";
+        live.CommandText = "SELECT ClubUid,FieldKey,NumericValue,TextValue FROM LiveClubFacts WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed');";
         await using (var reader = await live.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
