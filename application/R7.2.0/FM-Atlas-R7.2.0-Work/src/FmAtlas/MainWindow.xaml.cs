@@ -1,3 +1,4 @@
+global using FmAtlas.Data;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
