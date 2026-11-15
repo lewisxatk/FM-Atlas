@@ -163,8 +163,220 @@ public partial class MainWindow : Window
         }
     }
 
+    private void BuildWatchedShell()
+    {
+        RootGrid.Children.Clear();
+        RootGrid.Background = Brush("#07080A");
+        _shell = new Grid();
+        _navColumn = new ColumnDefinition { Width = new GridLength(_navCollapsed ? 68 : 224) };
+        _shell.ColumnDefinitions.Add(_navColumn);
+        _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        RootGrid.Children.Add(_shell);
+
+        var sidebar = BuildWatchedSidebar();
+        Grid.SetColumn(sidebar, 0);
+        _shell.Children.Add(sidebar);
+
+        var main = new Grid { Margin = new Thickness(24, 15, 24, 18) };
+        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
+        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
+        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(main, 1);
+        _shell.Children.Add(main);
+
+        var headerGrid = new Grid();
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 14, 0) };
+        _pageTitle = DisplayTxt("Dashboard", 25, true, Ink);
+        _pageSubTitle = MonoTxt("CAREER INTELLIGENCE  /  SCOUTING  /  ANALYSIS", 10, false, Muted);
+        titleStack.Children.Add(_pageTitle);
+        titleStack.Children.Add(_pageSubTitle);
+        headerGrid.Children.Add(titleStack);
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        actions.Children.Add(ToolbarIcon("\uE721", "Quick Search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
+        actions.Children.Add(ToolbarIcon("\uE71C", "Advanced Search — build filters across supported FM fields.", async (_, _) => await NavigateAsync("Advanced Search")));
+        actions.Children.Add(ToolbarIcon("\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
+        _cancelImportButton = ToolbarIcon("\uE711", "Cancel the active live scan or save import safely.", (_, _) =>
+        {
+            if (_liveScanCancellation is not null)
+            {
+                _liveScanCancelledByUser = true;
+                _liveScanCancellation.Cancel();
+            }
+            _saveImportCancellation?.Cancel();
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Cancellation requested — stopping safely at the next checkpoint.";
+        });
+        _cancelImportButton.IsEnabled = _saveImportCancellation is not null || _liveScanCancellation is not null;
+        _cancelImportButton.Visibility = _saveImportCancellation is not null || _liveScanCancellation is not null ? Visibility.Visible : Visibility.Collapsed;
+        actions.Children.Add(_cancelImportButton);
+        actions.Children.Add(ToolbarIcon("\uE823", "Activity Centre — view progress, elapsed time and cancellation.", (_, _) => ShowActivityCenter()));
+        actions.Children.Add(ToolbarIcon("\uE74E", "Save local FM Atlas changes.", async (_, _) => await SaveAtlasAsync()));
+        actions.Children.Add(ToolbarIcon("\uE8A7", "Open saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
+        actions.Children.Add(ToolbarIcon("\uE9D2", "Open performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
+        actions.Children.Add(ToolbarIcon("\uE80F", "Open your human-manager profile.", async (_, _) => await OpenMyManagerAsync()));
+        actions.Children.Add(ToolbarIcon("\uE77B", "Open your current club profile.", async (_, _) => await OpenMyClubAsync()));
+        _liveLoadButton = ToolbarIcon("\uE72C", "Connect to or refresh the currently loaded supported FM27 career.", async (_, _) => await LoadLiveCareerAsync());
+        _liveLoadButton.IsEnabled = true;
+        actions.Children.Add(_liveLoadButton);
+        actions.Children.Add(ToolbarIcon("\uE713", "Appearance settings — Watched Instrument is the default.", async (_, _) => await CycleThemeAsync()));
+        actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
+        Grid.SetColumn(actions, 1);
+        headerGrid.Children.Add(actions);
+
+        var header = new Border
+        {
+            Background = Brush("#0C0E11"),
+            BorderBrush = Brush("#303943"),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(2, 0, 2, 8),
+            Child = headerGrid
+        };
+        Grid.SetRow(header, 0);
+        main.Children.Add(header);
+
+        var careerGrid = new Grid();
+        careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var careerStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        _connectionDot = new Ellipse { Width = 7, Height = 7, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+        careerStack.Children.Add(_connectionDot);
+        var careerText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        careerText.Children.Add(MonoTxt("CAREER CONNECTION", 10, true, Teal));
+        _connectionSummary = Txt("Waiting for your FM27 career", 12, true, Ink);
+        careerText.Children.Add(_connectionSummary);
+        _liveLoadStatus = MonoTxt("AUTOMATIC DETECTION  /  READ-ONLY INDEXING", 10, false, Muted);
+        careerText.Children.Add(_liveLoadStatus);
+        careerStack.Children.Add(careerText);
+        careerGrid.Children.Add(careerStack);
+
+        var progressStack = new StackPanel { Width = 230, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+        progressStack.Children.Add(Txt("Open FM27 and load a career, or import a local save copy.", 10, false, Muted, wrap: true));
+        _liveLoadProgress = new ProgressBar { Height = 3, Minimum = 0, Maximum = 100, Value = 0, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 6, 0, 0), Foreground = Brush("#3988C8"), Background = Brush("#303943") };
+        progressStack.Children.Add(_liveLoadProgress);
+        Grid.SetColumn(progressStack, 1);
+        careerGrid.Children.Add(progressStack);
+
+        var career = new Border
+        {
+            Background = Brush("#0C0E11"),
+            BorderBrush = Brush("#303943"),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(2, 8, 2, 8),
+            Child = careerGrid
+        };
+        Grid.SetRow(career, 1);
+        main.Children.Add(career);
+
+        _pageHost = new ContentControl { Margin = new Thickness(0, 14, 0, 0), ClipToBounds = true };
+        Grid.SetRow(_pageHost, 2);
+        main.Children.Add(_pageHost);
+    }
+
+    private UIElement BuildWatchedSidebar()
+    {
+        var rail = new Border
+        {
+            Background = Brush("#0C0E11"),
+            BorderBrush = Brush("#303943"),
+            BorderThickness = new Thickness(0, 0, 1, 0)
+        };
+        var dock = new DockPanel { Margin = new Thickness(_navCollapsed ? 8 : 14, 14, _navCollapsed ? 8 : 14, 14) };
+        rail.Child = dock;
+
+        var brand = new Grid { Margin = new Thickness(2, 2, 2, 15) };
+        brand.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        brand.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var logoLine = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var logoImage = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Icon.png", UriKind.Absolute)), Stretch = Stretch.UniformToFill };
+        var logo = new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(0), ClipToBounds = true, BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), Child = logoImage };
+        logoLine.Children.Add(logo);
+        var word = new StackPanel { Margin = new Thickness(10, 0, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
+        word.Children.Add(DisplayTxt("FM ATLAS", 17, true, Ink));
+        word.Children.Add(MonoTxt("FOOTBALL INTELLIGENCE", 9, false, Muted));
+        logoLine.Children.Add(word);
+        Grid.SetColumn(logoLine, 0);
+        brand.Children.Add(logoLine);
+
+        var collapse = new Button
+        {
+            Content = _navCollapsed ? "›" : "‹",
+            Width = 28, Height = 30, Padding = new Thickness(0),
+            Background = Brush("#0C0E11"), Foreground = Ink,
+            BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand, ToolTip = _navCollapsed ? "Expand navigation and show workspace names." : "Collapse navigation to a compact code rail.",
+            Template = RoundedButtonTemplate(0)
+        };
+        collapse.Click += async (_, _) => await ToggleNavigationAsync();
+        ToolTipService.SetInitialShowDelay(collapse, 350);
+        Grid.SetColumn(collapse, 1);
+        brand.Children.Add(collapse);
+        DockPanel.SetDock(brand, Dock.Top);
+        dock.Children.Add(brand);
+
+        var navScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        _navPanel = new StackPanel();
+        navScroll.Content = _navPanel;
+        dock.Children.Add(navScroll);
+
+        AddNavGroup("HOME");
+        AddNav("▦", "Dashboard");
+        AddNavGroup("SCOUTING");
+        AddNav("♟", "Players");
+        AddNav("⌕", "Advanced Search");
+        AddNav("⌕", "Recruitment");
+        AddNav("◆", "Value Finder");
+        AddNav("⌗", "Attribute Search");
+        AddNav("∑", "Stats Search");
+        AddNav("▦", "Scouting Matrix");
+        AddNav("▤", "Shortlists");
+        AddNavGroup("SQUAD & ANALYSIS");
+        AddNav("▥", "Squad Architect");
+        AddNav("◇", "Clubs");
+        AddNav("♙", "Staff");
+        AddNav("⇄", "Transfers");
+        AddNav("▥", "Analytics");
+        AddNav("⚑", "Tactical Lab");
+        AddNav("◎", "Role Lab");
+        AddNavGroup("EDITING");
+        AddNav("✎", "Live Editor");
+        AddNav("▦", "Mass Edit");
+        AddNav("◷", "Edit History");
+        AddNavGroup("DATA & TOOLS");
+        AddNav("⌘", "Atlas Assistant");
+        AddNav("▧", "Settings");
+        AddNav("◉", "Tester & Logs");
+        AddNav("?", "Help & Tutorial");
+
+        var bottom = new Border
+        {
+            Background = Brush("#0C0E11"), BorderBrush = Brush("#303943"),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0),
+            Padding = new Thickness(10), Margin = new Thickness(0, 12, 0, 0),
+            ToolTip = "FM connection status. Unknown game builds remain read-only."
+        };
+        var bottomStack = new StackPanel();
+        if (!_navCollapsed)
+        {
+            bottomStack.Children.Add(MonoTxt("SESSION STATUS", 10, true, Teal));
+            bottomStack.Children.Add(Txt("Automatic · read-only", 11, true, Ink));
+            bottomStack.Children.Add(Txt("Live editing remains locked until field-level write certification passes.", 10, false, Muted, wrap: true));
+        }
+        else bottomStack.Children.Add(MonoTxt("●", 12, true, Teal));
+        bottom.Child = bottomStack;
+        DockPanel.SetDock(bottom, Dock.Bottom);
+        dock.Children.Add(bottom);
+        return rail;
+    }
+
     private void BuildShell()
     {
+        if (_themeMode == "Watched")
+        {
+            BuildWatchedShell();
+            return;
+        }
         RootGrid.Children.Clear();
         _shell = new Grid();
         _navColumn = new ColumnDefinition { Width = new GridLength(_navCollapsed ? 76 : 248) };
@@ -190,8 +402,8 @@ public partial class MainWindow : Window
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(15, 0, 12, 0) };
-        _pageTitle = Txt("Dashboard", 23, true, Ink);
-        _pageSubTitle = Txt("Career intelligence · scouting · analysis · squad planning", 10, false, Muted);
+        _pageTitle = DisplayTxt("Dashboard", 25, true, Ink);
+        _pageSubTitle = MonoTxt("CAREER INTELLIGENCE  /  SCOUTING  /  ANALYSIS", 10, false, Muted);
         titleStack.Children.Add(_pageTitle);
         titleStack.Children.Add(_pageSubTitle);
         headerGrid.Children.Add(titleStack);
@@ -298,6 +510,23 @@ public partial class MainWindow : Window
 
     private Button ToolbarIcon(string glyph, string description, RoutedEventHandler click)
     {
+        if (_themeMode == "Watched")
+        {
+            var text = MonoTxt(WatchedToolbarMark(glyph), 12, true, Ink);
+            var watchedButton = new Button
+            {
+                Content = text, Width = 36, Height = 34, Padding = new Thickness(0), Margin = new Thickness(2, 0, 2, 0),
+                Background = Brush("#0C0E11"), Foreground = Ink, BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand, ToolTip = description, Template = RoundedButtonTemplate(0)
+            };
+            ToolTipService.SetInitialShowDelay(watchedButton, 350);
+            ToolTipService.SetShowDuration(watchedButton, 30000);
+            ToolTipService.SetShowOnDisabled(watchedButton, true);
+            System.Windows.Automation.AutomationProperties.SetName(watchedButton, description);
+            System.Windows.Automation.AutomationProperties.SetHelpText(watchedButton, description);
+            watchedButton.Click += click;
+            return watchedButton;
+        }
         var icon = Txt(glyph, 17, true, Ink);
         icon.FontFamily = new FontFamily("Segoe MDL2 Assets");
         var button = new Button
@@ -533,10 +762,10 @@ public partial class MainWindow : Window
     {
         _themeMode = _themeMode switch
         {
-            "Monolith Glass" => "Glass Dark",
-            "Glass Dark" => "Glass Light",
-            "Glass Light" => "Studio",
-            _ => "Monolith Glass"
+            "Watched" => "Glass Light",
+            "Glass Light" => "Glass Dark",
+            "Glass Dark" => "Studio",
+            _ => "Watched"
         };
         try
         {
@@ -566,6 +795,7 @@ public partial class MainWindow : Window
     }
     private UIElement BuildSidebar()
     {
+        if (_themeMode == "Watched") return BuildWatchedSidebar();
         var rail = new Border
         {
             Background = new LinearGradientBrush(
@@ -719,8 +949,9 @@ public partial class MainWindow : Window
     private void AddNav(string icon, string label)
     {
         if (_navPanel is null) return;
-        var glyph = Txt(icon, 15, true, TealDark);
-        glyph.Width = 22;
+        var glyph = Txt(_themeMode == "Watched" ? WatchedNavCode(label) : icon, _themeMode == "Watched" ? 10 : 15, true, TealDark);
+        if (_themeMode == "Watched") glyph.FontFamily = new FontFamily("Consolas");
+        glyph.Width = _themeMode == "Watched" ? 28 : 22;
         glyph.TextAlignment = TextAlignment.Center;
         var caption = Txt(_navCollapsed ? "" : label, 11, true, Ink);
         caption.Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible;
@@ -746,7 +977,7 @@ public partial class MainWindow : Window
         ToolTipService.SetShowOnDisabled(button, true);
         System.Windows.Automation.AutomationProperties.SetName(button, label);
         System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
-        button.Template = RoundedButtonTemplate(13);
+        button.Template = RoundedButtonTemplate(_themeMode == "Watched" ? 0 : 13);
         button.Click += async (_, _) => await NavigateAsync(label);
         _navPanel.Children.Add(button);
     }
@@ -1398,7 +1629,7 @@ public partial class MainWindow : Window
         else avatarBorder.Child = new TextBlock { Text = Initials(player.Name), FontSize = 21, FontWeight = FontWeights.Bold, Foreground = Brush("#C6F36B"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         heroGrid.Children.Add(avatarBorder);
         var heroStack = new StackPanel();
-        heroStack.Children.Add(Txt(player.Name, 25, true, Ink));
+        heroStack.Children.Add(DisplayTxt(player.Name, 26, true, Ink));
         heroStack.Children.Add(Txt(player.Club ?? "Club unavailable", 12, true, Brush("#B9C5D0")));
         heroStack.Children.Add(Txt($"{player.Age?.ToString() ?? "—"} years  ·  {player.Nation ?? "Nationality unavailable"}  ·  {player.Position ?? "Position unavailable"}", 11, false, Brush("#B9C5D0"), wrap: true));
         heroStack.Children.Add(Txt($"{player.League ?? "League unavailable"}  ·  {player.DataOrigin}", 9, false, Brush("#9EADB9"), wrap: true));
@@ -3628,6 +3859,20 @@ public partial class MainWindow : Window
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
     {
+        if (_themeMode == "Watched")
+        {
+            return new Border
+            {
+                Background = Brush("#0C0E11"),
+                BorderBrush = Brush("#303943"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(0),
+                Padding = new Thickness(15),
+                Margin = margin ?? new Thickness(0),
+                SnapsToDevicePixels = true,
+                Child = child
+            };
+        }
         // Keep the original direct-child contract: many established workspaces populate
         // Card(...).Child after construction. A nested visual host here breaks those
         // callers at runtime. The material is therefore rendered by the Border itself.
@@ -3697,6 +3942,39 @@ public partial class MainWindow : Window
     private static TextBlock Txt(string text, double size, bool bold, Brush foreground, bool wrap = false)
         => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
 
+    private static TextBlock DisplayTxt(string text, double size, bool bold, Brush foreground, bool wrap = false)
+    {
+        var t = Txt(text, size, bold, foreground, wrap);
+        t.FontFamily = new FontFamily("Bahnschrift");
+        t.FontStretch = FontStretches.Condensed;
+        return t;
+    }
+
+    private static TextBlock MonoTxt(string text, double size, bool bold, Brush foreground, bool wrap = false)
+    {
+        var t = Txt(text, size, bold, foreground, wrap);
+        t.FontFamily = new FontFamily("Consolas");
+        return t;
+    }
+
+    private static string WatchedNavCode(string label) => label switch
+    {
+        "Dashboard" => "01", "Players" => "PL", "Advanced Search" => "AS", "Recruitment" => "RC",
+        "Value Finder" => "VF", "Attribute Search" => "AT", "Stats Search" => "ST", "Scouting Matrix" => "MX",
+        "Shortlists" => "SL", "Squad Architect" => "SQ", "Clubs" => "CL", "Staff" => "SF", "Transfers" => "TR",
+        "Analytics" => "AN", "Tactical Lab" => "TX", "Role Lab" => "RL", "Live Editor" => "ED",
+        "Mass Edit" => "ME", "Edit History" => "HI", "Atlas Assistant" => "AI", "Settings" => "SE",
+        "Tester & Logs" => "QA", "Help & Tutorial" => "?", _ => "--"
+    };
+
+    private static string WatchedToolbarMark(string glyph) => glyph switch
+    {
+        "" => "⌕", "" => "≡", "" => "↓", "" => "×",
+        "" => "◷", "" => "↥", "" => "☆", "" => "Σ",
+        "" => "ME", "" => "CL", "" => "↻", "" => "T",
+        "" => "!", _ => "·"
+    };
+
     private static TextBox Input(string placeholder)
         => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#FBFDFF"), Foreground = Brush("#1A3851"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 12 };
 
@@ -3722,6 +4000,7 @@ public partial class MainWindow : Window
 
     private static ControlTemplate RoundedButtonTemplate(double radius)
     {
+        if (_themeMode == "Watched") radius = 0;
         var template = new ControlTemplate(typeof(Button));
         var border = new FrameworkElementFactory(typeof(Border));
         border.Name = "AtlasButtonSurface";
@@ -3761,17 +4040,36 @@ public partial class MainWindow : Window
         try
         {
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas", "theme.txt");
-            var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "Monolith Glass";
-            return value is "Monolith Glass" or "Glass Light" or "Studio" or "Glass Dark" ? value : "Monolith Glass";
+            var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "Watched";
+            return value is "Glass Light" or "Studio" or "Glass Dark" or "Watched" ? value : "Watched";
         }
-        catch { return "Monolith Glass"; }
+        catch { return "Watched"; }
     }
 
     private static Brush Brush(string hex)
     {
         var key = hex.ToUpperInvariant();
         string mapped;
-        if (_themeMode == "Glass Light")
+        if (_themeMode == "Watched")
+        {
+            mapped = key switch
+            {
+                "#E8EEF4" or "#E8F0FA" or "#C4CED8" => "#ECE8E0",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" or "#79BDEB" or "#F08A42" or "#FFD0AA" or "#F08C96" => "#FF6A1A",
+                "#294765" or "#483022" => "#14171C",
+                "#9EADB9" or "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#A9C7D3",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#30343A",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#0C0E11",
+                "#0D1117" or "#111820" => "#07080A",
+                "#171F28" or "#202A35" or "#1C242E" or "#151B22" => "#0C0E11",
+                "#35424E" => "#1C2027",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" or "#F29A5C" or "#D97736" or "#F7A46A" => "#FF6A1A",
+                "#E6C477" or "#D9A44D" or "#B45B2F" => "#E8C547",
+                "#8BCFA6" => "#A9C7D3",
+                _ => key
+            };
+        }
+        else if (_themeMode == "Glass Light")
         {
             mapped = key switch
             {
