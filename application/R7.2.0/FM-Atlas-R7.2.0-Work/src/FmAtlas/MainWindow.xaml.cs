@@ -17,7 +17,6 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using Path = System.IO.Path;
 using Microsoft.Win32;
-using FmAtlas.Data;
 using FmAtlas.Models;
 using FmAtlas.Services;
 
@@ -42,8 +41,6 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AtlasClubRecord> _clubs = new();
     private readonly ObservableCollection<AtlasStaffRecord> _staff = new();
     private readonly ObservableCollection<ShortlistRecord> _shortlist = new();
-    private Grid? _shell;
-    private ColumnDefinition? _navColumn;
     private bool _navCollapsed;
     private StackPanel? _navPanel;
     private ContentControl? _pageHost;
@@ -1056,7 +1053,7 @@ public partial class MainWindow : Window
         var profilesToRestore = _openPlayerRecords.Values.ToList();
         if (_profileExpanded) ToggleProfileExpanded(true);
         if (profilesToRestore.Count > 0)
-            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => _ = RestoreOpenPlayerProfilesSafelyAsync(profilesToRestore)));
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => _ = RestoreOpenPlayerProfilesSafelyAsync(profilesToRestore)));
 
         await Task.CompletedTask;
         return root;
