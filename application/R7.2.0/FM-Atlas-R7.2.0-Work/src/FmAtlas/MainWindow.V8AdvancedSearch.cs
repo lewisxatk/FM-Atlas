@@ -333,8 +333,8 @@ public partial class MainWindow
                 TextAlignment = TextAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
-                Background = Brush("#090A0C"),
-                Foreground = Brush("#EEE9E1"),
+                Background = Brush("#050505"),
+                Foreground = Brush("#F08A42"),
                 BorderBrush = Brush("#454B4F"),
                 BorderThickness = new Thickness(1),
                 ToolTip = position.Label + " familiarity rating, 0–20. Zero means no requirement."
