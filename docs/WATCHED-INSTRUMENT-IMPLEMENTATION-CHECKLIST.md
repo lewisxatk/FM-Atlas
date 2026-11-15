@@ -32,8 +32,8 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 
 - [x] Keep the current V8 navigation and existing workspaces available in a dedicated branch.
 - [x] Maintain a dedicated Watched shell/sidebar while retaining the existing appearances as optional alternatives.
-- [~] Open selected player records in the full available workspace width; hide the finder controls while the record is active and restore them on Back.
-- [~] Retain existing per-player closable tabs and record state during this transition.
+- [x] Open selected player records in the full available workspace width; hide the finder controls while the record is active and restore them on Back.
+- [x] Retain existing per-player closable tabs and record state during this transition.
 - [ ] Migrate search workspaces and all entity records into a consistent top-level workspace-tab host.
 - [ ] Add closable Players, Staff, Clubs and Advanced Search workspace tabs; restore active tab and open tabs safely.
 - [ ] Keep Ctrl+K command palette, recent records and keyboard navigation consistent across entity types.
@@ -53,8 +53,10 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 ## 4. Full player record
 
 - [x] Reuse existing source-backed profile loader and existing player data tabs.
-- [~] Use the full workspace width automatically when selecting a player.
-- [~] Begin applying flat Watched styling to the profile header, identity card, metrics and attribute values.
+- [x] Use the full workspace width automatically when selecting a player.
+- [x] Apply flat Watched styling to the player profile header, identity card, metrics and attribute-value surfaces.
+- [x] Link statistical search rows to player records by exact source ID; double-click opens the full-width record tab.
+- [x] Add an exact source-ID player lookup that respects the active imported-save snapshot.
 - [ ] Full-width record tabs for Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence.
 - [ ] Attribute catalogue and sections must be generated from supported FM field mappings; unavailable attributes remain unavailable, not zero.
 - [ ] Show CA/PA where decoded, with source and validation marker.
@@ -126,7 +128,8 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 | 2026-11-15 | Watched.earth and FMRTE research translated into a full rebuild specification | Source notes committed; no third-party code copied |
 | 2026-11-15 | Watched Instrument shell, sidebar, flat token mapping and type helpers | Source committed; Windows build and visual acceptance pending |
 | 2026-11-15 | Player selection opens existing closable record tabs in full-width mode | Source committed; manual UI acceptance pending |
-| 2026-11-15 | Player profile hero, metrics and attribute value surfaces moved toward flat Watched treatment | Source committed; remaining profile/workspace widgets to migrate |
+| 2026-11-15 | Player profile header, metrics and attribute value surfaces moved to flat Watched treatment | Source committed; build and visual acceptance pending |
+| 2026-11-15 | Stat search results now open player records by exact source ID | Source committed; active-snapshot lookup and full-width navigation implemented; tests pending |
 | 2026-11-15 | Product metadata updated | Source committed; Windows build pending |
 
 **Current gate:** implementation is in progress. No Windows CI run, clean build, runtime launch or real-game witness has been recorded for this branch. Do not distribute it as release-ready.
