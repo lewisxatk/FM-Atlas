@@ -3634,20 +3634,68 @@ public partial class MainWindow : Window
 
     private static Button SoftButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(13, 8, 13, 8), Margin = new Thickness(3), Background = Brush("#EFF5FA"), Foreground = Brush("#365F83"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
-        button.Click += click; return button;
+        var button = new Button
+        {
+            Content = content,
+            Padding = new Thickness(13, 8, 13, 8),
+            Margin = new Thickness(3),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(1),
+            FontFamily = MonolithDesignSystem.BodyFont,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            Focusable = true,
+            Template = RoundedButtonTemplate(11)
+        };
+        button.Click += click;
+        return button;
     }
 
     private static Button PrimaryButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#2D75B6"), Foreground = Brush("#0D1117"), BorderBrush = Brush("#F08A42"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
-        button.Click += click; return button;
+        var button = new Button
+        {
+            Content = content,
+            Padding = new Thickness(15, 9, 15, 9),
+            Margin = new Thickness(3),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
+            Foreground = MonolithDesignSystem.Solid("#17110D"),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
+            BorderThickness = new Thickness(1),
+            FontFamily = MonolithDesignSystem.BodyFont,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            Focusable = true,
+            Template = RoundedButtonTemplate(11)
+        };
+        button.Click += click;
+        return button;
     }
 
     private static Button WhiteButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(13, 9, 13, 9), Margin = new Thickness(3), Background = Brush("#F6FCFA"), Foreground = Brush("#205F91"), BorderBrush = Brush("#D3E9E4"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
-        button.Click += click; return button;
+        var button = new Button
+        {
+            Content = content,
+            Padding = new Thickness(13, 9, 13, 9),
+            Margin = new Thickness(3),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
+            BorderThickness = new Thickness(1),
+            FontFamily = MonolithDesignSystem.BodyFont,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            Focusable = true,
+            Template = RoundedButtonTemplate(11)
+        };
+        button.Click += click;
+        return button;
     }
 
     private static ControlTemplate RoundedButtonTemplate(double radius)
@@ -3667,8 +3715,8 @@ public partial class MainWindow : Window
         template.VisualTree = border;
 
         var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(Border.BackgroundProperty, Brush("#483022"), "AtlasButtonSurface"));
-        hover.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#F7A46A"), "AtlasButtonSurface"));
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover), "AtlasButtonSurface"));
+        hover.Setters.Add(new Setter(Border.BorderBrushProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal), "AtlasButtonSurface"));
         template.Triggers.Add(hover);
 
         var pressed = new Trigger { Property = ButtonBase.IsPressedProperty, Value = true };
@@ -3676,7 +3724,7 @@ public partial class MainWindow : Window
         template.Triggers.Add(pressed);
 
         var focused = new Trigger { Property = UIElement.IsKeyboardFocusedProperty, Value = true };
-        focused.Setters.Add(new Setter(Border.BorderBrushProperty, Brush("#F7A46A"), "AtlasButtonSurface"));
+        focused.Setters.Add(new Setter(Border.BorderBrushProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal), "AtlasButtonSurface"));
         focused.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2), "AtlasButtonSurface"));
         template.Triggers.Add(focused);
 
