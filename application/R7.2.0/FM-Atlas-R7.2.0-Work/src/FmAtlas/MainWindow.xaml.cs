@@ -739,18 +739,18 @@ public partial class MainWindow : Window
             button.Template = RoundedButtonTemplate(0);
         if (root is TextBox textBox)
         {
-            textBox.Background = Brush("#111316");
-            textBox.Foreground = Brush("#EEE9E1");
-            textBox.BorderBrush = Brush("#303943");
+            textBox.Background = Brush("#090A0C");
+            textBox.Foreground = Brush("#F08A42");
+            textBox.CaretBrush = Brush("#F08A42");
+            textBox.SelectionBrush = Brush("#6A3D25");
+            textBox.SelectionTextBrush = Brush("#EEE9E1");
+            textBox.BorderBrush = Brush("#6A3D25");
         }
         if (root is ComboBox comboBox)
         {
             comboBox.Background = Brush("#090A0C");
             comboBox.Foreground = Brush("#F08A42");
             comboBox.BorderBrush = Brush("#6A3D25");
-            comboBox.CaretBrush = Brush("#F08A42");
-            comboBox.SelectionBrush = Brush("#6A3D25");
-            comboBox.SelectionTextBrush = Brush("#EEE9E1");
             comboBox.ItemContainerStyle = new Style(typeof(ComboBoxItem))
             {
                 Setters =
