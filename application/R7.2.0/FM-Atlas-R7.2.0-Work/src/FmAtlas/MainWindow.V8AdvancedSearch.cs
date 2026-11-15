@@ -70,7 +70,7 @@ public partial class MainWindow
         var introduction = Card(new StackPanel(), 18, new Thickness(0, 0, 0, 12));
         var intro = (StackPanel)introduction.Child;
         intro.Children.Add(Txt("FMRTE SEARCH WORKSPACE · PLAYER", 9, true, Teal));
-        intro.Children.Add(Txt("Advanced Search", 27, true, Ink));
+        intro.Children.Add(Txt("Advanced Search", 27, true, Teal));
         intro.Children.Add(Txt("Build one player search across core profile fields, imported attributes, personality, contract facts, positions and other available save facts. Choose whether ALL conditions or ANY condition must match. The field library is discovered from actual imported data; unsupported or missing fields are not invented.", 11, false, Muted, wrap: true));
         var summary = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         summary.Children.Add(StatusPill($"{fields.Count:N0} searchable fields", "Available core player fields plus fields actually present in the latest imported save and local Atlas facts."));
@@ -82,7 +82,7 @@ public partial class MainWindow
         var builder = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 12));
         var builderStack = (StackPanel)builder.Child;
         builderStack.Children.Add(Txt("PLAYER FILTER BUILDER", 9, true, Teal));
-        builderStack.Children.Add(Txt("Combine general, contract, attributes, positions and save facts", 17, true, Ink));
+        builderStack.Children.Add(Txt("Combine general, contract, attributes, positions and save facts", 17, true, Teal));
 
         var searchText = Input("Optional player, club, nation or player ID search");
         searchText.Width = 310;
@@ -232,7 +232,7 @@ public partial class MainWindow
         }
 
         conditionPanel = new StackPanel();
-        builderStack.Children.Add(Txt("CONDITIONS · CHOOSE A CATEGORY, FIELD AND VALUE", 8, true, Muted));
+        builderStack.Children.Add(Txt("CONDITIONS · CHOOSE A CATEGORY, FIELD AND VALUE", 8, true, Teal));
         builderStack.Children.Add(conditionPanel);
 
         // Independent FMRTE-style position group: zero is a no-op; ALL/ANY never
@@ -240,7 +240,7 @@ public partial class MainWindow
         var positionCard = Card(new StackPanel(), 14, new Thickness(0, 10, 0, 8));
         var positionStack = (StackPanel)positionCard.Child;
         positionStack.Children.Add(Txt("POSITION FAMILIARITY", 9, true, Teal));
-        positionStack.Children.Add(Txt("Set a 0–20 rating for any of the 15 FM positions", 15, true, Ink));
+        positionStack.Children.Add(Txt("Set a 0–20 rating for any of the 15 FM positions", 15, true, Teal));
         positionStack.Children.Add(Txt("Zero means no requirement. Exact matches are used by default; turn on At Least to treat each entered rating as a minimum. Save-reader position values may remain provisional until checked in FM27.", 10, false, Muted, wrap: true));
         var positionOptions = new WrapPanel { Margin = new Thickness(0, 8, 0, 5) };
         positionAny = new CheckBox { Content = "Any of these", Foreground = Ink, FontSize = 10, Margin = new Thickness(0, 3, 18, 5), ToolTip = "A player needs to match at least one entered position. Otherwise every entered position must match." };
@@ -317,9 +317,9 @@ public partial class MainWindow
         foreach (var position in positionNodes)
         {
             var tile = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            var code = Txt(position.Code, 10, true, Brush("#EEE9E1"));
+            var code = Txt(position.Code, 10, true, Brush("#F08A42"));
             code.TextAlignment = TextAlignment.Center;
-            var label = Txt(position.Label, 7, false, Brush("#9CA1A6"));
+            var label = Txt(position.Label, 7, false, Brush("#EEE9E1"));
             label.TextAlignment = TextAlignment.Center;
             var rating = new TextBox
             {
