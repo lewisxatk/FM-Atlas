@@ -20,6 +20,18 @@ public partial class MainWindow
     /// intentionally match the existing navigation dispatcher so no workspace
     /// or data service is lost during the shell migration.
     /// </summary>
+    private WrapPanel? _workspaceContextNavV9;
+
+    private static string GetPrimaryNavigationRouteV9(string page) => page switch
+    {
+        "Dashboard" => "Dashboard",
+        "Players" or "Advanced Search" or "Recruitment" or "Value Finder" or "Attribute Search"
+            or "Stats Search" or "Scouting Matrix" or "Shortlists" or "Clubs" or "Staff" => "Players",
+        "Squad Architect" or "Tactical Lab" or "Role Lab" or "Transfers" or "Analytics" => "Squad Architect",
+        "Live Editor" or "Mass Edit" or "Edit History" => "Live Editor",
+        _ => "Settings"
+    };
+
     private UIElement BuildSidebarV9()
     {
         var rail = new Border
@@ -32,14 +44,10 @@ public partial class MainWindow
         var dock = new DockPanel();
         rail.Child = dock;
 
-        var brand = new Grid { Margin = new Thickness(1, 2, 1, 18) };
+        var brand = new Grid { Margin = new Thickness(1, 2, 1, 22) };
         brand.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         brand.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var brandRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center
-        };
+        var brandRow = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var mark = new Border
         {
             Width = 38,
@@ -48,15 +56,12 @@ public partial class MainWindow
             Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft),
             BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
             BorderThickness = new Thickness(1),
-            Child = MonolithDesignSystem.DisplayText("FM", 13,
-                MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)),
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Left
+            Child = MonolithDesignSystem.DisplayText("FM", 13, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)),
+            VerticalAlignment = VerticalAlignment.Center
         };
         ((TextBlock)mark.Child).HorizontalAlignment = HorizontalAlignment.Center;
         ((TextBlock)mark.Child).VerticalAlignment = VerticalAlignment.Center;
         brandRow.Children.Add(mark);
-
         if (!_navCollapsed)
         {
             var brandCopy = new StackPanel { Margin = new Thickness(10, 1, 0, 0), VerticalAlignment = VerticalAlignment.Center };
@@ -98,30 +103,21 @@ public partial class MainWindow
         };
         dock.Children.Add(navScroll);
 
-        void Group(string label)
+        void Item(string glyph, string label, string route)
         {
-            if (_navCollapsed) return;
-            var heading = MonolithDesignSystem.MicroLabel(label, true);
-            heading.Margin = new Thickness(8, 15, 0, 5);
-            _navPanel.Children.Add(heading);
-        }
-
-        void Item(string glyph, string label)
-        {
-            var selected = string.Equals(_activePage, label, StringComparison.OrdinalIgnoreCase);
-            var row = new Grid { MinHeight = 39 };
+            var selected = string.Equals(GetPrimaryNavigationRouteV9(_activePage), route, StringComparison.OrdinalIgnoreCase);
+            var row = new Grid { MinHeight = 43 };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(29) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(31) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             var activeBar = new Border
             {
                 Tag = "nav-active",
                 Background = selected ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal) : Brushes.Transparent,
-                CornerRadius = new CornerRadius(0),
-                Margin = new Thickness(0, 7, 0, 7)
+                Margin = new Thickness(0, 8, 0, 8)
             };
             row.Children.Add(activeBar);
-            var icon = MonolithDesignSystem.DataText(glyph, 13,
+            var icon = MonolithDesignSystem.DataText(glyph, 14,
                 MonolithDesignSystem.Solid(selected ? MonolithDesignSystem.Signal : MonolithDesignSystem.Muted));
             icon.Tag = "nav-icon";
             icon.HorizontalAlignment = HorizontalAlignment.Center;
@@ -134,77 +130,53 @@ public partial class MainWindow
                     MonolithDesignSystem.Solid(selected ? MonolithDesignSystem.Text : MonolithDesignSystem.Muted));
                 caption.Tag = "nav-caption";
                 caption.VerticalAlignment = VerticalAlignment.Center;
-                caption.Margin = new Thickness(4, 0, 3, 0);
+                caption.Margin = new Thickness(5, 0, 3, 0);
                 Grid.SetColumn(caption, 2);
                 row.Children.Add(caption);
             }
             var button = new Button
             {
-                Tag = label,
+                Tag = route,
                 Content = row,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Padding = new Thickness(4, 1, 5, 1),
-                Margin = new Thickness(0, 1, 0, 1),
+                Padding = new Thickness(4, 2, 5, 2),
+                Margin = new Thickness(0, 3, 0, 3),
                 Background = selected ? MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft) : Brushes.Transparent,
                 BorderBrush = selected ? MonolithDesignSystem.Solid(MonolithDesignSystem.Border) : Brushes.Transparent,
                 BorderThickness = new Thickness(1),
                 Cursor = Cursors.Hand,
                 Focusable = true,
-                MinHeight = 41,
-                ToolTip = _navCollapsed ? label + " · " + PageDescription(label) : PageDescription(label),
+                MinHeight = 45,
+                ToolTip = _navCollapsed ? label + " · " + PageDescription(route) : PageDescription(route),
                 Template = RoundedButtonTemplate(0)
             };
             System.Windows.Automation.AutomationProperties.SetName(button, label);
-            System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
+            System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(route));
             button.MouseEnter += (_, _) =>
             {
-                if (!string.Equals(_activePage, label, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(GetPrimaryNavigationRouteV9(_activePage), route, StringComparison.OrdinalIgnoreCase))
                     button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover);
             };
             button.MouseLeave += (_, _) =>
             {
-                if (!string.Equals(_activePage, label, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(GetPrimaryNavigationRouteV9(_activePage), route, StringComparison.OrdinalIgnoreCase))
                     button.Background = Brushes.Transparent;
             };
-            button.Click += async (_, _) => await NavigateAsync(label);
+            button.Click += async (_, _) => await NavigateAsync(route);
             _navPanel.Children.Add(button);
         }
 
-        Group("OVERVIEW");
-        Item("⌂", "Dashboard");
-        Group("SCOUTING");
-        Item("♟", "Players");
-        Item("⌕", "Advanced Search");
-        Item("↗", "Recruitment");
-        Item("◇", "Value Finder");
-        Item("⌗", "Attribute Search");
-        Item("∑", "Stats Search");
-        Item("▦", "Scouting Matrix");
-        Item("≡", "Shortlists");
-        Group("CLUB & PERFORMANCE");
-        Item("▥", "Squad Architect");
-        Item("◆", "Clubs");
-        Item("♙", "Staff");
-        Item("⇄", "Transfers");
-        Item("▤", "Analytics");
-        Item("⚑", "Tactical Lab");
-        Item("◎", "Role Lab");
-        Group("EDITOR");
-        Item("✎", "Live Editor");
-        Item("▦", "Mass Edit");
-        Item("◷", "Edit History");
-        Group("SYSTEM");
-        Item("⌘", "Atlas Assistant");
-        Item("⚙", "Settings");
-        Item("◉", "Tester & Logs");
-        Item("?", "Help & Tutorial");
+        Item("⌂", "HOME", "Dashboard");
+        Item("♟", "SCOUTING", "Players");
+        Item("▥", "SQUAD & TACTICS", "Squad Architect");
+        Item("✎", "EDITOR", "Live Editor");
+        Item("⌘", "DATA & SETTINGS", "Settings");
 
         var connection = new Border
         {
             Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
             BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(_navCollapsed ? 5 : 10),
             Margin = new Thickness(0, 12, 0, 0),
             Child = _navCollapsed
@@ -216,12 +188,111 @@ public partial class MainWindow
             connectionCopy.Children.Add(MonolithDesignSystem.MicroLabel("CAREER CONNECTION"));
             connectionCopy.Children.Add(MonolithDesignSystem.BodyText("Read-only detection", 11));
             connectionCopy.Children.Add(MonolithDesignSystem.BodyText(
-                "Live editing remains locked until field-level writes pass independent checks.",
+                "Live editing unlocks only after field-level write checks pass.",
                 10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
         }
         DockPanel.SetDock(connection, Dock.Bottom);
         dock.Children.Add(connection);
         return rail;
+    }
+
+    private void RefreshWorkspaceContextNavV9(string page)
+    {
+        if (_workspaceContextNavV9 is null) return;
+        _workspaceContextNavV9.Children.Clear();
+        var primary = GetPrimaryNavigationRouteV9(page);
+        var tabs = primary switch
+        {
+            "Players" => new (string Label, string Route)[] {
+                ("PLAYERS", "Players"), ("ADVANCED SEARCH", "Advanced Search"),
+                ("RECRUITMENT", "Recruitment"), ("CLUBS", "Clubs"), ("STAFF", "Staff")
+            },
+            "Squad Architect" => new (string Label, string Route)[] {
+                ("SQUAD", "Squad Architect"), ("TACTICS", "Tactical Lab"),
+                ("ROLES", "Role Lab"), ("TRANSFERS", "Transfers"), ("ANALYTICS", "Analytics")
+            },
+            "Live Editor" => new (string Label, string Route)[] {
+                ("LIVE EDITOR", "Live Editor"), ("MASS EDIT", "Mass Edit"), ("EDIT HISTORY", "Edit History")
+            },
+            "Settings" => new (string Label, string Route)[] {
+                ("SETTINGS", "Settings"), ("DIAGNOSTICS", "Tester & Logs"),
+                ("HELP", "Help & Tutorial"), ("ASSISTANT", "Atlas Assistant")
+            },
+            _ => new (string Label, string Route)[] { ("OVERVIEW", "Dashboard") }
+        };
+
+        foreach (var (label, route) in tabs)
+        {
+            var active = string.Equals(page, route, StringComparison.OrdinalIgnoreCase);
+            var button = new Button
+            {
+                Content = label,
+                Tag = route,
+                FontFamily = MonolithDesignSystem.BodyFont,
+                FontSize = 10.5,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = MonolithDesignSystem.Solid(active ? MonolithDesignSystem.Signal : MonolithDesignSystem.Muted),
+                Background = MonolithDesignSystem.Solid(active ? MonolithDesignSystem.SignalSoft : MonolithDesignSystem.SurfaceRaised),
+                BorderBrush = MonolithDesignSystem.Solid(active ? MonolithDesignSystem.Signal : MonolithDesignSystem.Border),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(9, 5, 9, 5),
+                Margin = new Thickness(2, 0, 2, 0),
+                MinHeight = 30,
+                Cursor = Cursors.Hand,
+                Focusable = true,
+                Template = RoundedButtonTemplate(0),
+                ToolTip = PageDescription(route)
+            };
+            System.Windows.Automation.AutomationProperties.SetName(button, label);
+            button.MouseEnter += (_, _) =>
+            {
+                if (!string.Equals(_activePage, route, StringComparison.OrdinalIgnoreCase))
+                    button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover);
+            };
+            button.MouseLeave += (_, _) =>
+            {
+                if (!string.Equals(_activePage, route, StringComparison.OrdinalIgnoreCase))
+                    button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised);
+            };
+            button.Click += async (_, _) => await NavigateAsync(route);
+            _workspaceContextNavV9.Children.Add(button);
+        }
+
+        if (primary == "Players")
+        {
+            var more = new Button
+            {
+                Content = "MORE ▾",
+                FontFamily = MonolithDesignSystem.BodyFont,
+                FontSize = 10.5,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Muted),
+                Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
+                BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(9, 5, 9, 5),
+                Margin = new Thickness(2, 0, 2, 0),
+                MinHeight = 30,
+                Cursor = Cursors.Hand,
+                Focusable = true,
+                Template = RoundedButtonTemplate(0),
+                ToolTip = "More scouting tools"
+            };
+            var menu = new ContextMenu();
+            foreach (var (label, route) in new (string Label, string Route)[] {
+                ("Value Finder", "Value Finder"), ("Attribute Search", "Attribute Search"),
+                ("Stats Search", "Stats Search"), ("Scouting Matrix", "Scouting Matrix"),
+                ("Shortlists", "Shortlists")
+            })
+            {
+                var item = new MenuItem { Header = label };
+                item.Click += async (_, _) => await NavigateAsync(route);
+                menu.Items.Add(item);
+            }
+            more.ContextMenu = menu;
+            more.Click += (_, _) => { more.ContextMenu!.PlacementTarget = more; more.ContextMenu.IsOpen = true; };
+            _workspaceContextNavV9.Children.Add(more);
+        }
     }
 
     private void BuildShellV9()
@@ -379,12 +450,14 @@ public partial class MainWindow
         pageCopy.Children.Add(_pageTitle);
         pageCopy.Children.Add(_pageSubTitle);
         pageHeader.Children.Add(pageCopy);
-        var context = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-        context.Children.Add(MonolithDesignSystem.MicroLabel("FM27 WORKSPACE", true));
-        context.Children.Add(MonolithDesignSystem.DataText("SAVE DATA  /  LIVE INDEX  /  ATLAS", 9,
-            MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
-        Grid.SetColumn(context, 1);
-        pageHeader.Children.Add(context);
+        _workspaceContextNavV9 = new WrapPanel
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        Grid.SetColumn(_workspaceContextNavV9, 1);
+        pageHeader.Children.Add(_workspaceContextNavV9);
+        RefreshWorkspaceContextNavV9(_activePage);
         Grid.SetRow(pageHeader, 1);
         main.Children.Add(pageHeader);
 
