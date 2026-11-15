@@ -149,7 +149,6 @@ public partial class MainWindow
 
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var stack = new StackPanel();
 
@@ -195,7 +194,14 @@ public partial class MainWindow
         filterStack.Children.Add(filterHeader);
 
         var conditionPanel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
-        filterStack.Children.Add(conditionPanel);
+        var conditionScroll = new ScrollViewer
+        {
+            Content = conditionPanel,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MaxHeight = 230
+        };
+        filterStack.Children.Add(conditionScroll);
         stack.Children.Add(filters);
 
         var resultCard = Card(new DockPanel(), 0, new Thickness(0, 0, 0, 0));
@@ -273,12 +279,9 @@ public partial class MainWindow
         };
         dock.Children.Add(grid);
 
-        Grid.SetRow(searchBar, 0);
-        Grid.SetRow(filters, 1);
-        Grid.SetRow(resultCard, 2);
+        Grid.SetRow(stack, 0);
         root.Children.Add(stack);
         Grid.SetRow(resultCard, 1);
-        root.RowDefinitions[1].Height = new GridLength(1, GridUnitType.Star);
         root.Children.Add(resultCard);
 
         void AddTextColumn(DataGrid target, string header, string property, double weight)
