@@ -28,6 +28,7 @@ public sealed class GlobalSearchWindow : Window
     private readonly ObservableCollection<GlobalSearchHit> _staffResults = new();
     private readonly ObservableCollection<GlobalSearchHit> _clubResults = new();
     private readonly TextBox _query = Input("Name, club, league, position, UID or nationality");
+    private readonly ComboBox _entityScope = Combo(new[] { "All types", "Players", "Staff", "Clubs" });
     private readonly TextBox _minAge = Input("Min age");
     private readonly TextBox _maxAge = Input("Max age");
     private readonly TextBox _minCa = Input("Min CA");
@@ -113,8 +114,12 @@ public sealed class GlobalSearchWindow : Window
         filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(165) });
         filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetRow(_query, 0); Grid.SetColumn(_query, 0); _query.Height = 42; _query.Margin = new Thickness(0, 0, 8, 8); filterGrid.Children.Add(_query);
-        var allTypes = Text("Search all types", 11, true, Teal); allTypes.VerticalAlignment = VerticalAlignment.Center; allTypes.Margin = new Thickness(8, 0, 8, 8);
-        Grid.SetRow(allTypes, 0); Grid.SetColumn(allTypes, 1); filterGrid.Children.Add(allTypes);
+        _entityScope.SelectedIndex = 0;
+        _entityScope.Height = 42;
+        _entityScope.MinWidth = 150;
+        _entityScope.Margin = new Thickness(0, 0, 8, 8);
+        _entityScope.ToolTip = "Choose the record type to search: Players, Staff or Clubs. All types searches all three.";
+        Grid.SetRow(_entityScope, 0); Grid.SetColumn(_entityScope, 1); filterGrid.Children.Add(_entityScope);
         _searchButton.Background = Teal; _searchButton.Foreground = BrushOf("#151719"); _searchButton.BorderBrush = Teal; _searchButton.FontWeight = FontWeights.SemiBold; _searchButton.Cursor = Cursors.Hand;
         Grid.SetRow(_searchButton, 0); Grid.SetColumn(_searchButton, 2); filterGrid.Children.Add(_searchButton);
 
@@ -138,8 +143,27 @@ public sealed class GlobalSearchWindow : Window
         advanced.Children.Add(Filter("PREFERRED FOOT", _preferredFoot, 130));
         advanced.Children.Add(Filter("HOME-GROWN", _homeGrown, 150));
         Grid.SetRow(advanced, 1); Grid.SetColumnSpan(advanced, 3); filterGrid.Children.Add(advanced);
+        void ApplyEntityScope()
+        {
+            var scope = _entityScope.SelectedItem?.ToString() ?? "All types";
+            var playerFiltersEnabled = scope is "All types" or "Players";
+            advanced.IsEnabled = playerFiltersEnabled;
+            advanced.Opacity = playerFiltersEnabled ? 1.0 : 0.42;
+            _resultTabs.SelectedIndex = scope switch { "Players" => 1, "Staff" => 2, "Clubs" => 3, _ => 0 };
+        }
+        _entityScope.SelectionChanged += (_, _) =>
+        {
+            ApplyEntityScope();
+            if (_query.Text.Trim().Length >= 2)
+            {
+                _queryGeneration++;
+                _queryDebounce.Stop();
+                _queryDebounce.Start();
+            }
+        };
+        ApplyEntityScope();
 
-        var note = Text("Tip: enter part of a name to search. CA/PA filters apply only where those values exist in an imported dataset; live identity-only records remain honest blanks.", 10, false, Muted);
+        var note = Text("Tip: enter part of a name to search. Choose Players, Staff or Clubs above to focus the result set. Detailed numeric filters apply to player records only; staff and club searches use the source-backed fields currently available.", 10, false, Muted);
         note.Margin = new Thickness(0, 8, 0, 0); Grid.SetRow(note, 2); Grid.SetColumnSpan(note, 3); filterGrid.Children.Add(note);
         filters.Child = filterGrid; Grid.SetRow(filters, 1); root.Children.Add(filters);
 
@@ -192,14 +216,16 @@ public sealed class GlobalSearchWindow : Window
             _searchBusy = false;
             return;
         }
+        var scope = _entityScope.SelectedItem?.ToString() ?? "All types";
+        var playerScope = scope is "All types" or "Players";
         int? ReadInt(TextBox box) => int.TryParse(box.Text, out var value) ? value : null;
-        var minAge = ReadInt(_minAge); var maxAge = ReadInt(_maxAge);
-        var minCa = ReadInt(_minCa); var maxCa = ReadInt(_maxCa);
-        var minPa = ReadInt(_minPa); var maxPa = ReadInt(_maxPa);
-        var minLeftFoot = ReadInt(_minLeftFoot); var maxLeftFoot = ReadInt(_maxLeftFoot);
-        var minRightFoot = ReadInt(_minRightFoot); var maxRightFoot = ReadInt(_maxRightFoot);
+        var minAge = playerScope ? ReadInt(_minAge) : null; var maxAge = playerScope ? ReadInt(_maxAge) : null;
+        var minCa = playerScope ? ReadInt(_minCa) : null; var maxCa = playerScope ? ReadInt(_maxCa) : null;
+        var minPa = playerScope ? ReadInt(_minPa) : null; var maxPa = playerScope ? ReadInt(_maxPa) : null;
+        var minLeftFoot = playerScope ? ReadInt(_minLeftFoot) : null; var maxLeftFoot = playerScope ? ReadInt(_maxLeftFoot) : null;
+        var minRightFoot = playerScope ? ReadInt(_minRightFoot) : null; var maxRightFoot = playerScope ? ReadInt(_maxRightFoot) : null;
         double? ReadDouble(TextBox box) => double.TryParse(box.Text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : null;
-        var minAttribute = ReadDouble(_minAttribute); var maxAttribute = ReadDouble(_maxAttribute);
+        var minAttribute = playerScope ? ReadDouble(_minAttribute) : null; var maxAttribute = playerScope ? ReadDouble(_maxAttribute) : null;
         if (new[] { minAge, maxAge, minCa, maxCa, minPa, maxPa }.Any(x => x.HasValue && x < 0))
         { _status.Text = "Age, CA and PA filters must be zero or higher."; _searchBusy = false; return; }
         if ((minAge.HasValue && maxAge.HasValue && minAge > maxAge) ||
@@ -212,7 +238,7 @@ public sealed class GlobalSearchWindow : Window
         { _status.Text = "Foot ratings must be between 1 and 20."; _searchBusy = false; return; }
         if (new[] { minAttribute, maxAttribute }.Any(x => x.HasValue && (x < 1 || x > 20)))
         { _status.Text = "Attributes are rated from 1 to 20. Correct the attribute range."; _searchBusy = false; return; }
-        var attributeName = _attribute.SelectedItem?.ToString();
+        var attributeName = playerScope ? _attribute.SelectedItem?.ToString() : null;
         if (attributeName == "Any attribute") attributeName = null;
         if ((minAttribute.HasValue || maxAttribute.HasValue) && attributeName is null)
         { _status.Text = "Choose an attribute before applying an attribute range."; _searchBusy = false; return; }
@@ -223,8 +249,11 @@ public sealed class GlobalSearchWindow : Window
         _status.Text = "Searching players, staff and clubs…";
         try
         {
-            // Search all entity types in one pass. The result tabs below split the same query into Players, Staff and Clubs.
-            const bool loadPlayers = true, loadStaff = true, loadClubs = true;
+            // Scope selection keeps the same bounded, source-backed search paths while allowing
+            // FMRTE-style direct entry into Players, Staff or Clubs.
+            var loadPlayers = scope is "All types" or "Players";
+            var loadStaff = scope is "All types" or "Staff";
+            var loadClubs = scope is "All types" or "Clubs";
             var hits = new List<GlobalSearchHit>();
 
             if (loadPlayers)
