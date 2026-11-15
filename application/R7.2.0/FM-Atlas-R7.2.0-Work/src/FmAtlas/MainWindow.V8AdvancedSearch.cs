@@ -264,8 +264,8 @@ public partial class MainWindow
             shape.Stroke = pitchLine;
             shape.StrokeThickness = 1.3;
             shape.IsHitTestVisible = false;
-            Canvas.SetLeft(shape, left);
-            Canvas.SetTop(shape, top);
+            System.Windows.Controls.Canvas.SetLeft(shape, left);
+            System.Windows.Controls.Canvas.SetTop(shape, top);
             pitchCanvas.Children.Add(shape);
         }
         AddPitchMark(new Rectangle { Width = 760, Height = 320, Fill = Brushes.Transparent }, 20, 20);
@@ -278,7 +278,7 @@ public partial class MainWindow
         AddPitchMark(new Rectangle { Width = 48, Height = 88, Fill = Brushes.Transparent }, 732, 136);
         AddPitchMark(new Ellipse { Width = 5, Height = 5, Fill = pitchLine }, 102, 177);
         AddPitchMark(new Ellipse { Width = 5, Height = 5, Fill = pitchLine }, 698, 177);
-        pitchStack.Children.Add(Txt("SELECT A POSITION ON THE PITCH · ENTER ITS FM RATING FROM 0–20", 8, true, Muted));
+        positionStack.Children.Add(Txt("SELECT A POSITION ON THE PITCH · ENTER ITS FM RATING FROM 0–20", 8, true, Muted));
         var positionPitchView = new Viewbox
         {
             Stretch = Stretch.Uniform,
@@ -370,8 +370,8 @@ public partial class MainWindow
                 marker.BorderBrush = Brush(active ? "#E9823B" : "#454B4F");
                 marker.Background = Brush(active ? "#352319" : "#17191C");
             };
-            Canvas.SetLeft(marker, position.X);
-            Canvas.SetTop(marker, position.Y);
+            System.Windows.Controls.Canvas.SetLeft(marker, position.X);
+            System.Windows.Controls.Canvas.SetTop(marker, position.Y);
             pitchCanvas.Children.Add(marker);
         }
         positionStack.Children.Add(pitchBorder);
