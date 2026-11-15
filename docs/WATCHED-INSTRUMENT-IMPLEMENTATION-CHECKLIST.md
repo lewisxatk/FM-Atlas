@@ -75,6 +75,7 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 - [ ] Make a shared dynamic metric catalogue from all discovered FM source schemas/rows; keep original field name, type, source table, unit, period and version.
 - [ ] Expose every supported raw season/career/match metric in player profiles and search columns.
 - [ ] Separate raw FM values, Atlas calculations, Atlas estimates and unavailable/unverified fields throughout the UI.
+- [ ] Move FM View Exporter player identity and attribute fields into snapshot-scoped provenance records; stop mixing those imported facts into the unversioned Players / PlayerAttributes tables while preserving local edits as a distinct source.
 - [ ] For every derived measure, show formula, units, selected cohort, sample size and minimum-minute rules.
 - [ ] Never show external football data or unsupported metrics as if they were in-game FM stats.
 - [ ] Validate displayed totals, rates and derived values against source records and independent calculations.
