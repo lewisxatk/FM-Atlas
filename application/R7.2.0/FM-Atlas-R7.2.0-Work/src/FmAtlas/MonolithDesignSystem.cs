@@ -24,6 +24,11 @@ internal static class MonolithDesignSystem
     public const string Caution = "#E7BD70";
     public const string Negative = "#EC8791";
 
+    private static bool _lightAppearance;
+
+    public static void SetAppearance(string appearance)
+        => _lightAppearance = appearance.Equals("Glass Light", StringComparison.OrdinalIgnoreCase);
+
     public static readonly FontFamily DisplayFont = new("Bahnschrift");
     public static readonly FontFamily BodyFont = new("Segoe UI");
     public static readonly FontFamily DataFont = new("Consolas");
@@ -31,6 +36,24 @@ internal static class MonolithDesignSystem
 
     public static Brush Solid(string hex)
     {
+        if (_lightAppearance)
+        {
+            hex = hex.ToUpperInvariant() switch
+            {
+                Canvas => "#EFF3F7",
+                Surface => "#FFFFFF",
+                SurfaceRaised => "#F7FAFC",
+                SurfaceHover => "#E7EEF4",
+                Border => "#CED9E3",
+                Text => "#172331",
+                Muted => "#5E6C79",
+                SignalSoft => "#FBEAE0",
+                Positive => "#287A52",
+                Caution => "#956518",
+                Negative => "#AF3E4C",
+                _ => hex
+            };
+        }
         var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
         brush.Freeze();
         return brush;
