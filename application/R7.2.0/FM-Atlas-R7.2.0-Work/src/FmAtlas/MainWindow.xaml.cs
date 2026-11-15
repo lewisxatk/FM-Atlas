@@ -1221,6 +1221,8 @@ public partial class MainWindow : Window
             };
             header.Children.Add(close);
             tab.Header = header;
+            tab.ContextMenu = BuildPlayerRecordTabContextMenu(tab);
+            tab.ContextMenuOpening += (_, _) => _profileTabs.SelectedItem = tab;
             _profileTabs.Items.Add(tab);
             _openPlayerRecords[player.SourceId] = player;
         }
@@ -1341,12 +1343,19 @@ public partial class MainWindow : Window
 
         var profileTabs = new TabControl
         {
+            // FMRTE-style record section rail: full record stays open in its main tab,
+            // with the data sections organised vertically down the left.
+            TabStripPlacement = Dock.Left,
             Margin = new Thickness(0, 0, 0, 12),
-            MinHeight = 500
+            MinHeight = 560,
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(1),
+            ItemContainerStyle = CreateProfileSectionTabStyle()
         };
         StackPanel AddProfileTab(string title)
         {
-            var content = new StackPanel { Margin = new Thickness(12, 10, 12, 14) };
+            var content = new StackPanel { Margin = new Thickness(16, 14, 16, 18) };
             profileTabs.Items.Add(new TabItem { Header = title, Content = content });
             return content;
         }
@@ -1844,10 +1853,7 @@ public partial class MainWindow : Window
         if (_profileTabs?.SelectedItem is not TabItem tab
             || Equals(tab.Tag, "__welcome")
             || Equals(tab.Tag, "__player-pool")) return;
-        var sourceId = tab.Tag?.ToString();
-        if (!string.IsNullOrWhiteSpace(sourceId)) _openPlayerRecords.Remove(sourceId);
-        _profileTabs.Items.Remove(tab);
-        if (_profileTabs.Items.Count == 0) AddWelcomeProfileTab();
+        CloseRecordTabV9(tab);
     }
 
     private void ClearProfile(string message)
