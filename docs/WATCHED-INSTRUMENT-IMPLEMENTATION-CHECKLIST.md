@@ -70,6 +70,8 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 - [x] Preserve indexed raw FM performance-fact storage and metric discovery from imported records.
 - [x] Preserve indexed multi-condition stat search with sample/minutes guards as implemented on V8.
 - [~] Existing per-90 and percentile views are labelled as calculated by Atlas and expose sample/freshness constraints in some screens.
+- [x] Bind FM View Exporter imports to the exact FMSave snapshot they were matched against; hide archived exports from the active metric catalogue, player profiles and statistical searches after career switches.
+- [x] Add an integration test with two careers and snapshot-specific player/metric data to guard against cross-career FM View stat leakage.
 - [ ] Make a shared dynamic metric catalogue from all discovered FM source schemas/rows; keep original field name, type, source table, unit, period and version.
 - [ ] Expose every supported raw season/career/match metric in player profiles and search columns.
 - [ ] Separate raw FM values, Atlas calculations, Atlas estimates and unavailable/unverified fields throughout the UI.
@@ -130,6 +132,7 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 | 2026-11-15 | Player selection opens existing closable record tabs in full-width mode | Source committed; manual UI acceptance pending |
 | 2026-11-15 | Player profile header, metrics and attribute value surfaces moved to flat Watched treatment | Source committed; build and visual acceptance pending |
 | 2026-11-15 | Stat search results now open player records by exact source ID | Source committed; active-snapshot lookup and full-width navigation implemented; tests pending |
+| 2026-11-15 | FM View Exporter imports are now bound to the matching save snapshot; active reads exclude archived exports from other careers | Schema migration + query filters + two-career integration test committed; test execution pending |
 | 2026-11-15 | Product metadata updated | Source committed; Windows build pending |
 
 **Current gate:** implementation is in progress. No Windows CI run, clean build, runtime launch or real-game witness has been recorded for this branch. Do not distribute it as release-ready.
