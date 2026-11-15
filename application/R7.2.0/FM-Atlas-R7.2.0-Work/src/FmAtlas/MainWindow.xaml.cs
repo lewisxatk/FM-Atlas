@@ -682,11 +682,27 @@ public partial class MainWindow : Window
             {
                 var active = string.Equals(button.Tag?.ToString(), page, StringComparison.OrdinalIgnoreCase);
                 button.Background = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft) : Brushes.Transparent;
-                if (button.Content is StackPanel row)
-                    foreach (var tb in row.Children.OfType<TextBlock>())
+                button.BorderBrush = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.Border) : Brushes.Transparent;
+                if (button.Content is Grid row)
+                {
+                    foreach (var child in row.Children)
+                    {
+                        if (child is Border indicator && Equals(indicator.Tag, "nav-active"))
+                            indicator.Background = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal) : Brushes.Transparent;
+                        else if (child is TextBlock label)
+                        {
+                            var role = label.Tag?.ToString();
+                            label.Foreground = role == "nav-caption"
+                                ? MonolithDesignSystem.Solid(active ? MonolithDesignSystem.Text : MonolithDesignSystem.Muted)
+                                : MonolithDesignSystem.Solid(active ? MonolithDesignSystem.Signal : MonolithDesignSystem.Muted);
+                        }
+                    }
+                }
+                else if (button.Content is StackPanel legacyRow)
+                    foreach (var tb in legacyRow.Children.OfType<TextBlock>())
                         tb.Foreground = active
                             ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)
-                            : (tb.Text.Trim() == page ? Ink : Muted);
+                            : MonolithDesignSystem.Solid(MonolithDesignSystem.Muted);
             }
 
             _pageHost.Content = NavigationLoadingPane(page);
