@@ -247,38 +247,94 @@ public partial class MainWindow
         positionOptions.Children.Add(positionAny);
         positionOptions.Children.Add(positionAtLeast);
         positionStack.Children.Add(positionOptions);
-        var positionTiles = new WrapPanel { Margin = new Thickness(0, 2, 0, 0) };
-        var positionLabels = new (string Code, string Label)[]
+        // Interactive full-pitch selector. The numeric boxes remain the source of truth,
+        // so saved profiles and the existing SQLite query semantics are unchanged.
+        var pitchCanvas = new Canvas { Width = 940, Height = 340, Background = Brush("#0B1713") };
+        pitchCanvas.Children.Add(new Border
         {
-            ("GK", "Goalkeeper"), ("SW", "Sweeper"), ("DL", "Left defender"), ("DC", "Centre back"), ("DR", "Right defender"),
-            ("WBL", "Left wing-back"), ("WBR", "Right wing-back"), ("DM", "Defensive midfield"), ("ML", "Left midfield"),
-            ("MC", "Central midfield"), ("MR", "Right midfield"), ("AML", "Left attack"), ("AMC", "Central attack"),
-            ("AMR", "Right attack"), ("STC", "Striker")
+            Width = 940, Height = 340, BorderBrush = Brush("#52665B"), BorderThickness = new Thickness(1),
+            Background = Brushes.Transparent, IsHitTestVisible = false
+        });
+        pitchCanvas.Children.Add(new Border
+        {
+            Width = 1, Height = 338, Background = Brush("#52665B"), IsHitTestVisible = false
+        });
+        Canvas.SetLeft(pitchCanvas.Children[^1], 470);
+        Canvas.SetTop(pitchCanvas.Children[^1], 1);
+        var centreCircle = new Border
+        {
+            Width = 86, Height = 86, CornerRadius = new CornerRadius(43),
+            BorderBrush = Brush("#52665B"), BorderThickness = new Thickness(1),
+            Background = Brushes.Transparent, IsHitTestVisible = false
         };
-        foreach (var position in positionLabels)
+        Canvas.SetLeft(centreCircle, 427);
+        Canvas.SetTop(centreCircle, 127);
+        pitchCanvas.Children.Add(centreCircle);
+        foreach (var (left, top, width, height) in new[]
         {
-            var tileStack = new StackPanel();
-            tileStack.Children.Add(Txt(position.Code, 11, true, Ink));
-            tileStack.Children.Add(Txt(position.Label, 8, false, Muted, wrap: true));
+            (0d, 75d, 125d, 190d), (815d, 75d, 125d, 190d),
+            (0d, 120d, 48d, 100d), (892d, 120d, 48d, 100d)
+        })
+        {
+            pitchCanvas.Children.Add(new Border
+            {
+                Width = width, Height = height, BorderBrush = Brush("#52665B"),
+                BorderThickness = new Thickness(1), Background = Brushes.Transparent,
+                IsHitTestVisible = false
+            });
+            Canvas.SetLeft(pitchCanvas.Children[^1], left);
+            Canvas.SetTop(pitchCanvas.Children[^1], top);
+        }
+
+        void AddPositionNode(string code, string label, double left, double top)
+        {
             var rating = new TextBox
             {
-                Text = "0", Width = 54, Height = 30, Margin = new Thickness(0, 5, 0, 0),
-                Padding = new Thickness(5, 3, 5, 3), FontSize = 11, FontWeight = FontWeights.SemiBold,
+                Text = "0", Width = 48, Height = 27, Margin = new Thickness(0, 4, 0, 0),
+                Padding = new Thickness(4, 2, 4, 2), FontSize = 11, FontWeight = FontWeights.SemiBold,
                 TextAlignment = TextAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
-                Background = Brush("#111820"), Foreground = Ink, BorderBrush = Line, BorderThickness = new Thickness(1),
-                ToolTip = position.Label + " familiarity · 0–20 · zero disables this requirement"
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Background = Brush("#080D0B"), Foreground = Brush("#F2EEE5"),
+                BorderBrush = Brush("#6B7D71"), BorderThickness = new Thickness(1),
+                ToolTip = label + " familiarity · 0–20 · zero disables this requirement"
             };
-            System.Windows.Automation.AutomationProperties.SetName(rating, position.Code + " position familiarity rating 0 to 20");
-            positionInputs[position.Code] = rating;
-            tileStack.Children.Add(rating);
-            positionTiles.Children.Add(new Border
+            System.Windows.Automation.AutomationProperties.SetName(rating, code + " position familiarity rating 0 to 20");
+            positionInputs[code] = rating;
+            var nodeStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            nodeStack.Children.Add(Txt(code, 12, true, Brush("#F2EEE5")));
+            nodeStack.Children.Add(Txt(label, 8, false, Brush("#C0CEC4"), wrap: true));
+            nodeStack.Children.Add(rating);
+            var node = new Border
             {
-                Width = 118, Background = Brush("#171F28"), BorderBrush = Line, BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(ThemeRadius(9)), Padding = new Thickness(9, 8, 9, 8),
-                Margin = new Thickness(0, 0, 7, 7), Child = tileStack
-            });
+                Width = 94, Height = 88, Padding = new Thickness(4, 4, 4, 3),
+                Background = Brush("#17251E"), BorderBrush = Brush("#718276"),
+                BorderThickness = new Thickness(1), Child = nodeStack,
+                ToolTip = label + " · set a required familiarity rating from 1 to 20"
+            };
+            Canvas.SetLeft(node, left);
+            Canvas.SetTop(node, top);
+            pitchCanvas.Children.Add(node);
         }
-        positionStack.Children.Add(positionTiles);
+
+        var pitchPositions = new (string Code, string Label, double X, double Y)[]
+        {
+            ("GK", "Goalkeeper", 8, 126), ("SW", "Sweeper", 112, 126),
+            ("DL", "Left defender", 224, 8), ("DC", "Centre back", 224, 126), ("DR", "Right defender", 224, 244),
+            ("WBL", "Left wing-back", 342, 8), ("DM", "Defensive midfield", 342, 126), ("WBR", "Right wing-back", 342, 244),
+            ("ML", "Left midfield", 460, 8), ("MC", "Central midfield", 460, 126), ("MR", "Right midfield", 460, 244),
+            ("AML", "Left attack", 578, 8), ("AMC", "Central attack", 578, 126), ("AMR", "Right attack", 578, 244),
+            ("STC", "Striker", 824, 126)
+        };
+        foreach (var position in pitchPositions)
+            AddPositionNode(position.Code, position.Label, position.X, position.Y);
+
+        var pitchView = new Viewbox
+        {
+            Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Child = pitchCanvas, MaxHeight = 360, Margin = new Thickness(0, 8, 0, 2)
+        };
+        positionStack.Children.Add(pitchView);
         builderStack.Children.Add(positionCard);
 
         status = Txt(fields.Count == 0 ? "No fields are available yet. Import a career save copy or add local scouting data." : "Add one or more conditions, then run the search.", 10, false, Muted, wrap: true);
