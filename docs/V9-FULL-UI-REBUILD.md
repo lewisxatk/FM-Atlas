@@ -85,9 +85,9 @@ Build a reusable component system before broad page migration:
 
 - [x] Preserve the V8 source and continue on its dedicated branch.
 - [x] Introduce the full-width player-pool / record-tab composition: the pool remains a tab and a selected player opens in a sibling full-workspace tab.
-- [ ] Verify the new screen with a clean Windows Release build and complete automated tests.
-- [ ] Replace the current shell composition with the new shared application shell and navigation model.
-- [ ] Implement the reusable tabs, page frames, search controls, data grids and record section rail.
+- [x] Verify the full-width player pool/profile-tab composition and initial shared design system with Windows Release build, career-import integration tests and self-contained x64 publish (Actions run #746, commit `8d9e27f91cbf4d8238d7a66182a862b94e86651b`).
+- [x] Implement the new shared application shell source: grouped navigation, persistent Quick Search, contextual workspace header, full-height page host and compact career/import status footer. Latest shell refinements still require a fresh Windows build and visual acceptance.
+- [~] Full-width player pool and player record tabs are in source; common page frames, fully reusable record tabs for Staff/Clubs, column controls and the remaining record section rail still need migration.
 - [ ] Complete the Player Profile full-page sections and responsive header.
 - [ ] Rebuild Advanced Search as a first-class workspace using the existing query/index services.
 - [ ] Migrate Staff and Club directories/profiles to the same record-tab model.
@@ -114,13 +114,16 @@ Build a reusable component system before broad page migration:
 
 Branch: `rebuild/v8-full-product-rebuild`
 
-- Added `MainWindow.PlayerWorkspace.Rebuild.cs`.
-- Routed Players and Recruitment to the new full-width workspace.
-- Player search results now occupy the full workspace; the old permanent narrow profile inspector is removed from this route.
-- Selecting a player opens their profile as a sibling main tab while the pool tab remains available.
-- Existing database search, position options, CA/PA filters, source/confidence label, paging, shortlist action and report import are reused.
-- Existing profile data assembly, profile tabs, save-import and live-read services are preserved.
-- **Not yet verified:** the new route requires a fresh Windows .NET 8 build/test run and visual acceptance. This is an implementation checkpoint, not a release claim.
+- Added `MainWindow.PlayerWorkspace.Rebuild.cs` and routed Players/Recruitment to it.
+- The player pool occupies the full workspace; selecting a player opens a sibling full-size record tab. The pool remains open and protected from Ctrl+W.
+- Search text, position, CA/PA criteria, result count/status and paging are retained across workspace navigation.
+- Existing database search, source/confidence label, pagination, shortlist/report actions and profile data assembly are reused.
+- Added `MonolithDesignSystem.cs` with semantic dark/light tokens, Bahnschrift display text, Segoe UI body text, Consolas telemetry text, theme-aware panels/buttons/inputs and editorial accents.
+- Added `MainWindow.Shell.Rebuild.cs`: persistent Quick Search, contextual page header, grouped navigation host, full-height workspace and compact career/import status footer. Players/Recruitment remain on the shared existing navigation/service paths.
+- Added explicit pool-tab/error handling so closing a player profile does not remove the persistent pool and a profile-load failure does not add a duplicate welcome tab.
+- Successful Windows verification for the earlier full-width player screen/design-system checkpoint: Actions run #746, commit `8d9e27f91cbf4d8238d7a66182a862b94e86651b`. The .NET Release build, career-import integration tests, self-contained x64 publish and artifact upload passed.
+- Subsequent shell, search-state and light-theme refinements are committed after that verified checkpoint. They require a fresh Windows run and visual review before being marked verified.
+- No real Windows display-scale or FM27/Game Pass acceptance is claimed at this point.
 
 ## Research references
 
