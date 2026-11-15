@@ -1304,8 +1304,8 @@ public partial class MainWindow : Window
         foreach (var fact in liveFacts.Where(f => f.NumericValue.HasValue && f.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase) && (f.FieldKey.Contains("Attribute", StringComparison.OrdinalIgnoreCase) || f.FieldKey.StartsWith("Ability.", StringComparison.OrdinalIgnoreCase))))
             attributes[fact.FieldKey] = fact.NumericValue!.Value;
 
-        profilePanel.Children.Add(Txt("PLAYER PROFILE", 9, true, Teal));
-        var hero = new Border { Background = new LinearGradientBrush(Color.FromRgb(29, 39, 49), Color.FromRgb(18, 25, 33), 25), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 13) };
+        profilePanel.Children.Add(MonolithDesignSystem.MicroLabel("PLAYER RECORD", true));
+        var hero = new Border { Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised), BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 13) };
         var heroGrid = new Grid();
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(82) });
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1313,7 +1313,7 @@ public partial class MainWindow : Window
         var graphicsUid = player.SourceId.StartsWith("FMSAVE:", StringComparison.OrdinalIgnoreCase) ? player.SourceId[7..]
             : player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) ? player.SourceId[5..] : null;
         var facePath = await Task.Run(() => GraphicsResolver.Shared.ResolveFace(graphicsUid));
-        var avatarBorder = new Border { Width = 68, Height = 68, CornerRadius = new CornerRadius(0), Background = Brush("#202A35"), BorderBrush = Brush("#485562"), BorderThickness = new Thickness(1), ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
+        var avatarBorder = new Border { Width = 68, Height = 68, CornerRadius = new CornerRadius(0), Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover), BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border), BorderThickness = new Thickness(1), ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
         if (!string.IsNullOrWhiteSpace(facePath) && File.Exists(facePath))
         {
             try
@@ -1326,14 +1326,14 @@ public partial class MainWindow : Window
         else avatarBorder.Child = new TextBlock { Text = Initials(player.Name), FontSize = 21, FontWeight = FontWeights.Bold, Foreground = Brush("#F08A42"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         heroGrid.Children.Add(avatarBorder);
         var heroStack = new StackPanel();
-        heroStack.Children.Add(Txt(player.Name, 25, true, Ink));
-        heroStack.Children.Add(Txt(player.Club ?? "Club unavailable", 12, true, Brush("#B9C5D0")));
-        heroStack.Children.Add(Txt($"{player.Age?.ToString() ?? "—"} years  ·  {player.Nation ?? "Nationality unavailable"}  ·  {player.Position ?? "Position unavailable"}", 11, false, Brush("#B9C5D0"), wrap: true));
-        heroStack.Children.Add(Txt($"{player.League ?? "League unavailable"}  ·  {player.DataOrigin}", 9, false, Brush("#9EADB9"), wrap: true));
+        heroStack.Children.Add(MonolithDesignSystem.DisplayText(player.Name, 25));
+        heroStack.Children.Add(MonolithDesignSystem.BodyText(player.Club ?? "Club unavailable", 12, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)));
+        heroStack.Children.Add(MonolithDesignSystem.BodyText($"{player.Age?.ToString() ?? "—"} years  ·  {player.Nation ?? "Nationality unavailable"}  ·  {player.Position ?? "Position unavailable"}", 11, MonolithDesignSystem.Solid(MonolithDesignSystem.Text)));
+        heroStack.Children.Add(MonolithDesignSystem.DataText($"{player.League ?? "League unavailable"}  ·  {player.DataOrigin}", 10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
         Grid.SetColumn(heroStack, 1); heroGrid.Children.Add(heroStack);
         var actions = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        actions.Children.Add(WhiteButton("＋ Add to shortlist", async (_, _) => { _selectedPlayer = player; await AddSelectedToShortlistAsync(); }));
-        actions.Children.Add(SoftButton("Find similar players", async (_, _) =>
+        actions.Children.Add(MonolithDesignSystem.ActionButton("ADD TO SHORTLIST", async (_, _) => { _selectedPlayer = player; await AddSelectedToShortlistAsync(); }, primary: true));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("FIND SIMILAR PLAYERS", async (_, _) =>
         {
             try
             {
@@ -1347,7 +1347,7 @@ public partial class MainWindow : Window
                 MessageBox.Show(this, "Similar Player Discovery failed: " + ex.Message, "FM Atlas", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }));
-        actions.Children.Add(SoftButton("Compare open players", async (_, _) =>
+        actions.Children.Add(MonolithDesignSystem.ActionButton("COMPARE OPEN PLAYERS", async (_, _) =>
         {
             var selected = new[] { player }.Concat(_openPlayerRecords.Values
                     .Where(x => !x.SourceId.Equals(player.SourceId, StringComparison.OrdinalIgnoreCase)))
@@ -1361,7 +1361,7 @@ public partial class MainWindow : Window
             }
             await PlayerComparisonWindow.ShowAsync(this, _database, selected);
         }));
-        actions.Children.Add(SoftButton("Open in Editor Studio", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("OPEN IN EDITOR", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
         Grid.SetColumn(actions, 2); heroGrid.Children.Add(actions); hero.Child = heroGrid; profilePanel.Children.Add(hero);
 
         var ability = new UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 12) };
@@ -1478,17 +1478,18 @@ public partial class MainWindow : Window
             contractTab.Children.Add(Txt("No contract or registration facts were retained for this player in the selected snapshot.", 9, false, Muted, wrap: true));
 
         if (performanceFacts.Count == 0)
-            performanceTab.Children.Add(Txt(
-                "PERFORMANCE DATA · No player-season, career-history or match-stat rows for this player were supplied by the current live index. To add historical and match statistics, import a read-only snapshot of a COPY of the career save or add an FM View Exporter CSV. The live player/CA/PA index does not require that manual import.",
-                9, false, Muted, wrap: true));
+            performanceTab.Children.Add(MonolithDesignSystem.BodyText(
+                "No current-season, career-history or retained match-stat rows were supplied for this player in the selected source. Import a read-only snapshot of a COPY of the career save, or add a game-generated FM View Exporter CSV (kept clearly labelled as an export source). The live player / CA / PA index does not require that manual import.",
+                11, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
         else
         {
-            performanceTab.Children.Add(Txt($"PERFORMANCE INTELLIGENCE · {performanceFacts.Count:N0} numeric source facts retained",
-                9, true, Teal) is var performanceHeading ? Configure(performanceHeading, new Thickness(0, 0, 0, 6)) : new TextBlock());
+            performanceTab.Children.Add(MonolithDesignSystem.MicroLabel($"FM27 SAVE STATISTICS · {performanceFacts.Count:N0} NUMERIC SOURCE FACTS", true));
+            performanceTab.Children.Add(MonolithDesignSystem.BodyText(
+                "Current-season rows are separated by competition type and team. Individual match history only includes records retained by the save and is not a complete career match log. Missing values are unavailable, not zero. FM27 field mappings remain provisional until cross-checked against the in-game screens.",
+                10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
             foreach (var group in performanceFacts.GroupBy(x => x.Group).OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
             {
-                performanceTab.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal) is var statsHeading
-                    ? Configure(statsHeading, new Thickness(0, 9, 0, 4)) : new TextBlock());
+                performanceTab.Children.Add(MonolithDesignSystem.MicroLabel(group.Key, true));
                 var statsGrid = new UniformGrid { Columns = 2 };
                 foreach (var fact in group) AddDetailRow(statsGrid, fact.Field, fact.Value ?? "—");
                 performanceTab.Children.Add(statsGrid);
