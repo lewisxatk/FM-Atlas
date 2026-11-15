@@ -1477,7 +1477,7 @@ public partial class MainWindow : Window
                 finally { Mouse.OverrideCursor = null; }
             });
 
-            applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
+            applyButton = PrimaryButton("Save Changes to FM", async (_, _) =>
             {
                 if (stagedPlan is null) return;
                 var answer = MessageBox.Show(this,
@@ -1499,7 +1499,7 @@ public partial class MainWindow : Window
                         row.CurrentValue = item.TargetValue;
                         row.TargetValue = item.TargetValue.ToString(CultureInfo.InvariantCulture);
                     }
-                    status.Text = "LIVE WRITE VERIFIED · " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                    status.Text = "SAVED TO RUNNING FM SESSION · " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
                         + " field(s) written and read back from FM memory. Save the career inside FM to persist to disk.";
                     stagedPlan = null;
                     applyButton!.IsEnabled = false;
@@ -1509,7 +1509,7 @@ public partial class MainWindow : Window
                         "FM27 accepted " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
                         + " change(s) for " + displayName + ". Every field passed read-back verification." + Environment.NewLine
                         + Environment.NewLine + "Save the career in Football Manager to persist the changes to the save file. Undo remains available in this profile while the same career session is loaded.",
-                        "FM Atlas · Live changes applied", MessageBoxButton.OK, MessageBoxImage.Information);
+                        "FM Atlas · Changes saved to live FM session", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
