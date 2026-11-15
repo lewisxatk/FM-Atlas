@@ -14,6 +14,211 @@ public partial class MainWindow
     /// V9 application shell. Existing workspaces and service methods are hosted
     /// inside this new shell; no save, search or edit data path is replaced here.
     /// </summary>
+
+    /// <summary>
+    /// Rebuilt navigation rail using the shared Monolith tokens. The route names
+    /// intentionally match the existing navigation dispatcher so no workspace
+    /// or data service is lost during the shell migration.
+    /// </summary>
+    private UIElement BuildSidebarV9()
+    {
+        var rail = new Border
+        {
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(0, 0, 1, 0),
+            Padding = new Thickness(_navCollapsed ? 9 : 13, 14, _navCollapsed ? 9 : 13, 12)
+        };
+        var dock = new DockPanel();
+        rail.Child = dock;
+
+        var brand = new Grid { Margin = new Thickness(1, 2, 1, 18) };
+        brand.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        brand.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var brandRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var mark = new Border
+        {
+            Width = 38,
+            Height = 38,
+            CornerRadius = new CornerRadius(10),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
+            BorderThickness = new Thickness(1),
+            Child = MonolithDesignSystem.DisplayText("FM", 13,
+                MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        ((TextBlock)mark.Child).HorizontalAlignment = HorizontalAlignment.Center;
+        ((TextBlock)mark.Child).VerticalAlignment = VerticalAlignment.Center;
+        brandRow.Children.Add(mark);
+
+        if (!_navCollapsed)
+        {
+            var brandCopy = new StackPanel { Margin = new Thickness(10, 1, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            brandCopy.Children.Add(MonolithDesignSystem.DisplayText("ATLAS", 16));
+            brandCopy.Children.Add(MonolithDesignSystem.MicroLabel("FOOTBALL INTELLIGENCE", true));
+            brandRow.Children.Add(brandCopy);
+        }
+        Grid.SetColumn(brandRow, 0);
+        brand.Children.Add(brandRow);
+
+        var collapse = new Button
+        {
+            Content = _navCollapsed ? "›" : "‹",
+            Width = 29,
+            Height = 32,
+            Padding = new Thickness(0),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Muted),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            Focusable = true,
+            ToolTip = _navCollapsed ? "Expand navigation" : "Collapse navigation",
+            Template = RoundedButtonTemplate(8)
+        };
+        collapse.Click += async (_, _) => await ToggleNavigationAsync();
+        System.Windows.Automation.AutomationProperties.SetName(collapse, collapse.ToolTip.ToString());
+        Grid.SetColumn(collapse, 1);
+        brand.Children.Add(collapse);
+        DockPanel.SetDock(brand, Dock.Top);
+        dock.Children.Add(brand);
+
+        _navPanel = new StackPanel();
+        var navScroll = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = _navPanel
+        };
+        dock.Children.Add(navScroll);
+
+        void Group(string label)
+        {
+            if (_navCollapsed) return;
+            var heading = MonolithDesignSystem.MicroLabel(label, true);
+            heading.Margin = new Thickness(8, 15, 0, 5);
+            _navPanel.Children.Add(heading);
+        }
+
+        void Item(string glyph, string label)
+        {
+            var selected = string.Equals(_activePage, label, StringComparison.OrdinalIgnoreCase);
+            var row = new Grid { MinHeight = 39 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(29) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var activeBar = new Border
+            {
+                Background = selected ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal) : Brushes.Transparent,
+                CornerRadius = new CornerRadius(2),
+                Margin = new Thickness(0, 7, 0, 7)
+            };
+            row.Children.Add(activeBar);
+            var icon = MonolithDesignSystem.DataText(glyph, 13,
+                MonolithDesignSystem.Solid(selected ? MonolithDesignSystem.Signal : MonolithDesignSystem.Muted));
+            icon.HorizontalAlignment = HorizontalAlignment.Center;
+            icon.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(icon, 1);
+            row.Children.Add(icon);
+            if (!_navCollapsed)
+            {
+                var caption = MonolithDesignSystem.BodyText(label, 12,
+                    MonolithDesignSystem.Solid(selected ? MonolithDesignSystem.Text : MonolithDesignSystem.Muted));
+                caption.VerticalAlignment = VerticalAlignment.Center;
+                caption.Margin = new Thickness(4, 0, 3, 0);
+                Grid.SetColumn(caption, 2);
+                row.Children.Add(caption);
+            }
+            var button = new Button
+            {
+                Tag = label,
+                Content = row,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Padding = new Thickness(4, 1, 5, 1),
+                Margin = new Thickness(0, 1, 0, 1),
+                Background = selected ? MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft) : Brushes.Transparent,
+                BorderBrush = selected ? MonolithDesignSystem.Solid(MonolithDesignSystem.Border) : Brushes.Transparent,
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand,
+                Focusable = true,
+                MinHeight = 41,
+                ToolTip = _navCollapsed ? label + " · " + PageDescription(label) : PageDescription(label),
+                Template = RoundedButtonTemplate(8)
+            };
+            System.Windows.Automation.AutomationProperties.SetName(button, label);
+            System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
+            button.MouseEnter += (_, _) =>
+            {
+                if (!selected) button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover);
+            };
+            button.MouseLeave += (_, _) =>
+            {
+                if (!selected) button.Background = Brushes.Transparent;
+            };
+            button.Click += async (_, _) => await NavigateAsync(label);
+            _navPanel.Children.Add(button);
+        }
+
+        Group("OVERVIEW");
+        Item("⌂", "Dashboard");
+        Group("SCOUTING");
+        Item("♟", "Players");
+        Item("⌕", "Advanced Search");
+        Item("↗", "Recruitment");
+        Item("◇", "Value Finder");
+        Item("⌗", "Attribute Search");
+        Item("∑", "Stats Search");
+        Item("▦", "Scouting Matrix");
+        Item("≡", "Shortlists");
+        Group("CLUB & PERFORMANCE");
+        Item("▥", "Squad Architect");
+        Item("◆", "Clubs");
+        Item("♙", "Staff");
+        Item("⇄", "Transfers");
+        Item("▤", "Analytics");
+        Item("⚑", "Tactical Lab");
+        Item("◎", "Role Lab");
+        Group("EDITOR");
+        Item("✎", "Live Editor");
+        Item("▦", "Mass Edit");
+        Item("◷", "Edit History");
+        Group("SYSTEM");
+        Item("⌘", "Atlas Assistant");
+        Item("⚙", "Settings");
+        Item("◉", "Tester & Logs");
+        Item("?", "Help & Tutorial");
+
+        var connection = new Border
+        {
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(9),
+            Padding = new Thickness(_navCollapsed ? 5 : 10),
+            Margin = new Thickness(0, 12, 0, 0),
+            Child = _navCollapsed
+                ? MonolithDesignSystem.DisplayText("●", 13, MonolithDesignSystem.Solid(MonolithDesignSystem.Caution))
+                : new StackPanel()
+        };
+        if (!_navCollapsed && connection.Child is StackPanel connectionCopy)
+        {
+            connectionCopy.Children.Add(MonolithDesignSystem.MicroLabel("CAREER CONNECTION"));
+            connectionCopy.Children.Add(MonolithDesignSystem.BodyText("Read-only detection", 11));
+            connectionCopy.Children.Add(MonolithDesignSystem.BodyText(
+                "Live editing remains locked until field-level writes pass independent checks.",
+                10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+        }
+        DockPanel.SetDock(connection, Dock.Bottom);
+        dock.Children.Add(connection);
+        return rail;
+    }
+
     private void BuildShellV9()
     {
         MonolithDesignSystem.SetAppearance(_themeMode);
@@ -31,7 +236,7 @@ public partial class MainWindow
         shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         RootGrid.Children.Add(shell);
 
-        var sidebar = BuildSidebar();
+        var sidebar = BuildSidebarV9();
         Grid.SetColumn(sidebar, 0);
         shell.Children.Add(sidebar);
 
