@@ -170,40 +170,50 @@ public partial class MainWindow : Window
 
     private Button ToolbarIcon(string glyph, string description, RoutedEventHandler click)
     {
-        var icon = Txt(glyph, 17, true, Ink);
-        icon.FontFamily = new FontFamily("Segoe MDL2 Assets");
+        var icon = new TextBlock
+        {
+            Text = glyph,
+            FontFamily = new FontFamily("Segoe MDL2 Assets"),
+            FontSize = 16,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
         var button = new Button
         {
             Content = icon,
-            Width = 42,
-            Height = 42,
+            Width = 38,
+            Height = 38,
             Padding = new Thickness(0),
             Margin = new Thickness(3, 0, 3, 0),
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb(142, 125, 76, 49), 0),
-                    new GradientStop(Color.FromArgb(76, 57, 39, 30), 1)
-                },
-                new Point(0, 0), new Point(0, 1)),
-            Foreground = Ink,
-            BorderBrush = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb(170, 255, 197, 155), 0),
-                    new GradientStop(Color.FromArgb(78, 220, 125, 74), 1)
-                },
-                new Point(0, 0), new Point(0, 1)),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
             BorderThickness = new Thickness(1),
             Cursor = Cursors.Hand,
+            Focusable = true,
             ToolTip = description,
-            Template = RoundedButtonTemplate(13)
+            Template = RoundedButtonTemplate(9)
         };
         ToolTipService.SetInitialShowDelay(button, 350);
         ToolTipService.SetShowDuration(button, 30000);
         ToolTipService.SetShowOnDisabled(button, true);
         System.Windows.Automation.AutomationProperties.SetName(button, description);
         System.Windows.Automation.AutomationProperties.SetHelpText(button, description);
+        button.MouseEnter += (_, _) =>
+        {
+            button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover);
+            button.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+            icon.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+        };
+        button.MouseLeave += (_, _) =>
+        {
+            button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface);
+            button.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
+            icon.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+        };
+        button.IsEnabledChanged += (_, _) => button.Opacity = button.IsEnabled ? 1.0 : 0.42;
         button.Click += click;
         return button;
     }
