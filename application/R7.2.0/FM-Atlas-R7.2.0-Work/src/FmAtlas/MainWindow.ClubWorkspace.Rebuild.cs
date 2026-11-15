@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -17,7 +18,6 @@ public partial class MainWindow
     private string _clubPoolSearchTextV9 = "";
     private int _clubPoolOffsetV9;
     private int _clubPoolRequestVersionV9;
-    private int _clubProfileRequestVersionV9;
     private DataGrid? _clubGridV9;
     private TextBlock? _clubPoolStatusV9;
     private Button? _clubPreviousV9;
@@ -57,7 +57,7 @@ public partial class MainWindow
 
         var restore = _openClubRecordsV9.Values.ToList();
         if (restore.Count > 0)
-            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
                 new Action(() => _ = RestoreOpenClubTabsV9Async(restore)));
 
         await RefreshClubPoolV9Async();
