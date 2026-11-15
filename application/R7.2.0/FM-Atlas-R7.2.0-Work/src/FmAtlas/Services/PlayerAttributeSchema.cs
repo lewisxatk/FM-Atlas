@@ -4,10 +4,10 @@ internal sealed record PlayerAttributeField(string Key, string Label, string Cat
 internal static class PlayerAttributeSchema
 {
     // Source: FMLibreEditor profiles/fm27/layout.toml [player.attributes], cross-checked with
-    // crates/fmlibre-core/src/details.rs ATTRIBUTE_GROUPS. The 47 standard player attributes and
-    // their visible FM27 layout offsets are used by the live writer. Five hidden-field entries
-    // remain here as discovery leads only; their offsets are inherited from FM26 and are not
-    // promoted to FM27 live writes until independent witnesses confirm them. Feet are mapped separately.
+    // crates/fmlibre-core/src/details.rs ATTRIBUTE_GROUPS and the independently registered FM27
+    // Game Pass profile fingerprint. The 47 standard plus five hidden fields (52 total) map to
+    // this FM27 player layout. Live writes still require exact-build, UID/name, raw-byte preflight,
+    // explicit session opt-in, read-back verification and rollback. Feet are mapped separately.
     internal static readonly PlayerAttributeField[] Fields = new PlayerAttributeField[] {
         new("crossing", "Crossing", "Technical", 0x15F),
         new("dribbling", "Dribbling", "Technical", 0x160),
