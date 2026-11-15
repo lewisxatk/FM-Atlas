@@ -238,83 +238,101 @@ public partial class MainWindow : Window
         switch (root)
         {
             case TextBox textBox:
-                textBox.Background = Brush("#171F28");
-                textBox.Foreground = Ink;
-                var textBoxRestingBorder = Brush("#303943");
+                textBox.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised);
+                textBox.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+                var textBoxRestingBorder = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
                 textBox.BorderBrush = textBoxRestingBorder;
                 textBox.BorderThickness = new Thickness(1);
-                textBox.CaretBrush = Teal;
-                textBox.SelectionBrush = Brush("#483022");
-                textBox.Padding = new Thickness(9, 6, 9, 6);
+                textBox.CaretBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+                textBox.SelectionBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft);
+                textBox.Padding = new Thickness(10, 7, 10, 7);
+                textBox.FontFamily = MonolithDesignSystem.BodyFont;
                 textBox.SnapsToDevicePixels = true;
-                // A clear keyboard-focus ring makes the dark glass controls usable
-                // without relying on hover or colour-only selection cues.
-                textBox.GotKeyboardFocus += (_, _) => textBox.BorderBrush = Teal;
+                textBox.GotKeyboardFocus += (_, _) => textBox.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
                 textBox.LostKeyboardFocus += (_, _) => textBox.BorderBrush = textBoxRestingBorder;
                 break;
 
             case ComboBox comboBox:
-                comboBox.Background = Brush("#171F28");
-                comboBox.Foreground = Ink;
-                var comboRestingBorder = Brush("#303943");
+                comboBox.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised);
+                comboBox.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+                var comboRestingBorder = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
                 comboBox.BorderBrush = comboRestingBorder;
                 comboBox.BorderThickness = new Thickness(1);
-                comboBox.Padding = new Thickness(8, 4, 8, 4);
+                comboBox.Padding = new Thickness(9, 6, 9, 6);
+                comboBox.FontFamily = MonolithDesignSystem.BodyFont;
                 comboBox.SnapsToDevicePixels = true;
-                comboBox.GotKeyboardFocus += (_, _) => comboBox.BorderBrush = Teal;
+                comboBox.GotKeyboardFocus += (_, _) => comboBox.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
                 comboBox.LostKeyboardFocus += (_, _) => comboBox.BorderBrush = comboRestingBorder;
                 var comboItemStyle = new Style(typeof(ComboBoxItem));
-                comboItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#171F28")));
-                comboItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
-                comboItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 6, 9, 6)));
+                comboItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised)));
+                comboItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Text)));
+                comboItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 7, 9, 7)));
                 var comboHover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-                comboHover.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#483022")));
+                comboHover.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover)));
                 comboItemStyle.Triggers.Add(comboHover);
                 var comboSelected = new Trigger { Property = ComboBoxItem.IsSelectedProperty, Value = true };
-                comboSelected.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#483022")));
-                comboSelected.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
+                comboSelected.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft)));
+                comboSelected.Setters.Add(new Setter(Control.ForegroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Text)));
                 comboItemStyle.Triggers.Add(comboSelected);
                 comboBox.ItemContainerStyle = comboItemStyle;
                 break;
 
+            case Button button:
+                var signal = ((SolidColorBrush)MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)).Color;
+                var isPrimary = button.Background is SolidColorBrush existing && existing.Color == signal;
+                button.Background = MonolithDesignSystem.Solid(isPrimary ? MonolithDesignSystem.Signal : MonolithDesignSystem.SurfaceRaised);
+                button.Foreground = MonolithDesignSystem.Solid(isPrimary ? "#17110D" : MonolithDesignSystem.Text);
+                button.BorderBrush = MonolithDesignSystem.Solid(isPrimary ? MonolithDesignSystem.Signal : MonolithDesignSystem.Border);
+                button.BorderThickness = new Thickness(1);
+                button.FontFamily = MonolithDesignSystem.BodyFont;
+                button.FontSize = Math.Max(10, button.FontSize);
+                button.FontWeight = FontWeights.SemiBold;
+                button.Focusable = true;
+                if (button.Template is null) button.Template = RoundedButtonTemplate(10);
+                break;
+
             case TabControl tabs:
-                tabs.Background = Brush("#171F28");
-                tabs.Foreground = Ink;
-                tabs.BorderBrush = Brush("#303943");
+                tabs.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface);
+                tabs.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+                tabs.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
                 tabs.BorderThickness = new Thickness(1);
-                var tabItemStyle = new Style(typeof(TabItem));
-                tabItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#202A35")));
-                tabItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Muted));
-                tabItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 7, 12, 7)));
-                tabItemStyle.Setters.Add(new Setter(Control.MarginProperty, new Thickness(2, 0, 2, 0)));
-                var tabSelected = new Trigger { Property = TabItem.IsSelectedProperty, Value = true };
-                tabSelected.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#483022")));
-                tabSelected.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
-                tabSelected.Setters.Add(new Setter(Control.BorderBrushProperty, Teal));
-                tabSelected.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0, 0, 0, 2)));
-                tabItemStyle.Triggers.Add(tabSelected);
-                tabs.ItemContainerStyle = tabItemStyle;
+                // Preserve purpose-built tab styles such as the vertical FMRTE-style
+                // player section rail; only apply the shared default to unstyled tabs.
+                if (tabs.ItemContainerStyle is null)
+                {
+                    var tabItemStyle = new Style(typeof(TabItem));
+                    tabItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised)));
+                    tabItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+                    tabItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 8, 12, 8)));
+                    tabItemStyle.Setters.Add(new Setter(Control.MarginProperty, new Thickness(2, 0, 2, 0)));
+                    var tabSelected = new Trigger { Property = TabItem.IsSelectedProperty, Value = true };
+                    tabSelected.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft)));
+                    tabSelected.Setters.Add(new Setter(Control.ForegroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)));
+                    tabSelected.Setters.Add(new Setter(Control.BorderBrushProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)));
+                    tabSelected.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0, 0, 0, 2)));
+                    tabItemStyle.Triggers.Add(tabSelected);
+                    tabs.ItemContainerStyle = tabItemStyle;
+                }
                 break;
 
             case CheckBox checkBox:
-                checkBox.Foreground = Ink;
+                checkBox.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
                 checkBox.Focusable = true;
                 break;
 
             case RadioButton radioButton:
-                radioButton.Foreground = Ink;
+                radioButton.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
                 radioButton.Focusable = true;
                 break;
 
             case ProgressBar progressBar:
-                progressBar.Foreground = Teal;
-                progressBar.Background = Brush("#303943");
+                progressBar.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+                progressBar.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
                 break;
         }
 
-        // Walk both logical children and already-realised visual children. This covers
-        // ordinary workspace controls and controls created by templates without styling
-        // the contents of a popup that has not been opened.
+        // Walk both logical children and realised visual children. This keeps shared
+        // component styling consistent without changing search or data-service logic.
         foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
             ApplyGlassControlTheme(child, visited);
         if (root is Visual visual)
@@ -324,7 +342,6 @@ public partial class MainWindow : Window
                 ApplyGlassControlTheme(VisualTreeHelper.GetChild(visual, childIndex), visited);
         }
     }
-
     private void BeginBackgroundOperation(string name)
     {
         _activeBackgroundOperation = name;
