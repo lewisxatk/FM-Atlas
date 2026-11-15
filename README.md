@@ -1,49 +1,56 @@
-# FM Atlas V8 — Monolith Glass
+# FM Atlas — Full Interface Rebuild (V9 development)
 
-FM Atlas is a Windows desktop application for Football Manager scouting, career intelligence, recruitment, squad analysis, editing research and graphics tools.
+FM Atlas is a Windows desktop Football Manager scouting, career intelligence, analytics, squad-planning and editing workspace.
 
-> **V8 status (14 November 2026):** The integrated source remains on the isolated branch `rebuild/v8-full-product-rebuild`; draft PR [#4 — FM Atlas V8](https://github.com/lewisxatk/FM-Atlas/pull/4) is open against `fix/r7.2.0-release-build-integration`. This update adds read-only career/process/build/session detection, staff/human-manager extraction and live search/profile database integration, plus Monolith Glass. The read-only live entity-array scan runs only for exact supported profiles, with a two-minute deadline, toolbar cancellation and save-generation cancellation. FM performance and field-witness verification remain outstanding. Earlier Windows build/package runs #157 and #168 passed on older commits; they do **not** validate these newest changes. The current live-career regression tests and a fresh Windows Release build/test/publish run must pass before distributing this revision. Real Windows/Football Manager acceptance remains outstanding.
+> **Current development line:** `rebuild/v8-full-product-rebuild` (preserves the V8/R7.2.0 application and all earlier work). Draft integration PR [#4](https://github.com/lewisxatk/FM-Atlas/pull/4) remains open. The project is now prioritising the complete Watched-inspired × FMRTE-style interface rebuild before the remaining data/editor expansion.
 
-## V8 design
+## Product direction
 
-The primary visual identity is **Monolith Glass**: graphite/charcoal surfaces, restrained amber-orange accents, translucent raised navigation and toolbar materials, fine glass borders and minimal motion. Three alternate appearances remain available: **Glass Dark**, **Glass Light** and **Studio**. Monolith Glass is the first-run default; an existing saved theme choice is preserved.
+**Watched atmosphere × FMRTE workflow.** Graphite/near-black surfaces, precise orange signal accents, strong editorial typography, telemetry-style labels and a clean information hierarchy. Quick Search and Advanced Search are separate entry points; records open in full-width, persistent main tabs. Dense tables, charts and profile content remain opaque and readable.
 
-The shell includes a glass-style top action toolbar, descriptive hover/focus tooltips, grouped collapsible side navigation, active-workspace highlighting, Ctrl+K Global Search and system-aware workspace motion. Data grids and detailed profile content retain solid, readable surfaces rather than blurring every cell.
+This is a full application/interaction rebuild, not a palette-only reskin. See [V9 full UI rebuild specification](docs/V9-FULL-UI-REBUILD.md).
 
-## Current source milestone
+## What is preserved
 
-The V8 branch preserves the R7.2.0 application and feature foundation while adding:
-- Monolith Glass shell, graphite/orange translucent navigation and toolbar, hover/focus help, four appearance modes and collapsible navigation.
-- Shared glass styling for workspace inputs, selectors, tabs, progress controls and DataGrids; the Dashboard hero and metric cards adapt to narrower window widths. The shared Card helper preserves its original direct-child contract.
-- Toolbar Activity Centre for active live-career scans and offline save imports, with current status, elapsed time, cancellation and a last-task summary.
-- Responsive navigation and improved player workspace activation.
-- FMRTE/FMSuperScout-style people discovery: fast name/club/nation/UID search, paged Players and Staff directories, direct min/max CA and PA filters (including signed negative PA ranges), and clickable player profiles. The same CA/PA filters apply to live and offline player sources, including filter-only searches and matching result counts.
-- Universal Advanced Search builder across core player fields, stored attributes/personality and latest-save facts, with ALL/ANY logic, saved profiles, visible-column sets, paging and cancellation; performance-stat searches remain a separate player-period workspace.
-- A Windows .NET 8 Release and self-contained x64 build/package workflow.
-- Career/session detection: Atlas identifies supported Windows Steam/Game Pass processes by exact module fingerprint and observes the game's save-load generation counter. The 3-second monitor detects career/load changes and starts a profile-bounded read-only player/staff/club scan for a loaded supported session. Each scan has a two-minute deadline, toolbar cancellation and session-change cancellation. The database commits only a completed snapshot. Editor Studio saves to Atlas locally; live Apply/Undo is hard-blocked, including edit-history live Undo.
-- SQLite writer coordination and a 30-second busy timeout.
-- Save import now streams individual tables into a temporary NDJSON bundle and imports each row incrementally in one SQLite transaction; progress, elapsed time and cancellation preserve the last committed snapshot. Manifest row counts are checked for every table before commit, final warnings are persisted, and the adapter refuses to overwrite an existing output directory.
-- A Python regression test covers normalisation, table rows, manager-name privacy and preservation of an existing output folder. The Windows .NET integration suite covers save-import rollback/preservation and now includes live player CA/PA (including negative PA), attributes/personality/positions, nationality, Advanced Search, Staff identity deduplication and process/build/save-generation checks. A fresh workflow result for the current branch head is still required.
-- SQLite write serialization and a 30-second lock timeout to address concurrent writer contention.
+The new presentation layer is being built over the existing R7.2.0/V8 foundation. Existing save import, read-only FM27 connection, player/staff/club records, advanced search, CA/PA filters, indexed statistics, role-fit estimates, Value Finder, shortlists, graphics lookup and diagnostics are retained. New UI work must not delete or silently replace these paths.
 
-**Do not equate source implementation with verification.** Earlier commits passed hosted Windows compile/package and save-import tests; the latest player-coach identity shift, player nationality/personality/position fields, automatic staff/manager detection and Monolith Glass changes are newer than those runs. New regression fixtures exercise the live player/staff database joins and search filters, but they must pass in a fresh Windows workflow. No real FM27 session has been tested by this update, and the user's PC startup, UI, game-performance and save-switch acceptance gates remain open. The universal Advanced Search, player profiles and existing scouting features are preserved; nested filter groups, complete live field coverage, full MVVM separation and additional tactics/recruitment systems remain open.
+## Latest implementation checkpoint — 15 November 2026
 
-## Durable progress and design documents
+- The player/recruitment workspaces now use a full-width player-pool tab and full-size player record tabs. The old narrow permanent profile inspector is removed from this route.
+- The record profile reuses the existing Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence sections.
+- Player pool search, position, CA/PA filters, status, paging and loaded results are retained when navigating away and back.
+- The persistent pool tab cannot be closed with Ctrl+W; profile-load failures are reported in the pool status line.
+- A shared Monolith design library provides semantic dark/light tokens, display/body/telemetry typography, reusable panels, action buttons and theme-aware inputs.
+- The new app shell source includes grouped navigation, persistent Quick Search (Enter/Ctrl+K), contextual page title, full workspace surface and a compact live-career/import footer.
+- The new application shell and its latest refinements are **not yet confirmed by the latest Windows build**. The last fully successful Windows workflow was run #746 at commit `8d9e27f91cbf4d8238d7a66182a862b94e86651b`, which verified the full-width player tabs and initial Monolith design system, including .NET Release build, career-import integration tests and self-contained x64 publish. The workflow run and artifact details are recorded below.
 
-- [V8 implementation checklist](docs/V8_IMPLEMENTATION_CHECKLIST.md) — ticked after each committed development unit; implementation and test verification tracked separately.
-- [V8 full rebuild specification](docs/architecture/FM-ATLAS-V8-FULL-REBUILD.md)
-- [V8 implementation status and limitations](docs/architecture/FM-ATLAS-V8-IMPLEMENTATION-STATUS.md)
-- [Application setup and test instructions](application/R7.2.0/FM-Atlas-R7.2.0-Work/README.md)
-- [Draft integration pull request #4](https://github.com/lewisxatk/FM-Atlas/pull/4)
+### Verified Windows checkpoint
 
-## Safety and testing
+- [Windows Actions run #746](https://github.com/lewisxatk/FM-Atlas/actions/runs/43772395059) — succeeded for commit `8d9e27f91cbf4d8238d7a66182a862b94e86651b`.
+- Artifact: `FM-Atlas-V8-win-x64` (68,920,750 bytes).
+- SHA-256: `cb971407cf3e82aa5d0ddb107d60c0db6baf58652c6947a9d94ccd9e819021df`.
+- Artifact expiry: 29 November 2026.
 
-- Use an extracted V8 folder separate from any existing FM Atlas installation. Existing local database and settings are preserved under `%LOCALAPPDATA%\\FmAtlas`; never delete that folder during testing.
-- **Automatic live-career use:** start a supported FM27 Windows Steam/Game Pass build, load a career and leave FM Atlas open. The monitor detects the exact game build and save-load generation, then reads the profile-defined player, staff and club arrays without a manual save-file import. Use the top-toolbar Connect/Refresh action for an immediate re-check. A failed automatic scan enters a five-minute retry cooldown; a user-cancelled scan waits for a manual retry.
-- The live connector is read-only. Player CA/PA, 52 mapped standard attributes, eight personality ratings, 15 positions, nationality and staff/manager identity links remain provisional until checked against the FM UI. Live Apply and live editing remain disabled.
-- Use the offline save bridge on a **copy** of the career when you need historical seasons, match statistics or additional data not exposed by the current live reader.
-- A hosted Windows build has passed for earlier source revisions only. The latest changes must pass their own CI run, followed by clean PC startup, Monolith Glass visual review, career detection, offline save import, staff/player profile integration, save-switch detection and Football Manager stability acceptance before V8 can be called release-ready.
+**Important:** this successful run predates the newest application-shell changes. Do not describe the latest shell as compiled/tested until a new workflow run for the latest branch head succeeds. No full visual acceptance or real FM27/Game Pass runtime acceptance has been completed.
 
-## Historical source and research
+## Data integrity and editing safety
 
-The original R7.2.0 checkpoint, recovery inventory, reverse-engineering notes and older roadmap remain available in the repository history and documentation. Game fields, hidden attributes, role ratings and any inferred metrics must retain explicit evidence and confidence; do not invent mappings or formulas.
+- Display only statistics and fields grounded in FM save/game/database sources.
+- Keep Save, Live, Atlas-calculated, Provisional, Unavailable and Unknown evidence distinct.
+- Missing values are not zero; never invent hidden attributes or proprietary FM formulas.
+- CA/PA and player attributes remain distinct from observed season/match performance.
+- Live Apply/Undo remains disabled until exact build/storefront field mappings, UI witnesses, preflight, read-back and rollback are independently certified. Test only against a disposable offline career copy.
+
+## Start here
+
+- [V9 Full UI Rebuild](docs/V9-FULL-UI-REBUILD.md) — current product direction, scope and delivery sequence.
+- [V8 implementation checklist](docs/V8_IMPLEMENTATION_CHECKLIST.md) — source implementation and verification tracking.
+- [V8 full rebuild specification](docs/architecture/FM-ATLAS-V8-FULL-REBUILD.md) — previous interaction and data architecture.
+- [V8 reverse-engineering notes](docs/V8_REVERSE_ENGINEERING_NOTES_2026-11-14.md) — FMRTE, Genie Scout, FMSuperScout, FMLibreEditor and fm-editor research.
+- [V8 implementation status](docs/architecture/FM-ATLAS-V8-IMPLEMENTATION-STATUS.md).
+- [Application setup and test instructions](application/R7.2.0/FM-Atlas-R7.2.0-Work/README.md).
+- [Draft integration pull request #4](https://github.com/lewisxatk/FM-Atlas/pull/4).
+
+## Research and licensing
+
+The project uses FMRTE and Genie Scout as behavioural references and FMSuperScout, FMLibreEditor, fm-editor, fmsave and FM View Exporter as research references. Their proprietary formulas and GPL source are not copied into Atlas. Build-specific field evidence and licensing must be checked before adopting implementation details.
