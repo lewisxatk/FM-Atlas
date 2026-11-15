@@ -682,8 +682,12 @@ public partial class MainWindow : Window
                 _ => DashboardPageFallback()
             };
             _pageHost.Content = content;
-            try { ApplyGlassControlTheme(content); }
-            catch (Exception themeEx) { AtlasLog.Warning("Workspace glass-control styling was skipped: " + themeEx.Message); }
+            try
+            {
+                if (_themeMode == "Watched Instrument") ApplyWatchedInstrumentVisuals(content);
+                else ApplyGlassControlTheme(content);
+            }
+            catch (Exception themeEx) { AtlasLog.Warning("Workspace appearance styling was skipped: " + themeEx.Message); }
             if (SystemParameters.ClientAreaAnimation)
             {
                 _pageHost.Opacity = 0;
@@ -719,6 +723,36 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(queued) && !string.Equals(queued, page, StringComparison.OrdinalIgnoreCase))
                 await NavigateAsync(queued);
         }
+    }
+
+
+    private static void ApplyWatchedInstrumentVisuals(DependencyObject root)
+    {
+        if (root is Border border)
+        {
+            border.CornerRadius = new CornerRadius(0);
+            border.Effect = null;
+            if (border.Background is LinearGradientBrush) border.Background = Brush("#0C0E11");
+            if (border.BorderBrush is LinearGradientBrush) border.BorderBrush = Brush("#303943");
+        }
+        if (root is Button button)
+            button.Template = RoundedButtonTemplate(0);
+        if (root is TextBox textBox)
+        {
+            textBox.Background = Brush("#111316");
+            textBox.Foreground = Brush("#EEE9E1");
+            textBox.BorderBrush = Brush("#303943");
+        }
+        if (root is ComboBox comboBox)
+        {
+            comboBox.Background = Brush("#111316");
+            comboBox.Foreground = Brush("#EEE9E1");
+            comboBox.BorderBrush = Brush("#303943");
+        }
+        if (root is not Visual) return;
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+            ApplyWatchedInstrumentVisuals(VisualTreeHelper.GetChild(root, i));
     }
 
     private static UIElement NavigationLoadingPane(string page)
@@ -765,7 +799,7 @@ public partial class MainWindow : Window
     private static string PageDescription(string page) => page switch
     {
         "Dashboard" => "Your career at a glance · data coverage · import health",
-        "Advanced Search" => "Choose player identity, attributes/personality or performance-stat criteria",
+        "Advanced Search" => "FMRTE-style player, staff and club search with source-backed filters",
         "Players" => "Player intelligence · name/position/CA/PA search · full profile",
         "Recruitment" => "Build an explainable shortlist from your imported career data",
         "Squad Architect" => "Inspect club squads, age distribution and positional coverage",
