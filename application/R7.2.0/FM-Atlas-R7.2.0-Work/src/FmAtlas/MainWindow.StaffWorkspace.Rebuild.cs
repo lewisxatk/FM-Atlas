@@ -11,15 +11,14 @@ public partial class MainWindow
 {
     private readonly Dictionary<string, AtlasStaffRecord> _openStaffRecordsV9 =
         new(StringComparer.OrdinalIgnoreCase);
+    // Shared record-tab closing supports Clubs; the full Club tab workspace is the next migration.
+    private readonly Dictionary<string, AtlasClubRecord> _openClubRecordsV9 =
+        new(StringComparer.OrdinalIgnoreCase);
     private string _staffPoolSearchTextV9 = "";
 
     private async Task<UIElement> StaffWorkspaceV9Async()
     {
-        if (_profileTabs is not null && _profileTabs.SelectedItem is TabItem
-            && _profileTabs.SelectedItem is not null)
-        {
-            // Preserve the search text as the previous staff workspace is replaced.
-        }
+        // Search text is held separately and survives workspace navigation.
         if (_staffPoolSearchTextV9.Length == 0)
             _staffPoolSearchTextV9 = _pendingStaffSearchQuery ?? "";
 
