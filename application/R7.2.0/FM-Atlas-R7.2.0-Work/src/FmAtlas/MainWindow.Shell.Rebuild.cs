@@ -83,7 +83,7 @@ public partial class MainWindow
             Template = RoundedButtonTemplate(8)
         };
         collapse.Click += async (_, _) => await ToggleNavigationAsync();
-        System.Windows.Automation.AutomationProperties.SetName(collapse, collapse.ToolTip.ToString());
+        System.Windows.Automation.AutomationProperties.SetName(collapse, collapse.ToolTip?.ToString() ?? "Toggle navigation");
         Grid.SetColumn(collapse, 1);
         brand.Children.Add(collapse);
         DockPanel.SetDock(brand, Dock.Top);
@@ -115,6 +115,7 @@ public partial class MainWindow
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             var activeBar = new Border
             {
+                Tag = "nav-active",
                 Background = selected ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal) : Brushes.Transparent,
                 CornerRadius = new CornerRadius(2),
                 Margin = new Thickness(0, 7, 0, 7)
@@ -122,6 +123,7 @@ public partial class MainWindow
             row.Children.Add(activeBar);
             var icon = MonolithDesignSystem.DataText(glyph, 13,
                 MonolithDesignSystem.Solid(selected ? MonolithDesignSystem.Signal : MonolithDesignSystem.Muted));
+            icon.Tag = "nav-icon";
             icon.HorizontalAlignment = HorizontalAlignment.Center;
             icon.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(icon, 1);
@@ -130,6 +132,7 @@ public partial class MainWindow
             {
                 var caption = MonolithDesignSystem.BodyText(label, 12,
                     MonolithDesignSystem.Solid(selected ? MonolithDesignSystem.Text : MonolithDesignSystem.Muted));
+                caption.Tag = "nav-caption";
                 caption.VerticalAlignment = VerticalAlignment.Center;
                 caption.Margin = new Thickness(4, 0, 3, 0);
                 Grid.SetColumn(caption, 2);
@@ -155,11 +158,13 @@ public partial class MainWindow
             System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
             button.MouseEnter += (_, _) =>
             {
-                if (!selected) button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover);
+                if (!string.Equals(_activePage, label, StringComparison.OrdinalIgnoreCase))
+                    button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover);
             };
             button.MouseLeave += (_, _) =>
             {
-                if (!selected) button.Background = Brushes.Transparent;
+                if (!string.Equals(_activePage, label, StringComparison.OrdinalIgnoreCase))
+                    button.Background = Brushes.Transparent;
             };
             button.Click += async (_, _) => await NavigateAsync(label);
             _navPanel.Children.Add(button);
