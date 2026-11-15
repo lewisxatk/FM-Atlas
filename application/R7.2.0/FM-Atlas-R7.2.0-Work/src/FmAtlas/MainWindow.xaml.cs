@@ -1319,7 +1319,7 @@ public partial class MainWindow : Window
             9, false, Muted, wrap: true));
         if (entityType == LiveEntityMemoryEditService.EntityKind.Player)
             panel.Children.Add(Txt(
-                "PLAYER ATTRIBUTES · CA, PA and all 47 standard technical, mental, physical and goalkeeping attributes are in the supported live field catalogue. The five hidden attributes (Consistency, Important Matches, Injury Proneness, Dirtiness and Versatility) are IN PROGRESS and withheld from live writes until their FM27 offsets are independently witnessed.",
+                "PLAYER ATTRIBUTES · CA, signed PA (including random-potential ranges) and all 52 player attributes are in the supported live field catalogue, including Consistency, Important Matches, Injury Proneness, Dirtiness and Versatility. Fields are shown only when the current FM27 build and record resolve safely.",
                 9, false, Muted, wrap: true));
 
         if (!_liveEditingEnabled)
