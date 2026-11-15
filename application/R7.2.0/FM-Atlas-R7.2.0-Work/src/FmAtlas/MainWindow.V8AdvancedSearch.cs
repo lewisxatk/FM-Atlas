@@ -389,10 +389,7 @@ public partial class MainWindow
         grid.MouseDoubleClick += async (_, _) =>
         {
             if (grid.SelectedItem is not PlayerRecord player) return;
-            await NavigateAsync("Players");
-            _selectedPlayer = player;
-            try { await ShowPlayerProfileAsync(player); }
-            catch (Exception ex) { ClearProfile("The player profile could not be opened: " + ex.Message); }
+            await OpenPlayerRecordAsync(player);
         };
         dock.Children.Add(grid);
         content.Children.Add(resultCard);
