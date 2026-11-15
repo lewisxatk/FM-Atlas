@@ -20,6 +20,85 @@ public partial class MainWindow
     private string _playerPoolCountTextV9 = "Player database";
     private string _playerPoolStatusTextV9 = "Search to begin";
 
+    private Style CreateProfileSectionTabStyle()
+    {
+        var style = new Style(typeof(TabItem));
+        style.Setters.Add(new Setter(Control.WidthProperty, 158d));
+        style.Setters.Add(new Setter(Control.MinHeightProperty, 42d));
+        style.Setters.Add(new Setter(Control.MarginProperty, new Thickness(4, 4, 10, 4)));
+        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(11, 8)));
+        style.Setters.Add(new Setter(Control.BackgroundProperty,
+            MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised)));
+        style.Setters.Add(new Setter(Control.ForegroundProperty,
+            MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+        style.Setters.Add(new Setter(Control.BorderBrushProperty,
+            MonolithDesignSystem.Solid(MonolithDesignSystem.Border)));
+        style.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(1)));
+        style.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Left));
+        style.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+        style.Setters.Add(new Setter(Control.FontFamilyProperty, MonolithDesignSystem.BodyFont));
+        style.Setters.Add(new Setter(Control.FontSizeProperty, 10d));
+        style.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+
+        var selected = new Trigger { Property = TabItem.IsSelectedProperty, Value = true };
+        selected.Setters.Add(new Setter(Control.BackgroundProperty,
+            MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft)));
+        selected.Setters.Add(new Setter(Control.ForegroundProperty,
+            MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)));
+        selected.Setters.Add(new Setter(Control.BorderBrushProperty,
+            MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)));
+        style.Triggers.Add(selected);
+        return style;
+    }
+
+    private ContextMenu BuildPlayerRecordTabContextMenu(TabItem tab)
+    {
+        var menu = new ContextMenu();
+        var close = new MenuItem { Header = "Close" };
+        close.Click += (_, _) => CloseRecordTabV9(tab);
+        menu.Items.Add(close);
+
+        var closeOthers = new MenuItem { Header = "Close other player tabs" };
+        closeOthers.Click += (_, _) => CloseOtherRecordTabsV9(tab, closeToRight: false);
+        menu.Items.Add(closeOthers);
+
+        var closeRight = new MenuItem { Header = "Close player tabs to the right" };
+        closeRight.Click += (_, _) => CloseOtherRecordTabsV9(tab, closeToRight: true);
+        menu.Items.Add(closeRight);
+        return menu;
+    }
+
+    private void CloseRecordTabV9(TabItem tab)
+    {
+        if (_profileTabs is null
+            || Equals(tab.Tag, "__player-pool")
+            || Equals(tab.Tag, "__welcome")) return;
+        var sourceId = tab.Tag?.ToString();
+        if (!string.IsNullOrWhiteSpace(sourceId)) _openPlayerRecords.Remove(sourceId);
+        _profileTabs.Items.Remove(tab);
+        if (_profileTabs.Items.Count == 0) AddWelcomeProfileTab();
+    }
+
+    private void CloseOtherRecordTabsV9(TabItem keep, bool closeToRight)
+    {
+        if (_profileTabs is null) return;
+        var tabs = _profileTabs.Items.OfType<TabItem>().ToList();
+        var keepIndex = tabs.IndexOf(keep);
+        if (keepIndex < 0) return;
+
+        var toClose = closeToRight
+            ? tabs.Skip(keepIndex + 1)
+            : tabs.Where(x => !ReferenceEquals(x, keep));
+
+        foreach (var tab in toClose
+            .Where(x => !Equals(x.Tag, "__player-pool") && !Equals(x.Tag, "__welcome"))
+            .ToList())
+            CloseRecordTabV9(tab);
+
+        if (_profileTabs.Items.Contains(keep))
+            _profileTabs.SelectedItem = keep;
+    }
+
     // Full-width, record-tab player experience.
     // The player pool remains open as its own tab; each selected player opens
     // as a sibling tab in the main workspace, not as a narrow side inspector.
