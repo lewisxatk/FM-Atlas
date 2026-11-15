@@ -29,7 +29,7 @@ public partial class MainWindow
 
         var top = new StackPanel();
         top.Children.Add(Txt("FMRTE SEARCH WORKSPACE", 9, true, Brush("#E9823B")));
-        top.Children.Add(Txt("Advanced Search", 27, true, Brush("#EEE9E1")));
+        top.Children.Add(Txt("Advanced Search", 27, true, Brush("#F08A42")));
         top.Children.Add(Txt("Choose what you want to find. Each entity has its own field library, with filters discovered from the imported FM career and verified live data.", 11, false, Brush("#9CA1A6"), true));
 
         var selector = new Grid { Margin = new Thickness(0, 14, 0, 12) };
@@ -155,7 +155,7 @@ public partial class MainWindow
         var intro = Card(new StackPanel(), 0, new Thickness(0, 0, 0, 10));
         var introStack = (StackPanel)intro.Child;
         introStack.Children.Add(Txt(isStaff ? "STAFF SEARCH" : "CLUB SEARCH", 9, true, Brush("#E9823B")));
-        introStack.Children.Add(Txt(isStaff ? "Find staff by their FM profile" : "Find clubs by their FM data", 20, true, Brush("#EEE9E1")));
+        introStack.Children.Add(Txt(isStaff ? "Find staff by their FM profile" : "Find clubs by their FM data", 20, true, Brush("#F08A42")));
         introStack.Children.Add(Txt(isStaff
             ? "Combine job, age, nation, ability and every staff field present in the imported snapshot. Coaching, scouting and training fields appear when the source supplies them."
             : "Search club identity, squad size, finances, facilities, stadium and linked club facts. Only fields present in the imported FM data are offered.",
