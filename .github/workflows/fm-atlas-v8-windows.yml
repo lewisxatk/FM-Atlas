@@ -99,14 +99,14 @@ jobs:
           if (-not (Test-Path "artifacts/FM-Atlas-V12-win-x64/FmAtlas.exe")) {
             throw "Publish output does not contain FmAtlas.exe."
           }
-          Compress-Archive -Path "artifacts/FM-Atlas-V11-win-x64/*" -DestinationPath "artifacts/FM-Atlas-V11-win-x64.zip" -Force
-          Get-FileHash "artifacts/FM-Atlas-V11-win-x64.zip" -Algorithm SHA256 | Format-List
+          Compress-Archive -Path "artifacts/FM-Atlas-V12-win-x64/*" -DestinationPath "artifacts/FM-Atlas-V12-win-x64.zip" -Force
+          Get-FileHash "artifacts/FM-Atlas-V12-win-x64.zip" -Algorithm SHA256 | Format-List
 
-      - name: Upload V11 build artifact
+      - name: Upload V12 build artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FM-Atlas-V11-win-x64
-          path: artifacts/FM-Atlas-V11-win-x64.zip
+          name: FM-Atlas-V12-win-x64
+          path: artifacts/FM-Atlas-V12-win-x64.zip
           if-no-files-found: error
           retention-days: 14
