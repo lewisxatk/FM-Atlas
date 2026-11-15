@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using FmAtlas.Models;
+using FmAtlas.Services;
 
 namespace FmAtlas;
 
@@ -54,7 +55,7 @@ public partial class MainWindow
 
         var restore = _openStaffRecordsV9.Values.ToList();
         if (restore.Count > 0)
-            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
                 new Action(() => _ = RestoreOpenStaffTabsV9Async(restore)));
 
         await RefreshStaffPoolV9Async();
@@ -147,8 +148,8 @@ public partial class MainWindow
             catch (Exception ex)
             {
                 AtlasLog.Error("Could not open staff record tab.", ex);
-                if (tabs.Items.OfType<TabItem>().FirstOrDefault(x => Equals(x.Tag, "__staff-pool")) is { } poolTab)
-                    tabs.SelectedItem = poolTab;
+                if (_profileTabs?.Items.OfType<TabItem>().FirstOrDefault(x => Equals(x.Tag, "__staff-pool")) is { } poolTab)
+                    _profileTabs.SelectedItem = poolTab;
                 if (_staffPoolStatusV9 is not null)
                     _staffPoolStatusV9.Text = "Staff profile failed to load: " + ex.Message;
             }
