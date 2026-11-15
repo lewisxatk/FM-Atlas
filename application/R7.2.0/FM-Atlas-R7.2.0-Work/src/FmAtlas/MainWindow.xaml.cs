@@ -674,11 +674,12 @@ public partial class MainWindow : Window
         try
         {
             _activePage = page;
+            RefreshWorkspaceContextNavV9(page);
             if (_pageTitle is not null) _pageTitle.Text = page;
             if (_pageSubTitle is not null) _pageSubTitle.Text = PageDescription(page);
             foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>())
             {
-                var active = string.Equals(button.Tag?.ToString(), page, StringComparison.OrdinalIgnoreCase);
+                var active = string.Equals(button.Tag?.ToString(), GetPrimaryNavigationRouteV9(page), StringComparison.OrdinalIgnoreCase);
                 button.Background = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft) : Brushes.Transparent;
                 button.BorderBrush = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.Border) : Brushes.Transparent;
                 if (button.Content is Grid row)
