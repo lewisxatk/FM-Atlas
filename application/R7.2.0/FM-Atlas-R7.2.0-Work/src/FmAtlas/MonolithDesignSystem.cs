@@ -59,6 +59,24 @@ internal static class MonolithDesignSystem
         return brush;
     }
 
+    public static TextBox TextInput(string placeholder, double fontSize = 12)
+        => new()
+        {
+            Text = "",
+            Tag = placeholder,
+            ToolTip = placeholder,
+            FontFamily = BodyFont,
+            FontSize = fontSize,
+            Foreground = Solid(Text),
+            Background = Solid(SurfaceRaised),
+            BorderBrush = Solid(Border),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 7, 10, 7),
+            Margin = new Thickness(0, 3, 0, 8),
+            MinHeight = 36,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+
     public static TextBlock DisplayText(string text, double size, Brush? foreground = null)
         => new()
         {
