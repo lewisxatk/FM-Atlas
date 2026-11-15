@@ -26,6 +26,14 @@ public partial class MainWindow
 
     private async Task<UIElement> ClubsWorkspaceV9Async()
     {
+        // Global Search and My Club shortcuts pass an explicit query. That
+        // query takes precedence over any older saved directory search.
+        if (!string.IsNullOrWhiteSpace(_pendingClubSearchQuery))
+        {
+            _clubPoolSearchTextV9 = _pendingClubSearchQuery.Trim();
+            _clubPoolOffsetV9 = 0;
+            _pendingClubSearchQuery = null;
+        }
         var tabs = new TabControl
         {
             Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
@@ -189,6 +197,7 @@ public partial class MainWindow
             || _clubPreviousV9 is null || _clubNextV9 is null) return;
         var request = ++_clubPoolRequestVersionV9;
         var query = _clubPoolSearchTextV9.Trim();
+        var offset = _clubPoolOffsetV9;
         _clubPoolStatusV9.Text = "Searching clubs…";
         _clubPreviousV9.IsEnabled = false;
         _clubNextV9.IsEnabled = false;
@@ -196,7 +205,7 @@ public partial class MainWindow
         {
             var (rows, count) = await Task.Run(async () =>
             {
-                var page = await _database.SearchClubDirectoryAsync(query, ClubPoolPageSizeV9, _clubPoolOffsetV9).ConfigureAwait(false);
+                var page = await _database.SearchClubDirectoryAsync(query, ClubPoolPageSizeV9, offset).ConfigureAwait(false);
                 var total = await _database.CountClubDirectoryAsync(query).ConfigureAwait(false);
                 return (page, total);
             });
@@ -204,7 +213,7 @@ public partial class MainWindow
             _clubGridV9.ItemsSource = rows;
             _clubPoolStatusV9.Text = rows.Count == 0
                 ? "No clubs found. Try a shorter name or check the imported source."
-                : $"{rows.Count:N0} shown · {count:N0} club source records · page {_clubPoolOffsetV9 / ClubPoolPageSizeV9 + 1:N0}";
+                : $"{rows.Count:N0} shown · {count:N0} club source records · page {offset / ClubPoolPageSizeV9 + 1:N0}";
             _clubPreviousV9.IsEnabled = _clubPoolOffsetV9 > 0;
             _clubNextV9.IsEnabled = _clubPoolOffsetV9 + rows.Count < count && rows.Count == ClubPoolPageSizeV9;
 
