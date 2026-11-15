@@ -154,3 +154,8 @@ A source checkbox is never a build, test, visual-acceptance or game-validation p
 - [ ] Continue the full-width Staff/Club record-tab migration and shared workspace-tab host.
 
 **Current code checkpoint:** `rebuild/watched-earth-fmrte-ui` at `ea9366f89331a6c878d72cf75c074ac4edcd58c7`. Draft PR #8 remains unmerged and is the isolated UI rebuild line. No new Windows validation result has been recorded for this head.
+
+
+## Branch preservation note
+
+The separate `feature/v12-atlas-instrument-rebuild` line contains substantial later V11/V12 editor, diagnostics, tactical-effectiveness and scouting-engine work. GitHub's comparison against the Watched UI branch reports the histories as diverged (V12 is 252 commits ahead and 27 behind at the 15 November checkpoint). Do not force-merge, reset or replace either branch. Finish the agreed UI-first rebuild on this isolated Watched line, keep V12 intact, then perform a deliberate integration/reconciliation pass so the later editor and analytics work is carried forward without overwriting the new interface.
