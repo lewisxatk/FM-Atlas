@@ -43,7 +43,7 @@ public partial class MainWindow
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             actions.Children.Add(ToolbarIcon("\uE721", "Quick Search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
             actions.Children.Add(ToolbarIcon("\uE71C", "Advanced Search — build filters across supported FM fields.", async (_, _) => await NavigateAsync("Advanced Search")));
-            actions.Children.Add(ToolbarIcon("\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
+            actions.Children.Add(ToolbarIcon("\uE8E5", "IMPORT SAVE COPY — inspect a local copy of an FM career save. The source is never modified.", async (_, _) => await ImportCareerSaveAsync()));
             _cancelImportButton = ToolbarIcon("\uE711", "Cancel the active live scan or save import safely.", (_, _) =>
             {
                 if (_liveScanCancellation is not null)
@@ -58,12 +58,13 @@ public partial class MainWindow
             _cancelImportButton.Visibility = _saveImportCancellation is not null || _liveScanCancellation is not null ? Visibility.Visible : Visibility.Collapsed;
             actions.Children.Add(_cancelImportButton);
             actions.Children.Add(ToolbarIcon("\uE823", "Activity Centre — view progress, elapsed time and cancellation.", (_, _) => ShowActivityCenter()));
-            actions.Children.Add(ToolbarIcon("\uE74E", "Save local FM Atlas changes.", async (_, _) => await SaveAtlasAsync()));
+            actions.Children.Add(ToolbarIcon("\uE74E", "SAVE ATLAS DATA — save the FM Atlas local database and settings. This does not save the FM career.", async (_, _) => await SaveAtlasAsync()));
+            actions.Children.Add(ToolbarIcon("\uE74E", "SAVE FM CAREER · IN PROGRESS — use Ctrl+S inside Football Manager after applying live edits.", (_, _) => ShowCareerSaveInProgress()));
             actions.Children.Add(ToolbarIcon("\uE8A7", "Open saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
             actions.Children.Add(ToolbarIcon("\uE9D2", "Open performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
             actions.Children.Add(ToolbarIcon("\uE80F", "Open your human-manager profile.", async (_, _) => await OpenMyManagerAsync()));
             actions.Children.Add(ToolbarIcon("\uE77B", "Open your current club profile.", async (_, _) => await OpenMyClubAsync()));
-            _liveLoadButton = ToolbarIcon("\uE72C", "Connect to or refresh the currently loaded supported FM27 career.", async (_, _) => await LoadLiveCareerAsync());
+            _liveLoadButton = ToolbarIcon("\uE72C", "LOAD LIVE SAVE — connect to or refresh the currently loaded supported FM27 career.", async (_, _) => await LoadLiveCareerAsync());
             _liveLoadButton.IsEnabled = true;
             actions.Children.Add(_liveLoadButton);
             actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
@@ -173,8 +174,8 @@ public partial class MainWindow
             AddNav("⌕", "Recruitment");
             AddNav("◆", "Value Finder");
             AddNav("⌗", "Attribute Search");
-            AddNav("∑", "Stats Search");
-            AddNav("▦", "Scouting Matrix");
+            AddNav("∑", "Stats Search", inProgress: true);
+            AddNav("▦", "Scouting Matrix", inProgress: true);
             AddNav("▤", "Shortlists");
             AddNavGroup("SQUAD & ANALYSIS");
             AddNav("▥", "Squad Architect");
