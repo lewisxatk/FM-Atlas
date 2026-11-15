@@ -2765,8 +2765,32 @@ public partial class MainWindow : Window
             ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
             : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
         var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
-        alert.Child = Txt("Atlas local edits are separate from Football Manager. In this V8 build, Editor Studio saves changes to the FM Atlas database only. Live Apply/Undo is hard-disabled; no game-memory writes are exposed. Live editing will remain blocked until exact-build identity, field mappings, in-game witnesses, read-back, rollback and Windows acceptance are independently verified.", 10, true, Brush("#E6C477"), wrap: true);
+        alert.Child = Txt("Atlas local edits are separate from Football Manager. In this V8 build, Editor Studio saves changes to the FM Atlas database only. Live Apply/Undo remains hard-disabled; no game-memory writes are exposed. The Game Pass 0.9.2435.0 reverse-engineering reference is documented, but Atlas has not yet certified its own field mappings, live witnesses, read-back, rollback and Windows acceptance.", 10, true, Brush("#E6C477"), wrap: true);
+
         hs.Children.Add(alert);
+
+        // This panel reports Atlas certification status, not the capabilities of
+        // the external reverse-engineering projects. A matching profile alone is
+        // never sufficient to unlock a live write.
+        var readiness = Card(new StackPanel(), 12, new Thickness(0, 7, 0, 8));
+        var readinessStack = (StackPanel)readiness.Child;
+        readinessStack.Children.Add(Txt("LIVE WRITE READINESS", 9, true, Teal));
+        readinessStack.Children.Add(Txt("FM27 Game Pass · 0.9.2435.0 reference reviewed", 14, true, Ink));
+        readinessStack.Children.Add(Txt("Atlas status: NOT CERTIFIED · live write gate closed", 11, true, Brush("#E6C477")));
+        readinessStack.Children.Add(Txt(
+            "Build fingerprint: reference documented · Atlas runtime match still required",
+            10, false, Muted, wrap: true));
+        readinessStack.Children.Add(Txt(
+            "Field map + per-field health checks: not yet independently certified in Atlas",
+            10, false, Muted, wrap: true));
+        readinessStack.Children.Add(Txt(
+            "Pre-write identity recheck + read-back verification: not enabled",
+            10, false, Muted, wrap: true));
+        readinessStack.Children.Add(Txt(
+            "Rollback / recovery + Windows live-career acceptance: not enabled",
+            10, false, Muted, wrap: true));
+        hs.Children.Add(readiness);
+
         if (!_editorEnabled)
         {
             hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas database edits only. The switch resets to OFF when FM Atlas closes; Football Manager itself is never changed.", 11, false, Muted, wrap: true));
@@ -2804,9 +2828,9 @@ public partial class MainWindow : Window
         }));
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            var liveAbilityApply = SoftButton("Live CA / PA Apply disabled in V8", (_, _) => { });
+            var liveAbilityApply = SoftButton("Live CA / PA Apply unavailable", (_, _) => { });
             liveAbilityApply.IsEnabled = false;
-            liveAbilityApply.ToolTip = "Live memory writes are hard-disabled. Save local changes to the FM Atlas database only.";
+            liveAbilityApply.ToolTip = "Live memory writes are not certified. Save local changes to the FM Atlas database only.";
             abilityRow.Children.Add(liveAbilityApply);
         }
         controls.Children.Add(abilityRow);
@@ -2840,9 +2864,9 @@ public partial class MainWindow : Window
         saveAttributes.Margin = new Thickness(0, 9, 0, 0); DockPanel.SetDock(saveAttributes, Dock.Bottom); dock.Children.Add(saveAttributes);
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            var liveAttributeApply = SoftButton("Live attribute Apply disabled in V8", (_, _) => { });
+            var liveAttributeApply = SoftButton("Live attribute Apply unavailable", (_, _) => { });
             liveAttributeApply.IsEnabled = false;
-            liveAttributeApply.ToolTip = "Live memory writes are hard-disabled. The enabled editor saves changes to the FM Atlas database only.";
+            liveAttributeApply.ToolTip = "Live memory writes are not certified. The enabled editor saves changes to the FM Atlas database only.";
             liveAttributeApply.Margin = new Thickness(0, 8, 0, 0);
             DockPanel.SetDock(liveAttributeApply, Dock.Bottom);
             dock.Children.Add(liveAttributeApply);
