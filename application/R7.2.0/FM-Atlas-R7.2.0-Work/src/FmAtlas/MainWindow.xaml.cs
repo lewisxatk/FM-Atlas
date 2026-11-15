@@ -708,7 +708,7 @@ public partial class MainWindow : Window
             await Dispatcher.Yield(DispatcherPriority.Background);
             UIElement content = page switch
             {
-                "Dashboard" => await DashboardPageAsync(),
+                "Dashboard" => await DashboardPageV9Async(),
                 "Advanced Search" => await AdvancedSearchWorkspaceAsync(),
                 "Players" => await PlayerWorkspaceV9Async(false),
                 "Recruitment" => await PlayerWorkspaceV9Async(true),
