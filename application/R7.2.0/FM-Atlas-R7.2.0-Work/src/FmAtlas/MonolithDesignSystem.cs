@@ -11,18 +11,18 @@ namespace FmAtlas;
 /// </summary>
 internal static class MonolithDesignSystem
 {
-    public const string Canvas = "#0A0E13";
-    public const string Surface = "#121922";
-    public const string SurfaceRaised = "#18222D";
-    public const string SurfaceHover = "#202D39";
-    public const string Border = "#34414D";
-    public const string Text = "#F1F4F6";
-    public const string Muted = "#A8B3BD";
-    public const string Signal = "#F08A42";
-    public const string SignalSoft = "#3A291F";
-    public const string Positive = "#83CDA5";
-    public const string Caution = "#E7BD70";
-    public const string Negative = "#EC8791";
+    public const string Canvas = "#07080A";
+    public const string Surface = "#0C0E11";
+    public const string SurfaceRaised = "#14171C";
+    public const string SurfaceHover = "#1C2027";
+    public const string Border = "#292B30";
+    public const string Text = "#ECE8E0";
+    public const string Muted = "#A8A39A";
+    public const string Signal = "#FF6A1A";
+    public const string SignalSoft = "#351A0F";
+    public const string Positive = "#83C99A";
+    public const string Caution = "#E8C547";
+    public const string Negative = "#E27B76";
 
     private static bool _lightAppearance;
 
@@ -40,14 +40,14 @@ internal static class MonolithDesignSystem
         {
             hex = hex.ToUpperInvariant() switch
             {
-                Canvas => "#EFF3F7",
-                Surface => "#FFFFFF",
-                SurfaceRaised => "#F7FAFC",
-                SurfaceHover => "#E7EEF4",
-                Border => "#CED9E3",
-                Text => "#172331",
-                Muted => "#5E6C79",
-                SignalSoft => "#FBEAE0",
+                Canvas => "#F2F0EB",
+                Surface => "#FBFAF7",
+                SurfaceRaised => "#F1EFE9",
+                SurfaceHover => "#E7E3DA",
+                Border => "#D4CEC3",
+                Text => "#211F1A",
+                Muted => "#68635B",
+                SignalSoft => "#F9E7DC",
                 Positive => "#287A52",
                 Caution => "#956518",
                 Negative => "#AF3E4C",
@@ -84,11 +84,12 @@ internal static class MonolithDesignSystem
             FontFamily = DisplayFont,
             FontSize = size,
             FontWeight = FontWeights.SemiBold,
+            FontStretch = FontStretches.Condensed,
             Foreground = foreground ?? Solid(Text),
             TextWrapping = TextWrapping.Wrap
         };
 
-    public static TextBlock BodyText(string text, double size = 11, Brush? foreground = null)
+    public static TextBlock BodyText(string text, double size = 12.5, Brush? foreground = null)
         => new()
         {
             Text = text,
@@ -98,7 +99,7 @@ internal static class MonolithDesignSystem
             TextWrapping = TextWrapping.Wrap
         };
 
-    public static TextBlock DataText(string text, double size = 10, Brush? foreground = null)
+    public static TextBlock DataText(string text, double size = 11, Brush? foreground = null)
         => new()
         {
             Text = text,
@@ -124,7 +125,7 @@ internal static class MonolithDesignSystem
         {
             Text = text.ToUpperInvariant(),
             FontFamily = DataFont,
-            FontSize = 9,
+            FontSize = 10.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = Solid(accent ? Signal : Muted),
             TextWrapping = TextWrapping.Wrap
@@ -141,7 +142,7 @@ internal static class MonolithDesignSystem
             Background = Solid(raised ? SurfaceRaised : Surface),
             BorderBrush = Solid(Border),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(radius),
+            CornerRadius = new CornerRadius(0),
             Margin = margin ?? new Thickness(0),
             Padding = padding ?? new Thickness(10),
             Child = child,
@@ -154,7 +155,7 @@ internal static class MonolithDesignSystem
         {
             Content = label,
             FontFamily = BodyFont,
-            FontSize = 10,
+            FontSize = 11.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = Solid(primary ? Canvas : Text),
             Background = Solid(primary ? Signal : SurfaceRaised),
@@ -162,7 +163,7 @@ internal static class MonolithDesignSystem
             BorderThickness = new Thickness(1),
             Padding = new Thickness(12, 8, 12, 8),
             Margin = new Thickness(3),
-            MinHeight = 34,
+            MinHeight = 36,
             Cursor = Cursors.Hand,
             Focusable = true,
             ToolTip = label

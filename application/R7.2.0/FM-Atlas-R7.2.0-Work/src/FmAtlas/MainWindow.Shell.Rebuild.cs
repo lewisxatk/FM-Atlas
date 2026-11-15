@@ -44,7 +44,7 @@ public partial class MainWindow
         {
             Width = 38,
             Height = 38,
-            CornerRadius = new CornerRadius(10),
+            CornerRadius = new CornerRadius(0),
             Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft),
             BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
             BorderThickness = new Thickness(1),
@@ -80,7 +80,7 @@ public partial class MainWindow
             Cursor = Cursors.Hand,
             Focusable = true,
             ToolTip = _navCollapsed ? "Expand navigation" : "Collapse navigation",
-            Template = RoundedButtonTemplate(8)
+            Template = RoundedButtonTemplate(0)
         };
         collapse.Click += async (_, _) => await ToggleNavigationAsync();
         System.Windows.Automation.AutomationProperties.SetName(collapse, collapse.ToolTip?.ToString() ?? "Toggle navigation");
@@ -117,7 +117,7 @@ public partial class MainWindow
             {
                 Tag = "nav-active",
                 Background = selected ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal) : Brushes.Transparent,
-                CornerRadius = new CornerRadius(2),
+                CornerRadius = new CornerRadius(0),
                 Margin = new Thickness(0, 7, 0, 7)
             };
             row.Children.Add(activeBar);
@@ -152,7 +152,7 @@ public partial class MainWindow
                 Focusable = true,
                 MinHeight = 41,
                 ToolTip = _navCollapsed ? label + " · " + PageDescription(label) : PageDescription(label),
-                Template = RoundedButtonTemplate(8)
+                Template = RoundedButtonTemplate(0)
             };
             System.Windows.Automation.AutomationProperties.SetName(button, label);
             System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
@@ -204,7 +204,7 @@ public partial class MainWindow
             Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
             BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(9),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(_navCollapsed ? 5 : 10),
             Margin = new Thickness(0, 12, 0, 0),
             Child = _navCollapsed
@@ -270,7 +270,7 @@ public partial class MainWindow
             Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
             BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(9),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(10, 0, 8, 0),
             Margin = new Thickness(8, 3, 12, 3),
             VerticalAlignment = VerticalAlignment.Stretch
@@ -361,7 +361,7 @@ public partial class MainWindow
             Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
             BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(11),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(9, 4, 9, 4),
             Child = toolbarGrid
         };
@@ -465,7 +465,7 @@ public partial class MainWindow
             Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
             BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(10, 5, 10, 5),
             Child = statusGrid
         };

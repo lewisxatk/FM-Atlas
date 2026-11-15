@@ -285,10 +285,10 @@ public partial class MainWindow : Window
                 button.BorderBrush = MonolithDesignSystem.Solid(isPrimary ? MonolithDesignSystem.Signal : MonolithDesignSystem.Border);
                 button.BorderThickness = new Thickness(1);
                 button.FontFamily = MonolithDesignSystem.BodyFont;
-                button.FontSize = Math.Max(10, button.FontSize);
+                button.FontSize = Math.Max(11, button.FontSize);
                 button.FontWeight = FontWeights.SemiBold;
                 button.Focusable = true;
-                if (button.Template is null) button.Template = RoundedButtonTemplate(10);
+                if (button.Template is null) button.Template = RoundedButtonTemplate(0);
                 break;
 
             case TabControl tabs:
@@ -520,7 +520,7 @@ public partial class MainWindow : Window
         brand.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var logoLine = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var logoImage = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Icon.png", UriKind.Absolute)), Stretch = Stretch.UniformToFill };
-        var logo = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(13), ClipToBounds = true, BorderBrush = Brush("#9DC8EF"), BorderThickness = new Thickness(1), Child = logoImage };
+        var logo = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(0), ClipToBounds = true, BorderBrush = Brush("#9DC8EF"), BorderThickness = new Thickness(1), Child = logoImage };
         logoLine.Children.Add(logo);
         var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
         word.Children.Add(Txt("FM ATLAS", 16, true, Ink));
@@ -594,7 +594,7 @@ public partial class MainWindow : Window
                 ? new SolidColorBrush(Color.FromArgb(90, 226, 132, 80))
                 : new SolidColorBrush(Color.FromArgb(85, 175, 205, 235)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(15),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(11),
             Margin = new Thickness(0, 12, 0, 0),
             ToolTip = "FM connection is optional. Offline save import remains the primary safe route."
@@ -1306,7 +1306,7 @@ public partial class MainWindow : Window
             attributes[fact.FieldKey] = fact.NumericValue!.Value;
 
         profilePanel.Children.Add(Txt("PLAYER PROFILE", 9, true, Teal));
-        var hero = new Border { Background = new LinearGradientBrush(Color.FromRgb(29, 39, 49), Color.FromRgb(18, 25, 33), 25), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 13) };
+        var hero = new Border { Background = new LinearGradientBrush(Color.FromRgb(29, 39, 49), Color.FromRgb(18, 25, 33), 25), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 13) };
         var heroGrid = new Grid();
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(82) });
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1314,7 +1314,7 @@ public partial class MainWindow : Window
         var graphicsUid = player.SourceId.StartsWith("FMSAVE:", StringComparison.OrdinalIgnoreCase) ? player.SourceId[7..]
             : player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) ? player.SourceId[5..] : null;
         var facePath = await Task.Run(() => GraphicsResolver.Shared.ResolveFace(graphicsUid));
-        var avatarBorder = new Border { Width = 68, Height = 68, CornerRadius = new CornerRadius(14), Background = Brush("#202A35"), BorderBrush = Brush("#485562"), BorderThickness = new Thickness(1), ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
+        var avatarBorder = new Border { Width = 68, Height = 68, CornerRadius = new CornerRadius(0), Background = Brush("#202A35"), BorderBrush = Brush("#485562"), BorderThickness = new Thickness(1), ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
         if (!string.IsNullOrWhiteSpace(facePath) && File.Exists(facePath))
         {
             try
@@ -1373,7 +1373,7 @@ public partial class MainWindow : Window
         ability.Children.Add(ProfileMetric("AGE", player.Age?.ToString() ?? "—", player.DateOfBirth?.ToString("dd MMM yyyy") ?? "Date of birth unavailable"));
         profilePanel.Children.Add(ability);
 
-        var detailCard = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(13), Margin = new Thickness(0, 0, 0, 12) };
+        var detailCard = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(13), Margin = new Thickness(0, 0, 0, 12) };
         var detailGrid = new UniformGrid { Columns = 2 };
         AddDetailRow(detailGrid, "Nationality", player.Nation ?? "Not decoded");
         AddDetailRow(detailGrid, "League", player.League ?? "Not decoded");
@@ -1565,7 +1565,7 @@ public partial class MainWindow : Window
         panel.Children.Add(Txt(label, 8, true, Brush("#9EADB9")));
         panel.Children.Add(Txt(value, 22, true, Brush("#E8EEF4")));
         panel.Children.Add(Txt(note, 8, false, Brush("#9EADB9"), wrap: true));
-        return new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(11), Margin = new Thickness(0, 0, 8, 0), Child = panel };
+        return new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(11), Margin = new Thickness(0, 0, 8, 0), Child = panel };
     }
 
 
@@ -1609,7 +1609,7 @@ public partial class MainWindow : Window
             Background = Brush("#171F28"),
             BorderBrush = Brush("#303943"),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(13),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(12),
             Margin = new Thickness(0, 12, 0, 10)
         };
@@ -1829,7 +1829,7 @@ public partial class MainWindow : Window
             panel.Children.Add(new Border
             {
                 Background = Brush("#30291D"), BorderBrush = Brush("#66563A"), BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 10),
+                CornerRadius = new CornerRadius(0), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 10),
                 Child = Txt("NO ATTRIBUTE VALUES IMPORTED · The sections below show the Football Manager attribute catalogue, but this source has not supplied ratings for the player. Blank values are not zero and are never guessed.", 10, true, Brush("#E6C477"), wrap: true)
             });
         }
@@ -1868,7 +1868,7 @@ public partial class MainWindow : Window
         var name = Txt(label, 10, false, Brush("#C4CED8"));
         row.Children.Add(name);
         var valueBrush = !numeric.HasValue ? Brush("#9EADB9") : numeric.Value >= 15 ? Brush("#8BCFA6") : numeric.Value >= 11 ? Brush("#E6C477") : Brush("#F08C96");
-        var pill = new Border { Background = !numeric.HasValue ? Brush("#202A35") : numeric.Value >= 15 ? Brush("#20342C") : numeric.Value >= 11 ? Brush("#30291D") : Brush("#35252A"), CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 3, 8, 3), MinWidth = 34, Child = Txt(value, 10, true, valueBrush) };
+        var pill = new Border { Background = !numeric.HasValue ? Brush("#202A35") : numeric.Value >= 15 ? Brush("#20342C") : numeric.Value >= 11 ? Brush("#30291D") : Brush("#35252A"), CornerRadius = new CornerRadius(0), Padding = new Thickness(8, 3, 8, 3), MinWidth = 34, Child = Txt(value, 10, true, valueBrush) };
         Grid.SetColumn(pill, 1); row.Children.Add(pill);
         return new Border { BorderBrush = Brush("#303943"), BorderThickness = new Thickness(0, 0, 0, 1), Padding = new Thickness(3, 5, 3, 5), Child = row };
     }
@@ -2009,7 +2009,7 @@ public partial class MainWindow : Window
                 ? club.SourceId[(club.SourceId.IndexOf(':') + 1)..] : null;
             var clubLogoPath = await Task.Run(() => GraphicsResolver.Shared.ResolveClubLogo(clubUid));
             var clubHero = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 7, 0, 8) };
-            var clubLogo = new Border { Width = 58, Height = 58, Background = Brush("#202A35"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(6), Margin = new Thickness(0, 0, 12, 0) };
+            var clubLogo = new Border { Width = 58, Height = 58, Background = Brush("#202A35"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(6), Margin = new Thickness(0, 0, 12, 0) };
             if (!string.IsNullOrWhiteSpace(clubLogoPath) && File.Exists(clubLogoPath))
             {
                 try { var logo = new BitmapImage(); logo.BeginInit(); logo.CacheOption = BitmapCacheOption.OnLoad; logo.DecodePixelWidth = 128; logo.UriSource = new Uri(clubLogoPath, UriKind.Absolute); logo.EndInit(); logo.Freeze(); clubLogo.Child = new Image { Source = logo, Stretch = Stretch.Uniform }; }
@@ -2764,7 +2764,7 @@ public partial class MainWindow : Window
         hs.Children.Add(_editorEnabled
             ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
             : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
-        var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
+        var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
         alert.Child = Txt("Atlas local edits are separate from Football Manager. In this V8 build, Editor Studio saves changes to the FM Atlas database only. Live Apply/Undo is hard-disabled; no game-memory writes are exposed. Live editing will remain blocked until exact-build identity, field mappings, in-game witnesses, read-back, rollback and Windows acceptance are independently verified.", 10, true, Brush("#E6C477"), wrap: true);
         hs.Children.Add(alert);
         if (!_editorEnabled)
@@ -3492,7 +3492,7 @@ public partial class MainWindow : Window
 
     private static void AddAbilityTile(Grid grid, int column, string label, string value)
     {
-        var border = new Border { Background = Brush("#EAF2F9"), CornerRadius = new CornerRadius(11), Padding = new Thickness(10), Margin = new Thickness(0, 7, 6, 7) };
+        var border = new Border { Background = Brush("#EAF2F9"), CornerRadius = new CornerRadius(0), Padding = new Thickness(10), Margin = new Thickness(0, 7, 6, 7) };
         var stack = new StackPanel(); stack.Children.Add(Txt(label, 8, true, Muted)); stack.Children.Add(Txt(value, 20, true, Ink)); border.Child = stack; Grid.SetColumn(border, column); grid.Children.Add(border);
     }
 
@@ -3506,7 +3506,7 @@ public partial class MainWindow : Window
     {
         var stack = new StackPanel { Margin = new Thickness(0, 5, 0, 5) };
         var row = new Grid(); row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); row.Children.Add(Txt(name.Replace('_', ' ').Replace('.', ' '), 10, true, Ink)); var val = Txt(value.ToString("0.#"), 11, true, Ink); Grid.SetColumn(val, 1); row.Children.Add(val); stack.Children.Add(row);
-        var track = new Border { Background = Brush("#D9E7F1"), Height = 6, CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 5, 0, 0), Child = new Border { Background = Brush(value >= 15 ? "#277BB9" : value >= 11 ? "#E5A65D" : "#D77B7E"), HorizontalAlignment = HorizontalAlignment.Left, Width = Math.Clamp(value, 0, 20) * 12.0, CornerRadius = new CornerRadius(4) } };
+        var track = new Border { Background = Brush("#D9E7F1"), Height = 6, CornerRadius = new CornerRadius(0), Margin = new Thickness(0, 5, 0, 0), Child = new Border { Background = Brush(value >= 15 ? "#277BB9" : value >= 11 ? "#E5A65D" : "#D77B7E"), HorizontalAlignment = HorizontalAlignment.Left, Width = Math.Clamp(value, 0, 20) * 12.0, CornerRadius = new CornerRadius(0) } };
         stack.Children.Add(track); return new Border { Child = stack };
     }
 
@@ -3574,79 +3574,28 @@ public partial class MainWindow : Window
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
     {
-        // Keep the original direct-child contract: many established workspaces populate
-        // Card(...).Child after construction. A nested visual host here breaks those
-        // callers at runtime. The material is therefore rendered by the Border itself.
-        var light = _themeMode == "Glass Light";
-        var studio = _themeMode == "Studio";
-        var monolith = _themeMode == "Monolith Glass";
-        var top = light
-            ? Color.FromArgb(246, 255, 255, 255)
-            : studio
-                ? Color.FromArgb(238, 23, 26, 32)
-                : monolith
-                    ? Color.FromArgb(236, 47, 48, 53)
-                    : Color.FromArgb(222, 26, 35, 46);
-        var bottom = light
-            ? Color.FromArgb(232, 237, 244, 250)
-            : studio
-                ? Color.FromArgb(228, 13, 16, 21)
-                : monolith
-                    ? Color.FromArgb(224, 23, 24, 28)
-                    : Color.FromArgb(204, 15, 24, 35);
-        var edgeTop = light
-            ? Color.FromArgb(210, 255, 255, 255)
-            : monolith
-                ? Color.FromArgb(188, 242, 140, 69)
-                : Color.FromArgb(158, 244, 155, 100);
-        var edgeBottom = light
-            ? Color.FromArgb(132, 151, 178, 205)
-            : monolith
-                ? Color.FromArgb(88, 242, 140, 69)
-                : Color.FromArgb(58, 244, 155, 100);
-
+        // Flat instrument panels: no decorative gradient, glass, shadow or rounded-card treatment.
+        // Keep the original direct-child contract used by existing workspaces.
         return new Border
         {
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(top, 0),
-                    new GradientStop(bottom, 1)
-                },
-                new Point(0, 0),
-                new Point(0, 1)),
-            BorderBrush = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(edgeTop, 0),
-                    new GradientStop(Color.FromArgb(light ? (byte)120 : monolith ? (byte)64 : (byte)50, 255, 255, 255), 0.42),
-                    new GradientStop(edgeBottom, 1)
-                },
-                new Point(0, 0),
-                new Point(0, 1)),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(radius),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(15),
             Margin = margin ?? new Thickness(0),
-            Effect = new DropShadowEffect
-            {
-                Color = light ? Color.FromRgb(111, 126, 145) : Color.FromRgb(0, 0, 0),
-                BlurRadius = monolith ? 26 : 22,
-                ShadowDepth = monolith ? 5 : 4,
-                Opacity = light ? 0.10 : monolith ? 0.30 : 0.24
-            },
             SnapsToDevicePixels = true,
             Child = child
         };
     }
 
     private static TextBlock Txt(string text, double size, bool bold, Brush foreground, bool wrap = false)
-        => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
+        => new() { Text = text, FontSize = Math.Max(10.5, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = MonolithDesignSystem.BodyFont };
 
     private static TextBox Input(string placeholder)
-        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#FBFDFF"), Foreground = Brush("#1A3851"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 12 };
+        => MonolithDesignSystem.TextInput(placeholder, 12.5);
 
-    private static TextBlock FieldLabel(string label) => Txt(label, 9, true, Muted);
+    private static TextBlock FieldLabel(string label) => Txt(label, 10.5, true, Muted);
 
     private static Button SoftButton(string content, RoutedEventHandler click)
     {
@@ -3719,7 +3668,7 @@ public partial class MainWindow : Window
         var template = new ControlTemplate(typeof(Button));
         var border = new FrameworkElementFactory(typeof(Border));
         border.Name = "AtlasButtonSurface";
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(0));
         border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
         border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty));
         border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Control.BorderThicknessProperty));
