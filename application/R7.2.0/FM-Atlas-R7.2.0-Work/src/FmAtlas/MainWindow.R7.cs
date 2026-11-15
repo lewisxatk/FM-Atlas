@@ -207,41 +207,168 @@ public partial class MainWindow
 
     private void AddPositionSuitabilityMap(Panel panel, List<AtlasFactRecord> saveFacts, List<(string FieldKey, double? NumericValue, string? TextValue, string ValidationStatus)> liveFacts)
     {
-        var values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var sourceValues = new List<KeyValuePair<string, double?>>();
         foreach (var fact in saveFacts)
         {
-            var key = fact.Field.Trim().Replace(" ", "_").Replace("-", "_");
-            if (double.TryParse(fact.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 20) values[key] = v;
+            if (double.TryParse(fact.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+                sourceValues.Add(new KeyValuePair<string, double?>(fact.Field, value));
         }
-        foreach (var fact in liveFacts.Where(x => x.NumericValue.HasValue && x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase)))
-        {
-            var key = fact.FieldKey.Split('.').Last().Trim();
-            if (double.TryParse(fact.NumericValue!.Value.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 20) values[key] = v;
-        }
-        var positions = new (string Key,string Label)[] { ("pos_gk","GK"),("pos_sw","SW"),("pos_dl","DL"),("pos_dc","DC"),("pos_dr","DR"),("pos_dm","DM"),("pos_ml","ML"),("pos_mc","MC"),("pos_mr","MR"),("pos_aml","AML"),("pos_amc","AMC"),("pos_amr","AMR"),("pos_st","ST"),("pos_wbl","WBL"),("pos_wbr","WBR") };
-        foreach (var pos in positions)
-        {
-            if (!values.ContainsKey(pos.Key) && values.TryGetValue(pos.Label, out var v)) values[pos.Key] = v;
-            if (!values.ContainsKey(pos.Key) && values.TryGetValue("position_" + pos.Label.ToLowerInvariant(), out v)) values[pos.Key] = v;
-        }
+        // The FM27 entity-array reader's position values are layout-matched but not yet
+        // independently witnessed. Display them as provisional source reads, never as verified.
+        var livePositions = liveFacts.Where(x => x.NumericValue.HasValue
+            && x.FieldKey.StartsWith("positions.", StringComparison.OrdinalIgnoreCase)
+            && (x.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase)
+                || x.ValidationStatus.Contains("Provisional-ProfileMatched", StringComparison.OrdinalIgnoreCase))).ToList();
+        foreach (var fact in livePositions)
+            sourceValues.Add(new KeyValuePair<string, double?>(fact.FieldKey, fact.NumericValue));
+
+        var positions = PositionSuitabilityService.MapSourceRatings(sourceValues);
         var card = Card(new StackPanel(), 13, new Thickness(0, 0, 0, 12));
         var stack = (StackPanel)card.Child;
         stack.Children.Add(Txt("POSITION SUITABILITY MAP", 9, true, Teal));
-        stack.Children.Add(Txt("FM position ratings · 0–20", 17, true, Ink));
-        // Avoid overlapping roles in the compact map by rendering a unique grid of all positions below.
-        var compact = new UniformGrid { Columns = 5, Rows = 3, Margin = new Thickness(0, 5, 0, 5) };
-        foreach (var pos in positions)
+        stack.Children.Add(Txt("FM position ratings · source 1–20 scale", 17, true, Ink));
+        stack.Children.Add(Txt("All 15 position slots are shown. Colours are Atlas display bands over source ratings; zero and missing values remain unrated.", 9, false, Muted, wrap: true));
+        if (livePositions.Any(x => x.ValidationStatus.Contains("Provisional-ProfileMatched", StringComparison.OrdinalIgnoreCase)))
+            stack.Children.Add(Txt("Includes read-only FM27 live-memory values · provisional layout match · confirm against the in-game Positions screen. These are not verified editor values.", 9, true, Brush("#A06B24"), wrap: true));
+
+        // A pitch-shaped map is easier to scan than a flat 5x3 tile matrix. Position
+        // coordinates are presentation-only; the rating and band always come from the
+        // source-backed PositionSuitabilityService and never from the tile location.
+        var pitch = new Canvas { Width = 640, Height = 340, ClipToBounds = true };
+        var pitchBackground = new Border
         {
-            var has = values.TryGetValue(pos.Key, out var rating);
-            var label = has ? $"{pos.Label}\n{rating:0}" : $"{pos.Label}\n—";
-            var tile = new Border { Margin = new Thickness(3), Padding = new Thickness(5), CornerRadius = new CornerRadius(7), Background = has ? PositionRatingBrush(rating) : Brush("#E8EEF2"), BorderBrush = Brush("#D5E0E7"), BorderThickness = new Thickness(1), Child = Txt(label, 11, true, has && rating >= 15 ? Brushes.White : Ink) };
-            compact.Children.Add(tile);
+            CornerRadius = new CornerRadius(14),
+            BorderBrush = Brush("#54776B"),
+            BorderThickness = new Thickness(1),
+            Background = new LinearGradientBrush(Color.FromRgb(25, 65, 52), Color.FromRgb(16, 48, 41), 90),
+            Padding = new Thickness(0),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child = pitch
+        };
+        var fieldOutline = new System.Windows.Shapes.Rectangle
+        {
+            Width = 620, Height = 320, RadiusX = 8, RadiusY = 8,
+            Stroke = Brush("#8BA99A"), StrokeThickness = 1.2,
+            Fill = Brushes.Transparent
+        };
+        System.Windows.Controls.Canvas.SetLeft(fieldOutline, 10);
+        System.Windows.Controls.Canvas.SetTop(fieldOutline, 10);
+        pitch.Children.Add(fieldOutline);
+        pitch.Children.Add(new System.Windows.Shapes.Line
+        {
+            X1 = 320, X2 = 320, Y1 = 10, Y2 = 330,
+            Stroke = Brush("#78998B"), StrokeThickness = 1, Opacity = .8
+        });
+        pitch.Children.Add(new System.Windows.Shapes.Ellipse
+        {
+            Width = 104, Height = 104, Stroke = Brush("#78998B"),
+            StrokeThickness = 1, Fill = Brushes.Transparent
+        });
+        System.Windows.Controls.Canvas.SetLeft(pitch.Children[^1], 268);
+        System.Windows.Controls.Canvas.SetTop(pitch.Children[^1], 118);
+        foreach (var (x, y, width, height) in new[]
+        {
+            (10d, 106d, 74d, 148d), (556d, 106d, 74d, 148d),
+            (10d, 142d, 28d, 76d), (602d, 142d, 28d, 76d)
+        })
+        {
+            pitch.Children.Add(new System.Windows.Shapes.Rectangle
+            {
+                Width = width, Height = height, Stroke = Brush("#78998B"),
+                StrokeThickness = 1, Fill = Brushes.Transparent
+            });
+            System.Windows.Controls.Canvas.SetLeft(pitch.Children[^1], x);
+            System.Windows.Controls.Canvas.SetTop(pitch.Children[^1], y);
         }
-        stack.Children.Add(compact);
+
+        var positionPoints = new Dictionary<string, Point>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["GK"] = new Point(48, 170), ["SW"] = new Point(105, 170),
+            ["DL"] = new Point(165, 88), ["DC"] = new Point(165, 170), ["DR"] = new Point(165, 252),
+            ["WBL"] = new Point(245, 88), ["DM"] = new Point(265, 170), ["WBR"] = new Point(245, 252),
+            ["ML"] = new Point(350, 88), ["MC"] = new Point(350, 170), ["MR"] = new Point(350, 252),
+            ["AML"] = new Point(455, 88), ["AMC"] = new Point(455, 170), ["AMR"] = new Point(455, 252),
+            ["STC"] = new Point(565, 170)
+        };
+        var pitchTiles = new Dictionary<string, Border>(StringComparer.OrdinalIgnoreCase);
+        foreach (var position in positions)
+        {
+            if (!positionPoints.TryGetValue(position.Code, out var point)) continue;
+            var has = position.Rating.HasValue;
+            var rating = position.Rating.GetValueOrDefault();
+            var tile = new Border
+            {
+                Width = 62, Height = 48,
+                Padding = new Thickness(3),
+                CornerRadius = new CornerRadius(8),
+                Background = has ? PositionRatingBrush(rating) : Brush("#263D35"),
+                BorderBrush = Brush("#91AA9D"),
+                BorderThickness = new Thickness(1),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                Focusable = true,
+                ToolTip = has
+                    ? $"{position.Label} · {rating:0.##}/20 · {position.BandLabel} (source rating)"
+                    : $"{position.Label} · Unrated (no valid numeric source value)",
+                Child = new StackPanel
+                {
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Children =
+                    {
+                        Txt(position.Code, 11, true, has && rating >= 15 ? Brushes.White : Brush("#F0F5F1")),
+                        Txt(has ? $"{rating:0.##}" : "—", 10, true, has && rating >= 15 ? Brushes.White : Brush("#D6E2DA"))
+                    }
+                }
+            };
+            System.Windows.Automation.AutomationProperties.SetName(tile,
+                has ? $"{position.Label}, rating {rating:0.##} out of 20, {position.BandLabel}" : $"{position.Label}, unrated");
+            pitchTiles[position.Code] = tile;
+            System.Windows.Controls.Canvas.SetLeft(tile, point.X - tile.Width / 2);
+            System.Windows.Controls.Canvas.SetTop(tile, point.Y - tile.Height / 2);
+            pitch.Children.Add(tile);
+        }
+
+        var selectedPositionDetail = Txt("Select any position to inspect its source rating and suitability band.", 9, false, Muted, wrap: true);
+        void SelectPosition(PositionSuitabilityEntry position, Border tile)
+        {
+            foreach (var candidate in pitchTiles.Values)
+            {
+                candidate.BorderBrush = Brush("#91AA9D");
+                candidate.BorderThickness = new Thickness(1);
+            }
+            tile.BorderBrush = Brush("#F0A04B");
+            tile.BorderThickness = new Thickness(2);
+            selectedPositionDetail.Text = position.Rating.HasValue
+                ? $"{position.Label} · {position.Rating:0.##}/20 · {position.BandLabel} · source rating; no Atlas-generated score."
+                : $"{position.Label} · Unrated · no valid numeric source value was supplied.";
+        }
+
+        foreach (var position in positions)
+        {
+            if (!pitchTiles.TryGetValue(position.Code, out var tile)) continue;
+            tile.MouseLeftButtonUp += (_, _) => SelectPosition(position, tile);
+            tile.KeyDown += (_, e) =>
+            {
+                if (e.Key is System.Windows.Input.Key.Enter or System.Windows.Input.Key.Space)
+                {
+                    e.Handled = true;
+                    SelectPosition(position, tile);
+                }
+            };
+        }
+        var pitchView = new Viewbox { Stretch = Stretch.Uniform, MaxHeight = 340, Child = pitchBackground };
+        stack.Children.Add(pitchView);
+        stack.Children.Add(selectedPositionDetail);
         var legend = new WrapPanel();
-        legend.Children.Add(Txt("1–4 Red",9,true,Brush("#B94A48"))); legend.Children.Add(Txt("   5–9 Orange",9,true,Brush("#C47B32"))); legend.Children.Add(Txt("   10–14 Yellow",9,true,Brush("#9C8B28"))); legend.Children.Add(Txt("   15–17 Green",9,true,Brush("#37875A"))); legend.Children.Add(Txt("   18–20 Natural",9,true,Brush("#176B46")));
+        legend.Children.Add(Txt("1–4 Low · Red",9,true,Brush("#B94A48")));
+        legend.Children.Add(Txt("   5–9 Limited · Orange",9,true,Brush("#C47B32")));
+        legend.Children.Add(Txt("   10–14 Competent · Yellow",9,true,Brush("#9C8B28")));
+        legend.Children.Add(Txt("   15–17 Strong · Green",9,true,Brush("#37875A")));
+        legend.Children.Add(Txt("   18–20 Natural · Deep green",9,true,Brush("#176B46")));
+        legend.Children.Add(Txt("   0 / missing · Unrated",9,true,Muted));
         stack.Children.Add(legend);
-        if (values.Count == 0) stack.Children.Add(Txt("No verified position ratings were found in this record. The FM27 Steam mapping is documented, but this R6 live importer has not yet been upgraded to extract those bytes. The map will populate when a supported source provides them.", 10, false, Muted, wrap: true));
+        if (positions.All(x => !x.Rating.HasValue))
+            stack.Children.Add(Txt("No valid numeric position ratings were supplied by this player's imported positions object or read-only live scan. Missing values are not interpreted as zero.", 10, false, Muted, wrap: true));
         panel.Children.Add(card);
     }
 

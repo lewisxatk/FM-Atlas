@@ -2,15 +2,16 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <Version>7.2.0</Version>
-    <AssemblyVersion>7.2.0.0</AssemblyVersion>
-    <FileVersion>7.2.0.0</FileVersion>
+    <Version>8.0.0</Version>
+    <InformationalVersion>8.0.0-atlas-liquid</InformationalVersion>
+    <AssemblyVersion>8.0.0.0</AssemblyVersion>
+    <FileVersion>8.0.0.0</FileVersion>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\FmAtlas.ico</ApplicationIcon>
     <RootNamespace>FmAtlas</RootNamespace>
-    <Product>FM Atlas 27</Product>
+    <Product>FM Atlas V8 · Monolith Glass</Product>
     <Company>FM Atlas</Company>
-    <Description>FM Atlas 27 · Football Manager scouting, analytics and editing workspace.</Description>
+    <Description>FM Atlas V8 · Liquid Glass scouting, analytics, squad planning and guarded editing workspace.</Description>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

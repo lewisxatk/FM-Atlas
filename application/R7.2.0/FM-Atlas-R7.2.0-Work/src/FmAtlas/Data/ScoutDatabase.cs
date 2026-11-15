@@ -2,15 +2,23 @@ using System.IO;
 using System.Text;
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using FmAtlas.Models;
 using FmAtlas.Services;
 
 namespace FmAtlas.Data;
 
 public sealed record LiveClubSummary(long ClubUid, string Name, string ValidationStatus, int LinkedPlayers);
-public sealed record WorkspaceMetrics(int LivePlayers, int LiveClubs, int LiveStaff, int SavePlayers, int SaveClubs, int SaveStaff, int LocalAttributeFacts, int LiveFacts, string? LastSaveImportUtc, string? LastLiveImportUtc, string? LastSaveFileName, string? SaveGame, string? SaveBuild, bool? SaveBuildKnown, string? SaveGameDate, string? SaveValidationJson, string? CurrentManager, string? CurrentManagerClub);
-public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club, string? Job, int? Age, string? Nation, string ValidationStatus);
+public sealed record WorkspaceMetrics(int LivePlayers, int LiveClubs, int LiveStaff, int SavePlayers, int SaveClubs, int SaveStaff, int LocalAttributeFacts, int LiveFacts, string? LastSaveImportUtc, string? LastLiveImportUtc, string? LastSaveFileName, string? SaveGame, string? SaveBuild, bool? SaveBuildKnown, string? SaveGameDate, string? SaveValidationJson, string? CurrentManager, string? CurrentManagerClub, string? CurrentManagerNation = null, long? LiveSaveLoadCounter = null);
+public sealed record AtlasStaffRecord(string SourceId, string Name, string? Club, string? Job, int? Age, string? Nation, string ValidationStatus, int? CurrentAbility = null, int? PotentialAbility = null, bool IsHumanManager = false);
 public sealed record AtlasClubRecord(string SourceId, string Name, string? Nation, int PlayerCount, string DataSource);
+public sealed record AtlasClubMatchStats(
+    string Date, string KickOffTime, string TeamSlot, string Competition, string Opponent, string Venue, string Result,
+    int? Players, int? Shots, int? ShotsOnTarget, int? BlockedShots, int? ShotsOutsideBox, int? ClearCutChances, int? Woodwork,
+    int? FoulsMade, int? Offsides, int? YellowCards, int? RedCards, int? CrossesAttempted, int? CrossesCompleted,
+    int? TacklesAttempted, int? TacklesCompleted, int? AerialChallengesAttempted, int? HeadersWon, double? DistanceKm,
+    double? ExpectedGoals, double? NonPenaltyExpectedGoals, int? Corners, int? PassesAttempted, int? PassesCompleted,
+    int? FinalThirdPasses, int? ProgressivePasses, int? PossessionPercent, int? BallDistributionPercent, bool DetailedReport);
 public sealed record AtlasHistoryRecord(long Id, string SourceId, string PlayerName, string FieldName, string? OldValue, string? NewValue, string ChangedUtc, string ChangeSource);
 public sealed record AtlasFactRecord(string Group, string Field, string? Value);
 public sealed record AtlasEditableAttribute(string Name, string Category, double Value);
@@ -20,12 +28,31 @@ public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int
 public sealed class ScoutDatabase
 {
     private readonly string _connectionString;
+    // All mutating operations across ScoutDatabase instances share one writer gate.
+    private static readonly SemaphoreSlim WriteGate = new(1, 1);
 
-    public ScoutDatabase()
+    public ScoutDatabase() : this(null)
     {
-        var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas");
-        Directory.CreateDirectory(folder);
-        _connectionString = new SqliteConnectionStringBuilder { DataSource = Path.Combine(folder, "scouting.db") }.ToString();
+    }
+
+    /// <summary>
+    /// Creates a database facade for the user's local Atlas database, or an explicit
+    /// database path supplied by an automated integration test.
+    /// </summary>
+    public ScoutDatabase(string? databasePath, bool pooling = true)
+    {
+        var resolvedPath = string.IsNullOrWhiteSpace(databasePath)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas", "scouting.db")
+            : Path.GetFullPath(databasePath);
+        var folder = Path.GetDirectoryName(resolvedPath);
+        if (!string.IsNullOrWhiteSpace(folder)) Directory.CreateDirectory(folder);
+        _connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = resolvedPath,
+            DefaultTimeout = 30,
+            ForeignKeys = true,
+            Pooling = pooling
+        }.ToString();
     }
 
     public async Task InitialiseAsync()
@@ -99,6 +126,12 @@ public sealed class ScoutDatabase
               ObjectAddress TEXT NULL, SourceRunId INTEGER NOT NULL, ValidationStatus TEXT NOT NULL DEFAULT 'Candidate',
               UpdatedUtc TEXT NOT NULL, FOREIGN KEY(SourceRunId) REFERENCES LiveImportRuns(RunId)
             );
+            CREATE TABLE IF NOT EXISTS LiveCareerIdentity (
+              RunId INTEGER PRIMARY KEY, SaveLoadCounter INTEGER NOT NULL,
+              ManagerUid INTEGER NULL, ManagerName TEXT NULL, ManagerNation TEXT NULL,
+              ManagerClubUid INTEGER NULL, ManagerClubName TEXT NULL, DetectedUtc TEXT NOT NULL,
+              FOREIGN KEY(RunId) REFERENCES LiveImportRuns(RunId)
+            );
             CREATE TABLE IF NOT EXISTS LiveFieldRegistry (
               EntityType TEXT NOT NULL, FieldKey TEXT NOT NULL, DisplayName TEXT NOT NULL,
               CandidateOffset TEXT NULL, DataType TEXT NOT NULL, ValidationStatus TEXT NOT NULL DEFAULT 'Unverified',
@@ -159,6 +192,33 @@ public sealed class ScoutDatabase
             CREATE INDEX IF NOT EXISTS IX_LivePlayerHistory_Player ON LivePlayerHistory(PlayerUid, SeasonKey);
             """;
         await cmd.ExecuteNonQueryAsync();
+
+        // Upgrade existing V8/R7 databases without dropping or rebuilding any shortlist rows.
+        var shortlistColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var shortlistColumnCommand = db.CreateCommand();
+        shortlistColumnCommand.CommandText = "PRAGMA table_info(Shortlists);";
+        await using (var shortlistColumnReader = await shortlistColumnCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await shortlistColumnReader.ReadAsync().ConfigureAwait(false))
+                shortlistColumns.Add(shortlistColumnReader.GetString(1));
+        }
+        if (!shortlistColumns.Contains("Stage"))
+        {
+            var addStage = db.CreateCommand();
+            addStage.CommandText = "ALTER TABLE Shortlists ADD COLUMN Stage TEXT NOT NULL DEFAULT 'Identified';";
+            await addStage.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+        var shortlistStageIndex = db.CreateCommand();
+        shortlistStageIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Shortlists_Stage ON Shortlists(ShortlistName, Stage);";
+        await shortlistStageIndex.ExecuteNonQueryAsync().ConfigureAwait(false);
+        await EnsureColumnAsync(db, "Shortlists", "Priority", "TEXT NOT NULL DEFAULT 'Normal'");
+        await EnsureColumnAsync(db, "Shortlists", "TargetFee", "REAL NULL");
+        await EnsureColumnAsync(db, "Shortlists", "TargetWage", "REAL NULL");
+        await EnsureColumnAsync(db, "Shortlists", "NextAction", "TEXT NULL");
+        await EnsureColumnAsync(db, "Shortlists", "ReviewDate", "TEXT NULL");
+        var shortlistReviewIndex = db.CreateCommand();
+        shortlistReviewIndex.CommandText = "CREATE INDEX IF NOT EXISTS IX_Shortlists_ReviewDate ON Shortlists(ReviewDate) WHERE ReviewDate IS NOT NULL;";
+        await shortlistReviewIndex.ExecuteNonQueryAsync().ConfigureAwait(false);
         var snapshotSchema = db.CreateCommand();
         snapshotSchema.CommandText = """
             CREATE TABLE IF NOT EXISTS FmsaveImportRuns (
@@ -206,6 +266,7 @@ public sealed class ScoutDatabase
             );
             CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_Catalog ON FmsaveStatFacts(SnapshotId,FieldKey,TableName);
             CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_PlayerPeriod ON FmsaveStatFacts(SnapshotId,PlayerUid,TableName,PeriodKey);
+            CREATE INDEX IF NOT EXISTS IX_FmsaveStatFacts_Search ON FmsaveStatFacts(SnapshotId,FieldKey COLLATE NOCASE,NumericValue,TableName,RowIndex);
             CREATE TABLE IF NOT EXISTS ExternalStatImportRuns (
               ImportId INTEGER PRIMARY KEY AUTOINCREMENT, FileName TEXT NOT NULL, ImportedUtc TEXT NOT NULL,
               RowsSeen INTEGER NOT NULL DEFAULT 0, RowsImported INTEGER NOT NULL DEFAULT 0, Notes TEXT NULL
@@ -250,6 +311,9 @@ public sealed class ScoutDatabase
             CREATE INDEX IF NOT EXISTS IX_Players_Name ON Players(Name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_Players_Club ON Players(Club COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_SourceName ON PlayerAttributes(SourceId, AttributeName);
+            CREATE INDEX IF NOT EXISTS IX_PlayerAttributes_SourceNameNoCase ON PlayerAttributes(SourceId, AttributeName COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotPlayerGroupField ON FmsavePlayerFacts(SnapshotId, PlayerSourceId, FactGroup, FieldKey);
+            CREATE INDEX IF NOT EXISTS IX_FmsavePlayerFacts_SnapshotGroupFieldPlayer ON FmsavePlayerFacts(SnapshotId, FactGroup, FieldKey, PlayerSourceId);
             CREATE INDEX IF NOT EXISTS IX_LivePlayers_Name ON LivePlayers(PlayerName COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS IX_LivePlayers_ClubUid ON LivePlayers(ClubUid);
             CREATE INDEX IF NOT EXISTS IX_LiveClubs_Name ON LiveClubs(ClubName COLLATE NOCASE);
@@ -435,12 +499,16 @@ public sealed class ScoutDatabase
         return items;
     }
 
-    public async Task SavePlayerAttributeAsync(string sourceId, string playerName, string attributeName, string category, double value, string changeSource = "FM Atlas local database only")
+    public async Task SavePlayerAttributeAsync(string sourceId, string playerName, string attributeName, string category, double value, string changeSource = "FM Atlas local database only", CancellationToken cancellationToken = default)
     {
+        await WriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
         if (value < 1 || value > 20) throw new ArgumentOutOfRangeException(nameof(value), "FM attributes must be between 1 and 20.");
         await using var db = new SqliteConnection(_connectionString);
-        await db.OpenAsync().ConfigureAwait(false);
-        await using var tx = await db.BeginTransactionAsync();
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await using var tx = await db.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         var old = db.CreateCommand(); old.Transaction = (SqliteTransaction)tx;
         old.CommandText = "SELECT AttributeValue FROM PlayerAttributes WHERE SourceId=$id AND AttributeName=$name;";
         old.Parameters.AddWithValue("$id", sourceId); old.Parameters.AddWithValue("$name", attributeName);
@@ -454,10 +522,19 @@ public sealed class ScoutDatabase
         audit.Parameters.AddWithValue("$id", sourceId); audit.Parameters.AddWithValue("$player", playerName); audit.Parameters.AddWithValue("$field", attributeName); audit.Parameters.AddWithValue("$old", oldValue is null || oldValue == DBNull.Value ? DBNull.Value : Convert.ToString(oldValue, System.Globalization.CultureInfo.InvariantCulture)); audit.Parameters.AddWithValue("$new", value.ToString(System.Globalization.CultureInfo.InvariantCulture)); audit.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); audit.Parameters.AddWithValue("$source", changeSource);
         await audit.ExecuteNonQueryAsync();
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task SaveLocalAbilitiesAsync(string sourceId, string playerName, int currentAbility, int potentialAbility, string changeSource = "FM Atlas local database only")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         if (currentAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(currentAbility), "CA must be between 0 and 200.");
         if (potentialAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(potentialAbility), "PA must be between 0 and 200.");
         await using var db = new SqliteConnection(_connectionString);
@@ -481,10 +558,19 @@ public sealed class ScoutDatabase
             await audit.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task SavePlayerAttributeBatchAsync(string sourceId, string playerName, IReadOnlyList<(string AttributeName, string Category, double Value)> fields, string changeSource = "FM Atlas local database only")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         if (fields.Count == 0) return;
         if (fields.Count > 60) throw new ArgumentOutOfRangeException(nameof(fields), "A single attribute batch is limited to 60 fields.");
         if (fields.Any(x => string.IsNullOrWhiteSpace(x.AttributeName) || x.Value is < 1 or > 20 || !double.IsFinite(x.Value)))
@@ -516,10 +602,19 @@ public sealed class ScoutDatabase
             await audit.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task SaveLocalAbilityAsync(string sourceId, string playerName, string fieldName, int? value)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         var column = fieldName switch { "CurrentAbility" => "CurrentAbility", "PotentialAbility" => "PotentialAbility", _ => throw new ArgumentOutOfRangeException(nameof(fieldName)) };
         if (value is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(value), "CA and PA must be between 0 and 200.");
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false);
@@ -535,10 +630,19 @@ public sealed class ScoutDatabase
         audit.Parameters.AddWithValue("$old", oldValue is null || oldValue == DBNull.Value ? DBNull.Value : Convert.ToString(oldValue));
         audit.Parameters.AddWithValue("$new", (object?)value?.ToString() ?? DBNull.Value); audit.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); await audit.ExecuteNonQueryAsync();
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task UndoLocalEditAsync(long historyId)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false); await using var tx = await db.BeginTransactionAsync();
         var read = db.CreateCommand(); read.Transaction = (SqliteTransaction)tx;
         read.CommandText = "SELECT SourceId,PlayerName,FieldName,OldValue,NewValue,ChangeSource FROM EditHistory WHERE Id=$id;"; read.Parameters.AddWithValue("$id", historyId);
@@ -587,7 +691,13 @@ public sealed class ScoutDatabase
             : $"Undo of local edit #{historyId}";
         audit.Parameters.AddWithValue("$source", undoSource); await audit.ExecuteNonQueryAsync();
         await tx.CommitAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<Dictionary<string, double>> GetPlayerAttributesAsync(string sourceId)
     {
@@ -602,6 +712,9 @@ public sealed class ScoutDatabase
 
     public async Task<int> ImportPlayersCsvAsync(string path)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8);
         if (lines.Length < 2) return 0;
         var headers = ParseCsvLine(lines[0]).Select((h,i)=>(h,i)).ToDictionary(x=>x.h.Trim(),x=>x.i,StringComparer.OrdinalIgnoreCase);
@@ -632,13 +745,22 @@ public sealed class ScoutDatabase
             }
         }
         await tx.CommitAsync().ConfigureAwait(false); return count;
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
 
     /// <summary>Imports an R3.4 full-intelligence CSV into the existing live-player fact store.
     /// Matches strictly by FM player UID; does not create or overwrite player identities.</summary>
     public async Task<(int MatchedPlayers, int FactsImported)> ImportFullIntelligenceReportAsync(string path)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8);
         var headerLine = Array.FindIndex(lines, x => x.StartsWith("Player,UID,Section,Field,Offset,Raw,Decoded,Applicability,Confidence,Notes", StringComparison.OrdinalIgnoreCase));
         if (headerLine < 0) throw new InvalidDataException("This is not an FM Atlas R3.4 full-intelligence report. Expected the Player,UID,Section... header.");
@@ -676,10 +798,19 @@ public sealed class ScoutDatabase
         }
         await tx.CommitAsync().ConfigureAwait(false);
         return (matched.Count,imported);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task UpdateLivePlayerFactAsync(long playerUid, string fieldKey, double value, string validationStatus = "Verified-UserUIWitness-ReadBack")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         await using var db = new SqliteConnection(_connectionString); await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
         cmd.CommandText = "UPDATE LivePlayerFacts SET NumericValue=$value,TextValue=NULL,ValidationStatus=$status,UpdatedUtc=$utc WHERE PlayerUid=$uid AND FieldKey=$field;";
@@ -687,7 +818,13 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); cmd.Parameters.AddWithValue("$uid", playerUid); cmd.Parameters.AddWithValue("$field", fieldKey);
         var changed = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         if (changed == 0) AtlasLog.Warning($"Live field fact was not present to update after a read-back verified write: uid={playerUid}, field={fieldKey}.");
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<(string FieldKey,double? NumericValue,string? TextValue,string ValidationStatus)>> GetLivePlayerFactsAsync(long playerUid)
     {
@@ -706,6 +843,9 @@ public sealed class ScoutDatabase
 
     public async Task CreateShortlistAsync(string shortlistName)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -713,10 +853,74 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$name", shortlistName.Trim());
         cmd.Parameters.AddWithValue("$date", DateTime.UtcNow.ToString("O"));
         await cmd.ExecuteNonQueryAsync();
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
+
+    public async Task<int> AddPlayersToShortlistAsync(IReadOnlyList<PlayerRecord> players, string shortlistName, string? notes = null)
+    {
+        ArgumentNullException.ThrowIfNull(players);
+        var name = string.IsNullOrWhiteSpace(shortlistName) ? "My Shortlist" : shortlistName.Trim();
+        var uniquePlayers = players
+            .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.SourceId))
+            .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .ToList();
+        if (uniquePlayers.Count == 0) return 0;
+
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await using var db = new SqliteConnection(_connectionString);
+            await db.OpenAsync().ConfigureAwait(false);
+            await using var transaction = await db.BeginTransactionAsync().ConfigureAwait(false);
+
+            var group = db.CreateCommand();
+            group.Transaction = (SqliteTransaction)transaction;
+            group.CommandText = "INSERT OR IGNORE INTO ShortlistGroups(ShortlistName, CreatedUtc) VALUES($name, $created);";
+            group.Parameters.AddWithValue("$name", name);
+            group.Parameters.AddWithValue("$created", DateTime.UtcNow.ToString("O"));
+            await group.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            var command = db.CreateCommand();
+            command.Transaction = (SqliteTransaction)transaction;
+            command.CommandText = """
+                INSERT OR IGNORE INTO Shortlists(SourceId, ShortlistName, Notes, AddedUtc)
+                VALUES($id, $name, $notes, $date);
+                """;
+            command.Parameters.Add("$id", SqliteType.Text);
+            command.Parameters.AddWithValue("$name", name);
+            command.Parameters.Add("$notes", SqliteType.Text);
+            command.Parameters.Add("$date", SqliteType.Text);
+            await command.PrepareAsync().ConfigureAwait(false);
+
+            var added = 0;
+            foreach (var player in uniquePlayers)
+            {
+                command.Parameters["$id"].Value = player.SourceId;
+                command.Parameters["$notes"].Value = (object?)notes ?? DBNull.Value;
+                command.Parameters["$date"].Value = DateTime.UtcNow.ToString("O");
+                added += await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+
+            await transaction.CommitAsync().ConfigureAwait(false);
+            return added;
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
     }
 
     public async Task AddToShortlistAsync(PlayerRecord player, string shortlistName, string? notes = null)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -730,7 +934,13 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$notes", (object?)notes ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$date", DateTime.UtcNow.ToString("O"));
         await cmd.ExecuteNonQueryAsync();
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<string>> GetShortlistNamesAsync()
     {
@@ -751,7 +961,9 @@ public sealed class ScoutDatabase
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
         cmd.CommandText = """
-          SELECT s.SourceId, COALESCE(p.Name,lp.PlayerName), s.ShortlistName, s.Notes, s.AddedUtc, COALESCE(p.Club,c.ClubName), p.Position
+          SELECT s.SourceId, COALESCE(p.Name,lp.PlayerName), s.ShortlistName, s.Notes, s.AddedUtc,
+                 COALESCE(p.Club,c.ClubName), p.Position, s.Stage, s.Priority, s.TargetFee,
+                 s.TargetWage, s.NextAction, s.ReviewDate
           FROM Shortlists s LEFT JOIN Players p ON p.SourceId=s.SourceId
           LEFT JOIN LivePlayers lp ON s.SourceId=('LIVE:' || lp.PlayerUid)
           LEFT JOIN LiveClubs c ON c.ClubUid=lp.ClubUid
@@ -765,13 +977,84 @@ public sealed class ScoutDatabase
             ShortlistName = reader.GetString(2), Notes = reader.IsDBNull(3) ? null : reader.GetString(3),
             AddedUtc = DateTime.TryParse(reader.GetString(4), out var dt) ? dt : DateTime.MinValue,
             DisplayClub = reader.IsDBNull(5) ? "—" : reader.GetString(5),
-            DisplayPosition = reader.IsDBNull(6) ? "—" : reader.GetString(6)
+            DisplayPosition = reader.IsDBNull(6) ? "—" : reader.GetString(6),
+            Stage = reader.IsDBNull(7) ? ShortlistRecord.DefaultStage : reader.GetString(7),
+            Priority = reader.IsDBNull(8) ? ShortlistRecord.DefaultPriority : reader.GetString(8),
+            TargetFee = reader.IsDBNull(9) ? null : reader.GetDouble(9),
+            TargetWage = reader.IsDBNull(10) ? null : reader.GetDouble(10),
+            NextAction = reader.IsDBNull(11) ? null : reader.GetString(11),
+            ReviewDate = reader.IsDBNull(12) ? null : reader.GetString(12)
         });
         return rows;
     }
 
+
+    public async Task UpdateShortlistDetailsAsync(
+        string sourceId, string shortlistName, string stage, string? notes,
+        string priority = ShortlistRecord.DefaultPriority, double? targetFee = null,
+        double? targetWage = null, string? nextAction = null, string? reviewDate = null)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("A shortlist source ID is required.", nameof(sourceId));
+        if (string.IsNullOrWhiteSpace(shortlistName)) throw new ArgumentException("A shortlist name is required.", nameof(shortlistName));
+        var selectedStage = ShortlistRecord.PipelineStages.FirstOrDefault(x =>
+            x.Equals(stage?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (selectedStage is null)
+            throw new ArgumentException("Choose a stage from the supported recruitment pipeline.", nameof(stage));
+        var selectedPriority = ShortlistRecord.PipelinePriorities.FirstOrDefault(x =>
+            x.Equals(priority?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (selectedPriority is null)
+            throw new ArgumentException("Choose Low, Normal or High candidate priority.", nameof(priority));
+        static void ValidateSourceAmount(double? value, string label)
+        {
+            if (value.HasValue && (!double.IsFinite(value.Value) || value.Value < 0 || value.Value > 1_000_000_000_000d))
+                throw new ArgumentOutOfRangeException(label, "Source-unit target amounts must be finite and between 0 and 1,000,000,000,000.");
+        }
+        ValidateSourceAmount(targetFee, nameof(targetFee));
+        ValidateSourceAmount(targetWage, nameof(targetWage));
+        var cleanNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        if (cleanNotes?.Length > 2000) throw new ArgumentException("Shortlist notes cannot exceed 2,000 characters.", nameof(notes));
+        var cleanAction = string.IsNullOrWhiteSpace(nextAction) ? null : nextAction.Trim();
+        if (cleanAction?.Length > 300) throw new ArgumentException("Next action cannot exceed 300 characters.", nameof(nextAction));
+        var cleanReviewDate = string.IsNullOrWhiteSpace(reviewDate) ? null : reviewDate.Trim();
+        if (cleanReviewDate is not null && !DateOnly.TryParseExact(cleanReviewDate, "yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _))
+            throw new ArgumentException("Review date must use YYYY-MM-DD.", nameof(reviewDate));
+
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await using var db = new SqliteConnection(_connectionString);
+            await db.OpenAsync().ConfigureAwait(false);
+            var command = db.CreateCommand();
+            command.CommandText = """
+                UPDATE Shortlists
+                SET Stage=$stage, Notes=$notes, Priority=$priority, TargetFee=$fee,
+                    TargetWage=$wage, NextAction=$action, ReviewDate=$review
+                WHERE SourceId=$source AND ShortlistName=$name;
+                """;
+            command.Parameters.AddWithValue("$stage", selectedStage);
+            command.Parameters.AddWithValue("$notes", (object?)cleanNotes ?? DBNull.Value);
+            command.Parameters.AddWithValue("$priority", selectedPriority);
+            command.Parameters.AddWithValue("$fee", (object?)targetFee ?? DBNull.Value);
+            command.Parameters.AddWithValue("$wage", (object?)targetWage ?? DBNull.Value);
+            command.Parameters.AddWithValue("$action", (object?)cleanAction ?? DBNull.Value);
+            command.Parameters.AddWithValue("$review", (object?)cleanReviewDate ?? DBNull.Value);
+            command.Parameters.AddWithValue("$source", sourceId);
+            command.Parameters.AddWithValue("$name", shortlistName.Trim());
+            var changed = await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+            if (changed == 0) throw new InvalidOperationException("This player is no longer in the selected shortlist.");
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+    }
+
     public async Task RemoveFromShortlistAsync(string sourceId, string shortlistName)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
@@ -779,13 +1062,27 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$id", sourceId);
         cmd.Parameters.AddWithValue("$name", shortlistName);
         await cmd.ExecuteNonQueryAsync();
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
-    public async Task<LiveImportResult> ImportLiveSnapshotAsync(FmAtlas.Services.LiveImportPayload payload)
+    public async Task<LiveImportResult> ImportLiveSnapshotAsync(
+        FmAtlas.Services.LiveImportPayload payload,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(payload);
+        cancellationToken.ThrowIfCancellationRequested();
+        await WriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
         await using var db = new SqliteConnection(_connectionString);
-        await db.OpenAsync().ConfigureAwait(false);
-        await using var tx = await db.BeginTransactionAsync();
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await using var tx = await db.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         var now = DateTime.UtcNow.ToString("O");
         var run = db.CreateCommand(); run.Transaction = (SqliteTransaction)tx;
         run.CommandText = "INSERT INTO LiveImportRuns(GameVersion,ModuleSha256,StartedUtc,CompletedUtc,Status,PlayersSeen,ClubsSeen) VALUES($v,$h,$s,NULL,'Importing',$p,$c); SELECT last_insert_rowid();";
@@ -793,8 +1090,24 @@ public sealed class ScoutDatabase
         run.Parameters.AddWithValue("$s", now); run.Parameters.AddWithValue("$p", payload.PlayerSlots); run.Parameters.AddWithValue("$c", payload.Clubs.Count);
         var runId = Convert.ToInt32(await run.ExecuteScalarAsync());
 
-        foreach (var club in payload.Clubs)
+        // Replace only the active live snapshot inside this transaction. If any later
+        // import step fails, rollback restores the prior live view. Offline save rows,
+        // local/CSV scouting records, projects and import-run history remain untouched.
+        cancellationToken.ThrowIfCancellationRequested();
+        var clearLiveSnapshot = db.CreateCommand(); clearLiveSnapshot.Transaction = (SqliteTransaction)tx;
+        clearLiveSnapshot.CommandText = """
+            DELETE FROM PlayerAttributes WHERE SourceId LIKE 'LIVE:%';
+            DELETE FROM Players WHERE SourceId LIKE 'LIVE:%';
+            DELETE FROM LivePlayerFacts;
+            DELETE FROM LiveStaffFacts;
+            DELETE FROM LiveClubFacts;
+            """;
+        await clearLiveSnapshot.ExecuteNonQueryAsync();
+
+        for (var clubIndex = 0; clubIndex < payload.Clubs.Count; clubIndex++)
         {
+            if ((clubIndex & 127) == 0) cancellationToken.ThrowIfCancellationRequested();
+            var club = payload.Clubs[clubIndex];
             var cmd = db.CreateCommand(); cmd.Transaction = (SqliteTransaction)tx;
             cmd.CommandText = "INSERT INTO LiveClubs(ClubUid,ClubName,ShortName,ArrayIndex,ObjectAddress,SourceRunId,ValidationStatus,UpdatedUtc) VALUES($id,$name,NULL,$idx,$addr,$run,$status,$utc) ON CONFLICT(ClubUid) DO UPDATE SET ClubName=excluded.ClubName,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,ValidationStatus=CASE WHEN LiveClubs.ValidationStatus='WitnessVerified' OR excluded.ValidationStatus='WitnessVerified' THEN 'WitnessVerified' ELSE 'Candidate' END,UpdatedUtc=excluded.UpdatedUtc;";
             cmd.Parameters.AddWithValue("$id", (long)club.Uid); cmd.Parameters.AddWithValue("$name", club.Name); cmd.Parameters.AddWithValue("$idx", club.ArrayIndex);
@@ -802,8 +1115,96 @@ public sealed class ScoutDatabase
             cmd.Parameters.AddWithValue("$status", club.WitnessVerified ? "WitnessVerified" : "Candidate"); cmd.Parameters.AddWithValue("$utc", now);
             await cmd.ExecuteNonQueryAsync();
         }
-        foreach (var player in payload.Players.Where(p => p.TeamObjectAddress is not null).GroupBy(p => p.TeamObjectAddress).Select(g => g.First()))
+        var staffRows = payload.Staff ?? new List<FmAtlas.Services.LiveStaffRecord>();
+        var staffUpsert = db.CreateCommand(); staffUpsert.Transaction = (SqliteTransaction)tx;
+        staffUpsert.CommandText = "INSERT INTO LiveStaff(StaffUid,StaffName,ArrayIndex,ObjectAddress,SourceRunId,ValidationStatus,UpdatedUtc) VALUES($id,$name,$idx,$addr,$run,$status,$utc) ON CONFLICT(StaffUid) DO UPDATE SET StaffName=excluded.StaffName,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,ValidationStatus=excluded.ValidationStatus,UpdatedUtc=excluded.UpdatedUtc;";
+        staffUpsert.Parameters.Add("$id", SqliteType.Integer); staffUpsert.Parameters.Add("$name", SqliteType.Text);
+        staffUpsert.Parameters.Add("$idx", SqliteType.Integer); staffUpsert.Parameters.Add("$addr", SqliteType.Text);
+        staffUpsert.Parameters.Add("$run", SqliteType.Integer); staffUpsert.Parameters.Add("$status", SqliteType.Text); staffUpsert.Parameters.Add("$utc", SqliteType.Text);
+        var staffFactUpsert = db.CreateCommand(); staffFactUpsert.Transaction = (SqliteTransaction)tx;
+        staffFactUpsert.CommandText = "INSERT INTO LiveStaffFacts(StaffUid,FieldKey,NumericValue,TextValue,ValidationStatus,SourceRunId,UpdatedUtc) VALUES($uid,$key,$number,$text,$status,$run,$utc) ON CONFLICT(StaffUid,FieldKey) DO UPDATE SET NumericValue=excluded.NumericValue,TextValue=excluded.TextValue,ValidationStatus=excluded.ValidationStatus,SourceRunId=excluded.SourceRunId,UpdatedUtc=excluded.UpdatedUtc;";
+        staffFactUpsert.Parameters.Add("$uid", SqliteType.Integer); staffFactUpsert.Parameters.Add("$key", SqliteType.Text);
+        staffFactUpsert.Parameters.Add("$number", SqliteType.Real); staffFactUpsert.Parameters.Add("$text", SqliteType.Text);
+        staffFactUpsert.Parameters.Add("$status", SqliteType.Text); staffFactUpsert.Parameters.Add("$run", SqliteType.Integer); staffFactUpsert.Parameters.Add("$utc", SqliteType.Text);
+        var liveStaffFactCount = 0;
+        for (var staffIndex = 0; staffIndex < staffRows.Count; staffIndex++)
         {
+            if ((staffIndex & 127) == 0) cancellationToken.ThrowIfCancellationRequested();
+            var member = staffRows[staffIndex];
+            staffUpsert.Parameters["$id"].Value = (long)member.Uid;
+            staffUpsert.Parameters["$name"].Value = member.Name;
+            staffUpsert.Parameters["$idx"].Value = member.ArrayIndex;
+            staffUpsert.Parameters["$addr"].Value = $"0x{member.Address:X}";
+            staffUpsert.Parameters["$run"].Value = runId;
+            staffUpsert.Parameters["$status"].Value = member.IsHumanManager ? "HumanManager-LayoutMatched-Provisional" : "ProfileMatched-Provisional";
+            staffUpsert.Parameters["$utc"].Value = now;
+            await staffUpsert.ExecuteNonQueryAsync();
+
+            void SetStaffFact(string key, double? numeric, string? textValue = null)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                staffFactUpsert.Parameters["$uid"].Value = (long)member.Uid;
+                staffFactUpsert.Parameters["$key"].Value = key;
+                staffFactUpsert.Parameters["$number"].Value = (object?)numeric ?? DBNull.Value;
+                staffFactUpsert.Parameters["$text"].Value = (object?)textValue ?? DBNull.Value;
+                staffFactUpsert.Parameters["$status"].Value = "Provisional-ProfileMatched-Needs-UI-Witness";
+                staffFactUpsert.Parameters["$run"].Value = runId;
+                staffFactUpsert.Parameters["$utc"].Value = now;
+                staffFactUpsert.ExecuteNonQuery();
+                liveStaffFactCount++;
+            }
+            if (member.CurrentAbility.HasValue) SetStaffFact("ability.current_ability", member.CurrentAbility.Value);
+            if (member.PotentialAbility.HasValue) SetStaffFact("ability.potential_ability", member.PotentialAbility.Value);
+            if (member.Age.HasValue) SetStaffFact("identity.age", member.Age.Value);
+            if (member.NationUid.HasValue) SetStaffFact("identity.nation_uid", member.NationUid.Value);
+            if (!string.IsNullOrWhiteSpace(member.NationName)) SetStaffFact("identity.nation_name", null, member.NationName);
+            if (member.ClubUid.HasValue) SetStaffFact("identity.club_uid", member.ClubUid.Value);
+            if (!string.IsNullOrWhiteSpace(member.ClubName)) SetStaffFact("identity.club_name", null, member.ClubName);
+            if (member.JobCode.HasValue) SetStaffFact("identity.job_code", member.JobCode.Value);
+            if (!string.IsNullOrWhiteSpace(member.JobTitle)) SetStaffFact("identity.job_title", null, member.JobTitle);
+            if (member.DateOfBirth.HasValue) SetStaffFact("identity.date_of_birth", null, member.DateOfBirth.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+            SetStaffFact("identity.is_human_manager", member.IsHumanManager ? 1 : 0);
+            if (member.JobPreferences is { } jobPreferences)
+            {
+                SetStaffFact("preference.highest_rating", jobPreferences.HighestRating);
+                foreach (var rating in jobPreferences.Ratings)
+                    SetStaffFact("preference." + rating.Key, rating.Value);
+                if (jobPreferences.PreferredJobs.Count > 0)
+                    SetStaffFact("preference.top_job", null, string.Join(", ", jobPreferences.PreferredJobs));
+                else if (jobPreferences.HighestRating < 10)
+                    SetStaffFact("preference.summary", null, "No clear preferred job (highest score below 10)");
+                else
+                    SetStaffFact("preference.summary", null, "Several groups share the top score; no single preferred job assigned");
+            }
+            foreach (var attribute in member.Attributes ?? new Dictionary<string, double>())
+                SetStaffFact("staff_attributes." + attribute.Key, attribute.Value);
+            foreach (var personality in member.Personality ?? new Dictionary<string, double>())
+                SetStaffFact("staff_personality." + personality.Key, personality.Value);
+            if (member.WagePerWeek.HasValue) SetStaffFact("contract.wage_per_week_gbp", member.WagePerWeek.Value);
+            if (member.ContractStart.HasValue) SetStaffFact("contract.signed_date", null, member.ContractStart.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+            if (member.ContractExpiry.HasValue) SetStaffFact("contract.expiry_date", null, member.ContractExpiry.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+            if (member.JoinedClub.HasValue) SetStaffFact("contract.joined_club_date", null, member.JoinedClub.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        var managers = staffRows.Where(x => x.IsHumanManager).ToArray();
+        var manager = managers.Length == 1 ? managers[0] : null;
+        var careerIdentity = db.CreateCommand(); careerIdentity.Transaction = (SqliteTransaction)tx;
+        careerIdentity.CommandText = "INSERT INTO LiveCareerIdentity(RunId,SaveLoadCounter,ManagerUid,ManagerName,ManagerNation,ManagerClubUid,ManagerClubName,DetectedUtc) VALUES($run,$counter,$uid,$name,$nation,$clubUid,$club,$utc) ON CONFLICT(RunId) DO UPDATE SET SaveLoadCounter=excluded.SaveLoadCounter,ManagerUid=excluded.ManagerUid,ManagerName=excluded.ManagerName,ManagerNation=excluded.ManagerNation,ManagerClubUid=excluded.ManagerClubUid,ManagerClubName=excluded.ManagerClubName,DetectedUtc=excluded.DetectedUtc;";
+        careerIdentity.Parameters.AddWithValue("$run", runId);
+        careerIdentity.Parameters.AddWithValue("$counter", (long)payload.SaveLoadCounter);
+        careerIdentity.Parameters.AddWithValue("$uid", manager is null ? DBNull.Value : (object)(long)manager.Uid);
+        careerIdentity.Parameters.AddWithValue("$name", (object?)manager?.Name ?? DBNull.Value);
+        careerIdentity.Parameters.AddWithValue("$nation", (object?)manager?.NationName ?? DBNull.Value);
+        careerIdentity.Parameters.AddWithValue("$clubUid", manager?.ClubUid.HasValue == true ? (object)(long)manager.ClubUid.Value : DBNull.Value);
+        careerIdentity.Parameters.AddWithValue("$club", (object?)manager?.ClubName ?? DBNull.Value);
+        careerIdentity.Parameters.AddWithValue("$utc", now);
+        await careerIdentity.ExecuteNonQueryAsync();
+
+        var linkedTeams = payload.Players.Where(p => p.TeamObjectAddress is not null).GroupBy(p => p.TeamObjectAddress).Select(g => g.First()).ToArray();
+        for (var teamIndex = 0; teamIndex < linkedTeams.Length; teamIndex++)
+        {
+            if ((teamIndex & 127) == 0) cancellationToken.ThrowIfCancellationRequested();
+            var player = linkedTeams[teamIndex];
             var link = db.CreateCommand(); link.Transaction = (SqliteTransaction)tx;
             link.CommandText = "INSERT INTO LiveTeamLinks(TeamObjectAddress,ClubUid,SourceRunId,UpdatedUtc) VALUES($team,$club,$run,$utc) ON CONFLICT(TeamObjectAddress) DO UPDATE SET ClubUid=excluded.ClubUid,SourceRunId=excluded.SourceRunId,UpdatedUtc=excluded.UpdatedUtc;";
             link.Parameters.AddWithValue("$team", player.TeamObjectAddress!); link.Parameters.AddWithValue("$club", player.ClubUid.HasValue ? (object)(long)player.ClubUid.Value : DBNull.Value);
@@ -820,17 +1221,19 @@ public sealed class ScoutDatabase
         liveFactUpsert.Parameters.Add("$number", SqliteType.Real); liveFactUpsert.Parameters.Add("$text", SqliteType.Text);
         liveFactUpsert.Parameters.Add("$status", SqliteType.Text); liveFactUpsert.Parameters.Add("$run", SqliteType.Integer); liveFactUpsert.Parameters.Add("$utc", SqliteType.Text);
         var atlasLivePlayerUpsert = db.CreateCommand(); atlasLivePlayerUpsert.Transaction = (SqliteTransaction)tx;
-        atlasLivePlayerUpsert.CommandText = "INSERT INTO Players(SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,HomeGrownClub,HomeGrownNation,PreferredFoot,DataOrigin,UpdatedUtc) VALUES($id,$name,$age,$club,NULL,NULL,NULL,$ca,$pa,NULL,NULL,NULL,NULL,$origin,$utc) ON CONFLICT(SourceId) DO UPDATE SET Name=excluded.Name,Age=COALESCE(excluded.Age,Players.Age),Club=excluded.Club,CurrentAbility=excluded.CurrentAbility,PotentialAbility=excluded.PotentialAbility,DataOrigin=excluded.DataOrigin,UpdatedUtc=excluded.UpdatedUtc;";
-        foreach (var parameter in new[] { "$id", "$name", "$club", "$origin", "$utc" }) atlasLivePlayerUpsert.Parameters.Add(parameter, SqliteType.Text);
+        atlasLivePlayerUpsert.CommandText = "INSERT INTO Players(SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,HomeGrownClub,HomeGrownNation,PreferredFoot,DataOrigin,UpdatedUtc) VALUES($id,$name,$age,$club,$nation,NULL,$position,$ca,$pa,NULL,NULL,NULL,NULL,$origin,$utc) ON CONFLICT(SourceId) DO UPDATE SET Name=excluded.Name,Age=COALESCE(excluded.Age,Players.Age),Club=COALESCE(excluded.Club,Players.Club),Nation=COALESCE(excluded.Nation,Players.Nation),Position=COALESCE(excluded.Position,Players.Position),CurrentAbility=excluded.CurrentAbility,PotentialAbility=excluded.PotentialAbility,DataOrigin=excluded.DataOrigin,UpdatedUtc=excluded.UpdatedUtc;";
+        foreach (var parameter in new[] { "$id", "$name", "$club", "$nation", "$position", "$origin", "$utc" }) atlasLivePlayerUpsert.Parameters.Add(parameter, SqliteType.Text);
         atlasLivePlayerUpsert.Parameters.Add("$age", SqliteType.Integer); atlasLivePlayerUpsert.Parameters.Add("$ca", SqliteType.Integer); atlasLivePlayerUpsert.Parameters.Add("$pa", SqliteType.Integer);
         var liveAttributeCount = 0;
-        foreach (var player in payload.Players)
+        for (var playerIndex = 0; playerIndex < payload.Players.Count; playerIndex++)
         {
+            if ((playerIndex & 127) == 0) cancellationToken.ThrowIfCancellationRequested();
+            var player = payload.Players[playerIndex];
             var cmd = db.CreateCommand(); cmd.Transaction = (SqliteTransaction)tx;
-            cmd.CommandText = "INSERT INTO LivePlayers(PlayerUid,PlayerName,TeamUid,ClubUid,ArrayIndex,ObjectAddress,SourceRunId,NameValidation,RelationshipValidation,UpdatedUtc,TeamObjectAddress,DateOfBirth,RegenStatus,RegenEvidence,RegenConfidence) VALUES($id,$name,NULL,$club,$idx,$addr,$run,'Decoded','Candidate',$utc,$team,$dob,'Unknown',$evidence,'Unverified') ON CONFLICT(PlayerUid) DO UPDATE SET PlayerName=excluded.PlayerName,ClubUid=excluded.ClubUid,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,NameValidation='Decoded',RelationshipValidation=CASE WHEN excluded.ClubUid IS NOT NULL THEN 'LayoutValidated' ELSE 'Unresolved' END,UpdatedUtc=excluded.UpdatedUtc,TeamObjectAddress=excluded.TeamObjectAddress,DateOfBirth=COALESCE(excluded.DateOfBirth,LivePlayers.DateOfBirth),RegenEvidence=excluded.RegenEvidence;";
+            cmd.CommandText = "INSERT INTO LivePlayers(PlayerUid,PlayerName,TeamUid,ClubUid,ArrayIndex,ObjectAddress,SourceRunId,NameValidation,RelationshipValidation,UpdatedUtc,TeamObjectAddress,DateOfBirth,RegenStatus,RegenEvidence,RegenConfidence) VALUES($id,$name,NULL,$club,$idx,$addr,$run,'Decoded',$relationship,$utc,$team,$dob,'Unknown',$evidence,'Unverified') ON CONFLICT(PlayerUid) DO UPDATE SET PlayerName=excluded.PlayerName,ClubUid=excluded.ClubUid,ArrayIndex=excluded.ArrayIndex,ObjectAddress=excluded.ObjectAddress,SourceRunId=excluded.SourceRunId,NameValidation='Decoded',RelationshipValidation=excluded.RelationshipValidation,UpdatedUtc=excluded.UpdatedUtc,TeamObjectAddress=excluded.TeamObjectAddress,DateOfBirth=COALESCE(excluded.DateOfBirth,LivePlayers.DateOfBirth),RegenEvidence=excluded.RegenEvidence;";
             cmd.Parameters.AddWithValue("$id", (long)player.Uid); cmd.Parameters.AddWithValue("$name", player.Name);
             cmd.Parameters.AddWithValue("$club", player.ClubUid.HasValue ? (object)(long)player.ClubUid.Value : DBNull.Value); cmd.Parameters.AddWithValue("$idx", player.ArrayIndex);
-            cmd.Parameters.AddWithValue("$addr", $"0x{player.Address:X}"); cmd.Parameters.AddWithValue("$run", runId); cmd.Parameters.AddWithValue("$utc", now);
+            cmd.Parameters.AddWithValue("$addr", $"0x{player.Address:X}"); cmd.Parameters.AddWithValue("$run", runId); cmd.Parameters.AddWithValue("$relationship", player.RelationshipVerified ? "ProfileMatched-Provisional" : "Unresolved"); cmd.Parameters.AddWithValue("$utc", now);
             cmd.Parameters.AddWithValue("$team", (object?)player.TeamObjectAddress ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$dob", player.DateOfBirth?.ToString("yyyy-MM-dd") ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("$evidence", player.RegenEvidence);
@@ -841,6 +1244,14 @@ public sealed class ScoutDatabase
             atlasLivePlayerUpsert.Parameters["$name"].Value = player.Name;
             atlasLivePlayerUpsert.Parameters["$age"].Value = payload.GameDate.HasValue && player.DateOfBirth.HasValue ? CalculateAge(player.DateOfBirth.Value, payload.GameDate.Value) : DBNull.Value;
             atlasLivePlayerUpsert.Parameters["$club"].Value = player.ClubUid.HasValue && clubNames.TryGetValue(player.ClubUid.Value, out var clubName) ? clubName : DBNull.Value;
+            atlasLivePlayerUpsert.Parameters["$nation"].Value = (object?)player.NationName ?? DBNull.Value;
+            var primaryPosition = (player.PositionRatings ?? new Dictionary<string, double>())
+                .Where(x => x.Value >= 15)
+                .OrderByDescending(x => x.Value)
+                .ThenBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.Key)
+                .FirstOrDefault();
+            atlasLivePlayerUpsert.Parameters["$position"].Value = (object?)primaryPosition ?? DBNull.Value;
             atlasLivePlayerUpsert.Parameters["$ca"].Value = (object?)player.CurrentAbility ?? DBNull.Value;
             atlasLivePlayerUpsert.Parameters["$pa"].Value = (object?)player.PotentialAbility ?? DBNull.Value;
             atlasLivePlayerUpsert.Parameters["$origin"].Value = "FM27 Live · exact module profile matched · field-level values provisional";
@@ -851,6 +1262,7 @@ public sealed class ScoutDatabase
             // They are visible for investigation, but do not count as independently verified write permissions.
             void SetLiveFact(string key, double? numeric, string? textValue = null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 liveFactUpsert.Parameters["$uid"].Value = (long)player.Uid;
                 liveFactUpsert.Parameters["$key"].Value = key;
                 liveFactUpsert.Parameters["$number"].Value = (object?)numeric ?? DBNull.Value;
@@ -862,6 +1274,8 @@ public sealed class ScoutDatabase
             }
             if (player.CurrentAbility.HasValue) SetLiveFact("ability.current_ability", player.CurrentAbility.Value);
             if (player.PotentialAbility.HasValue) SetLiveFact("ability.potential_ability", player.PotentialAbility.Value);
+            if (player.NationUid.HasValue) SetLiveFact("identity.nation_uid", player.NationUid.Value);
+            if (!string.IsNullOrWhiteSpace(player.NationName)) SetLiveFact("identity.nation_name", null, player.NationName);
             foreach (var field in player.Attributes ?? new Dictionary<string, double>())
             {
                 SetLiveFact("attributes." + field.Key, field.Value);
@@ -895,12 +1309,13 @@ public sealed class ScoutDatabase
             ("Club", "Uid", "Club UID", "+0x0C", "UInt32", "ProfileMatched-Provisional", "Club-array entries decoded under an exact module fingerprint; individual club identity still needs UI comparison."),
             ("Club", "Name", "Club name", "+0xC0", "LengthPrefixedUtf8", "ProfileMatched-Provisional", "Club name pointers decoded under the exact module profile; user-visible name matching remains a validation step."),
             ("Player", "CurrentAbility", "Current Ability", "+0x264", "UInt16", "ProfileMatched-Provisional", "Candidate live field from the FM27 field-layout cross-reference; must be checked against an independent editor before treating as verified."),
-            ("Player", "PotentialAbility", "Potential Ability", "+0x266", "Int16", "ProfileMatched-Provisional", "Candidate live field from the FM27 field-layout cross-reference; negative PA ranges are not imported as a scalar value."),
+            ("Player", "PotentialAbility", "Potential Ability", "+0x266", "Int16", "ProfileMatched-Provisional", "Signed PA candidate retained, including negative random-potential ranges; field meaning still needs an in-game UI witness."),
             ("Player", "Attributes", "Player attributes 1–20", "0x15F–0x194 field-specific", "EncodedByte", "ProfileMatched-Provisional", "Candidate attributes decoded as (raw+2)/5; field-level in-game UI witnesses are still required before writing."),
             ("Player", "PositionRatings", "Position ratings 1–20", "+0x150–0x15E", "UInt8", "ProfileMatched-Provisional", "Position field candidates retained for scouting display only; not currently write-enabled.")
         };
         foreach (var field in registryRows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var reg = db.CreateCommand(); reg.Transaction = (SqliteTransaction)tx;
             reg.CommandText = "INSERT INTO LiveFieldRegistry(EntityType,FieldKey,DisplayName,CandidateOffset,DataType,ValidationStatus,Evidence,LastVerifiedGameVersion,LastVerifiedModuleSha256) VALUES($entity,$key,$display,$offset,$type,$status,$evidence,$version,$hash) ON CONFLICT(EntityType,FieldKey) DO UPDATE SET DisplayName=excluded.DisplayName,CandidateOffset=excluded.CandidateOffset,DataType=excluded.DataType,ValidationStatus=excluded.ValidationStatus,Evidence=excluded.Evidence,LastVerifiedGameVersion=excluded.LastVerifiedGameVersion,LastVerifiedModuleSha256=excluded.LastVerifiedModuleSha256;";
             reg.Parameters.AddWithValue("$entity", field.Item1); reg.Parameters.AddWithValue("$key", field.Item2); reg.Parameters.AddWithValue("$display", field.Item3);
@@ -909,15 +1324,27 @@ public sealed class ScoutDatabase
             await reg.ExecuteNonQueryAsync();
         }
         var finish = db.CreateCommand(); finish.Transaction = (SqliteTransaction)tx;
-        finish.CommandText = "UPDATE LiveImportRuns SET CompletedUtc=$utc,Status='Completed',PlayersImported=$p,ClubsImported=$c,ErrorSummary=$summary WHERE RunId=$id;";
+        finish.CommandText = "UPDATE LiveImportRuns SET CompletedUtc=$utc,Status='Completed',PlayersImported=$p,ClubsImported=$c,StaffSeen=$staffSeen,StaffImported=$staffImported,ErrorSummary=$summary WHERE RunId=$id;";
         finish.Parameters.AddWithValue("$utc", DateTime.UtcNow.ToString("O")); finish.Parameters.AddWithValue("$p", payload.Players.Count);
-        finish.Parameters.AddWithValue("$c", payload.Clubs.Count); finish.Parameters.AddWithValue("$summary", $"Unnamed/unreadable player slots: {payload.UnnamedPlayers}; unresolved player-to-club links: {payload.UnlinkedPlayers}; imported player attribute/personality values: {liveAttributeCount}; CA/PA and attribute offsets remain provisional pending in-game UI witnesses"); finish.Parameters.AddWithValue("$id", runId);
-        await finish.ExecuteNonQueryAsync(); await tx.CommitAsync().ConfigureAwait(false);
-        return new LiveImportResult(runId, payload.PlayerSlots, payload.Players.Count, payload.Clubs.Count, payload.Clubs.Count, payload.UnnamedPlayers, payload.UnlinkedPlayers, liveAttributeCount);
-    }
+        finish.Parameters.AddWithValue("$c", payload.Clubs.Count); finish.Parameters.AddWithValue("$staffSeen", payload.StaffSlots);
+        finish.Parameters.AddWithValue("$staffImported", staffRows.Count);
+        finish.Parameters.AddWithValue("$summary", $"Unnamed/unreadable player slots: {payload.UnnamedPlayers}; unresolved player-to-club links: {payload.UnlinkedPlayers}; staff identities imported: {staffRows.Count}; staff fact rows: {liveStaffFactCount}; player attribute/personality facts: {liveAttributeCount}; all live field values remain provisional pending in-game UI witnesses");
+        finish.Parameters.AddWithValue("$id", runId);
+        await finish.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return new LiveImportResult(runId, payload.PlayerSlots, payload.Players.Count, payload.Clubs.Count, payload.Clubs.Count,
+            payload.UnnamedPlayers, payload.UnlinkedPlayers, liveAttributeCount, payload.StaffSlots, staffRows.Count);
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<PlayerRecord>> SearchLivePlayersAsync(string? search, int limit = 5000, string? attributeName = null, double? minAttribute = null, double? maxAttribute = null, int? minAge = null, int? maxAge = null, DateTime? ageAsOf = null, string regenFilter = "Either", int offset = 0,
-        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null)
+        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null, string? positionFilter = null)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
@@ -925,15 +1352,54 @@ public sealed class ScoutDatabase
         cmd.CommandText = """
             SELECT p.PlayerUid, p.PlayerName, c.ClubName, p.NameValidation, p.RelationshipValidation,
                    p.DateOfBirth, p.RegenStatus, p.RegenConfidence,
-                   (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.NumericValue IS NOT NULL AND f.ValidationStatus LIKE '%Verified%' LIMIT 1),
-                   (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.NumericValue IS NOT NULL AND f.ValidationStatus LIKE '%Verified%' LIMIT 1)
-            FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
-            WHERE ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
-              AND ($attribute='' OR EXISTS (SELECT 1 FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND substr(f.FieldKey,instr(f.FieldKey,'.')+1)=$attribute AND f.ValidationStatus LIKE '%Verified%' AND ($min IS NULL OR f.NumericValue >= $min) AND ($max IS NULL OR f.NumericValue <= $max)))
-              AND ($minCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1) >= $minCa)
-              AND ($maxCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1) <= $maxCa)
-              AND ($minPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1) >= $minPa)
-              AND ($maxPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1) <= $maxPa)
+                   (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                      AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                      AND f.NumericValue IS NOT NULL
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      LIMIT 1),
+                   (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                      AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                      AND f.NumericValue IS NOT NULL
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      LIMIT 1),
+                   (SELECT lp.Nation FROM Players lp WHERE lp.SourceId='LIVE:' || p.PlayerUid LIMIT 1),
+                   (SELECT lp.Position FROM Players lp WHERE lp.SourceId='LIVE:' || p.PlayerUid LIMIT 1)
+            FROM LivePlayers p
+            LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
+              AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
+              AND ($position='' OR EXISTS (
+                    SELECT 1 FROM LivePlayerFacts pf
+                    WHERE pf.PlayerUid=p.PlayerUid AND pf.NumericValue >= 15
+                      AND (pf.ValidationStatus LIKE '%Verified%' OR pf.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      AND (
+                        ($position='ATTACKERS' AND lower(pf.FieldKey) IN ('positions.st','positions.aml','positions.amr'))
+                        OR ($position='MIDFIELDERS' AND lower(pf.FieldKey) IN ('positions.dm','positions.ml','positions.mc','positions.mr','positions.aml','positions.amc','positions.amr'))
+                        OR ($position='DEFENDERS' AND lower(pf.FieldKey) IN ('positions.sw','positions.dl','positions.dc','positions.dr','positions.wbl','positions.wbr'))
+                        OR ($position='GOALKEEPERS' AND lower(pf.FieldKey)='positions.gk')
+                        OR ($position NOT IN ('ATTACKERS','MIDFIELDERS','DEFENDERS','GOALKEEPERS')
+                            AND lower(pf.FieldKey)='positions.' || CASE WHEN upper($position)='STC' THEN 'st' ELSE lower($position) END)
+                      )))
+              AND ($attribute='' OR EXISTS (
+                    SELECT 1 FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid
+                      AND lower(substr(f.FieldKey,instr(f.FieldKey,'.')+1))=lower($attribute)
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      AND ($min IS NULL OR f.NumericValue >= $min)
+                      AND ($max IS NULL OR f.NumericValue <= $max)))
+              AND ($minCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                    AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                    AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minCa)
+              AND ($maxCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                    AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                    AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) <= $maxCa)
+              AND ($minPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                    AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                    AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minPa)
+              AND ($maxPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid
+                    AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                    AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) <= $maxPa)
               AND ($minAge IS NULL OR (p.DateOfBirth IS NOT NULL AND CAST(strftime('%Y',$asOf) AS INTEGER)-CAST(substr(p.DateOfBirth,1,4) AS INTEGER)-CASE WHEN strftime('%m-%d',$asOf) < substr(p.DateOfBirth,6,5) THEN 1 ELSE 0 END >= $minAge))
               AND ($maxAge IS NULL OR (p.DateOfBirth IS NOT NULL AND CAST(strftime('%Y',$asOf) AS INTEGER)-CAST(substr(p.DateOfBirth,1,4) AS INTEGER)-CASE WHEN strftime('%m-%d',$asOf) < substr(p.DateOfBirth,6,5) THEN 1 ELSE 0 END <= $maxAge))
               AND ($regen='Either' OR p.RegenStatus=$regen)
@@ -952,6 +1418,7 @@ public sealed class ScoutDatabase
         cmd.Parameters.AddWithValue("$maxAge", (object?)maxAge ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$asOf", (ageAsOf ?? DateTime.Today).ToString("yyyy-MM-dd"));
         cmd.Parameters.AddWithValue("$regen", regenFilter);
+        cmd.Parameters.AddWithValue("$position", positionFilter ?? "");
         cmd.Parameters.AddWithValue("$minCa", (object?)minCa ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$maxCa", (object?)maxCa ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$minPa", (object?)minPa ?? DBNull.Value);
@@ -971,7 +1438,9 @@ public sealed class ScoutDatabase
                 Club = reader.IsDBNull(2) ? null : reader.GetString(2),
                 CurrentAbility = reader.IsDBNull(8) ? null : Convert.ToInt32(reader.GetDouble(8)),
                 PotentialAbility = reader.IsDBNull(9) ? null : Convert.ToInt32(reader.GetDouble(9)),
-                DataOrigin = $"FM27 Live · {reader.GetString(3)} · {reader.GetString(4)}"
+                Nation = reader.IsDBNull(10) ? null : reader.GetString(10),
+                Position = reader.IsDBNull(11) ? null : reader.GetString(11),
+                DataOrigin = $"FM27 Live · identity {reader.GetString(3)} · club link {reader.GetString(4)} · CA/PA, attributes, personality and positions provisional (UI witness pending)"
             });
         }
         return rows;
@@ -984,15 +1453,62 @@ public sealed class ScoutDatabase
         return Math.Max(0, age);
     }
 
-    public async Task<int> CountLocalPlayersAsync(string? search = null)
+    public async Task<int> CountLocalPlayersAsync(string? search = null,
+        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null,
+        string? position = null)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM Players WHERE ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p) AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=Players.SourceId));";
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM Players
+            WHERE SourceId NOT LIKE 'LIVE:%'
+              AND ($q='' OR Name LIKE $p OR COALESCE(Club,'') LIKE $p OR COALESCE(Nation,'') LIKE $p OR COALESCE(League,'') LIKE $p OR COALESCE(Position,'') LIKE $p OR SourceId LIKE $p)
+              AND ($minCa IS NULL OR CurrentAbility >= $minCa)
+              AND ($maxCa IS NULL OR CurrentAbility <= $maxCa)
+              AND ($minPa IS NULL OR PotentialAbility >= $minPa)
+              AND ($maxPa IS NULL OR PotentialAbility <= $maxPa)
+              AND ($position IS NULL
+                OR ($position='ATTACKERS' AND (Position IN ('ST','STC','AML','AMR') OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (UPPER(pf.FieldKey) IN ('ST','STC','AML','AMR') OR UPPER(COALESCE(pf.TextValue,'')) IN ('ST','STC','AML','AMR')))))
+                OR ($position='MIDFIELDERS' AND (Position IN ('DM','ML','MC','MR','AML','AMC','AMR') OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (UPPER(pf.FieldKey) IN ('DM','ML','MC','MR','AML','AMC','AMR') OR UPPER(COALESCE(pf.TextValue,'')) IN ('DM','ML','MC','MR','AML','AMC','AMR')))))
+                OR ($position='DEFENDERS' AND (Position IN ('SW','DL','DC','DR','WBL','WBR') OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (UPPER(pf.FieldKey) IN ('SW','DL','DC','DR','WBL','WBR') OR UPPER(COALESCE(pf.TextValue,'')) IN ('SW','DL','DC','DR','WBL','WBR')))))
+                OR ($position='GOALKEEPERS' AND (Position='GK' OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (UPPER(pf.FieldKey)='GK' OR UPPER(COALESCE(pf.TextValue,''))='GK'))))
+                OR ($position NOT IN ('ATTACKERS','MIDFIELDERS','DEFENDERS','GOALKEEPERS') AND (Position LIKE $positionPattern OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerFacts pf WHERE pf.PlayerSourceId=Players.SourceId
+                      AND pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                      AND pf.FactGroup IN ('natural_positions','accomplished_positions','positions')
+                      AND (pf.FieldKey LIKE $positionFieldPattern OR pf.TextValue LIKE $positionPattern)))))
+              AND (SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (
+                  SELECT 1 FROM FmsavePlayerSnapshots s
+                  WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                    AND s.PlayerSourceId=Players.SourceId));
+            """;
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$p", $"%{q}%");
+        cmd.Parameters.AddWithValue("$minCa", (object?)minCa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maxCa", (object?)maxCa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$minPa", (object?)minPa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maxPa", (object?)maxPa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$position", (object?)position ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$positionPattern", position is null ? "" : $"%{position}%");
+        cmd.Parameters.AddWithValue("$positionFieldPattern", position is null ? "" : $"%{position.ToUpperInvariant()}%");
         return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
     }
 
@@ -1032,15 +1548,52 @@ public sealed class ScoutDatabase
         return rows;
     }
 
-    public async Task<int> CountLivePlayersAsync(string? search = null)
+    public async Task<int> CountLivePlayersAsync(string? search = null,
+        int? minCa = null, int? maxCa = null, int? minPa = null, int? maxPa = null,
+        string? positionFilter = null)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid WHERE ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern);";
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM LivePlayers p
+            LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
+              AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND ($q='' OR p.PlayerName LIKE $pattern OR c.ClubName LIKE $pattern OR CAST(p.PlayerUid AS TEXT) LIKE $pattern)
+              AND ($positionFilter='' OR EXISTS (
+                    SELECT 1 FROM LivePlayerFacts pf
+                    WHERE pf.PlayerUid=p.PlayerUid AND pf.NumericValue >= 15
+                      AND (pf.ValidationStatus LIKE '%Verified%' OR pf.ValidationStatus LIKE '%Provisional-ProfileMatched%')
+                      AND (
+                        ($positionFilter='ATTACKERS' AND lower(pf.FieldKey) IN ('positions.st','positions.aml','positions.amr'))
+                        OR ($positionFilter='MIDFIELDERS' AND lower(pf.FieldKey) IN ('positions.dm','positions.ml','positions.mc','positions.mr','positions.aml','positions.amc','positions.amr'))
+                        OR ($positionFilter='DEFENDERS' AND lower(pf.FieldKey) IN ('positions.sw','positions.dl','positions.dc','positions.dr','positions.wbl','positions.wbr'))
+                        OR ($positionFilter='GOALKEEPERS' AND lower(pf.FieldKey)='positions.gk')
+                        OR ($positionFilter NOT IN ('ATTACKERS','MIDFIELDERS','DEFENDERS','GOALKEEPERS')
+                            AND lower(pf.FieldKey)='positions.' || CASE WHEN upper($positionFilter)='STC' THEN 'st' ELSE lower($positionFilter) END)
+                      )))
+              AND ($minCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minCa)
+              AND ($maxCa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating')
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) <= $maxCa)
+              AND ($minPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) >= $minPa)
+              AND ($maxPa IS NULL OR (SELECT f.NumericValue FROM LivePlayerFacts f
+                    WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating')
+                      AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1) <= $maxPa);
+            """;
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$pattern", $"%{q}%");
+        cmd.Parameters.AddWithValue("$minCa", (object?)minCa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maxCa", (object?)maxCa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$minPa", (object?)minPa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maxPa", (object?)maxPa ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$positionFilter", positionFilter ?? "");
         return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
     }
 
@@ -1051,8 +1604,11 @@ public sealed class ScoutDatabase
         var cmd = db.CreateCommand();
         cmd.CommandText = """
             SELECT c.ClubUid, c.ClubName, c.ValidationStatus, COUNT(p.PlayerUid)
-            FROM LiveClubs c LEFT JOIN LivePlayers p ON p.ClubUid=c.ClubUid
-            WHERE ($q='' OR c.ClubName LIKE $pattern OR CAST(c.ClubUid AS TEXT) LIKE $pattern)
+            FROM LiveClubs c
+            LEFT JOIN LivePlayers p ON p.ClubUid=c.ClubUid
+              AND p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            WHERE c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND ($q='' OR c.ClubName LIKE $pattern OR CAST(c.ClubUid AS TEXT) LIKE $pattern)
             GROUP BY c.ClubUid,c.ClubName,c.ValidationStatus
             ORDER BY c.ClubName COLLATE NOCASE LIMIT $limit;
             """;
@@ -1071,7 +1627,7 @@ public sealed class ScoutDatabase
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM LiveClubs WHERE ($q='' OR ClubName LIKE $pattern OR CAST(ClubUid AS TEXT) LIKE $pattern);";
+        cmd.CommandText = "SELECT COUNT(*) FROM LiveClubs WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed') AND ($q='' OR ClubName LIKE $pattern OR CAST(ClubUid AS TEXT) LIKE $pattern);";
         var q = (search ?? string.Empty).Trim();
         cmd.Parameters.AddWithValue("$q", q);
         cmd.Parameters.AddWithValue("$pattern", $"%{q}%");
@@ -1085,10 +1641,12 @@ public sealed class ScoutDatabase
         var cmd = db.CreateCommand();
         cmd.CommandText = """
             SELECT p.PlayerUid,p.PlayerName,c.ClubName,p.DateOfBirth,
-              (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current ability','ability.current ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1),
-              (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential ability','ability.potential ability rating') AND f.ValidationStatus LIKE '%Verified%' LIMIT 1)
+              (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.current_ability','ability.current ability','ability.current ability rating') AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1),
+              (SELECT f.NumericValue FROM LivePlayerFacts f WHERE f.PlayerUid=p.PlayerUid AND lower(f.FieldKey) IN ('ability.potential_ability','ability.potential ability','ability.potential ability rating') AND (f.ValidationStatus LIKE '%Verified%' OR f.ValidationStatus LIKE '%Provisional-ProfileMatched%') LIMIT 1)
             FROM LivePlayers p LEFT JOIN LiveClubs c ON c.ClubUid=p.ClubUid
-            WHERE p.ClubUid=$club ORDER BY p.PlayerName COLLATE NOCASE LIMIT $limit;
+              AND c.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+            WHERE p.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND p.ClubUid=$club ORDER BY p.PlayerName COLLATE NOCASE LIMIT $limit;
             """;
         cmd.Parameters.AddWithValue("$club", clubUid);
         cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 100000));
@@ -1119,22 +1677,36 @@ public sealed class ScoutDatabase
             var cmd = db.CreateCommand(); cmd.CommandText = $"SELECT COUNT(*) FROM {table};";
             return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
         }
-        return (await Count("LivePlayers"), await Count("LiveClubs"), await Count("LiveStaff"));
+        var activeRun = "(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')";
+        async Task<int> CountActive(string table)
+        {
+            var cmd = db.CreateCommand();
+            cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE SourceRunId={activeRun};";
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
+        }
+        return (await CountActive("LivePlayers"), await CountActive("LiveClubs"), await CountActive("LiveStaff"));
     }
 
 
 
-    public async Task<FmsaveImportResult> ImportFmsaveSnapshotAsync(string jsonPath)
+    public async Task<FmsaveImportResult> ImportFmsaveSnapshotAsync(string jsonPath, CancellationToken cancellationToken = default, IProgress<string>? progress = null)
     {
-        await using var documentStream = File.OpenRead(jsonPath);
-        using var document = await JsonDocument.ParseAsync(documentStream, new JsonDocumentOptions { MaxDepth = 128 });
+        await WriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+        var isBundle = Directory.Exists(jsonPath);
+        var manifestPath = isBundle ? Path.Combine(jsonPath, "manifest.json") : jsonPath;
+        if (!File.Exists(manifestPath)) throw new FileNotFoundException("The FM Atlas save snapshot manifest is missing.", manifestPath);
+        await using var documentStream = File.OpenRead(manifestPath);
+        using var document = await JsonDocument.ParseAsync(documentStream, new JsonDocumentOptions { MaxDepth = 128 }, cancellationToken);
         var root = document.RootElement;
-        if (GetString(root, "schema") != "fmatlas.fmsave.snapshot.v1")
-            throw new InvalidDataException("This is not an FM Atlas fmsave snapshot. Re-export the save using tools/Export-FMAtlas-Fmsave.py.");
-        var players = GetArray(root, "players").ToList();
-        if (players.Count == 0) throw new InvalidDataException("The save reader returned no player records. No database changes were made.");
-        var staff = GetArray(root, "staff").ToList();
-        var clubs = GetArray(root, "clubs").ToList();
+        var schema = GetString(root, "schema");
+        if (isBundle ? schema != "fmatlas.fmsave.snapshot.ndjson.v1" : schema != "fmatlas.fmsave.snapshot.v1")
+            throw new InvalidDataException("This is not a supported FM Atlas save snapshot or NDJSON bundle. Re-export the save using the bundled fmsave bridge.");
+        var playerTotal = isBundle ? GetManifestTableCount(root, "players") : GetArrayCount(root, "players");
+        var staffTotal = isBundle ? GetManifestTableCount(root, "staff") : GetArrayCount(root, "staff");
+        var clubTotal = isBundle ? GetManifestTableCount(root, "clubs") : GetArrayCount(root, "clubs");
+        if (playerTotal == 0) throw new InvalidDataException("The save reader returned no player records. No database changes were made.");
         var warnings = GetArray(root, "warnings").Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() ?? "" : x.GetRawText()).Where(x => x.Length > 0).ToList();
         var tableCounts = new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);
         if (root.TryGetProperty("counts", out var countObject) && countObject.ValueKind == JsonValueKind.Object)
@@ -1175,13 +1747,22 @@ public sealed class ScoutDatabase
         var playerFactInsert = db.CreateCommand(); playerFactInsert.Transaction = (SqliteTransaction)tx;
         playerFactInsert.CommandText = "INSERT OR REPLACE INTO FmsavePlayerFacts(SnapshotId,PlayerSourceId,FactGroup,FieldKey,NumericValue,TextValue) VALUES($snapshot,$source,$group,$field,$number,$text);";
         playerFactInsert.Parameters.AddWithValue("$snapshot", snapshotId); playerFactInsert.Parameters.Add("$source", SqliteType.Text); playerFactInsert.Parameters.Add("$group", SqliteType.Text); playerFactInsert.Parameters.Add("$field", SqliteType.Text); playerFactInsert.Parameters.Add("$number", SqliteType.Real); playerFactInsert.Parameters.Add("$text", SqliteType.Text);
+        var clearSnapshotAttributes = db.CreateCommand(); clearSnapshotAttributes.Transaction = (SqliteTransaction)tx;
+        clearSnapshotAttributes.CommandText = "DELETE FROM PlayerAttributes WHERE SourceId=$id AND (Category LIKE 'attributes:%' OR Category='personality');";
+        clearSnapshotAttributes.Parameters.Add("$id", SqliteType.Text);
         var attributeInsert = db.CreateCommand(); attributeInsert.Transaction = (SqliteTransaction)tx;
         attributeInsert.CommandText = "INSERT INTO PlayerAttributes(SourceId,AttributeName,Category,AttributeValue,UpdatedUtc) VALUES($id,$name,$category,$value,$utc) ON CONFLICT(SourceId,AttributeName) DO UPDATE SET Category=excluded.Category,AttributeValue=excluded.AttributeValue,UpdatedUtc=excluded.UpdatedUtc;";
         attributeInsert.Parameters.Add("$id", SqliteType.Text); attributeInsert.Parameters.Add("$name", SqliteType.Text); attributeInsert.Parameters.Add("$category", SqliteType.Text); attributeInsert.Parameters.Add("$value", SqliteType.Real); attributeInsert.Parameters.Add("$utc", SqliteType.Text);
-        playerUpsert.Prepare(); rawPlayer.Prepare(); attributeInsert.Prepare();
+        playerUpsert.Prepare(); rawPlayer.Prepare(); playerFactInsert.Prepare(); clearSnapshotAttributes.Prepare(); attributeInsert.Prepare();
         var playerCount = 0;
-        foreach (var player in players)
+        var scannedPlayers = 0;
+        await foreach (var player in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "players", cancellationToken).ConfigureAwait(false))
         {
+            if ((scannedPlayers++ % 250) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report($"Indexing player records: {scannedPlayers:N0} / {playerTotal:N0}");
+            }
             if (player.ValueKind != JsonValueKind.Object) continue;
             var saveUid = GetString(player, "uid") ?? GetString(player, "id");
             var persistentUid = GetString(player, "unique_id") ?? saveUid;
@@ -1199,9 +1780,8 @@ public sealed class ScoutDatabase
             SetParameter(playerUpsert, "$utc", now);
             await playerUpsert.ExecuteNonQueryAsync();
             // Replace values for this external player key with the latest snapshot values so stale fields do not survive a later import.
-            var clearSnapshotAttributes = db.CreateCommand(); clearSnapshotAttributes.Transaction = (SqliteTransaction)tx;
-            clearSnapshotAttributes.CommandText = "DELETE FROM PlayerAttributes WHERE SourceId=$id AND (Category LIKE 'attributes:%' OR Category='personality');";
-            clearSnapshotAttributes.Parameters.AddWithValue("$id", sourceId); await clearSnapshotAttributes.ExecuteNonQueryAsync();
+            clearSnapshotAttributes.Parameters["$id"].Value = sourceId;
+            await clearSnapshotAttributes.ExecuteNonQueryAsync();
             rawPlayer.Parameters["$uid"].Value = saveUid; rawPlayer.Parameters["$source"].Value = sourceId; rawPlayer.Parameters["$raw"].Value = player.GetRawText(); await rawPlayer.ExecuteNonQueryAsync();
 
             foreach (var group in new[] { "attributes", "personality" })
@@ -1234,13 +1814,24 @@ public sealed class ScoutDatabase
             }
             playerCount++;
         }
+        if (isBundle && scannedPlayers != playerTotal)
+            throw new InvalidDataException($"Player NDJSON row count mismatch: manifest={playerTotal:N0}, read={scannedPlayers:N0}. The previous career snapshot was retained.");
+        if (playerCount != scannedPlayers)
+            warnings.Add($"Player rows skipped during indexing: read={scannedPlayers:N0}, indexed={playerCount:N0}. Rows without a usable identity or name were excluded.");
 
         var staffInsert = db.CreateCommand(); staffInsert.Transaction = (SqliteTransaction)tx;
         staffInsert.CommandText = "INSERT OR REPLACE INTO FmsaveStaffDirectory(SnapshotId,StaffUid,Name,ClubName,JobTitle,Age,Nation,RawJson) VALUES($snapshot,$uid,$name,$club,$job,$age,$nation,$raw);";
         staffInsert.Parameters.AddWithValue("$snapshot", snapshotId); staffInsert.Parameters.Add("$uid", SqliteType.Text); staffInsert.Parameters.Add("$name", SqliteType.Text); staffInsert.Parameters.Add("$club", SqliteType.Text); staffInsert.Parameters.Add("$job", SqliteType.Text); staffInsert.Parameters.Add("$age", SqliteType.Integer); staffInsert.Parameters.Add("$nation", SqliteType.Text); staffInsert.Parameters.Add("$raw", SqliteType.Text);
+        staffInsert.Prepare();
         var staffCount = 0;
-        foreach (var item in staff.Where(x => x.ValueKind == JsonValueKind.Object))
+        var scannedStaff = 0;
+        await foreach (var item in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "staff", cancellationToken).ConfigureAwait(false))
         {
+            if ((scannedStaff++ % 250) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report($"Indexing staff records: {scannedStaff:N0} / {staffTotal:N0}");
+            }
             var uid = GetString(item, "uid") ?? GetString(item, "unique_id") ?? GetString(item, "id");
             var name = GetString(item, "name"); if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(name)) continue;
             staffInsert.Parameters["$uid"].Value = uid; staffInsert.Parameters["$name"].Value = name;
@@ -1248,25 +1839,41 @@ public sealed class ScoutDatabase
             SetNullable(staffInsert.Parameters["$age"], GetLong(item, "age")); SetNullable(staffInsert.Parameters["$nation"], GetString(item, "nationality"));
             staffInsert.Parameters["$raw"].Value = item.GetRawText(); await staffInsert.ExecuteNonQueryAsync(); staffCount++;
         }
+        if (isBundle && scannedStaff != staffTotal)
+            throw new InvalidDataException($"Staff NDJSON row count mismatch: manifest={staffTotal:N0}, read={scannedStaff:N0}. The previous career snapshot was retained.");
+        if (staffCount != scannedStaff)
+            warnings.Add($"Staff rows skipped during indexing: read={scannedStaff:N0}, indexed={staffCount:N0}. Rows without a usable identity or name were excluded.");
 
         var clubInsert = db.CreateCommand(); clubInsert.Transaction = (SqliteTransaction)tx;
         clubInsert.CommandText = "INSERT OR REPLACE INTO FmsaveClubDirectory(SnapshotId,ClubUid,Name,Nation,RawJson) VALUES($snapshot,$uid,$name,$nation,$raw);";
         clubInsert.Parameters.AddWithValue("$snapshot", snapshotId); clubInsert.Parameters.Add("$uid", SqliteType.Text); clubInsert.Parameters.Add("$name", SqliteType.Text); clubInsert.Parameters.Add("$nation", SqliteType.Text); clubInsert.Parameters.Add("$raw", SqliteType.Text);
+        clubInsert.Prepare();
         var clubCount = 0;
-        foreach (var item in clubs.Where(x => x.ValueKind == JsonValueKind.Object))
+        var scannedClubs = 0;
+        await foreach (var item in ReadSnapshotRowsAsync(jsonPath, root, isBundle, "clubs", cancellationToken).ConfigureAwait(false))
         {
+            if ((scannedClubs++ % 250) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report($"Indexing club records: {scannedClubs:N0} / {clubTotal:N0}");
+            }
             var uid = GetString(item, "uid") ?? GetString(item, "club_uid") ?? GetString(item, "unique_id") ?? GetString(item, "id");
             var name = GetString(item, "name") ?? GetString(item, "club_name"); if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(name)) continue;
             clubInsert.Parameters["$uid"].Value = uid; clubInsert.Parameters["$name"].Value = name;
             SetNullable(clubInsert.Parameters["$nation"], GetString(item, "nation_name") ?? GetString(item, "nation"));
             clubInsert.Parameters["$raw"].Value = item.GetRawText(); await clubInsert.ExecuteNonQueryAsync(); clubCount++;
         }
+        if (isBundle && scannedClubs != clubTotal)
+            throw new InvalidDataException($"Club NDJSON row count mismatch: manifest={clubTotal:N0}, read={scannedClubs:N0}. The previous career snapshot was retained.");
+        if (clubCount != scannedClubs)
+            warnings.Add($"Club rows skipped during indexing: read={scannedClubs:N0}, indexed={clubCount:N0}. Rows without a usable identity or name were excluded.");
 
         // Keep all additional save tables in a lossless JSON sidecar table so later modules can build on them.
-        var extraNames = new[] { "managed_clubs", "staff_lists", "contracts", "suspensions", "finances", "sponsorships", "facilities", "stadiums", "affiliates", "job_vacancies", "stages", "competitions", "nations", "injury_types", "injuries", "player_season_stats", "player_season_history", "player_match_stats", "fixtures", "league_tables", "competition_rules", "transfer_windows", "tactics", "training", "mentoring", "set_pieces", "selections" };
+        var extraNames = new[] { "managed_clubs", "staff_lists", "contracts", "suspensions", "finances", "sponsorships", "facilities", "stadiums", "affiliates", "job_vacancies", "stages", "competitions", "nations", "injury_types", "injuries", "player_season_stats", "player_season_history", "player_match_stats", "fixtures", "team_match_stats", "league_tables", "competition_rules", "transfer_windows", "tactics", "training", "mentoring", "set_pieces", "selections" };
         var extraInsert = db.CreateCommand(); extraInsert.Transaction = (SqliteTransaction)tx;
         extraInsert.CommandText = "INSERT INTO FmsaveExtraTables(SnapshotId,TableName,RowIndex,RawJson) VALUES($snapshot,$table,$index,$raw);";
         extraInsert.Parameters.AddWithValue("$snapshot", snapshotId); extraInsert.Parameters.Add("$table", SqliteType.Text); extraInsert.Parameters.Add("$index", SqliteType.Integer); extraInsert.Parameters.Add("$raw", SqliteType.Text);
+        extraInsert.Prepare();
         var statFactInsert = db.CreateCommand(); statFactInsert.Transaction = (SqliteTransaction)tx;
         statFactInsert.CommandText = "INSERT OR REPLACE INTO FmsaveStatFacts(SnapshotId,TableName,RowIndex,PlayerUid,PeriodKey,Minutes,FieldKey,NumericValue) VALUES($snapshot,$table,$index,$uid,$period,$minutes,$field,$value);";
         statFactInsert.Parameters.AddWithValue("$snapshot", snapshotId); statFactInsert.Parameters.Add("$table", SqliteType.Text); statFactInsert.Parameters.Add("$index", SqliteType.Integer);
@@ -1275,19 +1882,22 @@ public sealed class ScoutDatabase
         var extraCount = 0; var statFactCount = 0;
         foreach (var tableName in extraNames)
         {
-            foreach (var (row, index) in GetArray(root, tableName).Select((r,i)=>(r,i)))
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report($"Indexing {tableName} records…");
+            var rowIndex = 0;
+            await foreach (var row in ReadSnapshotRowsAsync(jsonPath, root, isBundle, tableName, cancellationToken).ConfigureAwait(false))
             {
+                var currentIndex = rowIndex++;
+                if ((extraCount % 500) == 0) cancellationToken.ThrowIfCancellationRequested();
                 var rawJson = row.GetRawText();
-                extraInsert.Parameters["$table"].Value = tableName; extraInsert.Parameters["$index"].Value = index; extraInsert.Parameters["$raw"].Value = rawJson;
+                extraInsert.Parameters["$table"].Value = tableName; extraInsert.Parameters["$index"].Value = currentIndex; extraInsert.Parameters["$raw"].Value = rawJson;
                 await extraInsert.ExecuteNonQueryAsync(); extraCount++;
                 if ((tableName is "player_season_stats" or "player_season_history" or "player_match_stats") && row.ValueKind == JsonValueKind.Object)
                 {
                     var uid = GetFirstJsonString(row, "player_uid", "player_id", "uid", "unique_id", "person_uid");
                     if (!string.IsNullOrWhiteSpace(uid))
                     {
-                        var period = tableName == "player_match_stats"
-                            ? GetFirstJsonString(row, "fixture_uid", "match_uid", "fixture_id", "match_id", "date", "match_date") ?? $"Match #{index + 1}"
-                            : GetFirstJsonString(row, "season", "season_name", "year") ?? "Season unavailable";
+                        var period = BuildPlayerStatPeriod(tableName, row);
                         double? minutes = null;
                         foreach (var key in new[] { "minutes_played", "playing_time_minutes", "minutes", "mins_played", "total_minutes", "minutes_on_pitch" })
                             if (TryFindNumeric(row, key, out var mins) && mins > 0) { minutes = mins; break; }
@@ -1295,7 +1905,7 @@ public sealed class ScoutDatabase
                         {
                             var leaf = metric.Key.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? metric.Key;
                             if (IsAnalyticsIdentityKey(leaf) || IsNonMetricNumericField(leaf) || !double.IsFinite(metric.Value)) continue;
-                            statFactInsert.Parameters["$table"].Value = tableName; statFactInsert.Parameters["$index"].Value = index;
+                            statFactInsert.Parameters["$table"].Value = tableName; statFactInsert.Parameters["$index"].Value = currentIndex;
                             statFactInsert.Parameters["$uid"].Value = uid; statFactInsert.Parameters["$period"].Value = period;
                             statFactInsert.Parameters["$minutes"].Value = (object?)minutes ?? DBNull.Value;
                             statFactInsert.Parameters["$field"].Value = metric.Key; statFactInsert.Parameters["$value"].Value = metric.Value;
@@ -1304,17 +1914,50 @@ public sealed class ScoutDatabase
                     }
                 }
             }
+            if (isBundle && rowIndex != tableCounts.GetValueOrDefault(tableName))
+                throw new InvalidDataException($"{tableName} NDJSON row count mismatch: manifest={tableCounts.GetValueOrDefault(tableName):N0}, read={rowIndex:N0}. The previous career snapshot was retained.");
         }
+        if (playerCount == 0)
+            throw new InvalidDataException("The save bundle contained player rows, but none could be indexed. The previous committed career snapshot was retained.");
+
+        if (playerCount != playerTotal)
+            warnings.Add($"Player row reconciliation: manifest={playerTotal:N0}, indexed={playerCount:N0}. Invalid or incomplete player rows were skipped.");
+        if (staffCount != staffTotal)
+            warnings.Add($"Staff row reconciliation: manifest={staffTotal:N0}, indexed={staffCount:N0}. Rows without a usable staff identity/name were skipped.");
+        if (clubCount != clubTotal)
+            warnings.Add($"Club row reconciliation: manifest={clubTotal:N0}, indexed={clubCount:N0}. Rows without a usable club identity/name were skipped.");
+
+        var expectedExtraRows = tableCounts
+            .Where(x => !x.Key.Equals("players", StringComparison.OrdinalIgnoreCase)
+                && !x.Key.Equals("staff", StringComparison.OrdinalIgnoreCase)
+                && !x.Key.Equals("clubs", StringComparison.OrdinalIgnoreCase))
+            .Sum(x => (long)x.Value);
+        if (expectedExtraRows != extraCount)
+            warnings.Add($"Additional table row reconciliation: manifest={expectedExtraRows:N0}, indexed={extraCount:N0}. Check the bridge bundle before relying on full table coverage.");
+
         var finish = db.CreateCommand(); finish.Transaction = (SqliteTransaction)tx;
-        finish.CommandText = "UPDATE FmsaveImportRuns SET PlayersImported=$players,StaffImported=$staff,ClubsImported=$clubs,ExtraRowsImported=$extra WHERE SnapshotId=$id;";
-        finish.Parameters.AddWithValue("$players", playerCount); finish.Parameters.AddWithValue("$staff", staffCount); finish.Parameters.AddWithValue("$clubs", clubCount); finish.Parameters.AddWithValue("$extra", extraCount); finish.Parameters.AddWithValue("$id", snapshotId);
-        await finish.ExecuteNonQueryAsync(); await tx.CommitAsync().ConfigureAwait(false);
+        finish.CommandText = "UPDATE FmsaveImportRuns SET PlayersImported=$players,StaffImported=$staff,ClubsImported=$clubs,ExtraRowsImported=$extra,WarningsJson=$warnings WHERE SnapshotId=$id;";
+        finish.Parameters.AddWithValue("$players", playerCount); finish.Parameters.AddWithValue("$staff", staffCount); finish.Parameters.AddWithValue("$clubs", clubCount); finish.Parameters.AddWithValue("$extra", extraCount);
+        finish.Parameters.AddWithValue("$warnings", JsonSerializer.Serialize(warnings)); finish.Parameters.AddWithValue("$id", snapshotId);
+        await finish.ExecuteNonQueryAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report("Validating and committing the new career snapshot…");
+        await tx.CommitAsync(cancellationToken).ConfigureAwait(false);
         AtlasLog.Info($"FMSave snapshot indexed: snapshot={snapshotId}; playerStatFacts={statFactCount}; rawExtraRows={extraCount}.");
         return new FmsaveImportResult(snapshotId, playerCount, staffCount, clubCount, extraCount, tableCounts, warnings);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<(int ImportId, int RowsImported, int PlayersCreated, string Note)> ImportFmViewExporterCsvAsync(string csvPath)
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         var lines = await File.ReadAllLinesAsync(csvPath, Encoding.UTF8).ConfigureAwait(false);
         if (lines.Length < 2) throw new InvalidDataException("The FM View Exporter CSV is empty or has no data rows.");
         var delimiter = lines[0].Count(c => c == ';') > lines[0].Count(c => c == ',') ? ';' : ',';
@@ -1423,7 +2066,13 @@ public sealed class ScoutDatabase
         await finish.ExecuteNonQueryAsync().ConfigureAwait(false);
         await tx.CommitAsync().ConfigureAwait(false);
         return (importId, imported, created.Count, $"{headers.Length} columns retained · source IDs matched to current FMSave players where possible · raw export rows preserved");
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<AtlasEditableAttribute>> GetPlayerAttributeRowsAsync(string sourceId)
     {
@@ -1432,6 +2081,130 @@ public sealed class ScoutDatabase
         var rows = new List<AtlasEditableAttribute>(); await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false)) rows.Add(new AtlasEditableAttribute(reader.GetString(0),reader.GetString(1),reader.GetDouble(2)));
         return rows;
+    }
+
+    /// <summary>
+    /// Returns source-backed 1–20 position ratings from the latest imported save snapshot.
+    /// Only explicit positions ratings are considered; natural/accomplished flags and
+    /// missing values are never converted into fabricated suitability.
+    /// </summary>
+    public async Task<Dictionary<string, IReadOnlyList<PositionSuitabilityEntry>>> GetImportedPositionSuitabilityAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT PlayerSourceId,FieldKey,NumericValue
+            FROM FmsavePlayerFacts
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND FactGroup='positions'
+              AND NumericValue IS NOT NULL
+              AND NumericValue BETWEEN 1 AND 20
+            ORDER BY PlayerSourceId,FieldKey;
+            """;
+
+        var facts = new Dictionary<string, List<KeyValuePair<string, double?>>>(StringComparer.OrdinalIgnoreCase);
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var sourceId = reader.GetString(0);
+                if (!facts.TryGetValue(sourceId, out var rows))
+                {
+                    rows = new List<KeyValuePair<string, double?>>();
+                    facts[sourceId] = rows;
+                }
+                rows.Add(new KeyValuePair<string, double?>(reader.GetString(1), reader.GetDouble(2)));
+            }
+        }
+
+        return facts.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<PositionSuitabilityEntry>)PositionSuitabilityService.MapSourceRatings(pair.Value),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Returns only explicitly imported numeric wage facts from the current save snapshot.
+    /// Values stay in source units because currency and pay period are not inferred here.
+    /// </summary>
+    /// <summary>Loads latest-snapshot wage facts only for the requested players, in bounded batches.</summary>
+    public async Task<Dictionary<string, double>> GetLatestPlayerWageFactsAsync(
+        IReadOnlyCollection<string> playerSourceIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(playerSourceIds);
+        var ids = playerSourceIds.Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var results = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        if (ids.Count == 0) return results;
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        const int batchSize = 400;
+        for (var start = 0; start < ids.Count; start += batchSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var batch = ids.Skip(start).Take(batchSize).ToList();
+            var command = db.CreateCommand();
+            var parameters = new List<string>(batch.Count);
+            for (var index = 0; index < batch.Count; index++)
+            {
+                var name = "$player" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                parameters.Add(name);
+                command.Parameters.AddWithValue(name, batch[index]);
+            }
+            command.CommandText = $"""
+                SELECT PlayerSourceId,NumericValue
+                FROM FmsavePlayerFacts
+                WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                  AND FactGroup='contract'
+                  AND LOWER(FieldKey)='wage'
+                  AND NumericValue IS NOT NULL
+                  AND NumericValue>0
+                  AND PlayerSourceId IN ({string.Join(",", parameters)})
+                ORDER BY PlayerSourceId;
+                """;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var value = reader.GetDouble(1);
+                if (double.IsFinite(value) && value > 0)
+                    results[reader.GetString(0)] = value;
+            }
+        }
+        return results;
+    }
+
+    public async Task<Dictionary<string, double>> GetLatestPlayerWageFactsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT PlayerSourceId,NumericValue
+            FROM FmsavePlayerFacts
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+              AND FactGroup='contract'
+              AND LOWER(FieldKey)='wage'
+              AND NumericValue IS NOT NULL
+              AND NumericValue>0
+            ORDER BY PlayerSourceId;
+            """;
+        var results = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var value = reader.GetDouble(1);
+            if (double.IsFinite(value) && value > 0)
+                results[reader.GetString(0)] = value;
+        }
+        return results;
     }
 
     public async Task<List<AtlasFactRecord>> GetFmsavePlayerFactsAsync(string sourceId, string group)
@@ -1450,6 +2223,61 @@ public sealed class ScoutDatabase
     /// source actually contains for this player. This is deliberately lossless and
     /// provenance-preserving: fields are grouped by FM statistical family and period.
     /// </summary>
+
+    /// <summary>
+    /// Returns dated ability/value observations from each imported save snapshot for a player.
+    /// A trend is meaningful only when at least two distinct in-game dates are present.
+    /// Values remain parser-derived and are never interpolated or projected.
+    /// </summary>
+    public async Task<List<PlayerDevelopmentSnapshot>> GetPlayerDevelopmentHistoryAsync(string sourceId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("A player source ID is required.", nameof(sourceId));
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var command = db.CreateCommand();
+        command.CommandText = """
+            SELECT r.SnapshotId,r.GameDate,r.CreatedUtc,r.SourceFileName,s.RawJson
+            FROM FmsavePlayerSnapshots s
+            INNER JOIN FmsaveImportRuns r ON r.SnapshotId=s.SnapshotId
+            WHERE s.PlayerSourceId=$source AND r.GameDate IS NOT NULL AND TRIM(r.GameDate)<>''
+            ORDER BY r.GameDate ASC,r.SnapshotId ASC;
+            """;
+        command.Parameters.AddWithValue("$source", sourceId);
+        var results = new List<PlayerDevelopmentSnapshot>();
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            var rawDate = reader.GetString(1);
+            if (!DateTime.TryParse(rawDate, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var gameDate))
+                continue;
+
+            using var document = JsonDocument.Parse(reader.GetString(4));
+            var player = document.RootElement;
+            var currentAbility = GetNumeric(player, "current_ability") ?? GetNumeric(player, "ca");
+            var potentialAbility = GetNumeric(player, "potential_ability") ?? GetNumeric(player, "pa");
+            var rawValue = GetNumeric(player, "value");
+            if (!currentAbility.HasValue && !potentialAbility.HasValue && !rawValue.HasValue) continue;
+
+            decimal? value = null;
+            if (rawValue.HasValue && double.IsFinite(rawValue.Value))
+            {
+                try { value = Convert.ToDecimal(rawValue.Value, System.Globalization.CultureInfo.InvariantCulture); }
+                catch (OverflowException) { value = null; }
+            }
+
+            results.Add(new PlayerDevelopmentSnapshot(
+                reader.GetInt32(0), gameDate.Date, reader.GetString(2), reader.GetString(3),
+                currentAbility.HasValue && double.IsFinite(currentAbility.Value) ? currentAbility.Value : null,
+                potentialAbility.HasValue && double.IsFinite(potentialAbility.Value) ? potentialAbility.Value : null,
+                value));
+        }
+        return results
+            .OrderBy(x => x.GameDate)
+            .ThenBy(x => x.SnapshotId)
+            .ToList();
+    }
+
     public async Task<List<AtlasFactRecord>> GetPlayerPerformanceFactsAsync(string sourceId)
     {
         await using var db = new SqliteConnection(_connectionString);
@@ -1497,14 +2325,36 @@ public sealed class ScoutDatabase
                 parameters.Add(key);
                 indexed.Parameters.AddWithValue(key, uid);
             }
-            indexed.CommandText = $"SELECT TableName,PeriodKey,FieldKey,NumericValue FROM FmsaveStatFacts WHERE SnapshotId=$snapshot AND PlayerUid IN ({string.Join(",", parameters)}) ORDER BY TableName,RowIndex,FieldKey;";
+            indexed.CommandText = $"""
+                SELECT f.TableName,f.RowIndex,f.PeriodKey,f.FieldKey,f.NumericValue,
+                       CASE WHEN f.PeriodKey IN ('Season unavailable','Match period unavailable','Period unavailable')
+                            THEN e.RawJson END
+                FROM FmsaveStatFacts f
+                LEFT JOIN FmsaveExtraTables e
+                  ON e.SnapshotId=f.SnapshotId AND e.TableName=f.TableName AND e.RowIndex=f.RowIndex
+                WHERE f.SnapshotId=$snapshot AND f.PlayerUid IN ({string.Join(",", parameters)})
+                ORDER BY f.TableName,f.RowIndex,f.FieldKey;
+                """;
             await using var reader = await indexed.ExecuteReaderAsync().ConfigureAwait(false);
+            var periodCache = new Dictionary<(string Table, int RowIndex), string>();
             while (await reader.ReadAsync().ConfigureAwait(false))
             {
                 var table = reader.GetString(0);
-                var period = reader.GetString(1);
-                var key = reader.GetString(2);
-                var value = reader.GetDouble(3);
+                var rowIndex = reader.GetInt32(1);
+                var period = reader.GetString(2);
+                if (!reader.IsDBNull(5))
+                {
+                    var cacheKey = (table, rowIndex);
+                    if (!periodCache.TryGetValue(cacheKey, out var resolvedPeriod))
+                    {
+                        using var rowDoc = JsonDocument.Parse(reader.GetString(5));
+                        resolvedPeriod = BuildPlayerStatPeriod(table, rowDoc.RootElement);
+                        periodCache[cacheKey] = resolvedPeriod;
+                    }
+                    period = resolvedPeriod;
+                }
+                var key = reader.GetString(3);
+                var value = reader.GetDouble(4);
                 var leaf = key.Split('.', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? key;
                 if (IsAnalyticsIdentityKey(leaf) || IsNonMetricNumericField(leaf) || !double.IsFinite(value)) continue;
                 var category = StatCategory(leaf, key);
@@ -1516,7 +2366,7 @@ public sealed class ScoutDatabase
                     "player_match_stats" => "Match",
                     _ => table
                 };
-                var identity = category + "\0" + sourceLabel + "\0" + period + "\0" + fieldLabel;
+                var identity = category + "\0" + sourceLabel + "\0" + period + "\0" + rowIndex.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\0" + fieldLabel;
                 if (!seen.Add(identity)) continue;
                 facts.Add(new AtlasFactRecord(category, $"{sourceLabel} · {period} · {fieldLabel}", value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)));
             }
@@ -1524,7 +2374,7 @@ public sealed class ScoutDatabase
         else if (snapshotId.HasValue && playerUids.Count > 0)
         {
             var legacy = db.CreateCommand();
-            legacy.CommandText = "SELECT TableName,RawJson FROM FmsaveExtraTables WHERE SnapshotId=$snapshot AND TableName IN ('player_season_stats','player_season_history','player_match_stats') ORDER BY CASE TableName WHEN 'player_season_stats' THEN 0 WHEN 'player_match_stats' THEN 1 ELSE 2 END,RowIndex;";
+            legacy.CommandText = "SELECT TableName,RowIndex,RawJson FROM FmsaveExtraTables WHERE SnapshotId=$snapshot AND TableName IN ('player_season_stats','player_season_history','player_match_stats') ORDER BY CASE TableName WHEN 'player_season_stats' THEN 0 WHEN 'player_match_stats' THEN 1 ELSE 2 END,RowIndex;";
             legacy.Parameters.AddWithValue("$snapshot", snapshotId.Value);
             await using var reader = await legacy.ExecuteReaderAsync().ConfigureAwait(false);
             while (await reader.ReadAsync().ConfigureAwait(false))
@@ -1532,13 +2382,12 @@ public sealed class ScoutDatabase
                 try
                 {
                     var table = reader.GetString(0);
-                    using var doc = JsonDocument.Parse(reader.GetString(1));
+                    var rowIndex = reader.GetInt32(1);
+                    using var doc = JsonDocument.Parse(reader.GetString(2));
                     var row = doc.RootElement;
                     var uid = GetFirstJsonString(row, "player_uid", "player_id", "uid", "unique_id", "person_uid");
                     if (string.IsNullOrWhiteSpace(uid) || !playerUids.Contains(uid)) continue;
-                    var period = table == "player_match_stats"
-                        ? GetFirstJsonString(row, "fixture_uid", "match_uid", "fixture_id", "match_id", "date", "match_date") ?? "Match period unavailable"
-                        : GetFirstJsonString(row, "season", "season_name", "year") ?? "Season unavailable";
+                    var period = BuildPlayerStatPeriod(table, row);
                     var sourceLabel = table switch { "player_season_stats" => "Season", "player_season_history" => "Career history", _ => "Match" };
                     foreach (var item in EnumerateNumericPaths(row))
                     {
@@ -1546,7 +2395,7 @@ public sealed class ScoutDatabase
                         if (IsAnalyticsIdentityKey(leaf) || IsNonMetricNumericField(leaf) || !double.IsFinite(item.Value)) continue;
                         var category = StatCategory(leaf, item.Key);
                         var fieldLabel = HumanizeMetric(leaf);
-                        var identity = category + "\0" + sourceLabel + "\0" + period + "\0" + fieldLabel;
+                        var identity = category + "\0" + sourceLabel + "\0" + period + "\0" + rowIndex.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\0" + fieldLabel;
                         if (!seen.Add(identity)) continue;
                         facts.Add(new AtlasFactRecord(category, $"{sourceLabel} · {period} · {fieldLabel}", item.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)));
                     }
@@ -1591,29 +2440,50 @@ public sealed class ScoutDatabase
         async Task<string?> ScalarText(string sql) { var c=db.CreateCommand(); c.CommandText=sql; var v=await c.ExecuteScalarAsync(); return v is null || v==DBNull.Value ? null : Convert.ToString(v); }
         var knownBuildText = await ScalarText("SELECT CASE WHEN KnownBuild=1 THEN 'true' WHEN KnownBuild=0 THEN 'false' ELSE NULL END FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1");
         bool? knownBuild = bool.TryParse(knownBuildText, out var parsedKnownBuild) ? parsedKnownBuild : null;
-        string? currentManager = null; string? currentManagerClub = null;
+        string? currentManager = null; string? currentManagerClub = null; string? currentManagerNation = null;
+        long? liveSaveLoadCounter = null;
+        var liveIdentity = db.CreateCommand();
+        liveIdentity.CommandText = "SELECT SaveLoadCounter,ManagerName,ManagerClubName,ManagerNation FROM LiveCareerIdentity ORDER BY RunId DESC LIMIT 1;";
+        await using (var liveReader = await liveIdentity.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            if (await liveReader.ReadAsync().ConfigureAwait(false))
+            {
+                liveSaveLoadCounter = liveReader.IsDBNull(0) ? null : liveReader.GetInt64(0);
+                currentManager = liveReader.IsDBNull(1) ? null : liveReader.GetString(1);
+                currentManagerClub = liveReader.IsDBNull(2) ? null : liveReader.GetString(2);
+                currentManagerNation = liveReader.IsDBNull(3) ? null : liveReader.GetString(3);
+            }
+        }
         var managerQuery = db.CreateCommand();
         managerQuery.CommandText = "SELECT RawJson FROM FmsaveStaffDirectory WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) ORDER BY Name LIMIT 10000;";
-        await using (var managerReader = await managerQuery.ExecuteReaderAsync())
+        if (string.IsNullOrWhiteSpace(currentManager) && !liveSaveLoadCounter.HasValue)
         {
-            while (await managerReader.ReadAsync())
+            // Do not fall back to a manager from an older offline save after a live career
+            // has connected but its manager could not be uniquely identified.
+            await using (var managerReader = await managerQuery.ExecuteReaderAsync())
             {
-                try
+                while (await managerReader.ReadAsync())
                 {
-                    using var managerDoc = JsonDocument.Parse(managerReader.GetString(0));
-                    var manager = managerDoc.RootElement;
-                    if (manager.TryGetProperty("is_human_manager", out var flag) && (flag.ValueKind == JsonValueKind.True || (flag.ValueKind == JsonValueKind.Number && flag.TryGetInt32(out var flagNumber) && flagNumber == 1)))
+                    try
                     {
-                        currentManager = GetString(manager, "name");
-                        currentManagerClub = GetString(manager, "club_name");
-                        break;
+                        using var managerDoc = JsonDocument.Parse(managerReader.GetString(0));
+                        var manager = managerDoc.RootElement;
+                        if (manager.TryGetProperty("is_human_manager", out var flag) && (flag.ValueKind == JsonValueKind.True || (flag.ValueKind == JsonValueKind.Number && flag.TryGetInt32(out var flagNumber) && flagNumber == 1)))
+                        {
+                            currentManager = GetString(manager, "name");
+                            currentManagerClub = GetString(manager, "club_name");
+                            currentManagerNation = GetString(manager, "nation_name");
+                            break;
+                        }
                     }
+                    catch (JsonException) { /* Keep malformed manager rows out of the dashboard identity. */ }
                 }
-                catch (JsonException) { /* Keep malformed manager rows out of the dashboard identity. */ }
             }
         }
         return new WorkspaceMetrics(
-            await Count("SELECT COUNT(*) FROM LivePlayers"), await Count("SELECT COUNT(*) FROM LiveClubs"), await Count("SELECT COUNT(*) FROM LiveStaff"),
+            await Count("SELECT COUNT(*) FROM LivePlayers WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')"),
+            await Count("SELECT COUNT(*) FROM LiveClubs WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')"),
+            await Count("SELECT COUNT(*) FROM LiveStaff WHERE SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')"),
             await Count("SELECT COUNT(DISTINCT PlayerSourceId) FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)"),
             await Count("SELECT COUNT(*) FROM FmsaveClubDirectory WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)"),
             await Count("SELECT COUNT(*) FROM FmsaveStaffDirectory WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)"),
@@ -1626,7 +2496,7 @@ public sealed class ScoutDatabase
             knownBuild,
             await ScalarText("SELECT GameDate FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1"),
             await ScalarText("SELECT ValidationJson FROM FmsaveImportRuns ORDER BY SnapshotId DESC LIMIT 1"),
-            currentManager, currentManagerClub);
+            currentManager, currentManagerClub, currentManagerNation, liveSaveLoadCounter);
     }
 
     public async Task<List<AtlasStaffRecord>> SearchFmsaveStaffAsync(string? search)
@@ -1650,40 +2520,96 @@ public sealed class ScoutDatabase
                 rows.Add(new AtlasStaffRecord(reader.GetString(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetString(6)));
         }
         var live = db.CreateCommand();
-        live.CommandText = "SELECT CAST(StaffUid AS TEXT),StaffName,'FM27 live identity import' FROM LiveStaff WHERE ($q='' OR StaffName LIKE $p OR CAST(StaffUid AS TEXT) LIKE $p) ORDER BY StaffName COLLATE NOCASE LIMIT 5000;";
+        live.CommandText = """
+            SELECT 'LIVE:' || CAST(s.StaffUid AS TEXT),s.StaffName,
+                   (SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.club_name'),
+                   (SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.job_title'),
+                   CAST((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.age') AS INTEGER),
+                   (SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.nation_name'),
+                   s.ValidationStatus,
+                   CAST((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='ability.current_ability') AS INTEGER),
+                   CAST((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='ability.potential_ability') AS INTEGER),
+                   COALESCE((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.is_human_manager'),0)
+            FROM LiveStaff s
+            WHERE s.SourceRunId=(SELECT MAX(RunId) FROM LiveImportRuns WHERE Status='Completed')
+              AND ($q='' OR s.StaffName LIKE $p OR CAST(s.StaffUid AS TEXT) LIKE $p
+                   OR COALESCE((SELECT TextValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.club_name'),'') LIKE $p)
+            ORDER BY CASE WHEN COALESCE((SELECT NumericValue FROM LiveStaffFacts f WHERE f.StaffUid=s.StaffUid AND f.FieldKey='identity.is_human_manager'),0)=1 THEN 0 ELSE 1 END,
+                     s.StaffName COLLATE NOCASE LIMIT 5000;
+            """;
         live.Parameters.AddWithValue("$q", q); live.Parameters.AddWithValue("$p", $"%{q}%");
         await using (var reader = await live.ExecuteReaderAsync().ConfigureAwait(false))
         {
             while (await reader.ReadAsync().ConfigureAwait(false))
-                rows.Add(new AtlasStaffRecord(reader.GetString(0), reader.GetString(1), null, null, null, null, reader.GetString(2)));
+                rows.Add(new AtlasStaffRecord(
+                    reader.GetString(0), reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                    reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                    !reader.IsDBNull(9) && reader.GetDouble(9) >= 1));
         }
-        return rows.GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase).Select(x => x.First()).OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Take(5000).ToList();
+        // Live and offline imports assign different source IDs to the same staff member.
+        // Merge the same visible person/club/role and prefer the current live row, while
+        // retaining live provenance and profile facts for the selected record.
+        return rows
+            .GroupBy(x => string.Join("|",
+                x.Name.Trim(),
+                (x.Club ?? string.Empty).Trim(),
+                (x.Job ?? string.Empty).Trim()),
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(x => x.ValidationStatus.Contains("ProfileMatched", StringComparison.OrdinalIgnoreCase)
+                    || x.ValidationStatus.Contains("HumanManager", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(x => x.CurrentAbility.HasValue || x.PotentialAbility.HasValue)
+                .First())
+            .OrderByDescending(x => x.IsHumanManager)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(5000)
+            .ToList();
     }
 
     public async Task<List<AtlasFactRecord>> GetFmsaveStaffFactsAsync(string staffUid)
     {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
+        var facts = new List<AtlasFactRecord>();
         var cmd = db.CreateCommand();
         cmd.CommandText = "SELECT RawJson FROM FmsaveStaffDirectory WHERE StaffUid=$uid AND SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) LIMIT 1;";
         cmd.Parameters.AddWithValue("$uid", staffUid);
         var json = Convert.ToString(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
         if (!string.IsNullOrWhiteSpace(json))
         {
-            using var doc = JsonDocument.Parse(json);
-            return FlattenScalarFacts(doc.RootElement).Where(x => !string.IsNullOrWhiteSpace(x.Key)).Take(150)
-                .Select(x => new AtlasFactRecord("Staff", x.Key, x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)).ToList();
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                facts.AddRange(FlattenScalarFacts(doc.RootElement)
+                    .Where(x => !string.IsNullOrWhiteSpace(x.Key))
+                    .Take(150)
+                    .Select(x => new AtlasFactRecord("Career save · imported", x.Key,
+                        x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)));
+            }
+            catch (JsonException) { /* Keep any live facts even if an offline staff JSON row is malformed. */ }
         }
-        if (!long.TryParse(staffUid, out var staffId)) return new List<AtlasFactRecord>();
+
+        var liveStaffId = staffUid.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) ? staffUid[5..] : staffUid;
+        if (!long.TryParse(liveStaffId, out var staffId)) return facts;
         var live = db.CreateCommand();
-        live.CommandText = "SELECT FieldKey,NumericValue,TextValue FROM LiveStaffFacts WHERE StaffUid=$id ORDER BY FieldKey LIMIT 150;";
+        live.CommandText = "SELECT FieldKey,NumericValue,TextValue,ValidationStatus FROM LiveStaffFacts WHERE StaffUid=$id ORDER BY FieldKey LIMIT 150;";
         live.Parameters.AddWithValue("$id", staffId);
-        var facts = new List<AtlasFactRecord>();
         await using var reader = await live.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
-            var value = reader.IsDBNull(1) ? (reader.IsDBNull(2) ? null : reader.GetString(2)) : reader.GetDouble(1).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            facts.Add(new AtlasFactRecord("Live FM27 · candidate field", reader.GetString(0), value));
+            var value = reader.IsDBNull(1)
+                ? (reader.IsDBNull(2) ? null : reader.GetString(2))
+                : reader.GetDouble(1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var status = reader.GetString(3);
+            facts.Add(new AtlasFactRecord(
+                "Live FM27 · " + (status.Contains("Verified", StringComparison.OrdinalIgnoreCase) ? "verified" : "provisional"),
+                reader.GetString(0), value));
         }
         return facts;
     }
@@ -1713,30 +2639,155 @@ public sealed class ScoutDatabase
         var club = db.CreateCommand();
         club.CommandText = "SELECT RawJson FROM FmsaveClubDirectory WHERE ClubUid=$uid AND SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) LIMIT 1;";
         club.Parameters.AddWithValue("$uid", clubUid);
-        var json = Convert.ToString(await club.ExecuteScalarAsync());
+        var json = Convert.ToString(await club.ExecuteScalarAsync().ConfigureAwait(false));
         if (!string.IsNullOrWhiteSpace(json))
         {
             using var doc = JsonDocument.Parse(json);
-            facts.AddRange(FlattenScalarFacts(doc.RootElement).Take(120).Select(x => new AtlasFactRecord("Club", x.Key, x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)));
+            facts.AddRange(FlattenScalarFacts(doc.RootElement).Select(x => new AtlasFactRecord("Club", x.Key, x.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? x.TextValue)));
         }
 
         var related = db.CreateCommand();
-        related.CommandText = "SELECT TableName,RawJson FROM FmsaveExtraTables WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND TableName IN ('finances','facilities','stadiums','affiliates','managed_clubs');";
-        await using var reader = await related.ExecuteReaderAsync();
+        related.CommandText = "SELECT TableName,RawJson FROM FmsaveExtraTables WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND TableName IN ('finances','facilities','stadiums','affiliates','managed_clubs','league_tables');";
+        await using var reader = await related.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             var table = reader.GetString(0); var raw = reader.GetString(1);
             try
             {
                 using var doc = JsonDocument.Parse(raw);
+                if (table.Equals("league_tables", StringComparison.OrdinalIgnoreCase))
+                {
+                    var competition = GetFirstJsonString(doc.RootElement, "competition_name", "name") ?? "Competition";
+                    if (doc.RootElement.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var tableRow in rows.EnumerateArray())
+                        {
+                            if (!string.Equals(GetFirstJsonString(tableRow, "club_uid"), clubUid, StringComparison.OrdinalIgnoreCase)) continue;
+                            foreach (var item in FlattenScalarFacts(tableRow))
+                                facts.Add(new AtlasFactRecord("League table · " + competition, item.Key,
+                                    item.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? item.TextValue));
+                        }
+                    }
+                    continue;
+                }
                 if (!ReferencesClub(doc.RootElement, clubUid)) continue;
-                foreach (var item in FlattenScalarFacts(doc.RootElement).Take(80))
+                foreach (var item in FlattenScalarFacts(doc.RootElement))
                     facts.Add(new AtlasFactRecord(table, item.Key, item.NumericValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? item.TextValue));
             }
             catch (JsonException) { /* A malformed optional row does not stop the rest of the club profile. */ }
-            if (facts.Count >= 400) break;
         }
         return facts;
+    }
+
+    public async Task<List<AtlasClubMatchStats>> GetFmsaveClubMatchStatsAsync(string clubUid, int limit = 1000)
+    {
+        if (string.IsNullOrWhiteSpace(clubUid)) return new();
+        var safeLimit = Math.Clamp(limit, 1, 5000);
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+
+        var clubCommand = db.CreateCommand();
+        clubCommand.CommandText = "SELECT RawJson FROM FmsaveClubDirectory WHERE ClubUid=$uid AND SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) LIMIT 1;";
+        clubCommand.Parameters.AddWithValue("$uid", clubUid);
+        var clubJson = Convert.ToString(await clubCommand.ExecuteScalarAsync().ConfigureAwait(false));
+        if (string.IsNullOrWhiteSpace(clubJson)) return new();
+
+        var teamSlots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using (var clubDoc = JsonDocument.Parse(clubJson))
+        {
+            if (clubDoc.RootElement.TryGetProperty("teams", out var teams) && teams.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var team in teams.EnumerateArray())
+                {
+                    var teamId = GetFirstJsonString(team, "team_id");
+                    if (!string.IsNullOrWhiteSpace(teamId))
+                        teamSlots[teamId] = GetFirstJsonString(team, "slot") ?? "—";
+                }
+            }
+        }
+        if (teamSlots.Count == 0) return new();
+
+        static string FixtureKey(string? competition, string? home, string? away, string? date)
+            => string.Join("|", competition ?? "", home ?? "", away ?? "", date ?? "");
+
+        var fixtureLookup = new Dictionary<string, (string? HomeName, string? AwayName, string? Competition, string? HomeGoals, string? AwayGoals)>(StringComparer.OrdinalIgnoreCase);
+        var fixtureCommand = db.CreateCommand();
+        fixtureCommand.CommandText = "SELECT RawJson FROM FmsaveExtraTables WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND TableName='fixtures';";
+        await using (var fixtureReader = await fixtureCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await fixtureReader.ReadAsync().ConfigureAwait(false))
+            {
+                try
+                {
+                    using var fixtureDoc = JsonDocument.Parse(fixtureReader.GetString(0));
+                    var row = fixtureDoc.RootElement;
+                    var key = FixtureKey(GetFirstJsonString(row, "competition_id"), GetFirstJsonString(row, "home_team_id"),
+                        GetFirstJsonString(row, "away_team_id"), GetFirstJsonString(row, "date"));
+                    fixtureLookup[key] = (
+                        GetFirstJsonString(row, "home_club_name"),
+                        GetFirstJsonString(row, "away_club_name"),
+                        GetFirstJsonString(row, "competition_name"),
+                        GetFirstJsonString(row, "home_goals"),
+                        GetFirstJsonString(row, "away_goals"));
+                }
+                catch (JsonException) { }
+            }
+        }
+
+        static string MatchResult(bool isHome, string? homeText, string? awayText)
+        {
+            if (!int.TryParse(homeText, out var homeGoals) || !int.TryParse(awayText, out var awayGoals)) return "—";
+            var forGoals = isHome ? homeGoals : awayGoals;
+            var againstGoals = isHome ? awayGoals : homeGoals;
+            var outcome = forGoals > againstGoals ? "W" : forGoals < againstGoals ? "L" : "D";
+            return $"{outcome} {forGoals}–{againstGoals}";
+        }
+
+        var results = new List<AtlasClubMatchStats>();
+        var statsCommand = db.CreateCommand();
+        statsCommand.CommandText = "SELECT RawJson FROM FmsaveExtraTables WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND TableName='team_match_stats';";
+        await using (var statsReader = await statsCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await statsReader.ReadAsync().ConfigureAwait(false))
+            {
+                try
+                {
+                    using var statsDoc = JsonDocument.Parse(statsReader.GetString(0));
+                    var row = statsDoc.RootElement;
+                    var teamId = GetFirstJsonString(row, "team_id");
+                    if (string.IsNullOrWhiteSpace(teamId) || !teamSlots.TryGetValue(teamId, out var teamSlot)) continue;
+                    var competitionId = GetFirstJsonString(row, "competition_id");
+                    var homeTeamId = GetFirstJsonString(row, "home_team_id");
+                    var awayTeamId = GetFirstJsonString(row, "away_team_id");
+                    var date = GetFirstJsonString(row, "date");
+                    fixtureLookup.TryGetValue(FixtureKey(competitionId, homeTeamId, awayTeamId, date), out var fixture);
+                    var isHome = row.TryGetProperty("is_home", out var homeValue) && homeValue.ValueKind == JsonValueKind.True;
+                    int? IntField(string key) => TryFindNumeric(row, key, out var value) ? (int?)Convert.ToInt32(value) : null;
+                    double? NumberField(string key) => TryFindNumeric(row, key, out var value) ? value : null;
+
+                    results.Add(new AtlasClubMatchStats(
+                        date ?? "—",
+                        GetFirstJsonString(row, "kick_off_time") ?? "—",
+                        teamSlot,
+                        fixture.Competition ?? (competitionId is null ? "—" : "Competition " + competitionId),
+                        (isHome ? fixture.AwayName : fixture.HomeName) ?? "—",
+                        isHome ? "Home" : "Away",
+                        MatchResult(isHome, fixture.HomeGoals, fixture.AwayGoals),
+                        IntField("players"), IntField("shots"), IntField("shots_on_target"), IntField("blocked_shots"),
+                        IntField("shots_outside_box"), IntField("clear_cut_chances"), IntField("woodwork"), IntField("fouls_made"),
+                        IntField("offsides"), IntField("yellow_cards"), IntField("red_cards"), IntField("crosses_attempted"),
+                        IntField("crosses_completed"), IntField("tackles_attempted"), IntField("tackles_completed"),
+                        IntField("aerial_challenges_attempted"), IntField("headers_won"), NumberField("distance_km"),
+                        NumberField("expected_goals"), NumberField("non_penalty_expected_goals"), IntField("corners"),
+                        IntField("passes_attempted"), IntField("passes_completed"), IntField("final_third_passes"),
+                        IntField("progressive_passes"), IntField("possession_percent"), IntField("ball_distribution_percent"),
+                        row.TryGetProperty("detailed_report", out var detailed) && detailed.ValueKind == JsonValueKind.True));
+                }
+                catch (JsonException) { }
+            }
+        }
+        return results.OrderByDescending(x => x.Date, StringComparer.Ordinal)
+            .ThenByDescending(x => x.KickOffTime, StringComparer.Ordinal).Take(safeLimit).ToList();
     }
 
     private static bool ReferencesClub(JsonElement element, string clubUid)
@@ -1840,15 +2891,27 @@ public sealed class ScoutDatabase
 
     public async Task CheckpointAsync()
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         var cmd = db.CreateCommand();
         cmd.CommandText = "PRAGMA wal_checkpoint(PASSIVE);";
         await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<int> MassEditLocalAttributeAsync(string? search, string attributeName, string category, double value, int maxRecords = 5000, string operation = "Set")
     {
+        await WriteGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
         if (string.IsNullOrWhiteSpace(attributeName)) throw new ArgumentException("Choose an attribute.", nameof(attributeName));
         if (double.IsNaN(value) || double.IsInfinity(value) || (operation.Equals("Set", StringComparison.OrdinalIgnoreCase) && (value < 0 || value > 20)))
             throw new ArgumentOutOfRangeException(nameof(value), "Set values must be between 0 and 20; Add and Scale accept signed adjustments.");
@@ -1899,7 +2962,13 @@ public sealed class ScoutDatabase
         }
         await tx.CommitAsync().ConfigureAwait(false);
         return changedCount;
-    }
+    
+        }
+        finally
+        {
+            WriteGate.Release();
+        }
+}
 
     public async Task<List<StatMetricField>> GetSeasonMetricCatalogAsync()
     {
@@ -1968,7 +3037,7 @@ public sealed class ScoutDatabase
         }).OrderBy(x => x.Category, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    public async Task<List<StatSearchResult>> SearchSeasonStatCriteriaAsync(IReadOnlyList<StatFilterCriterion> criteria, bool per90, int minimumMinutes = 450, int limit = 500)
+    public async Task<List<StatSearchResult>> SearchSeasonStatCriteriaAsync(IReadOnlyList<StatFilterCriterion> criteria, bool per90, int minimumMinutes = 450, int limit = 500, bool matchAll = true)
     {
         if (criteria.Count == 0) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 metric conditions in one search.");
@@ -1985,19 +3054,8 @@ public sealed class ScoutDatabase
         var snapshotValue = await snapshotCmd.ExecuteScalarAsync().ConfigureAwait(false);
         var snapshotId = snapshotValue is null || snapshotValue == DBNull.Value ? (int?)null : Convert.ToInt32(snapshotValue);
 
+        // Resolve player identities only for candidate stat rows returned by this search.
         var playerMap = new Dictionary<string, (string SourceId, string Name, string? Club)>(StringComparer.OrdinalIgnoreCase);
-        if (snapshotId.HasValue)
-        {
-            var playerCmd = db.CreateCommand();
-            playerCmd.CommandText = "SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club FROM FmsavePlayerSnapshots s LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId WHERE s.SnapshotId=$s;";
-            playerCmd.Parameters.AddWithValue("$s", snapshotId.Value);
-            await using (var r = await playerCmd.ExecuteReaderAsync().ConfigureAwait(false))
-                while (await r.ReadAsync().ConfigureAwait(false)) playerMap[r.GetString(0)] = (r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3));
-        }
-        var extMap = db.CreateCommand();
-        extMap.CommandText = "SELECT DISTINCT PlayerIdentity,PlayerSourceId,PlayerName,Club FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns);";
-        await using (var r = await extMap.ExecuteReaderAsync().ConfigureAwait(false))
-            while (await r.ReadAsync().ConfigureAwait(false)) playerMap[r.GetString(0)] = (r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3));
 
         var rowsByIdentity = new Dictionary<string, StatWorkingRow>(StringComparer.OrdinalIgnoreCase);
         var extra = db.CreateCommand();
@@ -2009,16 +3067,73 @@ public sealed class ScoutDatabase
         var statIndexCount = 0;
         if (snapshotId.HasValue)
         {
-            var countCmd = db.CreateCommand(); countCmd.CommandText = "SELECT COUNT(*) FROM FmsaveStatFacts WHERE SnapshotId=$s;"; countCmd.Parameters.AddWithValue("$s", snapshotId.Value);
+            var countCmd = db.CreateCommand();
+            countCmd.CommandText = "SELECT EXISTS(SELECT 1 FROM FmsaveStatFacts WHERE SnapshotId=$s LIMIT 1);";
+            countCmd.Parameters.AddWithValue("$s", snapshotId.Value);
             statIndexCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync().ConfigureAwait(false));
         }
         if (statIndexCount > 0 && criteria.Count > 0)
         {
+            // Filter and group within SQLite so large career stat indexes do not need to be
+            // copied into a large in-memory dictionary before the user’s conditions are applied.
             var indexedRows = db.CreateCommand();
             var keyParameters = new List<string>();
-            for (var i = 0; i < criteria.Count; i++) { var name = "$metric" + i; keyParameters.Add(name); indexedRows.Parameters.AddWithValue(name, criteria[i].Key); }
-            indexedRows.CommandText = $"SELECT TableName,RowIndex,PlayerUid,PeriodKey,Minutes,FieldKey,NumericValue FROM FmsaveStatFacts WHERE SnapshotId=$s AND FieldKey COLLATE NOCASE IN ({string.Join(",", keyParameters)}) ORDER BY TableName,RowIndex;";
+            var criterionPredicates = new List<string>();
+            var metricExpression = per90 ? "(NumericValue * 90.0 / NULLIF(Minutes, 0))" : "NumericValue";
+            for (var i = 0; i < criteria.Count; i++)
+            {
+                var criterion = criteria[i];
+                var keyName = "$metric" + i;
+                keyParameters.Add(keyName);
+                indexedRows.Parameters.AddWithValue(keyName, criterion.Key);
+
+                var bounds = new List<string>();
+                if (criterion.Minimum.HasValue)
+                {
+                    var parameter = "$minimum" + i;
+                    bounds.Add(metricExpression + " >= " + parameter);
+                    indexedRows.Parameters.AddWithValue(parameter, criterion.Minimum.Value);
+                }
+                if (criterion.Maximum.HasValue)
+                {
+                    var parameter = "$maximum" + i;
+                    bounds.Add(metricExpression + " <= " + parameter);
+                    indexedRows.Parameters.AddWithValue(parameter, criterion.Maximum.Value);
+                }
+                criterionPredicates.Add("(FieldKey COLLATE NOCASE = " + keyName + " AND " + string.Join(" AND ", bounds) + ")");
+            }
+
+            // Each metric predicate must be aggregated within its player-period group.
+            // MAX preserves a single 0/1 result per criterion, avoiding SQLite's bare-column
+            // HAVING behaviour on rows containing multiple different FieldKey values.
+            var matchedCountExpression = string.Join(" + ",
+                criterionPredicates.Select(predicate => "MAX(CASE WHEN " + predicate + " THEN 1 ELSE 0 END)"));
             indexedRows.Parameters.AddWithValue("$s", snapshotId!.Value);
+            indexedRows.Parameters.AddWithValue("$requiredMatches", matchAll ? criteria.Count : 1);
+            if (per90) indexedRows.Parameters.AddWithValue("$minimumMinutes", minMinutes);
+
+            indexedRows.CommandText = $"""
+                WITH matched_rows AS (
+                    SELECT TableName,RowIndex,PlayerUid,PeriodKey,Minutes
+                    FROM FmsaveStatFacts
+                    WHERE SnapshotId=$s
+                      AND ({string.Join(" OR ", criterionPredicates)})
+                      {(per90 ? "AND Minutes >= $minimumMinutes" : string.Empty)}
+                    GROUP BY TableName,RowIndex,PlayerUid,PeriodKey,Minutes
+                    HAVING ({matchedCountExpression}) >= $requiredMatches
+                )
+                SELECT f.TableName,f.RowIndex,f.PlayerUid,f.PeriodKey,f.Minutes,f.FieldKey,f.NumericValue
+                FROM FmsaveStatFacts f
+                INNER JOIN matched_rows m
+                    ON m.TableName=f.TableName
+                   AND m.RowIndex=f.RowIndex
+                   AND m.PlayerUid=f.PlayerUid
+                   AND m.PeriodKey=f.PeriodKey
+                WHERE f.SnapshotId=$s
+                  AND f.FieldKey COLLATE NOCASE IN ({string.Join(",", keyParameters)})
+                ORDER BY f.TableName,f.RowIndex,f.FieldKey;
+                """;
+
             await using var indexReader = await indexedRows.ExecuteReaderAsync().ConfigureAwait(false);
             while (await indexReader.ReadAsync().ConfigureAwait(false))
             {
@@ -2098,20 +3213,51 @@ public sealed class ScoutDatabase
             }
         }
 
+        var requiredUids = rowsByIdentity.Values.Select(x => x.PlayerUid)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        foreach (var uidChunk in requiredUids.Chunk(500))
+        {
+            var placeholders = uidChunk.Select((_, i) => "$uid" + i).ToArray();
+            if (snapshotId.HasValue)
+            {
+                var playerCmd = db.CreateCommand();
+                playerCmd.CommandText = $"SELECT s.PlayerUid,COALESCE(s.PlayerSourceId,''),COALESCE(p.Name,'Unknown player'),p.Club FROM FmsavePlayerSnapshots s LEFT JOIN Players p ON p.SourceId=s.PlayerSourceId WHERE s.SnapshotId=$s AND s.PlayerUid IN ({string.Join(",", placeholders)});";
+                playerCmd.Parameters.AddWithValue("$s", snapshotId.Value);
+                for (var i = 0; i < uidChunk.Length; i++) playerCmd.Parameters.AddWithValue(placeholders[i], uidChunk[i]);
+                await using var playerReader = await playerCmd.ExecuteReaderAsync().ConfigureAwait(false);
+                while (await playerReader.ReadAsync().ConfigureAwait(false))
+                    playerMap[playerReader.GetString(0)] = (playerReader.GetString(1), playerReader.GetString(2), playerReader.IsDBNull(3) ? null : playerReader.GetString(3));
+            }
+
+            var externalMap = db.CreateCommand();
+            externalMap.CommandText = $"SELECT DISTINCT PlayerIdentity,PlayerSourceId,PlayerName,Club FROM ExternalStatRows WHERE ImportId=(SELECT MAX(ImportId) FROM ExternalStatImportRuns) AND PlayerIdentity IN ({string.Join(",", placeholders)});";
+            for (var i = 0; i < uidChunk.Length; i++) externalMap.Parameters.AddWithValue(placeholders[i], uidChunk[i]);
+            await using var externalReader = await externalMap.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await externalReader.ReadAsync().ConfigureAwait(false))
+                playerMap[externalReader.GetString(0)] = (externalReader.GetString(1), externalReader.GetString(2), externalReader.IsDBNull(3) ? null : externalReader.GetString(3));
+        }
+
         var results = new List<StatSearchResult>();
         foreach (var work in rowsByIdentity.Values)
         {
             if (per90 && (!work.Minutes.HasValue || work.Minutes.Value < minMinutes)) continue;
             var displayValues = new List<string>();
-            var matches = true;
+            var matches = matchAll;
             foreach (var criterion in criteria)
             {
-                if (!work.Values.TryGetValue(criterion.Key, out var raw)) { matches = false; break; }
-                var value = per90 ? raw * 90d / work.Minutes!.Value : raw;
-                if (!double.IsFinite(value) || (criterion.Minimum.HasValue && value < criterion.Minimum.Value) || (criterion.Maximum.HasValue && value > criterion.Maximum.Value)) { matches = false; break; }
-                displayValues.Add($"{criterion.DisplayName}: {value:0.##}");
+                var conditionMatches = work.Values.TryGetValue(criterion.Key, out var raw);
+                var value = conditionMatches ? (per90 ? raw * 90d / work.Minutes!.Value : raw) : 0d;
+                conditionMatches = conditionMatches && double.IsFinite(value)
+                    && (!criterion.Minimum.HasValue || value >= criterion.Minimum.Value)
+                    && (!criterion.Maximum.HasValue || value <= criterion.Maximum.Value);
+                if (conditionMatches)
+                    displayValues.Add($"{criterion.DisplayName}: {value:0.##}");
+                if (matchAll && !conditionMatches) { matches = false; break; }
+                if (!matchAll && conditionMatches) matches = true;
             }
-            if (!matches || !playerMap.TryGetValue(work.PlayerUid, out var player) || string.IsNullOrWhiteSpace(player.SourceId)) continue;
+            if (!matches || displayValues.Count == 0 || !playerMap.TryGetValue(work.PlayerUid, out var player) || string.IsNullOrWhiteSpace(player.SourceId)) continue;
             results.Add(new StatSearchResult(player.SourceId, player.Name, player.Club, work.Period, work.Minutes, string.Join("  ·  ", displayValues)));
         }
         return results.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Take(safeLimit).ToList();
@@ -2194,7 +3340,559 @@ public sealed class ScoutDatabase
         return results.OrderByDescending(x => x.ValueIndex).ThenByDescending(x => x.PotentialUpside).ThenBy(x => x.Player.Value).Take(Math.Clamp(limit, 1, 5000)).ToList();
     }
 
-    public async Task<List<PlayerRecord>> SearchPlayerAttributeCriteriaAsync(string? search, IReadOnlyList<AttributeSearchCriterion> criteria, int limit = 500)
+
+    public async Task<List<PerformanceValueCandidate>> GetPerformanceValueCandidatesAsync(
+        string metricKey,
+        bool per90,
+        int minimumMinutes = 450,
+        int limit = 2500,
+        CancellationToken cancellationToken = default,
+        int minimumSampleSize = 1,
+        string? positionRatingCode = null,
+        int minimumPositionRating = 15)
+    {
+        if (string.IsNullOrWhiteSpace(metricKey))
+            throw new ArgumentException("Choose a discovered statistical metric.", nameof(metricKey));
+        var catalog = await GetSeasonMetricCatalogAsync().ConfigureAwait(false);
+        var metric = catalog.FirstOrDefault(x => x.Key.Equals(metricKey, StringComparison.OrdinalIgnoreCase));
+        if (metric is null) throw new ArgumentException("The selected metric is not present in the imported metric catalogue.", nameof(metricKey));
+        if (per90 && !metric.SupportsPer90)
+            throw new ArgumentException($"{metric.DisplayName} is already a rate, percentage, rating or playing-time field and cannot be normalised per 90 again.", nameof(per90));
+
+        var safeMinutes = Math.Clamp(minimumMinutes, 1, 10000);
+        var safeSampleSize = Math.Clamp(minimumSampleSize, 1, 10000);
+        var safeLimit = Math.Clamp(limit, 1, 5000);
+        var normalizedPositionCode = string.IsNullOrWhiteSpace(positionRatingCode) ? null : positionRatingCode.Trim().ToUpperInvariant();
+        if (normalizedPositionCode is not null && !PositionSuitabilityService.PositionCodes.Contains(normalizedPositionCode, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Choose one of the 15 supported FM position codes.", nameof(positionRatingCode));
+        var safePositionRating = Math.Clamp(minimumPositionRating, 1, 20);
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        var snapshotCommand = db.CreateCommand();
+        snapshotCommand.CommandText = "SELECT MAX(SnapshotId) FROM FmsaveImportRuns;";
+        var snapshotValue = await snapshotCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        if (snapshotValue is null || snapshotValue == DBNull.Value) return new();
+        var snapshotId = Convert.ToInt32(snapshotValue, System.Globalization.CultureInfo.InvariantCulture);
+
+        var command = db.CreateCommand();
+        command.Parameters.AddWithValue("$snapshot", snapshotId);
+        command.Parameters.AddWithValue("$metric", metricKey);
+        command.Parameters.AddWithValue("$minimumMinutes", safeMinutes);
+        command.Parameters.AddWithValue("$minimumSampleSize", safeSampleSize);
+        command.Parameters.AddWithValue("$positionCode", (object?)(normalizedPositionCode?.ToLowerInvariant()) ?? DBNull.Value);
+        command.Parameters.AddWithValue("$minimumPositionRating", safePositionRating);
+        command.CommandText = """
+            WITH source_priority AS (
+                SELECT ps.PlayerSourceId,
+                       MIN(CASE f.TableName
+                           WHEN 'player_season_stats' THEN 0
+                           WHEN 'player_season_history' THEN 1
+                           WHEN 'player_match_stats' THEN 2
+                           ELSE 9 END) AS Priority
+                FROM FmsaveStatFacts f
+                INNER JOIN FmsavePlayerSnapshots ps
+                    ON ps.SnapshotId=f.SnapshotId AND ps.PlayerUid=f.PlayerUid
+                WHERE f.SnapshotId=$snapshot
+                  AND f.FieldKey COLLATE NOCASE=$metric
+                  AND f.TableName IN ('player_season_stats','player_season_history','player_match_stats')
+                GROUP BY ps.PlayerSourceId
+            ),
+            metric_rows AS (
+                SELECT ps.PlayerSourceId,f.TableName,f.RowIndex,f.PeriodKey,
+                       MAX(f.Minutes) AS Minutes,MAX(f.NumericValue) AS MetricValue
+                FROM FmsaveStatFacts f
+                INNER JOIN FmsavePlayerSnapshots ps
+                    ON ps.SnapshotId=f.SnapshotId AND ps.PlayerUid=f.PlayerUid
+                WHERE f.SnapshotId=$snapshot
+                  AND f.FieldKey COLLATE NOCASE=$metric
+                  AND f.TableName IN ('player_season_stats','player_season_history','player_match_stats')
+                  AND f.Minutes IS NOT NULL AND f.Minutes>0
+                GROUP BY ps.PlayerSourceId,f.TableName,f.RowIndex,f.PeriodKey
+            ),
+            preferred_rows AS (
+                SELECT r.*
+                FROM metric_rows r
+                INNER JOIN source_priority p ON p.PlayerSourceId=r.PlayerSourceId
+                WHERE CASE r.TableName
+                    WHEN 'player_season_stats' THEN 0
+                    WHEN 'player_season_history' THEN 1
+                    WHEN 'player_match_stats' THEN 2
+                    ELSE 9 END = p.Priority
+            ),
+            aggregated AS (
+                SELECT PlayerSourceId,SUM(MetricValue) AS MetricTotal,
+                       SUM(Minutes) AS TotalMinutes,AVG(MetricValue) AS AverageMetric,
+                       COUNT(*) AS SampleSize,MAX(PeriodKey) AS LatestPeriod
+                FROM preferred_rows
+                GROUP BY PlayerSourceId
+                HAVING SUM(Minutes)>=$minimumMinutes
+                   AND COUNT(*) >= $minimumSampleSize
+            )
+            SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,
+                   p.CurrentAbility,p.PotentialAbility,p.Value,p.DataOrigin,
+                   a.MetricTotal,a.TotalMinutes,a.AverageMetric,a.SampleSize,a.LatestPeriod,
+                   CASE WHEN $positionCode IS NULL THEN NULL ELSE (
+                       SELECT CAST(pf.NumericValue AS INTEGER)
+                       FROM FmsavePlayerFacts pf
+                       WHERE pf.SnapshotId=$snapshot
+                         AND pf.PlayerSourceId=p.SourceId
+                         AND pf.FactGroup='positions'
+                         AND pf.FieldKey COLLATE NOCASE=$positionCode
+                       LIMIT 1
+                   ) END AS SelectedPositionRating
+            FROM aggregated a
+            INNER JOIN Players p ON p.SourceId=a.PlayerSourceId
+            WHERE p.Value IS NOT NULL AND p.Value>0
+              AND ($positionCode IS NULL OR EXISTS (
+                  SELECT 1 FROM FmsavePlayerFacts pf
+                  WHERE pf.SnapshotId=$snapshot
+                    AND pf.PlayerSourceId=p.SourceId
+                    AND pf.FactGroup='positions'
+                    AND pf.FieldKey COLLATE NOCASE=$positionCode
+                    AND pf.NumericValue >= $minimumPositionRating
+              ))
+            ORDER BY p.Name COLLATE NOCASE;
+            """;
+
+        var raw = new List<(PlayerRecord Player, double Performance, double Minutes, int SampleSize, string Period, int? PositionRating)>();
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var minutes = reader.GetDouble(12);
+                var totalMetric = reader.GetDouble(11);
+                var averageMetric = reader.GetDouble(13);
+                var performance = per90 ? totalMetric * 90d / minutes : averageMetric;
+                if (!double.IsFinite(performance)) continue;
+                raw.Add((
+                    new PlayerRecord
+                    {
+                        SourceId = reader.GetString(0), Name = reader.GetString(1),
+                        Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                        Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        League = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                        PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                        Value = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetValue(9), System.Globalization.CultureInfo.InvariantCulture),
+                        DataOrigin = reader.IsDBNull(10) ? "Unknown" : reader.GetString(10)
+                    },
+                    performance, minutes, reader.GetInt32(14),
+                    reader.IsDBNull(15) ? "Period unavailable" : reader.GetString(15),
+                    reader.IsDBNull(16) ? null : reader.GetInt32(16)));
+            }
+        }
+        if (raw.Count == 0) return new();
+
+        static Dictionary<string, double> Percentiles<T>(
+            IReadOnlyList<T> items, Func<T, double> value, Func<T, string> id)
+        {
+            var sorted = items.OrderBy(value).ToList();
+            var output = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            if (sorted.Count == 1) { output[id(sorted[0])] = 50; return output; }
+            var start = 0;
+            while (start < sorted.Count)
+            {
+                var score = value(sorted[start]);
+                var end = start + 1;
+                while (end < sorted.Count && Math.Abs(value(sorted[end]) - score) < 0.0000001) end++;
+                var rank = (start + end - 1) / 2d;
+                var percentile = rank * 100d / (sorted.Count - 1);
+                for (var i = start; i < end; i++) output[id(sorted[i])] = percentile;
+                start = end;
+            }
+            return output;
+        }
+
+        static Dictionary<string, double?> GroupPercentiles<T>(
+            IReadOnlyList<T> items, Func<T, string?> groupKey, Func<T, double> value, Func<T, string> id)
+        {
+            var output = items.ToDictionary(id, _ => (double?)null, StringComparer.OrdinalIgnoreCase);
+            foreach (var group in items
+                .Where(x => !string.IsNullOrWhiteSpace(groupKey(x)))
+                .GroupBy(x => groupKey(x)!.Trim(), StringComparer.OrdinalIgnoreCase))
+            {
+                var cohort = group.ToList();
+                if (cohort.Count < 3) continue;
+                foreach (var pair in Percentiles(cohort, value, id))
+                    output[pair.Key] = pair.Value;
+            }
+            return output;
+        }
+
+        var performancePercentiles = Percentiles(raw, x => x.Performance, x => x.Player.SourceId);
+        var valuePercentiles = Percentiles(raw, x => (double)x.Player.Value!.Value, x => x.Player.SourceId);
+        var positionPercentiles = GroupPercentiles(raw, x => x.Player.Position, x => x.Performance, x => x.Player.SourceId);
+        var leaguePercentiles = GroupPercentiles(raw, x => x.Player.League, x => x.Performance, x => x.Player.SourceId);
+        var positionCounts = raw.Where(x => !string.IsNullOrWhiteSpace(x.Player.Position))
+            .GroupBy(x => x.Player.Position!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
+        var leagueCounts = raw.Where(x => !string.IsNullOrWhiteSpace(x.Player.League))
+            .GroupBy(x => x.Player.League!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
+        var poolCommand = db.CreateCommand();
+        poolCommand.Parameters.AddWithValue("$snapshot", snapshotId);
+        poolCommand.CommandText = """
+            SELECT COUNT(DISTINCT p.SourceId)
+            FROM Players p
+            INNER JOIN FmsavePlayerSnapshots s ON s.SnapshotId=$snapshot AND s.PlayerSourceId=p.SourceId
+            WHERE p.Value IS NOT NULL AND p.Value>0;
+            """;
+        var valuePool = Convert.ToInt32(await poolCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+        var dataCoverage = valuePool <= 0 ? 0 : raw.Count * 100d / valuePool;
+
+        return raw.Select(x =>
+        {
+            var performancePercentile = performancePercentiles[x.Player.SourceId];
+            var valuePercentile = valuePercentiles[x.Player.SourceId];
+            var position = x.Player.Position?.Trim();
+            var league = x.Player.League?.Trim();
+            return new PerformanceValueCandidate(
+                x.Player, metric.Key, metric.DisplayName, x.Performance, per90, x.Minutes,
+                x.SampleSize, x.Period, performancePercentile, valuePercentile,
+                positionPercentiles[x.Player.SourceId],
+                position is not null && positionCounts.TryGetValue(position, out var positionCount) ? positionCount : 0,
+                leaguePercentiles[x.Player.SourceId],
+                league is not null && leagueCounts.TryGetValue(league, out var leagueCount) ? leagueCount : 0,
+                performancePercentile - valuePercentile, dataCoverage,
+                normalizedPositionCode?.ToUpperInvariant(), x.PositionRating);
+        })
+        .OrderByDescending(x => x.ValueGap)
+        .ThenByDescending(x => x.PerformancePercentile)
+        .ThenBy(x => x.Player.Name, StringComparer.OrdinalIgnoreCase)
+        .Take(safeLimit)
+        .ToList();
+    }
+
+    public async Task<List<AdvancedSearchField>> GetAdvancedPlayerSearchFieldsAsync()
+    {
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var fields = new List<AdvancedSearchField>
+        {
+            new("player:Name", "Player name", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:Age", "Age", "General", AdvancedSearchFieldType.Number, "Players"),
+            new("player:Club", "Club", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:Nation", "Nationality", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:League", "League", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:Position", "Position", "Position", AdvancedSearchFieldType.Text, "Players"),
+            new("player:PreferredFoot", "Preferred foot", "General", AdvancedSearchFieldType.Text, "Players"),
+            new("player:CurrentAbility", "Current ability", "Ability", AdvancedSearchFieldType.Number, "Players"),
+            new("player:PotentialAbility", "Potential ability", "Ability", AdvancedSearchFieldType.Number, "Players"),
+            new("player:Value", "Market value", "Contract & Value", AdvancedSearchFieldType.Number, "Players"),
+            new("player:LeftFoot", "Left foot", "Technical", AdvancedSearchFieldType.Number, "Players"),
+            new("player:RightFoot", "Right foot", "Technical", AdvancedSearchFieldType.Number, "Players"),
+            new("player:HomeGrownClub", "Home-grown at club", "General", AdvancedSearchFieldType.Boolean, "Players"),
+            new("player:HomeGrownNation", "Home-grown in nation", "General", AdvancedSearchFieldType.Boolean, "Players")
+        };
+
+        var attributeCommand = db.CreateCommand();
+        attributeCommand.CommandText = """
+            SELECT DISTINCT AttributeName,Category
+            FROM PlayerAttributes
+            WHERE SourceId NOT LIKE 'FMSAVE:%'
+               OR SourceId IN (
+                    SELECT PlayerSourceId FROM FmsavePlayerSnapshots
+                    WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+               )
+            ORDER BY Category,AttributeName;
+            """;
+        await using (var reader = await attributeCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                var key = reader.GetString(0);
+                var storedCategory = reader.IsDBNull(1) ? "Other" : reader.GetString(1);
+                var category = storedCategory.StartsWith("attributes:", StringComparison.OrdinalIgnoreCase)
+                    ? storedCategory["attributes:".Length..]
+                    : storedCategory.Equals("personality", StringComparison.OrdinalIgnoreCase) ? "Personality" : storedCategory;
+                fields.Add(new AdvancedSearchField("attribute:" + key, HumanizeMetric(key), category, AdvancedSearchFieldType.Number, "PlayerAttributes"));
+            }
+        }
+
+        var factCommand = db.CreateCommand();
+        factCommand.CommandText = """
+            SELECT FactGroup,FieldKey,
+                   MAX(CASE WHEN NumericValue IS NOT NULL THEN 1 ELSE 0 END),
+                   MAX(CASE WHEN TextValue IS NOT NULL THEN 1 ELSE 0 END)
+            FROM FmsavePlayerFacts
+            WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+            GROUP BY FactGroup,FieldKey
+            ORDER BY FactGroup,FieldKey;
+            """;
+        await using (var reader = await factCommand.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                var group = reader.GetString(0);
+                var key = reader.GetString(1);
+                // Position familiarity is exposed in its own FMRTE-style grouped control
+                // so its ALL/ANY and At Least semantics never mix with global criteria.
+                if (group.Equals("positions", StringComparison.OrdinalIgnoreCase)
+                    || group.Equals("natural_positions", StringComparison.OrdinalIgnoreCase)
+                    || group.Equals("accomplished_positions", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var hasNumeric = reader.GetInt32(2) == 1;
+                var category = group switch
+                {
+                    "contract" => "Contract",
+                    "traits" => "Traits",
+                    "positions" or "natural_positions" or "accomplished_positions" => "Position",
+                    "general" => "General",
+                    "state" => "Status",
+                    "reputation" => "Reputation",
+                    "raw_attributes" => "Raw attributes",
+                    _ => HumanizeMetric(group)
+                };
+                var fieldType = hasNumeric ? AdvancedSearchFieldType.Number : AdvancedSearchFieldType.Text;
+                fields.Add(new AdvancedSearchField("fact:" + group + ":" + key, HumanizeMetric(key), category, fieldType, "FmsavePlayerFacts"));
+            }
+        }
+
+        return fields
+            .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .OrderBy(x => x.Category, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<List<PlayerRecord>> SearchAdvancedPlayersAsync(
+        string? search,
+        IReadOnlyList<AdvancedSearchCriterion> criteria,
+        bool matchAll = true,
+        int limit = 250,
+        int offset = 0,
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<AdvancedSearchSort>? sorts = null,
+        AdvancedPositionFilter? positionFilter = null)
+    {
+        positionFilter = AdvancedPositionFilterRules.Normalize(positionFilter);
+        if (criteria.Count == 0 && positionFilter is null) return new();
+        if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 conditions in one advanced player search.");
+
+        var coreColumns = new Dictionary<string, (string Column, AdvancedSearchFieldType Type)>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["player:Name"] = ("p.Name", AdvancedSearchFieldType.Text),
+            ["player:Age"] = ("p.Age", AdvancedSearchFieldType.Number),
+            ["player:Club"] = ("p.Club", AdvancedSearchFieldType.Text),
+            ["player:Nation"] = ("p.Nation", AdvancedSearchFieldType.Text),
+            ["player:League"] = ("p.League", AdvancedSearchFieldType.Text),
+            ["player:Position"] = ("p.Position", AdvancedSearchFieldType.Text),
+            ["player:PreferredFoot"] = ("p.PreferredFoot", AdvancedSearchFieldType.Text),
+            ["player:CurrentAbility"] = ("p.CurrentAbility", AdvancedSearchFieldType.Number),
+            ["player:PotentialAbility"] = ("p.PotentialAbility", AdvancedSearchFieldType.Number),
+            ["player:Value"] = ("p.Value", AdvancedSearchFieldType.Number),
+            ["player:LeftFoot"] = ("p.LeftFoot", AdvancedSearchFieldType.Number),
+            ["player:RightFoot"] = ("p.RightFoot", AdvancedSearchFieldType.Number),
+            ["player:HomeGrownClub"] = ("p.HomeGrownClub", AdvancedSearchFieldType.Boolean),
+            ["player:HomeGrownNation"] = ("p.HomeGrownNation", AdvancedSearchFieldType.Boolean)
+        };
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var cmd = db.CreateCommand();
+        var predicates = new List<string>();
+
+        for (var index = 0; index < criteria.Count; index++)
+        {
+            var criterion = criteria[index];
+            var key = criterion.FieldKey?.Trim() ?? "";
+            var minName = "$min" + index;
+            var maxName = "$max" + index;
+            var textName = "$text" + index;
+            var boolName = "$bool" + index;
+            if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("A search condition has no field key.", nameof(criteria));
+
+            if (coreColumns.TryGetValue(key, out var core))
+            {
+                if (core.Type == AdvancedSearchFieldType.Number)
+                {
+                    if (!criterion.Minimum.HasValue && !criterion.Maximum.HasValue) throw new ArgumentException($"Enter a minimum or maximum for {key}.", nameof(criteria));
+                    if (criterion.Minimum.HasValue && criterion.Maximum.HasValue && criterion.Minimum > criterion.Maximum) throw new ArgumentException($"Minimum cannot exceed maximum for {key}.", nameof(criteria));
+                    predicates.Add($"({core.Column} IS NOT NULL AND ({minName} IS NULL OR {core.Column}>={minName}) AND ({maxName} IS NULL OR {core.Column}<={maxName}))");
+                    cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
+                }
+                else if (core.Type == AdvancedSearchFieldType.Text)
+                {
+                    if (string.IsNullOrWhiteSpace(criterion.TextValue)) throw new ArgumentException($"Enter text to search for {key}.", nameof(criteria));
+                    predicates.Add($"(COALESCE({core.Column},'') LIKE {textName} COLLATE NOCASE)");
+                    cmd.Parameters.AddWithValue(textName, "%" + criterion.TextValue.Trim() + "%");
+                }
+                else
+                {
+                    if (!criterion.BooleanValue.HasValue) throw new ArgumentException($"Choose Yes or No for {key}.", nameof(criteria));
+                    predicates.Add($"({core.Column}={boolName})");
+                    cmd.Parameters.AddWithValue(boolName, criterion.BooleanValue.Value ? 1 : 0);
+                }
+                continue;
+            }
+
+            if (key.StartsWith("attribute:", StringComparison.OrdinalIgnoreCase))
+            {
+                var attributeName = key["attribute:".Length..];
+                if (string.IsNullOrWhiteSpace(attributeName) || (!criterion.Minimum.HasValue && !criterion.Maximum.HasValue))
+                    throw new ArgumentException("Each attribute condition needs a field and a minimum or maximum.", nameof(criteria));
+                if (criterion.Minimum is < 1 or > 20 || criterion.Maximum is < 1 or > 20)
+                    throw new ArgumentOutOfRangeException(nameof(criteria), "Player attribute values must be between 1 and 20.");
+                if (criterion.Minimum.HasValue && criterion.Maximum.HasValue && criterion.Minimum > criterion.Maximum)
+                    throw new ArgumentException($"Minimum cannot exceed maximum for {attributeName}.", nameof(criteria));
+                predicates.Add($"EXISTS (SELECT 1 FROM PlayerAttributes a{index} WHERE a{index}.SourceId=p.SourceId AND a{index}.AttributeName=$key{index} COLLATE NOCASE AND ($min{index} IS NULL OR a{index}.AttributeValue >= $min{index}) AND ($max{index} IS NULL OR a{index}.AttributeValue <= $max{index}))");
+                cmd.Parameters.AddWithValue("$key" + index, attributeName);
+                cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
+                cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
+                continue;
+            }
+
+            if (key.StartsWith("fact:", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = key.Split(':', 3, StringSplitOptions.None);
+                if (parts.Length != 3 || string.IsNullOrWhiteSpace(parts[1]) || string.IsNullOrWhiteSpace(parts[2]))
+                    throw new ArgumentException("A save-fact search field is invalid.", nameof(criteria));
+                var factGroup = parts[1];
+                var factKey = parts[2];
+                if (criterion.Minimum.HasValue || criterion.Maximum.HasValue)
+                {
+                    if (criterion.Minimum.HasValue && criterion.Maximum.HasValue && criterion.Minimum > criterion.Maximum)
+                        throw new ArgumentException($"Minimum cannot exceed maximum for {factKey}.", nameof(criteria));
+                    predicates.Add($"EXISTS (SELECT 1 FROM FmsavePlayerFacts f{index} WHERE f{index}.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND f{index}.PlayerSourceId=p.SourceId AND f{index}.FactGroup=$group{index} AND f{index}.FieldKey=$fact{index} AND f{index}.NumericValue IS NOT NULL AND ($min{index} IS NULL OR f{index}.NumericValue >= $min{index}) AND ($max{index} IS NULL OR f{index}.NumericValue <= $max{index}))");
+                    cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
+                }
+                else if (!string.IsNullOrWhiteSpace(criterion.TextValue))
+                {
+                    predicates.Add($"EXISTS (SELECT 1 FROM FmsavePlayerFacts f{index} WHERE f{index}.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND f{index}.PlayerSourceId=p.SourceId AND f{index}.FactGroup=$group{index} AND f{index}.FieldKey=$fact{index} AND COALESCE(f{index}.TextValue,'') LIKE $text{index} COLLATE NOCASE)");
+                    cmd.Parameters.AddWithValue(textName, "%" + criterion.TextValue.Trim() + "%");
+                }
+                else
+                {
+                    throw new ArgumentException($"Enter a value to search for {factKey}.", nameof(criteria));
+                }
+                cmd.Parameters.AddWithValue("$group" + index, factGroup);
+                cmd.Parameters.AddWithValue("$fact" + index, factKey);
+                continue;
+            }
+
+            throw new ArgumentException($"Unsupported advanced search field: {key}", nameof(criteria));
+        }
+
+        var positionPredicates = new List<string>();
+        if (positionFilter?.Positions is { Count: > 0 } selectedPositions)
+        {
+            for (var positionIndex = 0; positionIndex < selectedPositions.Count; positionIndex++)
+            {
+                var selected = selectedPositions[positionIndex];
+                var valueParameter = "$positionValue" + positionIndex;
+                var keyParameter = "$positionKey" + positionIndex;
+                var aliasParameter = "$positionAlias" + positionIndex;
+                var liveFieldParameter = "$livePositionField" + positionIndex;
+                var comparison = positionFilter.AtLeast ? ">=" : "=";
+                var aliases = selected.PositionCode.Equals("STC", StringComparison.OrdinalIgnoreCase)
+                    ? new[] { "STC", "ST" }
+                    : new[] { selected.PositionCode };
+                positionPredicates.Add($"""
+                    (
+                      EXISTS (
+                        SELECT 1 FROM FmsavePlayerFacts pf
+                        WHERE pf.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                          AND pf.PlayerSourceId=p.SourceId
+                          AND pf.FactGroup='positions'
+                          AND (upper(pf.FieldKey)={keyParameter} OR upper(pf.FieldKey)={aliasParameter})
+                          AND pf.NumericValue IS NOT NULL
+                          AND pf.NumericValue {comparison} {valueParameter}
+                      )
+                      OR EXISTS (
+                        SELECT 1 FROM LivePlayerFacts lf
+                        JOIN LivePlayers lp ON lp.PlayerUid=lf.PlayerUid
+                        WHERE p.SourceId='LIVE:' || CAST(lp.PlayerUid AS TEXT)
+                          AND lower(lf.FieldKey)={liveFieldParameter}
+                          AND lf.NumericValue IS NOT NULL
+                          AND lf.NumericValue {comparison} {valueParameter}
+                      )
+                    )
+                    """);
+                cmd.Parameters.AddWithValue(keyParameter, selected.PositionCode.ToUpperInvariant());
+                cmd.Parameters.AddWithValue(aliasParameter, aliases.Last().ToUpperInvariant());
+                cmd.Parameters.AddWithValue(liveFieldParameter, "positions." + selected.PositionCode.ToLowerInvariant());
+                cmd.Parameters.AddWithValue(valueParameter, selected.Rating);
+            }
+        }
+        var positionGroupPredicate = positionPredicates.Count == 0
+            ? "1=1"
+            : "(" + string.Join(positionFilter!.MatchAny ? " OR " : " AND ", positionPredicates) + ")";
+
+        var query = (search ?? string.Empty).Trim();
+        var sortTerms = new List<string>();
+        var usedSortKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sort in (sorts ?? Array.Empty<AdvancedSearchSort>()).Take(2))
+        {
+            if (sort is null || !coreColumns.TryGetValue(sort.FieldKey, out var sortColumn)
+                || !usedSortKeys.Add(sort.FieldKey))
+                continue;
+            // Keep missing values last regardless of sort direction. Field names come only
+            // from the static whitelist above; user/profile strings never enter SQL directly.
+            sortTerms.Add($"CASE WHEN {sortColumn.Column} IS NULL THEN 1 ELSE 0 END ASC");
+            var expression = sortColumn.Type == AdvancedSearchFieldType.Text
+                ? sortColumn.Column + " COLLATE NOCASE"
+                : sortColumn.Column;
+            sortTerms.Add(expression + (sort.Descending ? " DESC" : " ASC"));
+        }
+        var orderBy = sortTerms.Count == 0
+            ? "CASE WHEN $q<>'' AND p.Name LIKE $prefix COLLATE NOCASE THEN 0 ELSE 1 END,p.Name COLLATE NOCASE,p.SourceId"
+            : string.Join(",", sortTerms) + ",p.Name COLLATE NOCASE ASC,p.SourceId ASC";
+        cmd.CommandText = $"""
+            SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,p.CurrentAbility,p.PotentialAbility,p.Value,
+                   p.HomeGrownClub,p.HomeGrownNation,p.DataOrigin,p.PreferredFoot,p.LeftFoot,p.RightFoot
+            FROM Players p
+            WHERE ($q='' OR p.Name LIKE $pattern COLLATE NOCASE OR COALESCE(p.Club,'') LIKE $pattern COLLATE NOCASE
+                OR COALESCE(p.Nation,'') LIKE $pattern COLLATE NOCASE OR p.SourceId LIKE $pattern)
+              AND ({(predicates.Count == 0 ? "1=1" : string.Join(matchAll ? " AND " : " OR ", predicates))})
+              AND ({positionGroupPredicate})
+              AND (p.SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (
+                    SELECT 1 FROM FmsavePlayerSnapshots s
+                    WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=p.SourceId
+              ))
+            ORDER BY {orderBy}
+            LIMIT $limit OFFSET $offset;
+            """;
+        cmd.Parameters.AddWithValue("$q", query);
+        cmd.Parameters.AddWithValue("$pattern", "%" + query + "%");
+        cmd.Parameters.AddWithValue("$prefix", query + "%");
+        cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 500));
+        cmd.Parameters.AddWithValue("$offset", Math.Clamp(offset, 0, 1_000_000));
+
+        var results = new List<PlayerRecord>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            results.Add(new PlayerRecord
+            {
+                SourceId = reader.GetString(0),
+                Name = reader.GetString(1),
+                Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+                Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+                League = reader.IsDBNull(5) ? null : reader.GetString(5),
+                Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+                CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                Value = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetValue(9), System.Globalization.CultureInfo.InvariantCulture),
+                HomeGrownClub = reader.IsDBNull(10) ? null : reader.GetInt32(10) == 1,
+                HomeGrownNation = reader.IsDBNull(11) ? null : reader.GetInt32(11) == 1,
+                DataOrigin = reader.IsDBNull(12) ? "Unknown" : reader.GetString(12),
+                PreferredFoot = reader.IsDBNull(13) ? null : reader.GetString(13),
+                LeftFoot = reader.IsDBNull(14) ? null : reader.GetInt32(14),
+                RightFoot = reader.IsDBNull(15) ? null : reader.GetInt32(15)
+            });
+        }
+        return results;
+    }
+
+    public async Task<List<PlayerRecord>> SearchPlayerAttributeCriteriaAsync(string? search, IReadOnlyList<AttributeSearchCriterion> criteria, int limit = 500, bool matchAll = true)
     {
         if (criteria.Count == 0) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 attribute conditions in one search.");
@@ -2220,7 +3918,7 @@ public sealed class ScoutDatabase
             SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,p.CurrentAbility,p.PotentialAbility,p.Value,p.HomeGrownClub,p.HomeGrownNation,p.DataOrigin,p.PreferredFoot,p.LeftFoot,p.RightFoot
             FROM Players p
             WHERE ($q='' OR p.Name LIKE $pattern OR COALESCE(p.Club,'') LIKE $pattern OR COALESCE(p.Nation,'') LIKE $pattern OR p.SourceId LIKE $pattern)
-              AND ({string.Join(" AND ", predicates)})
+              AND ({string.Join(matchAll ? " AND " : " OR ", predicates)})
               AND (p.SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (SELECT 1 FROM FmsavePlayerSnapshots s WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND s.PlayerSourceId=p.SourceId))
             ORDER BY CASE WHEN $q<>'' AND p.Name LIKE $prefix THEN 0 ELSE 1 END,p.Name COLLATE NOCASE LIMIT $limit;
             """;
@@ -2489,13 +4187,30 @@ public sealed class ScoutDatabase
             .ToList();
     }
 
-    public async Task<List<RoleFitCandidate>> SearchRoleFitCandidatesAsync(RoleFitProfile profile, int limit = 5000)
+    public async Task<List<RoleFitCandidate>> SearchRoleFitCandidatesAsync(
+        RoleFitProfile profile,
+        int candidateLimit = 5000,
+        RoleFitSearchFilters? filters = null,
+        CancellationToken cancellationToken = default)
     {
-        var weights = profile.Weights.ToDictionary(x => NormalizeAttributeKey(x.Key), x => x.Value, StringComparer.OrdinalIgnoreCase);
+        var selectedFilters = filters ?? new RoleFitSearchFilters();
+        if (selectedFilters.MinimumAge.HasValue && selectedFilters.MaximumAge.HasValue
+            && selectedFilters.MinimumAge > selectedFilters.MaximumAge)
+            throw new ArgumentException("Minimum age cannot exceed maximum age.", nameof(filters));
+        if (!double.IsFinite(selectedFilters.MinimumCoverage) || selectedFilters.MinimumCoverage is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(filters), "Minimum attribute coverage must be between 0 and 1.");
+
+        var weights = profile.Weights
+            .Where(x => double.IsFinite(x.Value) && x.Value > 0)
+            .Select(x => new { Key = NormalizeAttributeKey(x.Key), x.Value })
+            .Where(x => x.Key.Length > 0)
+            .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Sum(v => v.Value), StringComparer.OrdinalIgnoreCase);
         if (weights.Count == 0) return new();
-        var maxPlayers = Math.Clamp(limit, 100, 50000);
+
+        var maxPlayers = Math.Clamp(candidateLimit, 100, 50000);
         await using var db = new SqliteConnection(_connectionString);
-        await db.OpenAsync().ConfigureAwait(false);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
         var cmd = db.CreateCommand();
         var names = weights.Keys.ToList();
         var parameterNames = new List<string>();
@@ -2506,19 +4221,34 @@ public sealed class ScoutDatabase
             cmd.Parameters.AddWithValue(parameter, names[i]);
         }
         cmd.Parameters.AddWithValue("$limit", maxPlayers);
+        cmd.Parameters.AddWithValue("$minimumAge", (object?)selectedFilters.MinimumAge ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$maximumAge", (object?)selectedFilters.MaximumAge ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$minimumCurrentAbility", (object?)selectedFilters.MinimumCurrentAbility ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$minimumPotentialAbility", (object?)selectedFilters.MinimumPotentialAbility ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$positionContains", string.IsNullOrWhiteSpace(selectedFilters.PositionContains) ? DBNull.Value : "%" + selectedFilters.PositionContains.Trim() + "%");
         cmd.CommandText = $"""
             SELECT p.SourceId,p.Name,p.Club,p.Age,p.Position,p.CurrentAbility,p.PotentialAbility,a.AttributeName,a.AttributeValue
-            FROM (SELECT * FROM Players WHERE SourceId NOT LIKE 'FMSAVE:%' OR SourceId IN
-                (SELECT PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns))
-                ORDER BY Name COLLATE NOCASE LIMIT $limit) p
+            FROM (
+                SELECT * FROM Players
+                WHERE (SourceId NOT LIKE 'FMSAVE:%' OR SourceId IN
+                    (SELECT PlayerSourceId FROM FmsavePlayerSnapshots WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)))
+                  AND ($minimumAge IS NULL OR Age >= $minimumAge)
+                  AND ($maximumAge IS NULL OR Age <= $maximumAge)
+                  AND ($minimumCurrentAbility IS NULL OR CurrentAbility >= $minimumCurrentAbility)
+                  AND ($minimumPotentialAbility IS NULL OR PotentialAbility >= $minimumPotentialAbility)
+                  AND ($positionContains IS NULL OR COALESCE(Position,'') LIKE $positionContains COLLATE NOCASE)
+                ORDER BY Name COLLATE NOCASE
+                LIMIT $limit
+            ) p
             LEFT JOIN PlayerAttributes a ON a.SourceId=p.SourceId AND LOWER(REPLACE(REPLACE(REPLACE(a.AttributeName,'_',''),' ',''),'-','')) IN ({string.Join(",", parameterNames)})
             ORDER BY p.Name COLLATE NOCASE;
             """;
         var grouped = new Dictionary<string, (string Name, string? Club, int? Age, string? Position, int? Ca, int? Pa, Dictionary<string,double> Attrs)>(StringComparer.OrdinalIgnoreCase);
-        await using (var r = await cmd.ExecuteReaderAsync().ConfigureAwait(false))
+        await using (var r = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
         {
-            while (await r.ReadAsync().ConfigureAwait(false))
+            while (await r.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var id = r.GetString(0);
                 if (!grouped.TryGetValue(id, out var row))
                     row = (r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.IsDBNull(3) ? null : r.GetInt32(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetInt32(5), r.IsDBNull(6) ? null : r.GetInt32(6), new Dictionary<string,double>(StringComparer.OrdinalIgnoreCase));
@@ -2526,21 +4256,195 @@ public sealed class ScoutDatabase
                 grouped[id] = row;
             }
         }
+
         var results = new List<RoleFitCandidate>();
         foreach (var pair in grouped)
         {
-            double weighted = 0, totalWeight = 0;
-            var available = 0;
-            foreach (var weight in weights)
-                if (pair.Value.Attrs.TryGetValue(weight.Key, out var score) && score >= 1 && score <= 20)
-                { weighted += score * weight.Value; totalWeight += weight.Value; available++; }
-            if (available == 0 || totalWeight <= 0) continue;
-            var coverage = available / (double)weights.Count;
-            // Avoid presenting a role rating when most of its requested attributes are absent.
-            if (coverage < 0.5) continue;
-            results.Add(new RoleFitCandidate(pair.Key, pair.Value.Name, pair.Value.Club, pair.Value.Age, pair.Value.Position, pair.Value.Ca, pair.Value.Pa, weighted / totalWeight, available, weights.Count, coverage));
+            cancellationToken.ThrowIfCancellationRequested();
+            var score = RoleFitService.CalculateScore(profile, pair.Value.Attrs, selectedFilters.MinimumCoverage);
+            if (score is null) continue;
+            results.Add(new RoleFitCandidate(
+                pair.Key, pair.Value.Name, pair.Value.Club, pair.Value.Age, pair.Value.Position,
+                pair.Value.Ca, pair.Value.Pa, score.Score,
+                score.AttributesAvailable, score.AttributesExpected, score.Coverage, score.Contributions));
         }
-        return results.OrderByDescending(x => x.Score).ThenByDescending(x => x.Coverage).Take(250).ToList();
+
+        return results
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Coverage)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(selectedFilters.ResultLimit, 1, 5000))
+            .ToList();
+    }
+
+
+    /// <summary>
+    /// Finds players with the closest source-backed 1–20 footballing attribute vectors.
+    /// Personality and provisional hidden attributes are deliberately excluded.
+    /// Similarity is based only on attributes present for both players; coverage is reported separately.
+    /// </summary>
+    public async Task<List<SimilarPlayerCandidate>> FindSimilarPlayersAsync(
+        string sourceId,
+        int limit = 50,
+        int minimumCommonAttributes = 6,
+        double minimumAnchorCoverage = 0.35,
+        int candidateLimit = 50000,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId)) throw new ArgumentException("A player source ID is required.", nameof(sourceId));
+        if (minimumCommonAttributes is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(minimumCommonAttributes));
+        if (!double.IsFinite(minimumAnchorCoverage) || minimumAnchorCoverage is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(minimumAnchorCoverage));
+        var safeLimit = Math.Clamp(limit, 1, 250);
+        var safeCandidateLimit = Math.Clamp(candidateLimit, 100, 50000);
+
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        PlayerRecord? reference = null;
+        var referenceCommand = db.CreateCommand();
+        referenceCommand.CommandText = """
+            SELECT SourceId,Name,Age,Club,Nation,League,Position,CurrentAbility,PotentialAbility,Value,DataOrigin
+            FROM Players WHERE SourceId=$source LIMIT 1;
+            """;
+        referenceCommand.Parameters.AddWithValue("$source", sourceId);
+        await using (var reader = await referenceCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                reference = new PlayerRecord
+                {
+                    SourceId = reader.GetString(0), Name = reader.GetString(1),
+                    Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                    Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    League = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                    PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                    Value = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetValue(9), System.Globalization.CultureInfo.InvariantCulture),
+                    DataOrigin = reader.IsDBNull(10) ? "Unknown" : reader.GetString(10)
+                };
+        }
+        if (reference is null) return new();
+
+        var referenceAttributes = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var anchorCommand = db.CreateCommand();
+        anchorCommand.CommandText = """
+            SELECT AttributeName,AttributeValue
+            FROM PlayerAttributes
+            WHERE SourceId=$source
+              AND (Category='attributes' OR Category LIKE 'attributes:%')
+              AND Category NOT LIKE 'attributes:Hidden%'
+              AND AttributeValue BETWEEN 1 AND 20
+            ORDER BY AttributeName;
+            """;
+        anchorCommand.Parameters.AddWithValue("$source", sourceId);
+        await using (var reader = await anchorCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var key = NormalizeAttributeKey(reader.GetString(0));
+                var value = reader.GetDouble(1);
+                if (key.Length > 0 && double.IsFinite(value) && value is >= 1 and <= 20)
+                    referenceAttributes.TryAdd(key, value);
+            }
+        }
+        if (referenceAttributes.Count < minimumCommonAttributes) return new();
+
+        var keys = referenceAttributes.Keys.ToList();
+        var placeholders = new List<string>();
+        var candidatesCommand = db.CreateCommand();
+        candidatesCommand.Parameters.AddWithValue("$anchor", sourceId);
+        candidatesCommand.Parameters.AddWithValue("$candidateLimit", safeCandidateLimit);
+        for (var i = 0; i < keys.Count; i++)
+        {
+            var parameter = "$attribute" + i;
+            placeholders.Add(parameter);
+            candidatesCommand.Parameters.AddWithValue(parameter, keys[i]);
+        }
+        candidatesCommand.CommandText = $"""
+            WITH candidate_players AS (
+                SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,
+                       p.CurrentAbility,p.PotentialAbility,p.Value,p.DataOrigin
+                FROM Players p
+                WHERE p.SourceId<>$anchor
+                  AND (p.SourceId NOT LIKE 'FMSAVE:%' OR p.SourceId IN (
+                      SELECT PlayerSourceId FROM FmsavePlayerSnapshots
+                      WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)))
+                ORDER BY p.Name COLLATE NOCASE
+                LIMIT $candidateLimit
+            )
+            SELECT p.SourceId,p.Name,p.Age,p.Club,p.Nation,p.League,p.Position,
+                   p.CurrentAbility,p.PotentialAbility,p.Value,p.DataOrigin,
+                   a.AttributeName,a.AttributeValue
+            FROM candidate_players p
+            INNER JOIN PlayerAttributes a ON a.SourceId=p.SourceId
+            WHERE (a.Category='attributes' OR a.Category LIKE 'attributes:%')
+              AND a.Category NOT LIKE 'attributes:Hidden%'
+              AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(a.AttributeName,'_',''),' ',''),'-',''),'.',''))
+                  IN ({string.Join(",", placeholders)})
+              AND a.AttributeValue BETWEEN 1 AND 20
+            ORDER BY p.Name COLLATE NOCASE,a.AttributeName;
+            """;
+
+        var grouped = new Dictionary<string, (PlayerRecord Player, Dictionary<string, double> Attributes)>(StringComparer.OrdinalIgnoreCase);
+        await using (var reader = await candidatesCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var id = reader.GetString(0);
+                if (!grouped.TryGetValue(id, out var candidate))
+                {
+                    var player = new PlayerRecord
+                    {
+                        SourceId = id, Name = reader.GetString(1),
+                        Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                        Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        League = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+                        CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                        PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                        Value = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetValue(9), System.Globalization.CultureInfo.InvariantCulture),
+                        DataOrigin = reader.IsDBNull(10) ? "Unknown" : reader.GetString(10)
+                    };
+                    candidate = (player, new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase));
+                }
+                var key = NormalizeAttributeKey(reader.GetString(11));
+                if (key.Length > 0 && !candidate.Attributes.ContainsKey(key))
+                    candidate.Attributes[key] = reader.GetDouble(12);
+                grouped[id] = candidate;
+            }
+        }
+
+        var results = new List<SimilarPlayerCandidate>();
+        foreach (var candidate in grouped.Values)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            double squaredDifference = 0;
+            var shared = 0;
+            foreach (var attribute in referenceAttributes)
+            {
+                if (!candidate.Attributes.TryGetValue(attribute.Key, out var value)) continue;
+                var difference = attribute.Value - value;
+                squaredDifference += difference * difference;
+                shared++;
+            }
+            if (shared < minimumCommonAttributes) continue;
+            var coverage = shared / (double)referenceAttributes.Count;
+            if (coverage < minimumAnchorCoverage) continue;
+            var rootMeanSquareDifference = Math.Sqrt(squaredDifference / shared);
+            var similarity = Math.Clamp(100d * (1d - rootMeanSquareDifference / 19d), 0, 100);
+            results.Add(new SimilarPlayerCandidate(candidate.Player, similarity, shared, referenceAttributes.Count, coverage));
+        }
+
+        return results
+            .OrderByDescending(x => x.SimilarityScore)
+            .ThenByDescending(x => x.AttributeCoverage)
+            .ThenBy(x => x.Player.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(safeLimit)
+            .ToList();
     }
 
     private static string NormalizeAttributeKey(string value)
@@ -2560,6 +4464,45 @@ public sealed class ScoutDatabase
         foreach(var p in e.EnumerateObject()) if(p.Value.ValueKind==JsonValueKind.Object) { var found=GetFirstJsonString(p.Value,keys); if(found is not null) return found; }
         return null;
     }
+    private static string BuildPlayerStatPeriod(string tableName, JsonElement row)
+    {
+        var club = GetFirstJsonString(row, "club_name", "club_short_name");
+        var teamSlot = GetFirstJsonString(row, "team_slot");
+        var teamId = GetFirstJsonString(row, "team_id");
+        if (tableName == "player_season_stats")
+        {
+            var season = GetFirstJsonString(row, "season", "season_name", "year") ?? "Current season";
+            var kind = GetFirstJsonString(row, "kind_label", "kind", "competition_type");
+            return string.Join(" · ", new[] {
+                season, kind is null ? null : "Type " + kind, club,
+                teamSlot is null ? null : "Team slot " + teamSlot,
+                teamId is null ? null : "Team ID " + teamId
+            }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        }
+        if (tableName == "player_season_history")
+        {
+            var season = GetFirstJsonString(row, "season_year", "season", "season_name", "year") ?? "Season unavailable";
+            var competition = GetFirstJsonString(row, "competition_name", "competition_reference", "competition_id");
+            return string.Join(" · ", new[] {
+                season, competition is null ? null : "Competition " + competition, club,
+                teamSlot is null ? null : "Team slot " + teamSlot,
+                teamId is null ? null : "Team ID " + teamId
+            }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        }
+        if (tableName == "player_match_stats")
+        {
+            var date = GetFirstJsonString(row, "date", "match_date") ?? "Match date unavailable";
+            var opponent = GetFirstJsonString(row, "opponent_club_name", "opponent_club_short_name") ?? "Opponent unavailable";
+            var competition = GetFirstJsonString(row, "competition_name", "competition_id");
+            var opponentSlot = GetFirstJsonString(row, "opponent_team_slot");
+            return string.Join(" · ", new[] {
+                date, opponent, competition is null ? null : "Competition " + competition,
+                opponentSlot is null ? null : "Opponent team slot " + opponentSlot
+            }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        }
+        return "Period unavailable";
+    }
+
     private static bool TryFindNumeric(JsonElement e,string key,out double value)
     {
         value=0;
@@ -2592,8 +4535,72 @@ public sealed class ScoutDatabase
         if (value.ValueKind == JsonValueKind.Array) return string.Join(", ",value.EnumerateArray().Select(x=>x.ValueKind==JsonValueKind.String?x.GetString():x.ToString()).Where(x=>!string.IsNullOrWhiteSpace(x)));
         return value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined ? null : value.ToString();
     }
+    private static int GetManifestTableCount(JsonElement manifest, string tableName)
+    {
+        if (manifest.ValueKind != JsonValueKind.Object || !manifest.TryGetProperty("counts", out var counts) || counts.ValueKind != JsonValueKind.Object)
+            return 0;
+        return counts.TryGetProperty(tableName, out var value) && value.TryGetInt32(out var count) ? Math.Max(0, count) : 0;
+    }
+
+    private static async IAsyncEnumerable<JsonElement> ReadSnapshotRowsAsync(
+        string inputPath,
+        JsonElement legacyRoot,
+        bool isBundle,
+        string tableName,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!isBundle)
+        {
+            foreach (var row in GetArray(legacyRoot, tableName))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return row;
+            }
+            yield break;
+        }
+
+        var tablePath = Path.Combine(inputPath, tableName + ".ndjson");
+        if (!File.Exists(tablePath)) yield break;
+        using var reader = new StreamReader(tablePath, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            JsonDocument rowDocument;
+            try
+            {
+                rowDocument = JsonDocument.Parse(line, new JsonDocumentOptions { MaxDepth = 128 });
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"Invalid NDJSON row in {Path.GetFileName(tablePath)}: {ex.Message}", ex);
+            }
+            using (rowDocument)
+            {
+                yield return rowDocument.RootElement;
+            }
+        }
+    }
+
     private static IEnumerable<JsonElement> GetArray(JsonElement element, string name)
-        => element.ValueKind==JsonValueKind.Object && element.TryGetProperty(name,out var value) && value.ValueKind==JsonValueKind.Array ? value.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
+    {
+        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Array)
+            return Array.Empty<JsonElement>();
+        return EnumerateArray(value);
+    }
+
+    private static IEnumerable<JsonElement> EnumerateArray(JsonElement array)
+    {
+        foreach (var item in array.EnumerateArray())
+            yield return item;
+    }
+
+    private static int GetArrayCount(JsonElement element, string name)
+        => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.GetArrayLength()
+            : 0;
     private static IEnumerable<(string Key, double? NumericValue, string? TextValue)> FlattenScalarFacts(JsonElement element, string prefix = "")
     {
         if (element.ValueKind == JsonValueKind.Object)

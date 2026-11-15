@@ -1,5 +1,7 @@
+global using FmAtlas.Data;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -8,11 +10,13 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Path = System.IO.Path;
 using Microsoft.Win32;
-using FmAtlas.Data;
 using FmAtlas.Models;
 using FmAtlas.Services;
 
@@ -20,18 +24,24 @@ namespace FmAtlas;
 
 public partial class MainWindow : Window
 {
-    private static readonly Brush Ink = new SolidColorBrush(Color.FromRgb(232, 238, 244));
-    private static readonly Brush Teal = new SolidColorBrush(Color.FromRgb(198, 243, 107));
-    private static readonly Brush TealDark = new SolidColorBrush(Color.FromRgb(213, 229, 195));
-    private static readonly Brush Muted = new SolidColorBrush(Color.FromRgb(158, 170, 182));
-    private static readonly Brush Line = new SolidColorBrush(Color.FromRgb(49, 59, 70));
-    private static readonly Brush Canvas = new SolidColorBrush(Color.FromRgb(13, 17, 23));
+    private static string _themeMode = LoadThemeMode();
+    // Automatic read-only indexing is enabled only for exact supported FM27 profiles.
+    // Scans are profile-bounded, cancellable, limited to two minutes and save-generation guarded.
+    // Live Apply/Undo remains disabled until field mappings and rollback are independently certified.
+    private static bool LiveMemoryImportEnabled => true;
+    private static bool LiveMemoryEditingEnabled => false;
+    private static Brush Ink => Brush("#E8EEF4");
+    private static Brush Teal => Brush("#F08A42");
+    private static Brush TealDark => Brush("#FFD0AA");
+    private static Brush Muted => Brush("#9EADB9");
+    private static Brush Line => Brush("#303943");
+    private static Brush Canvas => Brush("#0D1117");
     private readonly ScoutDatabase _database = new();
     private readonly ObservableCollection<PlayerRecord> _players = new();
     private readonly ObservableCollection<AtlasClubRecord> _clubs = new();
     private readonly ObservableCollection<AtlasStaffRecord> _staff = new();
     private readonly ObservableCollection<ShortlistRecord> _shortlist = new();
-    private Grid? _shell;
+    private bool _navCollapsed;
     private StackPanel? _navPanel;
     private ContentControl? _pageHost;
     private TextBlock? _pageTitle;
@@ -39,9 +49,26 @@ public partial class MainWindow : Window
     private TextBlock? _connectionSummary;
     private Ellipse? _connectionDot;
     private Button? _liveLoadButton;
+    private Button? _cancelImportButton;
+    private DispatcherTimer? _liveCareerTimer;
+    private bool _liveCareerProbeBusy;
+    private bool _liveImportBusy;
+    private bool _liveScanCancelledByUser;
+    private string? _activeLiveScanSessionKey;
+    private CancellationTokenSource? _liveScanCancellation;
+    private string? _lastAttemptedLiveSession;
+    private string? _lastImportedLiveSessionKey;
+    private DateTime _nextLiveRetryUtc = DateTime.MinValue;
+    private LiveCareerProbe? _currentLiveProbe;
+    private CancellationTokenSource? _saveImportCancellation;
+    private string? _activeBackgroundOperation;
+    private DateTime? _activeBackgroundOperationStartedUtc;
+    private string? _lastBackgroundOperation;
+    private DateTime? _lastBackgroundOperationCompletedUtc;
+    private Window? _activityCenterWindow;
+    private DispatcherTimer? _activityCenterTimer;
     private ProgressBar? _liveLoadProgress;
     private TextBlock? _liveLoadStatus;
-    private TextBox? _globalSearchBox;
     private string _activePage = "Dashboard";
     private PlayerRecord? _selectedPlayer;
     private DataGrid? _playerResultsGrid;
@@ -68,18 +95,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, PlayerRecord> _openPlayerRecords = new(StringComparer.OrdinalIgnoreCase);
     private TextBlock? _playerCountText;
     private TextBox? _playerSearch;
-    private TextBox? _playerMinAge;
-    private TextBox? _playerMaxAge;
-    private TextBox? _playerMinCa;
-    private TextBox? _playerMaxCa;
-    private TextBox? _playerMinPa;
-    private TextBox? _playerMaxPa;
-    private TextBox? _attributeMinimum;
-    private TextBox? _attributeMaximum;
-    private TextBox? _leftFootMinimum;
-    private TextBox? _rightFootMinimum;
-    private ComboBox? _attributePicker;
     private ComboBox? _positionPicker;
+    private TextBox? _playerMinCaInput, _playerMaxCaInput, _playerMinPaInput, _playerMaxPaInput;
     private ComboBox? _shortlistPicker;
 
     // Microsoft.Data.Sqlite's async ADO.NET methods may complete synchronously.
@@ -94,10 +111,19 @@ public partial class MainWindow : Window
         InitializeComponent();
         FontFamily = new FontFamily("Segoe UI");
         Loaded += WindowLoaded;
-        Closed += (_, _) => AtlasLog.Info("Main window closed.");
+        Closed += (_, _) =>
+        {
+            // Do not leave background work running after the WPF shell exits.
+            // Cancellation is cooperative: active importers roll back unpublished
+            // snapshots and retain the last committed database state.
+            _liveCareerTimer?.Stop();
+            _liveScanCancellation?.Cancel();
+            _saveImportCancellation?.Cancel();
+            AtlasLog.Info("Main window closed; active live scan/save import cancellation requested.");
+        };
         PreviewKeyDown += (_, e) =>
         {
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.F)
+            if (Keyboard.Modifiers == ModifierKeys.Control && (e.Key == Key.K || e.Key == Key.F))
             {
                 e.Handled = true;
                 ShowGlobalSearch();
@@ -106,6 +132,18 @@ public partial class MainWindow : Window
             {
                 e.Handled = true;
                 ShowGlobalSearch();
+            }
+            else if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && e.Key == Key.W)
+            {
+                e.Handled = true;
+                if (_profileTabs?.SelectedItem is TabItem selected)
+                    CloseOtherRecordTabsV9(selected, closeToRight: false);
+            }
+            else if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift | ModifierKeys.Alt) && e.Key == Key.W)
+            {
+                e.Handled = true;
+                if (_profileTabs?.SelectedItem is TabItem selected)
+                    CloseOtherRecordTabsV9(selected, closeToRight: true);
             }
             else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.W)
             {
@@ -120,10 +158,11 @@ public partial class MainWindow : Window
         try
         {
             await RunDatabaseAsync(() => _database.InitialiseAsync());
-            BuildShell();
+            BuildShellV9();
             RefreshConnectionStatus();
             await RefreshCareerStatusAsync();
             await NavigateAsync("Dashboard");
+            StartLiveCareerMonitor();
         }
         catch (Exception ex)
         {
@@ -135,105 +174,452 @@ public partial class MainWindow : Window
 
     private void BuildShell()
     {
-        RootGrid.Children.Clear();
-        _shell = new Grid();
-        _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(224) });
-        _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _shell.Background = new LinearGradientBrush(Color.FromRgb(11, 15, 20), Color.FromRgb(17, 24, 32), 35);
-        RootGrid.Children.Add(_shell);
-
-        var sidebar = BuildSidebar();
-        Grid.SetColumn(sidebar, 0); _shell.Children.Add(sidebar);
-
-        var main = new Grid { Margin = new Thickness(22, 18, 22, 18) };
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(88) });
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        Grid.SetColumn(main, 1); _shell.Children.Add(main);
-
-        var header = new Grid { Margin = new Thickness(0, 0, 0, 12) };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        _pageTitle = Txt("Dashboard", 27, true, Ink);
-        _pageSubTitle = Txt("Career intelligence, recruitment and squad planning", 11, false, Muted);
-        titleStack.Children.Add(_pageTitle); titleStack.Children.Add(_pageSubTitle);
-        header.Children.Add(titleStack);
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        _globalSearchBox = Input("Search players, staff, clubs…");
-        _globalSearchBox.Width = 250; _globalSearchBox.Height = 36; _globalSearchBox.Margin = new Thickness(0, 0, 7, 0);
-        _globalSearchBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; ShowGlobalSearch(_globalSearchBox.Text); } };
-        actions.Children.Add(_globalSearchBox);
-        actions.Children.Add(SoftButton("Search", (_, _) => ShowGlobalSearch(_globalSearchBox.Text)));
-        _liveLoadButton = PrimaryButton("Reload Game", async (_, _) => await LoadLiveCareerAsync());
-        actions.Children.Add(_liveLoadButton);
-        actions.Children.Add(PrimaryButton("Save Atlas", async (_, _) => await SaveAtlasAsync()));
-        var saveGame = SoftButton("Save Game", (_, _) => MessageBox.Show(this,
-            "Supported FM Atlas live edits are applied to the running game memory and should become visible after you press Continue in Football Manager.\n\nFM Atlas does not press Continue or save your career file for you. To keep the change, use Ctrl+S inside Football Manager after checking the result.\n\nOnly CA, PA and the currently supported visible player attributes can be written. Unsupported fields remain blocked. Save a separate career backup before testing.",
-            "FM Atlas 27 · Save your career", MessageBoxButton.OK, MessageBoxImage.Information));
-        saveGame.ToolTip = "Instructions for saving verified live edits in Football Manager.";
-        actions.Children.Add(saveGame);
-        actions.Children.Add(SoftButton("Import Save", async (_, _) => await ImportCareerSaveAsync()));
-        actions.Children.Add(SoftButton("Diagnostics", (_, _) => ExportDiagnostics()));
-        Grid.SetColumn(actions, 1); header.Children.Add(actions);
-        Grid.SetRow(header, 0); main.Children.Add(header);
-
-        var career = Card(new Grid(), 14);
-        var careerGrid = (Grid)career.Child;
-        careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var careerStack = new StackPanel();
-        careerStack.Children.Add(Txt("YOUR CAREER", 9, true, Teal));
-        careerStack.Children.Add(Txt("Career identity awaiting verification", 16, true, Ink));
-        _connectionSummary = Txt("Open Football Manager 27 and load a career, or import a local save copy.", 10, false, Muted);
-        careerStack.Children.Add(_connectionSummary);
-        _liveLoadStatus = Txt("Ready", 9, false, Muted); _liveLoadStatus.Margin = new Thickness(0, 5, 0, 0); careerStack.Children.Add(_liveLoadStatus);
-        _liveLoadProgress = new ProgressBar { Height = 4, Minimum = 0, Maximum = 100, Value = 0, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 5, 0, 0), Foreground = Brush("#3988C8"), Background = Brush("#DCE8F2") }; careerStack.Children.Add(_liveLoadProgress);
-        careerGrid.Children.Add(careerStack);
-        var state = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        _connectionDot = new Ellipse { Width = 9, Height = 9, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 7, 0) };
-        state.Children.Add(_connectionDot); state.Children.Add(Txt("Not connected", 10, true, Muted));
-        Grid.SetColumn(state, 1); careerGrid.Children.Add(state);
-        Grid.SetRow(career, 1); main.Children.Add(career);
-
-        _pageHost = new ContentControl { Margin = new Thickness(0, 15, 0, 0) };
-        Grid.SetRow(_pageHost, 2); main.Children.Add(_pageHost);
+        // Compatibility entry point for older navigation paths.
+        BuildShellV9();
     }
 
+    private Button ToolbarIcon(string glyph, string description, RoutedEventHandler click)
+    {
+        var icon = new TextBlock
+        {
+            Text = glyph,
+            FontFamily = new FontFamily("Segoe MDL2 Assets"),
+            FontSize = 16,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var button = new Button
+        {
+            Content = icon,
+            Width = 38,
+            Height = 38,
+            Padding = new Thickness(0),
+            Margin = new Thickness(3, 0, 3, 0),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            Focusable = true,
+            ToolTip = description,
+            Template = RoundedButtonTemplate(9)
+        };
+        ToolTipService.SetInitialShowDelay(button, 350);
+        ToolTipService.SetShowDuration(button, 30000);
+        ToolTipService.SetShowOnDisabled(button, true);
+        System.Windows.Automation.AutomationProperties.SetName(button, description);
+        System.Windows.Automation.AutomationProperties.SetHelpText(button, description);
+        button.MouseEnter += (_, _) =>
+        {
+            button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover);
+            button.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+            icon.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+        };
+        button.MouseLeave += (_, _) =>
+        {
+            button.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface);
+            button.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
+            icon.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+        };
+        button.IsEnabledChanged += (_, _) => button.Opacity = button.IsEnabled ? 1.0 : 0.42;
+        button.Click += click;
+        return button;
+    }
+
+    private static void ApplyGlassControlTheme(DependencyObject root, HashSet<DependencyObject>? visited = null)
+    {
+        visited ??= new HashSet<DependencyObject>();
+        if (!visited.Add(root)) return;
+
+        switch (root)
+        {
+            case TextBox textBox:
+                textBox.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised);
+                textBox.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+                var textBoxRestingBorder = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
+                textBox.BorderBrush = textBoxRestingBorder;
+                textBox.BorderThickness = new Thickness(1);
+                textBox.CaretBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+                textBox.SelectionBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft);
+                textBox.Padding = new Thickness(10, 7, 10, 7);
+                textBox.FontFamily = MonolithDesignSystem.BodyFont;
+                textBox.SnapsToDevicePixels = true;
+                textBox.GotKeyboardFocus += (_, _) => textBox.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+                textBox.LostKeyboardFocus += (_, _) => textBox.BorderBrush = textBoxRestingBorder;
+                break;
+
+            case ComboBox comboBox:
+                comboBox.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised);
+                comboBox.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+                var comboRestingBorder = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
+                comboBox.BorderBrush = comboRestingBorder;
+                comboBox.BorderThickness = new Thickness(1);
+                comboBox.Padding = new Thickness(9, 6, 9, 6);
+                comboBox.FontFamily = MonolithDesignSystem.BodyFont;
+                comboBox.SnapsToDevicePixels = true;
+                comboBox.GotKeyboardFocus += (_, _) => comboBox.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+                comboBox.LostKeyboardFocus += (_, _) => comboBox.BorderBrush = comboRestingBorder;
+                var comboItemStyle = new Style(typeof(ComboBoxItem));
+                comboItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised)));
+                comboItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Text)));
+                comboItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 7, 9, 7)));
+                var comboHover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+                comboHover.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover)));
+                comboItemStyle.Triggers.Add(comboHover);
+                var comboSelected = new Trigger { Property = ComboBoxItem.IsSelectedProperty, Value = true };
+                comboSelected.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft)));
+                comboSelected.Setters.Add(new Setter(Control.ForegroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Text)));
+                comboItemStyle.Triggers.Add(comboSelected);
+                comboBox.ItemContainerStyle = comboItemStyle;
+                break;
+
+            case Button button:
+                var signal = ((SolidColorBrush)MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)).Color;
+                var isPrimary = button.Background is SolidColorBrush existing && existing.Color == signal;
+                button.Background = MonolithDesignSystem.Solid(isPrimary ? MonolithDesignSystem.Signal : MonolithDesignSystem.SurfaceRaised);
+                button.Foreground = MonolithDesignSystem.Solid(isPrimary ? "#17110D" : MonolithDesignSystem.Text);
+                button.BorderBrush = MonolithDesignSystem.Solid(isPrimary ? MonolithDesignSystem.Signal : MonolithDesignSystem.Border);
+                button.BorderThickness = new Thickness(1);
+                button.FontFamily = MonolithDesignSystem.BodyFont;
+                button.FontSize = Math.Max(11, button.FontSize);
+                button.FontWeight = FontWeights.SemiBold;
+                button.Focusable = true;
+                if (button.Template is null) button.Template = RoundedButtonTemplate(0);
+                break;
+
+            case TabControl tabs:
+                tabs.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface);
+                tabs.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+                tabs.BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
+                tabs.BorderThickness = new Thickness(1);
+                // Preserve purpose-built tab styles such as the vertical FMRTE-style
+                // player section rail; only apply the shared default to unstyled tabs.
+                if (tabs.ItemContainerStyle is null)
+                {
+                    var tabItemStyle = new Style(typeof(TabItem));
+                    tabItemStyle.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised)));
+                    tabItemStyle.Setters.Add(new Setter(Control.ForegroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+                    tabItemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 8, 12, 8)));
+                    tabItemStyle.Setters.Add(new Setter(Control.MarginProperty, new Thickness(2, 0, 2, 0)));
+                    var tabSelected = new Trigger { Property = TabItem.IsSelectedProperty, Value = true };
+                    tabSelected.Setters.Add(new Setter(Control.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft)));
+                    tabSelected.Setters.Add(new Setter(Control.ForegroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)));
+                    tabSelected.Setters.Add(new Setter(Control.BorderBrushProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)));
+                    tabSelected.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0, 0, 0, 2)));
+                    tabItemStyle.Triggers.Add(tabSelected);
+                    tabs.ItemContainerStyle = tabItemStyle;
+                }
+                break;
+
+            case CheckBox checkBox:
+                checkBox.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+                checkBox.Focusable = true;
+                break;
+
+            case RadioButton radioButton:
+                radioButton.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text);
+                radioButton.Focusable = true;
+                break;
+
+            case ProgressBar progressBar:
+                progressBar.Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal);
+                progressBar.Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Border);
+                break;
+        }
+
+        // Walk both logical children and realised visual children. This keeps shared
+        // component styling consistent without changing search or data-service logic.
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+            ApplyGlassControlTheme(child, visited);
+        if (root is Visual visual)
+        {
+            var count = VisualTreeHelper.GetChildrenCount(visual);
+            for (var childIndex = 0; childIndex < count; childIndex++)
+                ApplyGlassControlTheme(VisualTreeHelper.GetChild(visual, childIndex), visited);
+        }
+    }
+    private void BeginBackgroundOperation(string name)
+    {
+        _activeBackgroundOperation = name;
+        _activeBackgroundOperationStartedUtc = DateTime.UtcNow;
+        AtlasLog.Info("Background operation started: " + name + ".");
+    }
+
+    private void EndBackgroundOperation()
+    {
+        if (_activeBackgroundOperation is null) return;
+        _lastBackgroundOperation = _activeBackgroundOperation + " · " + (_liveLoadStatus?.Text ?? "Finished");
+        _lastBackgroundOperationCompletedUtc = DateTime.UtcNow;
+        AtlasLog.Info("Background operation finished: " + _activeBackgroundOperation + ".");
+        _activeBackgroundOperation = null;
+        _activeBackgroundOperationStartedUtc = null;
+    }
+
+    private void ShowActivityCenter()
+    {
+        if (_activityCenterWindow is { IsVisible: true })
+        {
+            _activityCenterWindow.Activate();
+            return;
+        }
+
+        var content = new StackPanel();
+        content.Children.Add(Txt("FM ATLAS · ACTIVITY", 9, true, Teal));
+        content.Children.Add(Txt("Activity Centre", 22, true, Ink));
+        content.Children.Add(Txt("Long-running career scans and save imports appear here. Atlas runs one scan/import at a time; normal search and page navigation remain independent.", 10, false, Muted, wrap: true));
+        var activeName = Txt(_activeBackgroundOperation ?? "No active background task", 12, true, Ink);
+        activeName.Margin = new Thickness(0, 12, 0, 4);
+        content.Children.Add(activeName);
+        var activeStatus = Txt(_liveLoadStatus?.Text ?? "FM Atlas is ready.", 10, false, Muted, wrap: true);
+        activeStatus.Margin = new Thickness(0, 0, 0, 8);
+        content.Children.Add(activeStatus);
+        var elapsed = Txt("Elapsed · —", 9, true, Teal);
+        content.Children.Add(elapsed);
+        var progress = new ProgressBar { Height = 5, Margin = new Thickness(0, 10, 0, 10), IsIndeterminate = _activeBackgroundOperation is not null, Visibility = _activeBackgroundOperation is null ? Visibility.Collapsed : Visibility.Visible };
+        content.Children.Add(progress);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var cancel = SoftButton("Cancel active task", (_, _) =>
+        {
+            _liveScanCancellation?.Cancel();
+            _saveImportCancellation?.Cancel();
+            activeStatus.Text = "Cancellation requested. Atlas will stop at a safe checkpoint and retain the last committed snapshot.";
+        });
+        cancel.IsEnabled = _liveScanCancellation is not null || _saveImportCancellation is not null;
+        actions.Children.Add(cancel);
+        actions.Children.Add(PrimaryButton("Close", (_, _) => _activityCenterWindow?.Close()));
+        content.Children.Add(actions);
+        if (_lastBackgroundOperation is not null)
+        {
+            var previous = Txt("Previous task · " + _lastBackgroundOperation, 9, false, Muted, wrap: true);
+            previous.Margin = new Thickness(0, 12, 0, 0);
+            content.Children.Add(previous);
+        }
+
+        var window = new Window
+        {
+            Title = "FM Atlas · Activity Centre",
+            Owner = this,
+            Width = 440,
+            Height = 330,
+            MinWidth = 400,
+            MinHeight = 300,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = Brush("#0D1117"),
+            Foreground = Ink,
+            Content = Card(content, 18, new Thickness(14))
+        };
+        _activityCenterWindow = window;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _activityCenterTimer = timer;
+        timer.Tick += (_, _) =>
+        {
+            var active = _activeBackgroundOperation is not null;
+            activeName.Text = _activeBackgroundOperation ?? "No active background task";
+            activeStatus.Text = active ? (_liveLoadStatus?.Text ?? "Working…") : "No scan or save import is currently running.";
+            elapsed.Text = active && _activeBackgroundOperationStartedUtc.HasValue
+                ? "Elapsed · " + (DateTime.UtcNow - _activeBackgroundOperationStartedUtc.Value).ToString(@"hh\:mm\:ss")
+                : _lastBackgroundOperationCompletedUtc.HasValue
+                    ? "Last task finished · " + _lastBackgroundOperationCompletedUtc.Value.ToLocalTime().ToString("HH:mm:ss")
+                    : "Elapsed · —";
+            progress.IsIndeterminate = active;
+            progress.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+            cancel.IsEnabled = _liveScanCancellation is not null || _saveImportCancellation is not null;
+        };
+        window.Closed += (_, _) =>
+        {
+            timer.Stop();
+            if (ReferenceEquals(_activityCenterTimer, timer)) _activityCenterTimer = null;
+            if (ReferenceEquals(_activityCenterWindow, window)) _activityCenterWindow = null;
+        };
+        timer.Start();
+        window.Show();
+    }
+
+    private async Task CycleThemeAsync()
+    {
+        _themeMode = _themeMode switch
+        {
+            "Monolith Glass" => "Glass Dark",
+            "Glass Dark" => "Glass Light",
+            "Glass Light" => "Studio",
+            _ => "Monolith Glass"
+        };
+        try
+        {
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas");
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "theme.txt"), _themeMode);
+        }
+        catch (Exception ex) { AtlasLog.Warning("Could not persist Atlas appearance preference: " + ex.Message); }
+        var page = _activePage;
+        BuildShellV9();
+        await NavigateAsync(page);
+    }
+
+    private async Task ToggleNavigationAsync()
+    {
+        _navCollapsed = !_navCollapsed;
+        var page = _activePage;
+        BuildShellV9();
+        await NavigateAsync(page);
+    }
+
+    private void ShowLiveScanPaused()
+    {
+        MessageBox.Show(this,
+            "The current FM27 session is not ready for indexing. Load a supported career and keep Atlas open; it will connect automatically. The read-only scan is limited to two minutes and can be cancelled from the toolbar.",
+            "FM Atlas · Career not ready", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
     private UIElement BuildSidebar()
     {
-        var rail = new Border { Background = Brush("#111820"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(0, 0, 1, 0) };
-        var dock = new DockPanel { Margin = new Thickness(15, 18, 15, 15) }; rail.Child = dock;
-        var brand = new StackPanel { Margin = new Thickness(4, 3, 4, 24) };
+        var rail = new Border
+        {
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(_themeMode == "Glass Light"
+                        ? Color.FromArgb(238, 250, 253, 255)
+                        : _themeMode == "Monolith Glass"
+                            ? Color.FromArgb(232, 29, 31, 36)
+                            : Color.FromArgb(224, 20, 31, 46), 0),
+                    new GradientStop(_themeMode == "Glass Light"
+                        ? Color.FromArgb(224, 228, 237, 246)
+                        : _themeMode == "Monolith Glass"
+                            ? Color.FromArgb(210, 17, 19, 23)
+                            : Color.FromArgb(202, 12, 21, 34), 1)
+                },
+                new Point(0, 0), new Point(1, 1)),
+            BorderBrush = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(150, 255, 255, 255), 0),
+                    new GradientStop(_themeMode == "Glass Light"
+                        ? Color.FromArgb(105, 128, 158, 188)
+                        : Color.FromArgb(92, 244, 155, 100), 1)
+                },
+                new Point(0, 0), new Point(0, 1)),
+            BorderThickness = new Thickness(0, 0, 1, 0),
+            Effect = new DropShadowEffect
+            {
+                Color = Color.FromRgb(0, 0, 0),
+                BlurRadius = 28,
+                ShadowDepth = 0,
+                Opacity = _themeMode == "Glass Light" ? 0.07 : 0.20
+            }
+        };
+        var dock = new DockPanel { Margin = new Thickness(_navCollapsed ? 9 : 14, 15, _navCollapsed ? 9 : 14, 14) };
+        rail.Child = dock;
+
+        var brand = new Grid { Margin = new Thickness(2, 2, 2, 18) };
+        brand.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        brand.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var logoLine = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var logoImage = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Icon.png", UriKind.Absolute)), Stretch = Stretch.UniformToFill };
-        var logo = new Border { Width = 43, Height = 43, CornerRadius = new CornerRadius(10), ClipToBounds = true, BorderBrush = Brush("#C9D9E8"), BorderThickness = new Thickness(1), Child = logoImage };
+        var logo = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(0), ClipToBounds = true, BorderBrush = Brush("#9DC8EF"), BorderThickness = new Thickness(1), Child = logoImage };
         logoLine.Children.Add(logo);
-        var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0) };
-        word.Children.Add(Txt("FM ATLAS 27", 17, true, Ink)); word.Children.Add(Txt("FOOTBALL INTELLIGENCE", 8, true, Muted));
-        logoLine.Children.Add(word); brand.Children.Add(logoLine); DockPanel.SetDock(brand, Dock.Top); dock.Children.Add(brand);
+        var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
+        word.Children.Add(Txt("FM ATLAS", 16, true, Ink));
+        word.Children.Add(Txt(_themeMode == "Monolith Glass" ? "MONOLITH GLASS" : "V8 · ATLAS LIQUID", 8, true, Muted));
+        logoLine.Children.Add(word);
+        Grid.SetColumn(logoLine, 0);
+        brand.Children.Add(logoLine);
+
+        var collapse = new Button
+        {
+            Content = _navCollapsed ? "›" : "‹",
+            Width = 30,
+            Height = 34,
+            Padding = new Thickness(0),
+            Background = new SolidColorBrush(Color.FromArgb(80, 150, 185, 225)),
+            Foreground = Ink,
+            BorderBrush = new SolidColorBrush(Color.FromArgb(90, 180, 210, 240)),
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            ToolTip = _navCollapsed ? "Expand side navigation and show workspace names." : "Collapse side navigation to an icon rail.",
+            Template = RoundedButtonTemplate(10)
+        };
+        collapse.Click += async (_, _) => await ToggleNavigationAsync();
+        ToolTipService.SetInitialShowDelay(collapse, 350);
+        Grid.SetColumn(collapse, 1);
+        brand.Children.Add(collapse);
+        DockPanel.SetDock(brand, Dock.Top);
+        dock.Children.Add(brand);
 
         var navScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
-        _navPanel = new StackPanel(); navScroll.Content = _navPanel; dock.Children.Add(navScroll);
-        AddNavGroup("WORKSPACE");
-        AddNav("▦", "Dashboard"); AddNav("♟", "Players"); AddNav("⌕", "Recruitment"); AddNav("◆", "Value Finder"); AddNav("⌗", "Attribute Search"); AddNav("∑", "Stats Search"); AddNav("▥", "Squad Architect");
-        AddNav("◇", "Clubs"); AddNav("♙", "Staff"); AddNav("⇄", "Transfers"); AddNav("▥", "Analytics"); AddNav("⚑", "Tactical Lab"); AddNav("◎", "Role Lab");
-        AddNavGroup("MANAGEMENT"); AddNav("▤", "Shortlists"); AddNav("✎", "Live Editor"); AddNav("▦", "Mass Edit"); AddNav("◷", "Edit History");
-        AddNavGroup("ATLAS TOOLS"); AddNav("✦", "Atlas Assistant"); AddNav("⚙", "Settings"); AddNav("◉", "Tester & Logs"); AddNav("?", "Help & Tutorial");
+        _navPanel = new StackPanel();
+        navScroll.Content = _navPanel;
+        dock.Children.Add(navScroll);
+        AddNavGroup("HOME");
+        AddNav("▦", "Dashboard");
+        AddNavGroup("SCOUTING");
+        AddNav("♟", "Players");
+        AddNav("⌕", "Advanced Search");
+        AddNav("⌕", "Recruitment");
+        AddNav("◆", "Value Finder");
+        AddNav("⌗", "Attribute Search");
+        AddNav("∑", "Stats Search");
+        AddNav("▦", "Scouting Matrix");
+        AddNav("▤", "Shortlists");
+        AddNavGroup("SQUAD & ANALYSIS");
+        AddNav("▥", "Squad Architect");
+        AddNav("◇", "Clubs");
+        AddNav("♙", "Staff");
+        AddNav("⇄", "Transfers");
+        AddNav("▥", "Analytics");
+        AddNav("⚑", "Tactical Lab");
+        AddNav("◎", "Role Lab");
+        AddNavGroup("EDITING");
+        AddNav("✎", "Live Editor");
+        AddNav("▦", "Mass Edit");
+        AddNav("◷", "Edit History");
+        AddNavGroup("DATA & TOOLS");
+        AddNav("⌘", "Atlas Assistant");
+        AddNav("▧", "Settings");
+        AddNav("◉", "Tester & Logs");
+        AddNav("?", "Help & Tutorial");
 
-        var bottom = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(15), Padding = new Thickness(11), Margin = new Thickness(0, 14, 0, 0) };
-        var bottomStack = new StackPanel(); bottomStack.Children.Add(Txt("GAME CONNECTION", 9, true, Teal));
-        var stateRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 3) };
-        stateRow.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
-        stateRow.Children.Add(Txt("Waiting for FM27", 10, true, Ink)); bottomStack.Children.Add(stateRow);
-        bottomStack.Children.Add(Txt("Steam / Game Pass profile detection · guarded player edits", 8, false, Muted, wrap: true));
-        DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom);
+        var bottom = new Border
+        {
+            Background = _themeMode == "Glass Light"
+                ? new SolidColorBrush(Color.FromArgb(220, 255, 255, 255))
+                : _themeMode == "Monolith Glass"
+                    ? new SolidColorBrush(Color.FromArgb(210, 27, 29, 33))
+                    : new SolidColorBrush(Color.FromArgb(110, 95, 125, 165)),
+            BorderBrush = _themeMode == "Monolith Glass"
+                ? new SolidColorBrush(Color.FromArgb(90, 226, 132, 80))
+                : new SolidColorBrush(Color.FromArgb(85, 175, 205, 235)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(0),
+            Padding = new Thickness(11),
+            Margin = new Thickness(0, 12, 0, 0),
+            ToolTip = "FM connection is optional. Offline save import remains the primary safe route."
+        };
+        var bottomStack = new StackPanel();
+        if (!_navCollapsed)
+        {
+            bottomStack.Children.Add(Txt("GAME CONNECTION", 9, true, Teal));
+            var stateRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 7, 0, 3) };
+            stateRow.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
+            stateRow.Children.Add(Txt("Automatic · read-only", 10, true, Ink));
+            bottomStack.Children.Add(stateRow);
+            bottomStack.Children.Add(Txt("FM27 career detection and cancellable live indexing are active. Live editing remains disabled.", 8, false, Muted, wrap: true));
+        }
+        else
+        {
+            bottomStack.Children.Add(Txt("●", 14, true, Teal));
+        }
+        bottom.Child = bottomStack;
+        DockPanel.SetDock(bottom, Dock.Bottom);
+        dock.Children.Add(bottom);
         return rail;
     }
 
     private void AddNavGroup(string label)
     {
-        if (_navPanel is null) return;
+        if (_navPanel is null || _navCollapsed) return;
         _navPanel.Children.Add(Txt(label, 9, true, Teal) is var t ? Configure(t, new Thickness(7, 16, 0, 5)) : new TextBlock());
     }
 
@@ -242,7 +628,33 @@ public partial class MainWindow : Window
     private void AddNav(string icon, string label)
     {
         if (_navPanel is null) return;
-        var button = new Button { Tag = label, Content = new StackPanel { Orientation = Orientation.Horizontal, Children = { Txt(icon, 14, true, TealDark), Txt("  " + label, 12, true, Ink) } }, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(12, 11, 10, 11), Margin = new Thickness(0, 2, 0, 2), Background = Brushes.Transparent, BorderBrush = Brushes.Transparent, BorderThickness = new Thickness(0), Cursor = Cursors.Hand };
+        var glyph = Txt(icon, 15, true, TealDark);
+        glyph.Width = 22;
+        glyph.TextAlignment = TextAlignment.Center;
+        var caption = Txt(_navCollapsed ? "" : label, 11, true, Ink);
+        caption.Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(glyph);
+        row.Children.Add(caption);
+        var button = new Button
+        {
+            Tag = label,
+            Content = row,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(_navCollapsed ? 11 : 12, 10, 10, 10),
+            Margin = new Thickness(0, 2, 0, 2),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            ToolTip = PageDescription(label),
+            MinHeight = 42
+        };
+        ToolTipService.SetInitialShowDelay(button, 350);
+        ToolTipService.SetShowDuration(button, 30000);
+        ToolTipService.SetShowOnDisabled(button, true);
+        System.Windows.Automation.AutomationProperties.SetName(button, label);
+        System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
         button.Template = RoundedButtonTemplate(13);
         button.Click += async (_, _) => await NavigateAsync(label);
         _navPanel.Children.Add(button);
@@ -258,29 +670,50 @@ public partial class MainWindow : Window
         }
 
         _navigationBusy = true;
-        foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>()) button.IsEnabled = false;
+        // Keep navigation responsive; a later click replaces the queued destination.
         try
         {
             _activePage = page;
+            RefreshWorkspaceContextNavV9(page);
             if (_pageTitle is not null) _pageTitle.Text = page;
             if (_pageSubTitle is not null) _pageSubTitle.Text = PageDescription(page);
             foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>())
             {
-                var active = string.Equals(button.Tag?.ToString(), page, StringComparison.OrdinalIgnoreCase);
-                button.Background = active ? Brush("#2A3427") : Brushes.Transparent;
-                if (button.Content is StackPanel row)
-                    foreach (var tb in row.Children.OfType<TextBlock>()) tb.Foreground = active ? Brush("#D8F5A2") : (tb.Text.Trim() == page ? Ink : Muted);
+                var active = string.Equals(button.Tag?.ToString(), GetPrimaryNavigationRouteV9(page), StringComparison.OrdinalIgnoreCase);
+                button.Background = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.SignalSoft) : Brushes.Transparent;
+                button.BorderBrush = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.Border) : Brushes.Transparent;
+                if (button.Content is Grid row)
+                {
+                    foreach (var child in row.Children)
+                    {
+                        if (child is Border indicator && Equals(indicator.Tag, "nav-active"))
+                            indicator.Background = active ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal) : Brushes.Transparent;
+                        else if (child is TextBlock label)
+                        {
+                            var role = label.Tag?.ToString();
+                            label.Foreground = role == "nav-caption"
+                                ? MonolithDesignSystem.Solid(active ? MonolithDesignSystem.Text : MonolithDesignSystem.Muted)
+                                : MonolithDesignSystem.Solid(active ? MonolithDesignSystem.Signal : MonolithDesignSystem.Muted);
+                        }
+                    }
+                }
+                else if (button.Content is StackPanel legacyRow)
+                    foreach (var tb in legacyRow.Children.OfType<TextBlock>())
+                        tb.Foreground = active
+                            ? MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)
+                            : MonolithDesignSystem.Solid(MonolithDesignSystem.Muted);
             }
 
             _pageHost.Content = NavigationLoadingPane(page);
             await Dispatcher.Yield(DispatcherPriority.Background);
             UIElement content = page switch
             {
-                "Dashboard" => await DashboardPageAsync(),
-                "Players" => await PlayerWorkspaceAsync(false),
-                "Recruitment" => await PlayerWorkspaceAsync(true),
-                "Clubs" => await ClubsPageAsync(),
-                "Staff" => await StaffPageAsync(),
+                "Dashboard" => await DashboardPageV9Async(),
+                "Advanced Search" => await AdvancedSearchWorkspaceAsync(),
+                "Players" => await PlayerWorkspaceV9Async(false),
+                "Recruitment" => await PlayerWorkspaceV9Async(true),
+                "Clubs" => await ClubsWorkspaceV9Async(),
+                "Staff" => await StaffWorkspaceV9Async(),
                 "Squad Architect" => await SquadArchitectPageAsync(),
                 "Transfers" => await TransfersPageAsync(),
                 "Tactical Lab" => await TacticalLabPageAsync(),
@@ -293,6 +726,7 @@ public partial class MainWindow : Window
                 "Help & Tutorial" => TutorialPage(),
                 "Analytics" => await AnalyticsPageAsync(),
                 "Stats Search" => await StatsSearchPageAsync(),
+                "Scouting Matrix" => await StatsSearchPageAsync(),
                 "Attribute Search" => await AttributeSearchPageAsync(),
                 "Value Finder" => await ValueFinderPageAsync(),
                 "Mass Edit" => await MassEditPageAsync(),
@@ -300,6 +734,24 @@ public partial class MainWindow : Window
                 _ => DashboardPageFallback()
             };
             _pageHost.Content = content;
+            try { ApplyGlassControlTheme(content); }
+            catch (Exception themeEx) { AtlasLog.Warning("Workspace glass-control styling was skipped: " + themeEx.Message); }
+            if (SystemParameters.ClientAreaAnimation)
+            {
+                _pageHost.Opacity = 0;
+                _pageHost.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation
+                {
+                    From = 0,
+                    To = 1,
+                    Duration = new Duration(TimeSpan.FromMilliseconds(150)),
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                }, HandoffBehavior.SnapshotAndReplace);
+            }
+            else
+            {
+                _pageHost.BeginAnimation(UIElement.OpacityProperty, null);
+                _pageHost.Opacity = 1;
+            }
         }
         catch (Exception ex)
         {
@@ -314,7 +766,6 @@ public partial class MainWindow : Window
         finally
         {
             _navigationBusy = false;
-            foreach (var button in _navPanel?.Children.OfType<Button>() ?? Enumerable.Empty<Button>()) button.IsEnabled = true;
             var queued = _queuedNavigation;
             _queuedNavigation = null;
             if (!string.IsNullOrWhiteSpace(queued) && !string.Equals(queued, page, StringComparison.OrdinalIgnoreCase))
@@ -325,9 +776,9 @@ public partial class MainWindow : Window
     private static UIElement NavigationLoadingPane(string page)
     {
         var panel = new StackPanel { Margin = new Thickness(28), VerticalAlignment = VerticalAlignment.Center };
-        panel.Children.Add(Txt("OPENING WORKSPACE", 10, true, Brush("#C6F36B")));
+        panel.Children.Add(Txt("OPENING WORKSPACE", 10, true, Brush("#F08A42")));
         panel.Children.Add(Txt(page, 24, true, Brush("#E8EEF4")));
-        panel.Children.Add(Txt("Preparing data and layout…", 12, false, Brush("#9EADB9")));
+        panel.Children.Add(Txt("Loading this workspace. Navigation stays available; your latest destination will open next.", 12, false, Brush("#9EADB9"), wrap: true));
         return panel;
     }
 
@@ -366,13 +817,15 @@ public partial class MainWindow : Window
     private static string PageDescription(string page) => page switch
     {
         "Dashboard" => "Your career at a glance · data coverage · import health",
-        "Players" => "Player intelligence · search · profile · attributes",
+        "Advanced Search" => "Choose player identity, attributes/personality or performance-stat criteria",
+        "Players" => "Player intelligence · name/position/CA/PA search · full profile",
         "Recruitment" => "Build an explainable shortlist from your imported career data",
         "Squad Architect" => "Inspect club squads, age distribution and positional coverage",
         "Clubs" => "Club directory · squad links · available save data",
         "Staff" => "Staff directory · coaching and staff fields where supported by the source",
         "Analytics" => "Season and match performance · metrics actually present in your save",
         "Stats Search" => "Multi-condition statistical discovery · grouped source metrics · per-90 sample controls",
+        "Scouting Matrix" => "Reusable multi-metric scouting profiles · source-backed performance search · minutes and per-90 controls",
         "Attribute Search" => "Build precise player profiles with up to 60 simultaneous 1–20 ratings",
         "Value Finder" => "Spot players whose ability and potential rank ahead of their market-value percentile",
         "Mass Edit" => "Bulk local database edits · preview and audit before applying",
@@ -393,23 +846,30 @@ public partial class MainWindow : Window
     {
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
         var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        var hero = new Border { CornerRadius = new CornerRadius(23), Padding = new Thickness(24), Background = new LinearGradientBrush(Color.FromRgb(29, 39, 49), Color.FromRgb(18, 25, 33), 25), BorderBrush = Line, BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 14) };
-        var heroGrid = new Grid(); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var heroLeft = new StackPanel(); heroLeft.Children.Add(Txt("WELCOME TO COACHPRO", 9, true, Brush("#B7E5E0")));
-        heroLeft.Children.Add(Txt("A clearer view of your football world.", 25, true, Brushes.White));
-        heroLeft.Children.Add(Txt("Load the active career for verified live identity data, or import a save copy to unlock the broader player and club intelligence layer.", 11, false, Brush("#DBF2EF"), wrap: true));
+        var heroGrid = new Grid();
+        heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var heroLeft = new StackPanel();
+        heroLeft.Children.Add(Txt("FM ATLAS · MONOLITH GLASS", 9, true, Teal));
+        heroLeft.Children.Add(Txt("Your Football Manager intelligence workspace.", 25, true, Ink));
+        heroLeft.Children.Add(Txt("Load an FM27 career and Atlas automatically indexes supported player, staff, club and manager identity data. The live scan is read-only, cancellable and limited to two minutes; offline save import adds historical and match data.", 11, false, Muted, wrap: true));
         heroGrid.Children.Add(heroLeft);
         var heroActions = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Width = 185 };
         heroActions.Children.Add(WhiteButton("Import career save", async (_, _) => await ImportCareerSaveAsync()));
-        var liveButton = new Button { Content = "Load live game", Margin = new Thickness(3), Padding = new Thickness(12, 9, 12, 9), Foreground = Brush("#0D1117"), Background = Brush("#C6F36B"), BorderBrush = Brush("#4BA6A8"), Template = RoundedButtonTemplate(12), FontWeight = FontWeights.SemiBold };
+        var liveButton = new Button { Content = "Connect / Refresh career", Margin = new Thickness(3), Padding = new Thickness(12, 9, 12, 9), Foreground = Brush("#0D1117"), Background = Brush("#F08A42"), BorderBrush = Brush("#C86D34"), Template = RoundedButtonTemplate(12), FontWeight = FontWeights.SemiBold };
+        liveButton.ToolTip = "Connect to the current supported FM27 career or refresh the live index.";
         liveButton.Click += async (_, _) => await LoadLiveCareerAsync();
         heroActions.Children.Add(liveButton);
-        Grid.SetColumn(heroActions, 1); heroGrid.Children.Add(heroActions); hero.Child = heroGrid; root.Children.Add(hero);
+        Grid.SetColumn(heroActions, 1);
+        heroGrid.Children.Add(heroActions);
+        root.Children.Add(Card(heroGrid, 23, new Thickness(0, 0, 0, 14)));
 
         var cards = new UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 14) };
+        cards.SizeChanged += (_, e) => { cards.Columns = e.NewSize.Width >= 1280 ? 4 : e.NewSize.Width >= 720 ? 2 : 1; };
         cards.Children.Add(MetricCard("PLAYER RECORDS", (metrics.SavePlayers + metrics.LivePlayers).ToString("N0"), metrics.SavePlayers > 0 ? $"{metrics.SavePlayers:N0} save snapshot · {metrics.LivePlayers:N0} live identities (sources may overlap)" : "Live identities only · not full attribute profiles", "♟"));
         cards.Children.Add(MetricCard("CLUB RECORDS", (metrics.SaveClubs + metrics.LiveClubs).ToString("N0"), metrics.SaveClubs > 0 ? $"{metrics.SaveClubs:N0} save snapshot · {metrics.LiveClubs:N0} live identities (sources may overlap)" : "Live club identities only · details depend on save import", "◇"));
-        cards.Children.Add(MetricCard("STAFF", metrics.SaveStaff.ToString("N0"), metrics.SaveStaff > 0 ? "Save snapshot records" : "Not yet populated", "♙"));
+        var activeStaffCount = IsCurrentLiveCareer(metrics) ? metrics.LiveStaff : metrics.SaveStaff;
+        cards.Children.Add(MetricCard("STAFF", activeStaffCount.ToString("N0"), IsCurrentLiveCareer(metrics) ? "Live FM27 staff identities" : metrics.SaveStaff > 0 ? "Save snapshot records" : "Not yet populated", "♙"));
         cards.Children.Add(MetricCard("ATTRIBUTE FACTS", metrics.LocalAttributeFacts.ToString("N0"), "Imported local values", "▤"));
         Grid.SetRow(cards, 1); root.Children.Add(cards);
 
@@ -424,17 +884,20 @@ public partial class MainWindow : Window
         Grid.SetColumn(coverage, 0); lower.Children.Add(coverage);
 
         var status = Card(new StackPanel(), 17); var statusStack = (StackPanel)status.Child;
-        statusStack.Children.Add(Txt("CAREER SNAPSHOT", 9, true, Teal)); statusStack.Children.Add(Txt("Latest data import", 19, true, Ink));
-        statusStack.Children.Add(Txt(metrics.LastSaveFileName ?? "No save snapshot imported yet", 12, true, Ink, wrap: true));
-        if (!string.IsNullOrWhiteSpace(metrics.CurrentManager))
-            statusStack.Children.Add(Txt($"Human manager: {metrics.CurrentManager}{(string.IsNullOrWhiteSpace(metrics.CurrentManagerClub) ? "" : " · " + metrics.CurrentManagerClub)}", 10, true, Teal, wrap: true));
+        statusStack.Children.Add(Txt(IsCurrentLiveCareer(metrics) ? "ACTIVE FM27 CAREER" : "CAREER SNAPSHOT", 9, true, Teal));
+        statusStack.Children.Add(Txt(IsCurrentLiveCareer(metrics) ? "Automatically connected live career" : "Latest offline data import", 19, true, Ink));
+        statusStack.Children.Add(Txt(IsCurrentLiveCareer(metrics) ? $"FM27 live · {metrics.LivePlayers:N0} players · {metrics.LiveStaff:N0} staff" : metrics.LastSaveFileName ?? "No save snapshot imported yet", 12, true, Ink, wrap: true));
+        if (!string.IsNullOrWhiteSpace(metrics.CurrentManager) && IsCurrentLiveCareer(metrics))
+            statusStack.Children.Add(Txt($"Human manager: {metrics.CurrentManager}{(string.IsNullOrWhiteSpace(metrics.CurrentManagerClub) ? "" : " · " + metrics.CurrentManagerClub)}{(string.IsNullOrWhiteSpace(metrics.CurrentManagerNation) ? "" : " · " + metrics.CurrentManagerNation)}", 10, true, Teal, wrap: true));
+        else if (IsCurrentLiveCareer(metrics))
+            statusStack.Children.Add(Txt("Human manager not uniquely identified in this live snapshot.", 10, true, Brush("#D18A3A"), wrap: true));
         statusStack.Children.Add(Txt(metrics.LastSaveImportUtc is null ? "—" : "Imported " + FormatDate(metrics.LastSaveImportUtc), 10, false, Muted));
         if (!string.IsNullOrWhiteSpace(metrics.SaveBuild)) statusStack.Children.Add(Txt($"{metrics.SaveGame ?? "Football Manager"} · {metrics.SaveBuild} · In-game date {metrics.SaveGameDate ?? "unknown"}", 10, true, Teal, wrap: true));
         if (metrics.SaveBuildKnown == false) statusStack.Children.Add(Txt("UNVERIFIED BUILD LAYOUT — inspect reader report before relying on fields.", 9, true, Brush("#B45B2F"), wrap: true));
         if (string.Equals(metrics.SaveGame, "FM27", StringComparison.OrdinalIgnoreCase)) statusStack.Children.Add(Txt("FM27 field meanings remain unconfirmed by the parser. Compare important values with the game.", 9, false, Muted, wrap: true));
         statusStack.Children.Add(new Border { Height = 1, Background = Brush("#D9E5EF"), Margin = new Thickness(0, 12, 0, 10) });
         statusStack.Children.Add(Txt("Live connector", 11, true, Ink)); statusStack.Children.Add(Txt(metrics.LastLiveImportUtc is null ? "No successful live import recorded" : "Last completed " + FormatDate(metrics.LastLiveImportUtc), 10, false, Muted));
-        statusStack.Children.Add(Txt("The local database at %LOCALAPPDATA%\\FmAtlas\\scouting.db is retained. Each save import is stored as a snapshot; a new import does not delete previous source records.", 10, false, Muted, wrap: true));
+        statusStack.Children.Add(Txt("The local database at %LOCALAPPDATA%\\FmAtlas\\scouting.db is retained. Offline save snapshots remain versioned; a new live career refresh replaces only the active LIVE index and keeps offline records, shortlists and projects.", 10, false, Muted, wrap: true));
         Grid.SetColumn(status, 1); lower.Children.Add(status);
         Grid.SetRow(lower, 2); root.Children.Add(lower);
         return root;
@@ -478,7 +941,12 @@ public partial class MainWindow : Window
         _playerSearch.Height = 40; _playerSearch.FontSize = 12; _playerSearch.Margin = new Thickness(0, 2, 8, 4);
         _playerSearch.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; _playerOffset = 0; await RefreshPlayerResultsAsync(); } };
         Grid.SetColumn(_playerSearch, 0); searchRow.Children.Add(_playerSearch);
-        _positionPicker = new ComboBox { ItemsSource = new[] { "Any position", "ATTACKERS", "MIDFIELDERS", "DEFENDERS", "GOALKEEPERS", "GK", "DL", "DC", "DR", "WBL", "WBR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST" }, SelectedIndex = 0, Margin = new Thickness(0, 2, 8, 4), Padding = new Thickness(9), MinHeight = 40, FontSize = 11 };
+        var positionOptions = new[] { "Any position", "ATTACKERS", "MIDFIELDERS", "DEFENDERS", "GOALKEEPERS" }
+            .Concat(PositionSuitabilityService.PositionCodes)
+            .Append("ST") // Preserve the legacy centre-forward filter label; current FM27 uses STC.
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        _positionPicker = new ComboBox { ItemsSource = positionOptions, SelectedIndex = 0, Margin = new Thickness(0, 2, 8, 4), Padding = new Thickness(9), MinHeight = 40, FontSize = 11 };
         Grid.SetColumn(_positionPicker, 1); searchRow.Children.Add(_positionPicker);
         var searchButton = PrimaryButton("Search", async (_, _) => { _playerOffset = 0; await RefreshPlayerResultsAsync(); });
         searchButton.MinWidth = 88; searchButton.Height = 40; Grid.SetColumn(searchButton, 2); searchRow.Children.Add(searchButton);
@@ -498,6 +966,27 @@ public partial class MainWindow : Window
             positionRibbon.Children.Add(chip);
         }
         searchStack.Children.Add(positionRibbon);
+
+        // Quick FMRTE-style ability bounds. They feed the same SQL filters for both
+        // offline save rows and the live FM27 identity index; negative PA ranges are valid.
+        var abilityFilters = new WrapPanel { Margin = new Thickness(0, 8, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        _playerMinCaInput = Input("Min CA"); _playerMinCaInput.Width = 78; _playerMinCaInput.MaxLength = 3;
+        _playerMaxCaInput = Input("Max CA"); _playerMaxCaInput.Width = 78; _playerMaxCaInput.MaxLength = 3;
+        _playerMinPaInput = Input("Min PA"); _playerMinPaInput.Width = 78; _playerMinPaInput.MaxLength = 3;
+        _playerMaxPaInput = Input("Max PA"); _playerMaxPaInput.Width = 78; _playerMaxPaInput.MaxLength = 3;
+        abilityFilters.Children.Add(FilterControl("CA MIN · 1–200", _playerMinCaInput, 88));
+        abilityFilters.Children.Add(FilterControl("CA MAX · 1–200", _playerMaxCaInput, 88));
+        abilityFilters.Children.Add(FilterControl("PA MIN · -10–200", _playerMinPaInput, 88));
+        abilityFilters.Children.Add(FilterControl("PA MAX · -10–200", _playerMaxPaInput, 88));
+        abilityFilters.Children.Add(SoftButton("Clear CA/PA", (_, _) =>
+        {
+            _playerMinCaInput.Text = ""; _playerMaxCaInput.Text = "";
+            _playerMinPaInput.Text = ""; _playerMaxPaInput.Text = "";
+            _playerOffset = 0;
+            _ = RefreshPlayerResultsAsync();
+        }));
+        searchStack.Children.Add(abilityFilters);
+
         Grid.SetRow(searchCard, 0); Grid.SetColumnSpan(searchCard, 2); root.Children.Add(searchCard);
 
         var listCard = Card(new DockPanel(), 16, new Thickness(0, 0, 9, 0));
@@ -505,6 +994,7 @@ public partial class MainWindow : Window
         var listHeader = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         listHeader.Children.Add(Txt("PLAYER RESULTS", 9, true, Teal));
         listHeader.Children.Add(Txt("Select a row to open its profile tab · double-click to focus", 10, false, Muted));
+        listHeader.Children.Add(Txt("SOURCE / CONFIDENCE is shown on each row; profile-matched live CA/PA and fields remain provisional until checked against the FM UI.", 9, false, Brush("#A06B24"), wrap: true));
         DockPanel.SetDock(listHeader, Dock.Top); listDock.Children.Add(listHeader);
 
         _playerResultsGrid = CreateGrid();
@@ -518,10 +1008,14 @@ public partial class MainWindow : Window
         _playerResultsGrid.Columns.Add(Column("PLAYER", "Name", 1.35));
         _playerResultsGrid.Columns.Add(Column("CLUB", "Club", 1.15));
         _playerResultsGrid.Columns.Add(Column("AGE", "Age", .45));
-        _playerResultsGrid.Columns.Add(Column("POS", "Position", .55));
-        _playerResultsGrid.Columns.Add(Column("CA", "DisplayAbility", .4));
-        _playerResultsGrid.Columns.Add(Column("PA", "DisplayPotential", .4));
-        _playerResultsGrid.Columns.Add(Column("NATION", "Nation", .8));
+        _playerResultsGrid.Columns.Add(Column("POS", "Position", .5));
+        _playerResultsGrid.Columns.Add(Column("LEAGUE", "League", .82));
+        _playerResultsGrid.Columns.Add(Column("CA", "DisplayAbility", .38));
+        _playerResultsGrid.Columns.Add(Column("PA", "DisplayPotential", .38));
+        _playerResultsGrid.Columns.Add(Column("NATION", "Nation", .7));
+        _playerResultsGrid.Columns.Add(Column("HOME-GROWN · CLUB", "DisplayHomeGrownClub", .72));
+        _playerResultsGrid.Columns.Add(Column("HOME-GROWN · NATION", "DisplayHomeGrownNation", .72));
+        _playerResultsGrid.Columns.Add(Column("SOURCE / CONFIDENCE", "DataOrigin", .95));
         _playerResultsGrid.ItemsSource = _players;
         _playerResultsGrid.SelectionChanged += async (_, _) =>
         {
@@ -554,12 +1048,40 @@ public partial class MainWindow : Window
         };
         AddWelcomeProfileTab();
         Grid.SetRow(profileCard, 2); Grid.SetColumn(profileCard, 1); root.Children.Add(profileCard);
-        foreach (var openedPlayer in _openPlayerRecords.Values.ToList())
-            await ShowPlayerProfileAsync(openedPlayer);
+
+        // Restore previously opened profiles after the workspace is displayed. Do not make
+        // navigation wait for a chain of profile queries when the user switches workspaces.
+        var profilesToRestore = _openPlayerRecords.Values.ToList();
         if (_profileExpanded) ToggleProfileExpanded(true);
+        if (profilesToRestore.Count > 0)
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => _ = RestoreOpenPlayerProfilesSafelyAsync(profilesToRestore)));
 
         await Task.CompletedTask;
         return root;
+    }
+
+    private async Task RestoreOpenPlayerProfilesSafelyAsync(IReadOnlyList<PlayerRecord> profiles)
+    {
+        try
+        {
+            await RestoreOpenPlayerProfilesAsync(profiles);
+        }
+        catch (Exception ex)
+        {
+            AtlasLog.Error("Deferred player-profile restoration failed.", ex);
+        }
+    }
+
+    private async Task RestoreOpenPlayerProfilesAsync(IReadOnlyList<PlayerRecord> profiles)
+    {
+        foreach (var profile in profiles)
+        {
+            if (_activePage is not ("Players" or "Recruitment") || _profileTabs is null)
+                return;
+            try { await ShowPlayerProfileAsync(profile); }
+            catch (Exception ex) { AtlasLog.Warning("Deferred profile restore skipped for " + profile.Name + ": " + ex.Message); }
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
     }
 
     private void AddWelcomeProfileTab()
@@ -578,6 +1100,16 @@ public partial class MainWindow : Window
     {
         var panel = new StackPanel { Width = width, Margin = new Thickness(0, 0, 8, 0) };
         panel.Children.Add(Txt(label, 8, true, Muted)); panel.Children.Add(control); return panel;
+    }
+
+    private static bool TryParseOptionalInt(string? raw, int minimum, int maximum, out int? value)
+    {
+        value = null;
+        if (string.IsNullOrWhiteSpace(raw)) return true;
+        if (!int.TryParse(raw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            || parsed < minimum || parsed > maximum) return false;
+        value = parsed;
+        return true;
     }
 
     private async Task ImportIntelligenceReportAsync()
@@ -601,13 +1133,31 @@ public partial class MainWindow : Window
     {
         if (_playerResultsGrid is null || _playerCountText is null) return;
         var term = _playerSearch?.Text.Trim() ?? string.Empty;
-        if (term.Length < 2)
+        var pos = _positionPicker?.SelectedItem?.ToString();
+        if (string.IsNullOrWhiteSpace(pos) || pos == "Any position") pos = null;
+        if (!TryParseOptionalInt(_playerMinCaInput?.Text, 1, 200, out var minCa)
+            || !TryParseOptionalInt(_playerMaxCaInput?.Text, 1, 200, out var maxCa)
+            || !TryParseOptionalInt(_playerMinPaInput?.Text, -10, 200, out var minPa)
+            || !TryParseOptionalInt(_playerMaxPaInput?.Text, -10, 200, out var maxPa))
+        {
+            _playerPageStatus!.Text = "CA must be 1–200; PA must be -10–200. Clear invalid values and search again.";
+            return;
+        }
+        if ((minCa.HasValue && maxCa.HasValue && minCa > maxCa)
+            || (minPa.HasValue && maxPa.HasValue && minPa > maxPa))
+        {
+            _playerPageStatus!.Text = "Each minimum must be less than or equal to its maximum.";
+            return;
+        }
+        var hasAbilityFilters = minCa.HasValue || maxCa.HasValue || minPa.HasValue || maxPa.HasValue;
+        var hasPositionFilter = pos is not null;
+        if (term.Length < 2 && !hasAbilityFilters && !hasPositionFilter)
         {
             ++_playerSearchRequestId; // invalidate any search still completing in the background
             Mouse.OverrideCursor = null;
             _players.Clear();
             _playerCountText.Text = "Search the career database";
-            _playerPageStatus!.Text = "Enter at least two characters · the full player database is not loaded into the screen";
+            _playerPageStatus!.Text = "Enter two characters or choose a position / CA / PA filter · the full player database is not loaded into the screen";
             _previousPlayerPageButton!.IsEnabled = false;
             _nextPlayerPageButton!.IsEnabled = false;
             ClearProfile("Choose a player from search results. Your open profile tabs will remain available.");
@@ -619,16 +1169,16 @@ public partial class MainWindow : Window
         {
             Mouse.OverrideCursor = Cursors.Wait;
             if (_playerPageStatus is not null) _playerPageStatus.Text = "Searching…";
-            var pos = _positionPicker?.SelectedItem?.ToString();
-            if (string.IsNullOrWhiteSpace(pos) || pos == "Any position") pos = null;
             // Query enough from each source to construct one correctly ordered merged page.
             // Applying the same OFFSET independently to both sources creates skipped/duplicated
             // records whenever save and live rows overlap.
             var mergedFetchLimit = Math.Clamp(_playerOffset + PlayerPageSize + 1, PlayerPageSize + 1, 100000);
-            var localTask = RunDatabaseAsync(() => _database.SearchAsync(term, null, null, pos, null, null, null, limit: mergedFetchLimit, offset: 0));
-            var liveTask = RunDatabaseAsync(() => _database.SearchLivePlayersAsync(term, mergedFetchLimit, ageAsOf: DateTime.Today, offset: 0));
-            var localCountTask = RunDatabaseAsync(() => _database.CountLocalPlayersAsync(term));
-            var liveCountTask = RunDatabaseAsync(() => _database.CountLivePlayersAsync(term));
+            var localTask = RunDatabaseAsync(() => _database.SearchAsync(term, null, null, pos, null, null, null,
+                minCa: minCa, maxCa: maxCa, minPa: minPa, maxPa: maxPa, limit: mergedFetchLimit, offset: 0));
+            var liveTask = RunDatabaseAsync(() => _database.SearchLivePlayersAsync(term, mergedFetchLimit,
+                ageAsOf: DateTime.Today, offset: 0, minCa: minCa, maxCa: maxCa, minPa: minPa, maxPa: maxPa, positionFilter: pos));
+            var localCountTask = RunDatabaseAsync(() => _database.CountLocalPlayersAsync(term, minCa, maxCa, minPa, maxPa, pos));
+            var liveCountTask = RunDatabaseAsync(() => _database.CountLivePlayersAsync(term, minCa, maxCa, minPa, maxPa, pos));
             await Task.WhenAll(localTask, liveTask, localCountTask, liveCountTask);
 
             var local = await localTask;
@@ -644,7 +1194,8 @@ public partial class MainWindow : Window
                     (item.League is not null ? 1 : 0) + (item.Position is not null ? 1 : 0) +
                     (item.CurrentAbility.HasValue ? 1 : 0) + (item.PotentialAbility.HasValue ? 1 : 0) +
                     (item.Value.HasValue ? 1 : 0) + (item.PreferredFoot is not null ? 1 : 0) +
-                    (item.LeftFoot.HasValue ? 1 : 0) + (item.RightFoot.HasValue ? 1 : 0);
+                    (item.LeftFoot.HasValue ? 1 : 0) + (item.RightFoot.HasValue ? 1 : 0) +
+                    (item.HomeGrownClub.HasValue ? 1 : 0) + (item.HomeGrownNation.HasValue ? 1 : 0);
                 // Prefer the richest source row when the same player appears in both indexes.
                 var merged = local.Concat(live)
                     .GroupBy(IdentityKey, StringComparer.OrdinalIgnoreCase)
@@ -664,10 +1215,16 @@ public partial class MainWindow : Window
 
             _players.Clear();
             foreach (var item in results) _players.Add(item);
-            _playerCountText.Text = $"{total:N0} source records · {countLive:N0} live identities · {countLocal:N0} save/local records";
+            var filterSummary = string.Join(" · ", new[]
+            {
+                pos is null ? null : $"Position {pos}",
+                minCa.HasValue || maxCa.HasValue ? $"CA {minCa?.ToString() ?? "any"}–{maxCa?.ToString() ?? "any"}" : null,
+                minPa.HasValue || maxPa.HasValue ? $"PA {minPa?.ToString() ?? "any"}–{maxPa?.ToString() ?? "any"}" : null
+            }.Where(x => x is not null));
+            _playerCountText.Text = $"{total:N0} matching source records · {countLive:N0} live identities · {countLocal:N0} save/local records";
             _playerPageStatus!.Text = results.Count == 0
                 ? "No matches · adjust the search or filters"
-                : $"Showing {_playerOffset + 1:N0}–{_playerOffset + results.Count:N0} · {countLive:N0} live identities · {countLocal:N0} save/local records";
+                : $"Showing {_playerOffset + 1:N0}–{_playerOffset + results.Count:N0} · {countLive:N0} live · {countLocal:N0} save/local{(filterSummary.Length == 0 ? "" : " · " + filterSummary)}";
             _previousPlayerPageButton!.IsEnabled = _playerOffset > 0;
             _nextPlayerPageButton!.IsEnabled = results.Count == PlayerPageSize && mergedHasMore;
 
@@ -698,8 +1255,8 @@ public partial class MainWindow : Window
             var scroll = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
             tab = new TabItem { Tag = player.SourceId, Content = scroll };
             var header = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            header.Children.Add(new TextBlock { Text = player.Name, FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = Brush("#183B56"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 7, 0) });
-            var close = new Button { Content = "×", Width = 20, Height = 20, Padding = new Thickness(0), Margin = new Thickness(0, 0, 1, 0), Background = Brush("#EAF1F5"), Foreground = Brush("#526B7D"), BorderBrush = Brushes.Transparent, FontSize = 13, Cursor = Cursors.Hand, ToolTip = "Close player tab" };
+            header.Children.Add(new TextBlock { Text = player.Name, FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 7, 0) });
+            var close = new Button { Content = "×", Width = 20, Height = 20, Padding = new Thickness(0), Margin = new Thickness(0, 0, 1, 0), Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised), Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text), BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border), FontSize = 13, Cursor = Cursors.Hand, ToolTip = "Close player tab" };
             close.Click += (_, _) =>
             {
                 _openPlayerRecords.Remove(player.SourceId);
@@ -708,6 +1265,8 @@ public partial class MainWindow : Window
             };
             header.Children.Add(close);
             tab.Header = header;
+            tab.ContextMenu = BuildPlayerRecordTabContextMenu(tab);
+            tab.ContextMenuOpening += (_, _) => _profileTabs.SelectedItem = tab;
             _profileTabs.Items.Add(tab);
             _openPlayerRecords[player.SourceId] = player;
         }
@@ -726,10 +1285,11 @@ public partial class MainWindow : Window
         var contractTask = RunDatabaseAsync(() => _database.GetFmsavePlayerFactsAsync(player.SourceId, "contract"));
         var traitsTask = RunDatabaseAsync(() => _database.GetFmsavePlayerFactsAsync(player.SourceId, "traits"));
         var performanceTask = RunDatabaseAsync(() => _database.GetPlayerPerformanceFactsAsync(player.SourceId));
+        var developmentHistoryTask = RunDatabaseAsync(() => _database.GetPlayerDevelopmentHistoryAsync(player.SourceId));
         Task<List<(string FieldKey, double? NumericValue, string? TextValue, string ValidationStatus)>>? liveFactsTask = null;
         if (player.SourceId.StartsWith("LIVE:", StringComparison.Ordinal) && long.TryParse(player.SourceId[5..], out var liveUid))
             liveFactsTask = RunDatabaseAsync(() => _database.GetLivePlayerFactsAsync(liveUid));
-        await Task.WhenAll(new Task[] { attributesTask, generalTask, positionTask, reputationTask, stateTask, contractTask, traitsTask, performanceTask }.Concat(liveFactsTask is null ? Array.Empty<Task>() : new Task[] { liveFactsTask }));
+        await Task.WhenAll(new Task[] { attributesTask, generalTask, positionTask, reputationTask, stateTask, contractTask, traitsTask, performanceTask, developmentHistoryTask }.Concat(liveFactsTask is null ? Array.Empty<Task>() : new Task[] { liveFactsTask }));
 
         var attributes = await attributesTask;
         var generalFacts = await generalTask;
@@ -739,12 +1299,13 @@ public partial class MainWindow : Window
         var contractFacts = await contractTask;
         var traits = await traitsTask;
         var performanceFacts = await performanceTask;
+        var developmentHistory = await developmentHistoryTask;
         var liveFacts = liveFactsTask is null ? new List<(string FieldKey, double? NumericValue, string? TextValue, string ValidationStatus)>() : await liveFactsTask;
         foreach (var fact in liveFacts.Where(f => f.NumericValue.HasValue && f.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase) && (f.FieldKey.Contains("Attribute", StringComparison.OrdinalIgnoreCase) || f.FieldKey.StartsWith("Ability.", StringComparison.OrdinalIgnoreCase))))
             attributes[fact.FieldKey] = fact.NumericValue!.Value;
 
-        profilePanel.Children.Add(Txt("PLAYER PROFILE", 9, true, Teal));
-        var hero = new Border { Background = new LinearGradientBrush(Color.FromRgb(29, 39, 49), Color.FromRgb(18, 25, 33), 25), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 13) };
+        profilePanel.Children.Add(MonolithDesignSystem.MicroLabel("PLAYER RECORD", true));
+        var hero = new Border { Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised), BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 13) };
         var heroGrid = new Grid();
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(82) });
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -752,7 +1313,7 @@ public partial class MainWindow : Window
         var graphicsUid = player.SourceId.StartsWith("FMSAVE:", StringComparison.OrdinalIgnoreCase) ? player.SourceId[7..]
             : player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) ? player.SourceId[5..] : null;
         var facePath = await Task.Run(() => GraphicsResolver.Shared.ResolveFace(graphicsUid));
-        var avatarBorder = new Border { Width = 68, Height = 68, CornerRadius = new CornerRadius(14), Background = Brush("#202A35"), BorderBrush = Brush("#485562"), BorderThickness = new Thickness(1), ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
+        var avatarBorder = new Border { Width = 68, Height = 68, CornerRadius = new CornerRadius(0), Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover), BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border), BorderThickness = new Thickness(1), ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
         if (!string.IsNullOrWhiteSpace(facePath) && File.Exists(facePath))
         {
             try
@@ -760,21 +1321,47 @@ public partial class MainWindow : Window
                 var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = 160; bitmap.UriSource = new Uri(facePath, UriKind.Absolute); bitmap.EndInit(); bitmap.Freeze();
                 avatarBorder.Child = new Image { Source = bitmap, Stretch = Stretch.UniformToFill };
             }
-            catch { avatarBorder.Child = Txt(Initials(player.Name), 22, true, Brush("#C6F36B")); }
+            catch { avatarBorder.Child = Txt(Initials(player.Name), 22, true, Brush("#F08A42")); }
         }
-        else avatarBorder.Child = new TextBlock { Text = Initials(player.Name), FontSize = 21, FontWeight = FontWeights.Bold, Foreground = Brush("#C6F36B"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        else avatarBorder.Child = new TextBlock { Text = Initials(player.Name), FontSize = 21, FontWeight = FontWeights.Bold, Foreground = Brush("#F08A42"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         heroGrid.Children.Add(avatarBorder);
         var heroStack = new StackPanel();
-        heroStack.Children.Add(Txt(player.Name, 25, true, Ink));
-        heroStack.Children.Add(Txt(player.Club ?? "Club unavailable", 12, true, Brush("#B9C5D0")));
-        heroStack.Children.Add(Txt($"{player.Age?.ToString() ?? "—"} years  ·  {player.Nation ?? "Nationality unavailable"}  ·  {player.Position ?? "Position unavailable"}", 11, false, Brush("#B9C5D0"), wrap: true));
-        heroStack.Children.Add(Txt($"{player.League ?? "League unavailable"}  ·  {player.DataOrigin}", 9, false, Brush("#9EADB9"), wrap: true));
+        heroStack.Children.Add(MonolithDesignSystem.DisplayText(player.Name, 25));
+        heroStack.Children.Add(MonolithDesignSystem.BodyText(player.Club ?? "Club unavailable", 12, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal)));
+        heroStack.Children.Add(MonolithDesignSystem.BodyText($"{player.Age?.ToString() ?? "—"} years  ·  {player.Nation ?? "Nationality unavailable"}  ·  {player.Position ?? "Position unavailable"}", 11, MonolithDesignSystem.Solid(MonolithDesignSystem.Text)));
+        heroStack.Children.Add(MonolithDesignSystem.DataText($"{player.League ?? "League unavailable"}  ·  {player.DataOrigin}", 10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
         Grid.SetColumn(heroStack, 1); heroGrid.Children.Add(heroStack);
         var actions = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        actions.Children.Add(WhiteButton("＋ Add to shortlist", async (_, _) => { _selectedPlayer = player; await AddSelectedToShortlistAsync(); }));
-        _profileExpandButton = SoftButton(_profileExpanded ? "Show search results" : "Expand full profile", (_, _) => ToggleProfileExpanded(!_profileExpanded));
-        actions.Children.Add(_profileExpandButton);
-        actions.Children.Add(SoftButton("Open in Editor Studio", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("ADD TO SHORTLIST", async (_, _) => { _selectedPlayer = player; await AddSelectedToShortlistAsync(); }, primary: true));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("FIND SIMILAR PLAYERS", async (_, _) =>
+        {
+            try
+            {
+                var candidates = await RunDatabaseAsync(() => _database.FindSimilarPlayersAsync(
+                    player.SourceId, limit: 100, minimumCommonAttributes: 4, minimumAnchorCoverage: 0.35));
+                new SimilarPlayersWindow(_database, player, candidates) { Owner = this }.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Similar Player Discovery from profile failed.", ex);
+                MessageBox.Show(this, "Similar Player Discovery failed: " + ex.Message, "FM Atlas", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("COMPARE OPEN PLAYERS", async (_, _) =>
+        {
+            var selected = new[] { player }.Concat(_openPlayerRecords.Values
+                    .Where(x => !x.SourceId.Equals(player.SourceId, StringComparison.OrdinalIgnoreCase)))
+                .GroupBy(x => x.SourceId, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.First()).Take(4).ToList();
+            if (selected.Count < 2)
+            {
+                MessageBox.Show(this, "Open at least one other player profile first. Atlas compares up to four players at a time.",
+                    "FM Atlas · Player Comparison", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            await PlayerComparisonWindow.ShowAsync(this, _database, selected);
+        }));
+        actions.Children.Add(MonolithDesignSystem.ActionButton("OPEN IN EDITOR", async (_, _) => { _selectedPlayer = player; await NavigateAsync("Live Editor"); }));
         Grid.SetColumn(actions, 2); heroGrid.Children.Add(actions); hero.Child = heroGrid; profilePanel.Children.Add(hero);
 
         var ability = new UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 12) };
@@ -785,7 +1372,7 @@ public partial class MainWindow : Window
         ability.Children.Add(ProfileMetric("AGE", player.Age?.ToString() ?? "—", player.DateOfBirth?.ToString("dd MMM yyyy") ?? "Date of birth unavailable"));
         profilePanel.Children.Add(ability);
 
-        var detailCard = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(13), Margin = new Thickness(0, 0, 0, 12) };
+        var detailCard = new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(13), Margin = new Thickness(0, 0, 0, 12) };
         var detailGrid = new UniformGrid { Columns = 2 };
         AddDetailRow(detailGrid, "Nationality", player.Nation ?? "Not decoded");
         AddDetailRow(detailGrid, "League", player.League ?? "Not decoded");
@@ -798,39 +1385,178 @@ public partial class MainWindow : Window
         detailCard.Child = detailGrid;
         profilePanel.Children.Add(detailCard);
 
+        var profileTabs = new TabControl
+        {
+            // FMRTE-style record section rail: full record stays open in its main tab,
+            // with the data sections organised vertically down the left.
+            TabStripPlacement = Dock.Left,
+            Margin = new Thickness(0, 0, 0, 12),
+            MinHeight = 560,
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(1),
+            ItemContainerStyle = CreateProfileSectionTabStyle()
+        };
+        StackPanel AddProfileTab(string title)
+        {
+            var content = new StackPanel { Margin = new Thickness(16, 14, 16, 18) };
+            profileTabs.Items.Add(new TabItem { Header = title, Content = content });
+            return content;
+        }
+
+        var overviewTab = AddProfileTab("Overview");
+        var attributesTab = AddProfileTab("Attributes");
+        var positionsTab = AddProfileTab("Positions & Roles");
+        if (player.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
+        {
+            attributesTab.Children.Add(Txt(
+                "LIVE FM27 · 52 player attribute fields and 8 personality fields are shown where the current supported layout supplies them. These are provisional reads, not certified field values. Hidden attributes in particular still need independent in-game UI witnesses.",
+                9, false, Brush("#D89A60"), wrap: true));
+            positionsTab.Children.Add(Txt(
+                "LIVE FM27 POSITION RATINGS · values are taken from the current process layout and remain provisional until compared with the player's Positions screen in Football Manager.",
+                9, false, Brush("#D89A60"), wrap: true));
+        }
+        var contractTab = AddProfileTab("Contract");
+        var performanceTab = AddProfileTab("Performance");
+        var developmentTab = AddProfileTab("Development");
+        var historyTab = AddProfileTab("History");
+        var evidenceTab = AddProfileTab("Source & Evidence");
+        profilePanel.Children.Add(profileTabs);
+
+        AddProfileFactsSection(overviewTab, "PERSONAL & GENERAL INFORMATION", generalFacts, 30);
+        AddProfileFactsSection(overviewTab, "CONDITION & STATUS", stateFacts, 30);
+        AddProfileFactsSection(overviewTab, "PLAYER TRAITS", traits, 24);
+        overviewTab.Children.Add(Txt(
+            "Profile values are source-backed. A dash means the imported source did not provide the field; Atlas does not substitute zero or infer a rating.",
+            9, false, Muted, wrap: true));
+
+        AddAttributeRadar(attributesTab, attributes);
+        AddOrderedAttributeSections(attributesTab, attributes);
+        if (attributes.Count == 0)
+            attributesTab.Children.Add(Txt("No player attribute rows were supplied by the selected source.", 10, false, Muted, wrap: true));
+
+        AddPositionSuitabilityMap(positionsTab, positionFacts, liveFacts);
+        var positionDisplayFacts = positionFacts.Concat(liveFacts
+            .Where(f => f.FieldKey.StartsWith("positions.", StringComparison.OrdinalIgnoreCase) && f.NumericValue.HasValue)
+            .Select(f => new AtlasFactRecord(
+                "Live FM27 · " + (f.ValidationStatus.Contains("Verified", StringComparison.OrdinalIgnoreCase) ? "verified" : "provisional"),
+                f.FieldKey, f.NumericValue!.Value.ToString("0.#", CultureInfo.InvariantCulture))))
+            .ToList();
+        AddProfileFactsSection(positionsTab, "POSITION SUITABILITY · SOURCE VALUES", positionDisplayFacts, 36);
+        positionsTab.Children.Add(Txt(
+            "Role Fit scores are Atlas estimates based on available 1–20 attributes, not Football Manager's hidden role rating. Open Role Lab for the selected role profiles and coverage explanation.",
+            9, false, Muted, wrap: true));
+        positionsTab.Children.Add(Txt("BEST-SUPPORTED ROLE MATCHES", 9, true, Teal)
+            is var roleHeading ? Configure(roleHeading, new Thickness(0, 16, 0, 5)) : new TextBlock());
+        positionsTab.Children.Add(Txt(
+            "Calculated from this player's imported 1–20 footballing attributes using the same weighted Role Fit engine as Role Lab. Each row includes coverage; these are Atlas estimates, not FM star ratings.",
+            9, false, Muted, wrap: true));
+        var profileRoleMatches = RoleFitService.RankProfilesForPlayer(
+            attributes, RoleFitProfileStore.LoadAll(), minimumCoverage: 0.5, limit: 6);
+        if (profileRoleMatches.Count == 0)
+            positionsTab.Children.Add(Txt("No role profile has enough source-backed attributes to calculate a reliable estimate for this player.", 9, false, Muted, wrap: true));
+        else
+        {
+            foreach (var match in profileRoleMatches)
+            {
+                var score = match.Score;
+                var roleCard = Card(new StackPanel(), 10, new Thickness(0, 5, 0, 5));
+                var roleContent = (StackPanel)roleCard.Child;
+                roleContent.Children.Add(Txt((match.Profile.IsCustom ? "CUSTOM · " : "") + match.Profile.Name, 11, true, Ink));
+                roleContent.Children.Add(Txt(
+                    $"{match.Profile.Phase} · {match.Profile.PositionGroup} · {score.Score:0.00}/20 · {score.Coverage:P0} coverage · {score.AttributesAvailable}/{score.AttributesExpected} attributes",
+                    9, false, Muted, wrap: true));
+                roleContent.Children.Add(Txt(
+                    string.Join(" · ", score.Contributions.Take(3).Select(x => $"{x.Attribute} {x.Value:0.#}")),
+                    9, false, Muted, wrap: true));
+                positionsTab.Children.Add(roleCard);
+            }
+        }
+
+        AddProfileFactsSection(contractTab, "CONTRACT & REGISTRATION", contractFacts, 30);
+        if (contractFacts.Count == 0)
+            contractTab.Children.Add(Txt("No contract or registration facts were retained for this player in the selected snapshot.", 9, false, Muted, wrap: true));
+
+        if (performanceFacts.Count == 0)
+            performanceTab.Children.Add(MonolithDesignSystem.BodyText(
+                "No current-season, career-history or retained match-stat rows were supplied for this player in the selected source. Import a read-only snapshot of a COPY of the career save, or add a game-generated FM View Exporter CSV (kept clearly labelled as an export source). The live player / CA / PA index does not require that manual import.",
+                11, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+        else
+        {
+            performanceTab.Children.Add(MonolithDesignSystem.MicroLabel($"FM27 SAVE STATISTICS · {performanceFacts.Count:N0} NUMERIC SOURCE FACTS", true));
+            performanceTab.Children.Add(MonolithDesignSystem.BodyText(
+                "Current-season rows are separated by competition type and team. Individual match history only includes records retained by the save and is not a complete career match log. Missing values are unavailable, not zero. FM27 field mappings remain provisional until cross-checked against the in-game screens.",
+                10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted)));
+            foreach (var group in performanceFacts.GroupBy(x => x.Group).OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                performanceTab.Children.Add(MonolithDesignSystem.MicroLabel(group.Key, true));
+                var statsGrid = new UniformGrid { Columns = 2 };
+                foreach (var fact in group) AddDetailRow(statsGrid, fact.Field, fact.Value ?? "—");
+                performanceTab.Children.Add(statsGrid);
+            }
+        }
+
+        AddDevelopmentHistorySection(developmentTab, developmentHistory);
+
+        if (developmentHistory.Count == 0)
+            historyTab.Children.Add(Txt("No dated player snapshots are available for this record. History appears only when the imported save contains a valid in-game date and comparable CA, PA or value evidence.",
+                9, false, Muted, wrap: true));
+        else
+        {
+            historyTab.Children.Add(Txt(
+                $"{developmentHistory.Count:N0} dated source snapshot(s) · original game dates and import/source evidence are retained.",
+                9, false, Muted, wrap: true));
+            foreach (var snapshot in developmentHistory.OrderByDescending(x => x.GameDate).ThenByDescending(x => x.SnapshotId))
+            {
+                var card = Card(new StackPanel(), 12, new Thickness(0, 7, 0, 7));
+                var cardContent = (StackPanel)card.Child;
+                cardContent.Children.Add(Txt(snapshot.GameDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture), 12, true, Ink));
+                AddDetailRow(cardContent, "Snapshot ID", snapshot.SnapshotId.ToString(CultureInfo.InvariantCulture));
+                AddDetailRow(cardContent, "Imported", snapshot.ImportedUtc);
+                AddDetailRow(cardContent, "Source file", snapshot.SourceFileName);
+                AddDetailRow(cardContent, "CA", snapshot.CurrentAbility?.ToString("0.#", CultureInfo.InvariantCulture) ?? "—");
+                AddDetailRow(cardContent, "PA", snapshot.PotentialAbility?.ToString("0.#", CultureInfo.InvariantCulture) ?? "—");
+                AddDetailRow(cardContent, "Value · source units", snapshot.Value?.ToString("N0", CultureInfo.InvariantCulture) ?? "—");
+                historyTab.Children.Add(card);
+            }
+        }
+
         if (player.SourceId.StartsWith("FMSAVE:", StringComparison.Ordinal))
-            profilePanel.Children.Add(Txt("DATA QUALITY NOTE · CA/PA, attributes and several FM27 save fields are currently parser-derived and not independently verified for every game build. Values are shown only when the imported snapshot actually contains them; confirm critical edits in Football Manager.", 10, false, Brush("#8B622C"), wrap: true));
+            evidenceTab.Children.Add(Txt(
+                "DATA QUALITY NOTE · CA/PA, attributes and several FM27 save fields are parser-derived and not independently verified for every game build. Values are shown only when the imported snapshot actually contains them; confirm critical edits in Football Manager.",
+                10, false, Brush("#8B622C"), wrap: true));
         var liveStatus = player.SourceId.StartsWith("LIVE:", StringComparison.Ordinal)
             ? (liveFacts.Count == 0
                 ? "LIVE DATA COVERAGE · No live fact rows are stored for this player yet. Refresh the live read after loading a career."
                 : $"LIVE DATA COVERAGE · {liveFacts.Count:N0} profile facts stored. CA, PA, 52 player attributes and position ratings are provisional layout reads until checked against the Football Manager UI; unverified facts are labelled and are not treated as independent proof.")
             : "";
-        if (!string.IsNullOrWhiteSpace(liveStatus)) profilePanel.Children.Add(Txt(liveStatus, 10, true, Brush("#84612B"), wrap: true));
+        if (!string.IsNullOrWhiteSpace(liveStatus))
+            evidenceTab.Children.Add(Txt(liveStatus, 10, true, Brush("#84612B"), wrap: true));
 
-        AddOrderedAttributeSections(profilePanel, attributes);
-        AddPositionSuitabilityMap(profilePanel, positionFacts, liveFacts);
-        AddProfileFactsSection(profilePanel, "POSITION SUITABILITY · SOURCE VALUES", positionFacts, 36);
-        AddProfileFactsSection(profilePanel, "PERSONAL & GENERAL INFORMATION", generalFacts, 30);
-        AddProfileFactsSection(profilePanel, "CONTRACT & REGISTRATION", contractFacts, 30);
-        AddProfileFactsSection(profilePanel, "CONDITION & STATUS", stateFacts, 30);
-        AddProfileFactsSection(profilePanel, "PLAYER TRAITS", traits, 24);
-        AddProfileFactsSection(profilePanel, "REPUTATION · FIELD MEANINGS UNCONFIRMED", reputationFacts, 30);
-        if (performanceFacts.Count == 0)
-            profilePanel.Children.Add(Txt("PERFORMANCE DATA · No player-season, career-history or match-stat rows for this player were supplied by the latest import. Re-import a save snapshot with those tables or add an FM View Exporter CSV.", 9, false, Muted, wrap: true));
-        else
+        AddProfileFactsSection(evidenceTab, "REPUTATION · FIELD MEANINGS UNCONFIRMED", reputationFacts, 30);
+        evidenceTab.Children.Add(Txt("DATA PROVENANCE", 9, true, Teal) is var sourceTitle
+            ? Configure(sourceTitle, new Thickness(0, 18, 0, 5)) : new TextBlock());
+        evidenceTab.Children.Add(Txt(
+            $"Record: {player.SourceId}\nOrigin: {player.DataOrigin}\nGenerated-player status: {player.RegenStatus} · {player.RegenConfidence}",
+            9, false, Muted, wrap: true));
+        if (liveFacts.Count > 0)
         {
-            profilePanel.Children.Add(Txt($"PERFORMANCE INTELLIGENCE · {performanceFacts.Count:N0} numeric source facts retained", 9, true, Teal) is var performanceHeading ? Configure(performanceHeading, new Thickness(0, 18, 0, 6)) : new TextBlock());
-            foreach (var group in performanceFacts.GroupBy(x => x.Group).OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
-            {
-                profilePanel.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal) is var statsHeading ? Configure(statsHeading, new Thickness(0, 9, 0, 4)) : new TextBlock());
-                var statsGrid = new UniformGrid { Columns = 2 };
-                foreach (var fact in group) AddDetailRow(statsGrid, fact.Field, fact.Value ?? "—");
-                profilePanel.Children.Add(statsGrid);
-            }
+            evidenceTab.Children.Add(Txt("LIVE FIELD EVIDENCE · VALUE AND VALIDATION STATUS", 9, true, Teal)
+                is var liveTitle ? Configure(liveTitle, new Thickness(0, 15, 0, 5)) : new TextBlock());
+            var liveGrid = CreateGrid();
+            liveGrid.MinHeight = 180;
+            liveGrid.MaxHeight = 340;
+            liveGrid.Columns.Add(Column("FIELD", "Field", 1.2));
+            liveGrid.Columns.Add(Column("NUMERIC", "NumericValue", .7));
+            liveGrid.Columns.Add(Column("TEXT", "TextValue", 1.0));
+            liveGrid.Columns.Add(Column("VALIDATION", "Validation", 1.2));
+            liveGrid.ItemsSource = liveFacts
+                .OrderBy(x => x.FieldKey, StringComparer.OrdinalIgnoreCase)
+                .Select(x => new { Field = x.FieldKey, x.NumericValue, x.TextValue, Validation = x.ValidationStatus })
+                .ToList();
+            evidenceTab.Children.Add(liveGrid);
         }
 
-        profilePanel.Children.Add(Txt("DATA PROVENANCE", 9, true, Teal) is var sourceTitle ? Configure(sourceTitle, new Thickness(0, 18, 0, 5)) : new TextBlock());
-        profilePanel.Children.Add(Txt($"Record: {player.SourceId}\nOrigin: {player.DataOrigin}\nGenerated-player status: {player.RegenStatus} · {player.RegenConfidence}", 9, false, Muted, wrap: true));
     }
 
     private static Border ProfileMetric(string label, string value, string note)
@@ -839,7 +1565,250 @@ public partial class MainWindow : Window
         panel.Children.Add(Txt(label, 8, true, Brush("#9EADB9")));
         panel.Children.Add(Txt(value, 22, true, Brush("#E8EEF4")));
         panel.Children.Add(Txt(note, 8, false, Brush("#9EADB9"), wrap: true));
-        return new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(11), Margin = new Thickness(0, 0, 8, 0), Child = panel };
+        return new Border { Background = Brush("#171F28"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(11), Margin = new Thickness(0, 0, 8, 0), Child = panel };
+    }
+
+
+    private static void AddAttributeRadar(Panel panel, IReadOnlyDictionary<string, double> values)
+    {
+        var categories = new[] { "Technical", "Set Pieces", "Mental", "Physical", "Goalkeeping" };
+        string Normalize(string value)
+        {
+            var last = value.Split(new[] { '·', '.', ':' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? value;
+            return Regex.Replace(last, "[^A-Za-z0-9]", "").ToLowerInvariant();
+        }
+
+        var lookup = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in values)
+        {
+            var key = Normalize(pair.Key);
+            if (key.Length == 0 || !double.IsFinite(pair.Value) || pair.Value is < 1 or > 20) continue;
+            if (!lookup.ContainsKey(key)) lookup[key] = pair.Value;
+        }
+
+        var averages = new List<(string Category, double Value, int Count)>();
+        foreach (var category in categories)
+        {
+            var available = PlayerAttributeSchema.Fields
+                .Where(x => x.Category.Equals(category, StringComparison.OrdinalIgnoreCase))
+                .Select(x => lookup.TryGetValue(Normalize(x.Label), out var rating) ? (double?)rating : null)
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .ToList();
+            if (available.Count > 0) averages.Add((category, available.Average(), available.Count));
+        }
+        if (averages.Count < 3)
+        {
+            panel.Children.Add(Txt("ATTRIBUTE RADAR · At least three attribute groups need imported 1–20 source values. Missing categories are not plotted as zero.",
+                9, false, Muted, wrap: true) is var note ? Configure(note, new Thickness(0, 10, 0, 3)) : new TextBlock());
+            return;
+        }
+
+        var host = new Border
+        {
+            Background = Brush("#171F28"),
+            BorderBrush = Brush("#303943"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(0),
+            Padding = new Thickness(12),
+            Margin = new Thickness(0, 12, 0, 10)
+        };
+        var layout = new StackPanel();
+        layout.Children.Add(Txt("ATTRIBUTE RADAR · IMPORTED AVERAGES", 9, true, Teal));
+        layout.Children.Add(Txt("Average of available source-backed 1–20 ratings per attribute group. This is descriptive, not the game's role formula; missing fields are excluded.",
+            9, false, Muted, wrap: true));
+        var canvas = new Canvas
+        {
+            Width = 570,
+            Height = 330,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Background = Brush("#141C25"),
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        const double centerX = 285, centerY = 158, radius = 108;
+        var gridBrush = Brush("#344656");
+        var axisBrush = Brush("#536B7E");
+        for (var ring = 1; ring <= 5; ring++)
+        {
+            var polygon = new Polygon
+            {
+                Stroke = gridBrush,
+                StrokeThickness = 1,
+                Fill = Brushes.Transparent,
+                Points = new PointCollection(Enumerable.Range(0, averages.Count).Select(index =>
+                {
+                    var angle = -Math.PI / 2 + index * (2 * Math.PI / averages.Count);
+                    var r = radius * ring / 5d;
+                    return new Point(centerX + Math.Cos(angle) * r, centerY + Math.Sin(angle) * r);
+                }))
+            };
+            canvas.Children.Add(polygon);
+        }
+
+        var scorePoints = new PointCollection();
+        for (var i = 0; i < averages.Count; i++)
+        {
+            var angle = -Math.PI / 2 + i * (2 * Math.PI / averages.Count);
+            var end = new Point(centerX + Math.Cos(angle) * radius, centerY + Math.Sin(angle) * radius);
+            canvas.Children.Add(new Line { X1 = centerX, Y1 = centerY, X2 = end.X, Y2 = end.Y, Stroke = axisBrush, StrokeThickness = 1 });
+            var value = averages[i].Value;
+            var pointRadius = radius * value / 20d;
+            scorePoints.Add(new Point(centerX + Math.Cos(angle) * pointRadius, centerY + Math.Sin(angle) * pointRadius));
+            var label = new TextBlock
+            {
+                Text = $"{averages[i].Category}\n{value:0.0}/20 · {averages[i].Count} attrs",
+                Foreground = Ink,
+                FontSize = 10,
+                TextAlignment = TextAlignment.Center,
+                Width = 104
+            };
+            System.Windows.Controls.Canvas.SetLeft(label, centerX + Math.Cos(angle) * (radius + 48) - 52);
+            System.Windows.Controls.Canvas.SetTop(label, centerY + Math.Sin(angle) * (radius + 45) - 17);
+            canvas.Children.Add(label);
+        }
+        canvas.Children.Add(new Polygon
+        {
+            Points = scorePoints,
+            Stroke = Brush("#75B9E7"),
+            StrokeThickness = 2,
+            Fill = new SolidColorBrush(Color.FromArgb(68, 76, 157, 207))
+        });
+        foreach (var point in scorePoints)
+        {
+            canvas.Children.Add(new Ellipse
+            {
+                Width = 7, Height = 7,
+                Fill = Brush("#A9D7F7"),
+                Stroke = Brush("#E8EEF4"),
+                StrokeThickness = 1
+            });
+            var dot = (Ellipse)canvas.Children[^1];
+            System.Windows.Controls.Canvas.SetLeft(dot, point.X - 3.5);
+            System.Windows.Controls.Canvas.SetTop(dot, point.Y - 3.5);
+        }
+        layout.Children.Add(canvas);
+        host.Child = layout;
+        panel.Children.Add(host);
+    }
+
+
+    private static void AddDevelopmentHistorySection(Panel panel, IReadOnlyList<PlayerDevelopmentSnapshot> history)
+    {
+        var snapshots = history
+            .GroupBy(x => x.GameDate.Date)
+            .Select(group => group.OrderByDescending(x => x.SnapshotId).First())
+            .OrderBy(x => x.GameDate)
+            .ToList();
+        panel.Children.Add(Txt("DEVELOPMENT HISTORY · DATED SAVE SNAPSHOTS", 9, true, Teal) is var heading
+            ? Configure(heading, new Thickness(0, 18, 0, 5)) : new TextBlock());
+        if (snapshots.Count == 0)
+        {
+            panel.Children.Add(Txt("No dated ability/value snapshots were supplied for this player. Import more career snapshots with in-game dates to build a history. No development trend is inferred.",
+                9, false, Muted, wrap: true));
+            return;
+        }
+
+        var note = Txt(
+            "Imported CA/PA/value observations only · parser-derived and build-dependent · no projections or interpolation. Each point retains its source save and import timestamp.",
+            9, false, Muted, wrap: true);
+        panel.Children.Add(note);
+        if (snapshots.Count < 2)
+        {
+            var only = snapshots[0];
+            AddDetailRow(panel, "Only dated snapshot", only.GameDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture));
+            AddDetailRow(panel, "Current ability", only.CurrentAbility?.ToString("0.#", CultureInfo.InvariantCulture) ?? "—");
+            AddDetailRow(panel, "Potential ability", only.PotentialAbility?.ToString("0.#", CultureInfo.InvariantCulture) ?? "—");
+            AddDetailRow(panel, "Source save", only.SourceFileName);
+            panel.Children.Add(Txt("A trend needs at least two distinct in-game dates. Import another career snapshot after advancing the save to compare development.",
+                9, false, Muted, wrap: true));
+            return;
+        }
+
+        const double left = 58, top = 22, width = 610, height = 205;
+        var chart = new Canvas
+        {
+            Width = 700, Height = 275,
+            Background = Brush("#141C25"),
+            Margin = new Thickness(0, 8, 0, 9),
+            ClipToBounds = true
+        };
+        var abilityValues = snapshots.SelectMany(x => new[] { x.CurrentAbility, x.PotentialAbility })
+            .Where(x => x.HasValue && double.IsFinite(x.Value)).Select(x => x!.Value).ToList();
+        if (abilityValues.Count == 0)
+        {
+            panel.Children.Add(Txt("Dated snapshots were found, but none contain a finite CA or PA value to plot.", 9, false, Muted));
+            return;
+        }
+        var minValue = Math.Floor(abilityValues.Min() / 10d) * 10d;
+        var maxValue = Math.Ceiling(abilityValues.Max() / 10d) * 10d;
+        if (maxValue <= minValue) { minValue -= 5; maxValue += 5; }
+        var range = maxValue - minValue;
+        var dateSpan = (snapshots[^1].GameDate - snapshots[0].GameDate).TotalDays;
+        if (dateSpan <= 0) dateSpan = 1;
+
+        for (var tick = 0; tick <= 4; tick++)
+        {
+            var y = top + height - height * tick / 4d;
+            var value = minValue + range * tick / 4d;
+            chart.Children.Add(new Line
+            {
+                X1 = left, Y1 = y, X2 = left + width, Y2 = y,
+                Stroke = Brush("#344656"), StrokeThickness = 1
+            });
+            var label = Txt(value.ToString("0", CultureInfo.InvariantCulture), 8, false, Muted);
+            System.Windows.Controls.Canvas.SetLeft(label, 8);
+            System.Windows.Controls.Canvas.SetTop(label, y - 8);
+            chart.Children.Add(label);
+        }
+
+        void AddSeries(string label, Func<PlayerDevelopmentSnapshot, double?> selector, Brush stroke, double yOffset)
+        {
+            var points = new PointCollection();
+            var entries = new List<(PlayerDevelopmentSnapshot Snapshot, Point Point)>();
+            foreach (var snapshot in snapshots)
+            {
+                var value = selector(snapshot);
+                if (!value.HasValue || !double.IsFinite(value.Value)) continue;
+                var x = left + width * (snapshot.GameDate - snapshots[0].GameDate).TotalDays / dateSpan;
+                var y = top + height - height * Math.Clamp((value.Value - minValue) / range, 0, 1);
+                var point = new Point(x, y);
+                points.Add(point);
+                entries.Add((snapshot, point));
+            }
+            if (points.Count >= 2)
+                chart.Children.Add(new Polyline { Points = points, Stroke = stroke, StrokeThickness = 2 });
+            foreach (var entry in entries)
+            {
+                var dot = new Ellipse
+                {
+                    Width = 8, Height = 8, Fill = stroke,
+                    Stroke = Brush("#E8EEF4"), StrokeThickness = .8,
+                    ToolTip = $"{label}: {selector(entry.Snapshot):0.#}\nGame date: {entry.Snapshot.GameDate:dd MMM yyyy}\nSource: {entry.Snapshot.SourceFileName}\nImported: {entry.Snapshot.ImportedUtc}"
+                };
+                System.Windows.Controls.Canvas.SetLeft(dot, entry.Point.X - 4);
+                System.Windows.Controls.Canvas.SetTop(dot, entry.Point.Y - 4);
+                chart.Children.Add(dot);
+            }
+            var legend = Txt(label, 9, true, stroke);
+            System.Windows.Controls.Canvas.SetLeft(legend, left + yOffset);
+            System.Windows.Controls.Canvas.SetTop(legend, 245);
+            chart.Children.Add(legend);
+        }
+
+        AddSeries("CA", x => x.CurrentAbility, Brush("#77BCE8"), 0);
+        AddSeries("PA", x => x.PotentialAbility, Brush("#E6C477"), 48);
+        var firstDate = Txt(snapshots[0].GameDate.ToString("dd MMM yy", CultureInfo.InvariantCulture), 8, false, Muted);
+        var lastDate = Txt(snapshots[^1].GameDate.ToString("dd MMM yy", CultureInfo.InvariantCulture), 8, false, Muted);
+        System.Windows.Controls.Canvas.SetLeft(firstDate, left);
+        System.Windows.Controls.Canvas.SetTop(firstDate, top + height + 9);
+        System.Windows.Controls.Canvas.SetLeft(lastDate, left + width - 60);
+        System.Windows.Controls.Canvas.SetTop(lastDate, top + height + 9);
+        chart.Children.Add(firstDate);
+        chart.Children.Add(lastDate);
+        panel.Children.Add(chart);
+
+        panel.Children.Add(Txt($"{snapshots.Count:N0} distinct dated snapshots · dates and values are retained as imported. Duplicate exports on the same in-game date are collapsed to the latest snapshot for the visual trend.",
+            9, false, Muted, wrap: true));
     }
 
     private static void AddOrderedAttributeSections(Panel panel, Dictionary<string, double> values)
@@ -860,7 +1829,7 @@ public partial class MainWindow : Window
             panel.Children.Add(new Border
             {
                 Background = Brush("#30291D"), BorderBrush = Brush("#66563A"), BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 10),
+                CornerRadius = new CornerRadius(0), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 10),
                 Child = Txt("NO ATTRIBUTE VALUES IMPORTED · The sections below show the Football Manager attribute catalogue, but this source has not supplied ratings for the player. Blank values are not zero and are never guessed.", 10, true, Brush("#E6C477"), wrap: true)
             });
         }
@@ -899,7 +1868,7 @@ public partial class MainWindow : Window
         var name = Txt(label, 10, false, Brush("#C4CED8"));
         row.Children.Add(name);
         var valueBrush = !numeric.HasValue ? Brush("#9EADB9") : numeric.Value >= 15 ? Brush("#8BCFA6") : numeric.Value >= 11 ? Brush("#E6C477") : Brush("#F08C96");
-        var pill = new Border { Background = !numeric.HasValue ? Brush("#202A35") : numeric.Value >= 15 ? Brush("#20342C") : numeric.Value >= 11 ? Brush("#30291D") : Brush("#35252A"), CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 3, 8, 3), MinWidth = 34, Child = Txt(value, 10, true, valueBrush) };
+        var pill = new Border { Background = !numeric.HasValue ? Brush("#202A35") : numeric.Value >= 15 ? Brush("#20342C") : numeric.Value >= 11 ? Brush("#30291D") : Brush("#35252A"), CornerRadius = new CornerRadius(0), Padding = new Thickness(8, 3, 8, 3), MinWidth = 34, Child = Txt(value, 10, true, valueBrush) };
         Grid.SetColumn(pill, 1); row.Children.Add(pill);
         return new Border { BorderBrush = Brush("#303943"), BorderThickness = new Thickness(0, 0, 0, 1), Padding = new Thickness(3, 5, 3, 5), Child = row };
     }
@@ -924,16 +1893,29 @@ public partial class MainWindow : Window
 
     private void CloseCurrentProfileTab()
     {
-        if (_profileTabs?.SelectedItem is not TabItem tab || Equals(tab.Tag, "__welcome")) return;
-        var sourceId = tab.Tag?.ToString();
-        if (!string.IsNullOrWhiteSpace(sourceId)) _openPlayerRecords.Remove(sourceId);
-        _profileTabs.Items.Remove(tab);
-        if (_profileTabs.Items.Count == 0) AddWelcomeProfileTab();
+        // The player database/recruitment pool is the persistent home tab.
+        // Ctrl+W must never close it and strand the user in an empty workspace.
+        if (_profileTabs?.SelectedItem is not TabItem tab
+            || Equals(tab.Tag, "__welcome")
+            || Equals(tab.Tag, "__player-pool")) return;
+        CloseRecordTabV9(tab);
     }
 
     private void ClearProfile(string message)
     {
         if (_profileTabs is null) return;
+
+        // In the rebuilt full-width player workspace, errors belong in the pool
+        // status line. Do not manufacture a second welcome tab beside the pool.
+        if (_profileTabs.Items.OfType<TabItem>().Any(x => Equals(x.Tag, "__player-pool")))
+        {
+            var pool = _profileTabs.Items.OfType<TabItem>().FirstOrDefault(x => Equals(x.Tag, "__player-pool"));
+            if (pool is not null) _profileTabs.SelectedItem = pool;
+            if (_playerPageStatus is not null) _playerPageStatus.Text = message;
+            _profilePanel = null;
+            return;
+        }
+
         if (_profileTabs.Items.Count == 0) { AddWelcomeProfileTab(); return; }
         if (_profileTabs.SelectedItem is not TabItem tab || tab.Tag?.ToString() != "__welcome")
         {
@@ -1002,13 +1984,22 @@ public partial class MainWindow : Window
         {
             var requestVersion = ++clubProfileVersion;
             var isLive = club.DataSource.Contains("live", StringComparison.OrdinalIgnoreCase);
-            var (facts, squadRows) = await Task.Run(async () =>
+            var (facts, squadRows, clubStaff, squadWages) = await Task.Run(async () =>
             {
                 var loadedFacts = isLive
                     ? await _database.GetLiveClubFactsAsync(club.SourceId).ConfigureAwait(false)
                     : await _database.GetFmsaveClubFactsAsync(club.SourceId).ConfigureAwait(false);
                 var loadedSquad = await _database.GetPlayersForClubAsync(club.SourceId, isLive, 5000).ConfigureAwait(false);
-                return (loadedFacts, loadedSquad);
+                var loadedStaff = isLive
+                    ? new List<AtlasStaffRecord>()
+                    : (await _database.SearchFmsaveStaffAsync(club.Name).ConfigureAwait(false))
+                        .Where(x => string.Equals(x.Club?.Trim(), club.Name.Trim(), StringComparison.OrdinalIgnoreCase))
+                        .Take(100).ToList();
+                var loadedWages = isLive
+                    ? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+                    : await _database.GetLatestPlayerWageFactsAsync(
+                        loadedSquad.Select(x => x.SourceId).ToList()).ConfigureAwait(false);
+                return (loadedFacts, loadedSquad, loadedStaff, loadedWages);
             });
             if (requestVersion != clubProfileVersion) return;
 
@@ -1018,7 +2009,7 @@ public partial class MainWindow : Window
                 ? club.SourceId[(club.SourceId.IndexOf(':') + 1)..] : null;
             var clubLogoPath = await Task.Run(() => GraphicsResolver.Shared.ResolveClubLogo(clubUid));
             var clubHero = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 7, 0, 8) };
-            var clubLogo = new Border { Width = 58, Height = 58, Background = Brush("#202A35"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(6), Margin = new Thickness(0, 0, 12, 0) };
+            var clubLogo = new Border { Width = 58, Height = 58, Background = Brush("#202A35"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(6), Margin = new Thickness(0, 0, 12, 0) };
             if (!string.IsNullOrWhiteSpace(clubLogoPath) && File.Exists(clubLogoPath))
             {
                 try { var logo = new BitmapImage(); logo.BeginInit(); logo.CacheOption = BitmapCacheOption.OnLoad; logo.DecodePixelWidth = 128; logo.UriSource = new Uri(clubLogoPath, UriKind.Absolute); logo.EndInit(); logo.Freeze(); clubLogo.Child = new Image { Source = logo, Stretch = Stretch.Uniform }; }
@@ -1041,11 +2032,49 @@ public partial class MainWindow : Window
                 foreach (var fact in group.Take(80)) AddDetailRow(stack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
             }
 
+            stack.Children.Add(Txt("CLUB STAFF", 9, true, Teal) is var staffHeading ? Configure(staffHeading, new Thickness(0, 17, 0, 6)) : new TextBlock());
+            if (isLive)
+                stack.Children.Add(Txt("Live staff-to-club relationships are not validated by the current reader, so no staff are inferred here.", 9, false, Muted, wrap: true));
+            else if (clubStaff.Count == 0)
+                stack.Children.Add(Txt("No staff records with an exact matching club name were supplied by this save snapshot.", 9, false, Muted, wrap: true));
+            else
+            {
+                AddDetailRow(stack, "Exact club-name matches", clubStaff.Count.ToString("N0"));
+                var staffGrid = CreateGrid();
+                staffGrid.Columns.Add(Column("NAME", "Name", 1.2));
+                staffGrid.Columns.Add(Column("ROLE", "Job", 1));
+                staffGrid.Columns.Add(Column("AGE", "Age", .4));
+                staffGrid.ItemsSource = clubStaff;
+                staffGrid.Height = Math.Min(260, Math.Max(100, clubStaff.Count * 32));
+                stack.Children.Add(staffGrid);
+            }
+
             stack.Children.Add(Txt("CLUB SQUAD", 9, true, Teal) is var squadTitle ? Configure(squadTitle, new Thickness(0, 18, 0, 6)) : new TextBlock());
             if (squadRows.Count == 0)
                 stack.Children.Add(Txt("No player-to-club links were imported for this club. The identity reader can find club names without necessarily decoding the complete squad relationship for every record.", 10, false, Muted, wrap: true));
             else
             {
+                var squadAnalysis = ClubSquadAnalysisService.Analyse(squadRows, squadWages);
+                var squadMetrics = new UniformGrid { Columns = 4, Margin = new Thickness(0, 5, 0, 8) };
+                squadMetrics.Children.Add(MetricCard("AVG AGE", squadAnalysis.AverageAge?.ToString("0.0") ?? "—", $"{squadAnalysis.AgeKnownCount}/{squadAnalysis.PlayerCount} known", "◷"));
+                squadMetrics.Children.Add(MetricCard("AVG CA", squadAnalysis.AverageCurrentAbility?.ToString("0.0") ?? "—", $"{squadAnalysis.CurrentAbilityKnownCount}/{squadAnalysis.PlayerCount} known", "↗"));
+                squadMetrics.Children.Add(MetricCard("AVG PA", squadAnalysis.AveragePotentialAbility?.ToString("0.0") ?? "—", $"{squadAnalysis.PotentialAbilityKnownCount}/{squadAnalysis.PlayerCount} known", "⌁"));
+                squadMetrics.Children.Add(MetricCard("TOTAL VALUE", squadAnalysis.TotalValue?.ToString("N0", CultureInfo.InvariantCulture) ?? "—", $"{squadAnalysis.ValueKnownCount}/{squadAnalysis.PlayerCount} · source units", "◈"));
+                stack.Children.Add(squadMetrics);
+                stack.Children.Add(Txt("AGE PROFILE", 8, true, Teal));
+                foreach (var band in squadAnalysis.AgeBands)
+                    AddDetailRow(stack, band.Label, band.Count.ToString("N0", CultureInfo.InvariantCulture));
+                stack.Children.Add(Txt("PRIMARY POSITION COVERAGE", 8, true, Teal));
+                foreach (var position in squadAnalysis.PositionCounts.Take(12))
+                    AddDetailRow(stack, position.Position, position.Count.ToString("N0", CultureInfo.InvariantCulture));
+                AddDetailRow(stack, "Wages recorded", squadAnalysis.WageKnownCount.ToString("N0", CultureInfo.InvariantCulture) + "/" + squadAnalysis.PlayerCount.ToString("N0", CultureInfo.InvariantCulture));
+                AddDetailRow(stack, "Wage total / mean", squadAnalysis.TotalWage.HasValue
+                    ? $"{squadAnalysis.TotalWage.Value.ToString("N0", CultureInfo.InvariantCulture)} / {squadAnalysis.AverageWage?.ToString("N0", CultureInfo.InvariantCulture) ?? "—"} source units"
+                    : "Unavailable");
+                AddDetailRow(stack, "Home-grown at club", $"{squadAnalysis.HomeGrownClubYes} yes · {squadAnalysis.HomeGrownClubNo} no · {squadAnalysis.HomeGrownClubUnknown} unknown");
+                AddDetailRow(stack, "Home-grown in nation", $"{squadAnalysis.HomeGrownNationYes} yes · {squadAnalysis.HomeGrownNationNo} no · {squadAnalysis.HomeGrownNationUnknown} unknown");
+                AddDetailRow(stack, "Other data coverage", $"Age {squadAnalysis.AgeKnownCount}/{squadAnalysis.PlayerCount} · CA {squadAnalysis.CurrentAbilityKnownCount}/{squadAnalysis.PlayerCount} · PA {squadAnalysis.PotentialAbilityKnownCount}/{squadAnalysis.PlayerCount} · value {squadAnalysis.ValueKnownCount}/{squadAnalysis.PlayerCount}");
+                stack.Children.Add(Txt("Player values and wages retain imported source units. Currency and wage pay period are not inferred from a numeric field alone.", 9, false, Muted, wrap: true));
                 AddDetailRow(stack, "Roster rows loaded", squadRows.Count.ToString("N0"));
                 var squadGrid = CreateGrid(); squadGrid.RowHeight = 34;
                 squadGrid.Columns.Add(Column("PLAYER", "Name", 1.3));
@@ -1136,14 +2165,14 @@ public partial class MainWindow : Window
     {
         var root = new Grid(); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         var header = Card(new StackPanel(), 14, new Thickness(0, 0, 0, 10)); var s = (StackPanel)header.Child; s.Children.Add(Txt("STAFF INTELLIGENCE", 9, true, Teal)); s.Children.Add(Txt("Staff directory", 20, true, Ink));
-        s.Children.Add(Txt("Staff identity, job, club, contract and preferences are shown where the save reader exposes them. The published reader currently locates only one rated staff attribute (adaptability); it does not provide the complete staff attribute panel shown in FM.", 10, false, Muted, wrap: true));
+        s.Children.Add(Txt("Search staff and your human-manager record from the currently loaded FM27 career or an offline save snapshot. Live CA/PA, role, club and nation are shown where the running build exposes them; unsupported fields remain blank.", 10, false, Muted, wrap: true));
         Grid.SetRow(header, 0); root.Children.Add(header);
         var body = new Grid(); body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.15, GridUnitType.Star) }); body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(.85, GridUnitType.Star) });
         var panel = Card(new DockPanel(), 14, new Thickness(0, 0, 9, 0)); var dock = (DockPanel)panel.Child; var search = Input("Search staff, club or ID");
         if (!string.IsNullOrWhiteSpace(_pendingStaffSearchQuery)) { search.Text = _pendingStaffSearchQuery; _pendingStaffSearchQuery = null; }
         DockPanel.SetDock(search, Dock.Top); dock.Children.Add(search);
         var staffStatus = Txt("Enter at least two characters to search the imported staff index.", 9, false, Muted, wrap: true); DockPanel.SetDock(staffStatus, Dock.Bottom); dock.Children.Add(staffStatus);
-        var dg = CreateGrid(); dg.Columns.Add(Column("NAME", "Name", 1.3)); dg.Columns.Add(Column("ROLE", "Job", 1)); dg.Columns.Add(Column("CLUB", "Club", 1.2)); dg.Columns.Add(Column("AGE", "Age", .5)); dg.ItemsSource = _staff; dock.Children.Add(dg); Grid.SetColumn(panel, 0); body.Children.Add(panel);
+        var dg = CreateGrid(); dg.Columns.Add(Column("NAME", "Name", 1.3)); dg.Columns.Add(Column("ROLE", "Job", .9)); dg.Columns.Add(Column("CLUB", "Club", 1)); dg.Columns.Add(Column("AGE", "Age", .4)); dg.Columns.Add(Column("CA", "CurrentAbility", .35)); dg.Columns.Add(Column("PA", "PotentialAbility", .35)); dg.Columns.Add(Column("NATION", "Nation", .8)); dg.Columns.Add(Column("SOURCE / CONFIDENCE", "ValidationStatus", .9)); dg.ItemsSource = _staff; dock.Children.Add(dg); Grid.SetColumn(panel, 0); body.Children.Add(panel);
         var profile = Card(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = new StackPanel() }, 14); var profileStack = (StackPanel)((ScrollViewer)profile.Child).Content;
         profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt("Select a staff member", 19, true, Ink)); profileStack.Children.Add(Txt("Staff profiles are limited to fields actually present in the imported save.", 10, false, Muted, wrap: true));
         Grid.SetColumn(profile, 1); body.Children.Add(profile); Grid.SetRow(body, 1); root.Children.Add(body);
@@ -1154,10 +2183,68 @@ public partial class MainWindow : Window
             var facts = await RunDatabaseAsync(() => _database.GetFmsaveStaffFactsAsync(person.SourceId));
             if (requestVersion != staffProfileVersion) return;
             profileStack.Children.Clear(); profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt(person.Name, 22, true, Ink));
-            AddDetailRow(profileStack, "Role", person.Job); AddDetailRow(profileStack, "Club", person.Club); AddDetailRow(profileStack, "Age", person.Age?.ToString()); AddDetailRow(profileStack, "Nation ID (save-local)", person.Nation); AddDetailRow(profileStack, "Record ID", person.SourceId);
+            AddDetailRow(profileStack, "Role", person.Job); AddDetailRow(profileStack, "Club", person.Club); AddDetailRow(profileStack, "Age", person.Age?.ToString()); AddDetailRow(profileStack, "Nation", person.Nation); AddDetailRow(profileStack, "Current ability", person.CurrentAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Potential ability", person.PotentialAbility?.ToString() ?? "—"); AddDetailRow(profileStack, "Human manager", person.IsHumanManager ? "Yes" : "No / not identified"); AddDetailRow(profileStack, "Source / confidence", person.ValidationStatus); AddDetailRow(profileStack, "Record ID", person.SourceId);
+            var preferenceFacts = facts.Where(x => x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (preferenceFacts.Count > 0)
+            {
+                profileStack.Children.Add(Txt("PREFERRED JOB MATCH · PROVISIONAL", 9, true, Teal) is var preferenceHeader ? Configure(preferenceHeader, new Thickness(0, 17, 0, 6)) : new TextBlock());
+                var topJob = preferenceFacts.FirstOrDefault(x => x.Field.Equals("preference.top_job", StringComparison.OrdinalIgnoreCase));
+                var preferenceSummary = preferenceFacts.FirstOrDefault(x => x.Field.Equals("preference.summary", StringComparison.OrdinalIgnoreCase));
+                var highest = preferenceFacts.FirstOrDefault(x => x.Field.Equals("preference.highest_rating", StringComparison.OrdinalIgnoreCase));
+                AddDetailRow(profileStack, "Preferred job", topJob?.Value ?? preferenceSummary?.Value ?? "No clear preferred job recorded");
+                if (highest?.Value is not null) AddDetailRow(profileStack, "Highest preference rating", highest.Value + " / 20");
+                foreach (var fact in preferenceFacts
+                    .Where(x => !x.Field.Equals("preference.top_job", StringComparison.OrdinalIgnoreCase)
+                        && !x.Field.Equals("preference.summary", StringComparison.OrdinalIgnoreCase)
+                        && !x.Field.Equals("preference.highest_rating", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(x => double.TryParse(x.Value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var score) ? score : -1)
+                    .Take(15))
+                    AddDetailRow(profileStack, fact.Field["preference.".Length..].Replace('_', ' '), fact.Value + " / 20");
+                profileStack.Children.Add(Txt("FM27 stores broad role groups; analyst preference combines recruitment and performance analysis, and one group remains unresolved. Scores are not a guarantee of job suitability.", 9, false, Muted, wrap: true));
+            }
+            var coachingFacts = facts.Where(x => x.Field.StartsWith("staff_attributes.", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Field, StringComparer.OrdinalIgnoreCase).ToList();
+            if (coachingFacts.Count > 0)
+            {
+                profileStack.Children.Add(Txt("COACHING ATTRIBUTES · PROVISIONAL", 9, true, Teal) is var coachingHeader ? Configure(coachingHeader, new Thickness(0, 17, 0, 6)) : new TextBlock());
+                foreach (var fact in coachingFacts)
+                    AddDetailRow(profileStack, fact.Field["staff_attributes.".Length..].Replace('_', ' '), fact.Value is null ? "—" : fact.Value + " / 20");
+            }
+
+            var personalityFacts = facts.Where(x => x.Field.StartsWith("staff_personality.", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Field, StringComparer.OrdinalIgnoreCase).ToList();
+            if (personalityFacts.Count > 0)
+            {
+                profileStack.Children.Add(Txt("PERSONALITY · PROVISIONAL", 9, true, Teal) is var personalityHeader ? Configure(personalityHeader, new Thickness(0, 17, 0, 6)) : new TextBlock());
+                foreach (var fact in personalityFacts)
+                    AddDetailRow(profileStack, fact.Field["staff_personality.".Length..].Replace('_', ' '), fact.Value is null ? "—" : fact.Value + " / 20");
+            }
+
+            var contractFacts = facts.Where(x => x.Field.StartsWith("contract.", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Field, StringComparer.OrdinalIgnoreCase).ToList();
+            if (contractFacts.Count > 0)
+            {
+                profileStack.Children.Add(Txt("CONTRACT DETAILS · SOURCE VALUES", 9, true, Teal) is var contractHeader ? Configure(contractHeader, new Thickness(0, 17, 0, 6)) : new TextBlock());
+                foreach (var fact in contractFacts)
+                {
+                    var field = fact.Field["contract.".Length..].Replace('_', ' ');
+                    var value = fact.Field.Equals("contract.wage_per_week_gbp", StringComparison.OrdinalIgnoreCase)
+                        && decimal.TryParse(fact.Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var wage)
+                            ? "£" + wage.ToString("N0", CultureInfo.InvariantCulture) + " / week"
+                            : fact.Value;
+                    AddDetailRow(profileStack, field, value);
+                }
+            }
+
+            var remainingFacts = facts.Where(x =>
+                !x.Field.StartsWith("preference.", StringComparison.OrdinalIgnoreCase)
+                && !x.Field.StartsWith("staff_attributes.", StringComparison.OrdinalIgnoreCase)
+                && !x.Field.StartsWith("staff_personality.", StringComparison.OrdinalIgnoreCase)
+                && !x.Field.StartsWith("contract.", StringComparison.OrdinalIgnoreCase)).ToList();
             profileStack.Children.Add(Txt("IMPORTED STAFF FACTS", 9, true, Teal) is var h ? Configure(h, new Thickness(0, 17, 0, 6)) : new TextBlock());
-            if (facts.Count == 0) profileStack.Children.Add(Txt("No additional staff facts were imported.", 10, false, Muted));
-            foreach (var group in facts.GroupBy(x => x.Group))
+            if (remainingFacts.Count == 0 && coachingFacts.Count == 0 && personalityFacts.Count == 0 && contractFacts.Count == 0 && preferenceFacts.Count == 0)
+                profileStack.Children.Add(Txt("No additional staff facts were imported.", 10, false, Muted));
+            foreach (var group in remainingFacts.GroupBy(x => x.Group))
             {
                 profileStack.Children.Add(Txt(group.Key.ToUpperInvariant(), 8, true, Teal));
                 foreach (var fact in group.Take(50)) AddDetailRow(profileStack, fact.Field.Replace('_', ' ').Replace('.', ' '), fact.Value);
@@ -1185,7 +2272,7 @@ public partial class MainWindow : Window
                 _staff.Clear(); dg.ItemsSource = _staff;
                 staffStatus.Text = "Type two or more characters. Staff records are not bulk-loaded on first open.";
                 profileStack.Children.Clear(); profileStack.Children.Add(Txt("STAFF PROFILE", 9, true, Teal)); profileStack.Children.Add(Txt("Search for a staff member", 19, true, Ink));
-                profileStack.Children.Add(Txt("This reader currently imports staff only from supported career-save snapshots. The live identity probe has not populated staff records.", 10, false, Muted, wrap: true));
+                profileStack.Children.Add(Txt("Live FM27 staff identities and CA/PA appear here after Atlas connects to a loaded career. Historical and extended facts appear when supplied by an offline save snapshot.", 10, false, Muted, wrap: true));
                 return;
             }
             staffStatus.Text = "Searching staff…";
@@ -1244,6 +2331,11 @@ public partial class MainWindow : Window
             return (merged, label);
         });
 
+        // Load source evidence once; the view never synthesizes ratings or wage units.
+        var positionRatingsBySource = await RunDatabaseAsync(() => _database.GetImportedPositionSuitabilityAsync());
+        var wageBySource = await RunDatabaseAsync(() => _database.GetLatestPlayerWageFactsAsync());
+        var canonicalPositions = PositionSuitabilityService.MapSourceRatings(Array.Empty<KeyValuePair<string, double?>>());
+
         var header = Card(new Grid(), 15, new Thickness(0, 0, 0, 10));
         var headerGrid = (Grid)header.Child;
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1274,7 +2366,7 @@ public partial class MainWindow : Window
         var rosterTitle = new StackPanel(); rosterTitle.Children.Add(Txt("SQUAD ROSTER", 9, true, Teal)); rosterTitle.Children.Add(Txt("Current registered players", 17, true, Ink));
         DockPanel.SetDock(rosterTitle, Dock.Top); rosterDock.Children.Add(rosterTitle);
         var roster = CreateGrid();
-        roster.Columns.Add(Column("PLAYER", "Name", 1.3)); roster.Columns.Add(Column("POSITION", "Position", .8)); roster.Columns.Add(Column("AGE", "Age", .45)); roster.Columns.Add(Column("CA", "DisplayAbility", .45)); roster.Columns.Add(Column("PA", "DisplayPotential", .45));
+        roster.Columns.Add(Column("PLAYER", "Name", 1.12)); roster.Columns.Add(Column("POSITION", "Position", .68)); roster.Columns.Add(Column("LEAGUE", "League", .82)); roster.Columns.Add(Column("AGE", "Age", .4)); roster.Columns.Add(Column("CA", "DisplayAbility", .38)); roster.Columns.Add(Column("PA", "DisplayPotential", .38)); roster.Columns.Add(Column("HOME-GROWN", "DisplayHomeGrownClub", .62));
         rosterDock.Children.Add(roster); Grid.SetColumn(rosterCard, 0); Grid.SetRow(rosterCard, 0); body.Children.Add(rosterCard);
 
         var insightCard = Card(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = new StackPanel() }, 15);
@@ -1298,6 +2390,27 @@ public partial class MainWindow : Window
                 var pas = squad.Where(x => x.PotentialAbility.HasValue).Select(x => (double)x.PotentialAbility!.Value).ToList();
                 var positions = squad.GroupBy(x => string.IsNullOrWhiteSpace(x.Position) ? "Unspecified" : x.Position!)
                     .Select(g => (Position: g.Key, Count: g.Count())).OrderByDescending(x => x.Count).ThenBy(x => x.Position).ToList();
+                var suitability = canonicalPositions.Select(slot =>
+                {
+                    var ratings = squad
+                        .Where(player => positionRatingsBySource.ContainsKey(player.SourceId))
+                        .SelectMany(player => positionRatingsBySource[player.SourceId])
+                        .Where(entry => entry.Code.Equals(slot.Code, StringComparison.OrdinalIgnoreCase) && entry.Rating.HasValue)
+                        .Select(entry => entry.Rating!.Value)
+                        .ToList();
+                    return (slot.Code, slot.Label, RatedPlayers: ratings.Count,
+                        CompetentPlus: ratings.Count(value => value >= 10),
+                        Average: ratings.Count == 0 ? (double?)null : ratings.Average());
+                }).ToList();
+                var wageRows = squad
+                    .Where(player => wageBySource.ContainsKey(player.SourceId))
+                    .Select(player => wageBySource[player.SourceId])
+                    .Where(value => double.IsFinite(value) && value > 0)
+                    .ToList();
+                var homeGrownClubYes = squad.Count(player => player.HomeGrownClub == true);
+                var homeGrownClubNo = squad.Count(player => player.HomeGrownClub == false);
+                var homeGrownNationYes = squad.Count(player => player.HomeGrownNation == true);
+                var homeGrownNationNo = squad.Count(player => player.HomeGrownNation == false);
                 var bands = new[]
                 {
                     (Label: "U21", Min: 0, Max: 20), (Label: "21–24", Min: 21, Max: 24),
@@ -1305,7 +2418,11 @@ public partial class MainWindow : Window
                 }.Select(b => (b.Label, Count: squad.Count(x => x.Age.HasValue && x.Age.Value >= b.Min && x.Age.Value <= b.Max))).ToList();
                 return (Squad: ordered, AverageAge: ages.Count == 0 ? (double?)null : ages.Average(),
                     AverageCa: cas.Count == 0 ? (double?)null : cas.Average(), AveragePa: pas.Count == 0 ? (double?)null : pas.Average(),
-                    Positions: positions, AgeBands: bands);
+                    Positions: positions, Suitability: suitability, AgeBands: bands,
+                    WageCount: wageRows.Count, WageTotal: wageRows.Count == 0 ? (double?)null : wageRows.Sum(),
+                    WageAverage: wageRows.Count == 0 ? (double?)null : wageRows.Average(),
+                    HomeGrownClubYes: homeGrownClubYes, HomeGrownClubNo: homeGrownClubNo,
+                    HomeGrownNationYes: homeGrownNationYes, HomeGrownNationNo: homeGrownNationNo);
             });
             roster.ItemsSource = snapshot.Squad;
             metrics.Children.Clear();
@@ -1315,7 +2432,21 @@ public partial class MainWindow : Window
             metrics.Children.Add(MetricCard("AVERAGE PA", snapshot.AveragePa?.ToString("0.0") ?? "—", "Parser values · unconfirmed", "⌁"));
             insight.Children.Clear();
             insight.Children.Add(Txt("POSITIONAL COVER", 9, true, Teal)); insight.Children.Add(Txt("Imported primary-position counts", 18, true, Ink));
-            foreach (var position in snapshot.Positions) AddDetailRow(insight, position.Position, position.Count.ToString("N0") + " players");
+            foreach (var position in snapshot.Positions) AddDetailRow(insight, position.Position, position.Count.ToString("N0") + " primary-position labels");
+            insight.Children.Add(Txt("SOURCE-BACKED POSITION SUITABILITY", 9, true, Teal) is var suitabilityTitle ? Configure(suitabilityTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
+            insight.Children.Add(Txt("Imported explicit 1–20 position ratings only. Competent+ is 10/20 or higher; missing ratings are left unrated.", 9, false, Muted, wrap: true));
+            foreach (var position in snapshot.Suitability)
+            {
+                var value = position.RatedPlayers == 0
+                    ? "No imported ratings"
+                    : $"{position.RatedPlayers:N0} rated · {position.CompetentPlus:N0} competent+ · Avg {position.Average:0.0}/20";
+                AddDetailRow(insight, $"{position.Code} · {position.Label}", value);
+            }
+            insight.Children.Add(Txt("CONTRACT & HOME-GROWN DATA", 9, true, Teal) is var contractTitle ? Configure(contractTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
+            AddDetailRow(insight, "Recorded wage field", snapshot.WageCount == 0 ? "Unreported" : $"{snapshot.WageCount:N0} records · source units");
+            AddDetailRow(insight, "Wage total / mean", snapshot.WageTotal.HasValue ? $"{snapshot.WageTotal.Value:N0} / {snapshot.WageAverage!.Value:N0} source units" : "Unavailable");
+            AddDetailRow(insight, "Home-grown at club", $"{snapshot.HomeGrownClubYes:N0} yes · {snapshot.HomeGrownClubNo:N0} no · {Math.Max(0, snapshot.Squad.Count - snapshot.HomeGrownClubYes - snapshot.HomeGrownClubNo):N0} unknown");
+            AddDetailRow(insight, "Home-grown in nation", $"{snapshot.HomeGrownNationYes:N0} yes · {snapshot.HomeGrownNationNo:N0} no · {Math.Max(0, snapshot.Squad.Count - snapshot.HomeGrownNationYes - snapshot.HomeGrownNationNo):N0} unknown");
             insight.Children.Add(Txt("AGE PROFILE", 9, true, Teal) is var ageTitle ? Configure(ageTitle, new Thickness(0, 16, 0, 5)) : new TextBlock());
             foreach (var band in snapshot.AgeBands) AddDetailRow(insight, band.Label, band.Count.ToString("N0"));
             insight.Children.Add(Txt("SOURCE & LIMITS", 9, true, Teal) is var limits ? Configure(limits, new Thickness(0, 16, 0, 5)) : new TextBlock());
@@ -1360,18 +2491,267 @@ public partial class MainWindow : Window
 
     private async Task<UIElement> ShortlistsPageAsync()
     {
-        var root = new Grid(); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(370) });
-        var left = Card(new DockPanel(), 14); var dock = (DockPanel)left.Child;
-        var top = new StackPanel(); top.Children.Add(Txt("RECRUITMENT", 9, true, Teal)); top.Children.Add(Txt("My shortlists", 20, true, Ink));
-        var controls = new StackPanel { Orientation = Orientation.Horizontal }; _shortlistPicker = new ComboBox { Width = 210, Margin = new Thickness(0, 5, 5, 9), Padding = new Thickness(8) }; controls.Children.Add(_shortlistPicker); controls.Children.Add(SoftButton("＋ New", async (_, _) => await CreateNewShortlistAsync())); top.Children.Add(controls); DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top);
-        var dg = CreateGrid(); dg.Columns.Add(Column("PLAYER", "PlayerName", 1.2)); dg.Columns.Add(Column("CLUB", "DisplayClub", 1)); dg.Columns.Add(Column("POSITION", "DisplayPosition", .7)); dg.Columns.Add(Column("ADDED", "AddedUtc", 1)); dg.ItemsSource = _shortlist; dock.Children.Add(dg);
-        var right = Card(new StackPanel(), 14); var s = (StackPanel)right.Child; s.Children.Add(Txt("SHORTLIST ACTIONS", 9, true, Teal)); s.Children.Add(Txt("Recruitment workflow", 19, true, Ink)); s.Children.Add(Txt("Add players from the player profile. Notes and groups are stored locally and remain available between application updates.", 10, false, Muted, wrap: true));
-        s.Children.Add(SoftButton("Remove selected", async (_, _) => { if (dg.SelectedItem is ShortlistRecord item && _shortlistPicker.SelectedItem is string name) { await RunDatabaseAsync(() => _database.RemoveFromShortlistAsync(item.SourceId, name)); await RefreshShortlistRowsAsync(dg); } }));
-        s.Children.Add(SoftButton("Export shortlist CSV", (_, _) => ExportShortlistCsv()));
-        Grid.SetColumn(left, 0); root.Children.Add(left); Grid.SetColumn(right, 1); root.Children.Add(right);
-        var names = await RunDatabaseAsync(() => _database.GetShortlistNamesAsync()); _shortlistPicker.ItemsSource = names; _shortlistPicker.SelectedIndex = 0;
-        _shortlistPicker.SelectionChanged += async (_, _) => await RefreshShortlistRowsAsync(dg);
-        await RefreshShortlistRowsAsync(dg);
+        var root = new Grid();
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(390) });
+
+        var left = Card(new DockPanel(), 14);
+        var dock = (DockPanel)left.Child;
+        var top = new StackPanel();
+        top.Children.Add(Txt("RECRUITMENT", 9, true, Teal));
+        top.Children.Add(Txt("Candidate pipeline", 20, true, Ink));
+        top.Children.Add(Txt("Track each target from identification through scouting, contact, offer and signing. Stages and notes are stored locally in your Atlas database.", 10, false, Muted, wrap: true));
+        var controls = new WrapPanel { Margin = new Thickness(0, 5, 0, 5) };
+        _shortlistPicker = new ComboBox { Width = 210, Margin = new Thickness(0, 3, 7, 7), Padding = new Thickness(8) };
+        controls.Children.Add(FilterControl("SHORTLIST", _shortlistPicker, 220));
+        controls.Children.Add(SoftButton("＋ New", async (_, _) => await CreateNewShortlistAsync()));
+        var stageFilter = new ComboBox { Width = 155, Height = 34, Margin = new Thickness(0, 3, 7, 7), FontSize = 10 };
+        stageFilter.Items.Add("All stages");
+        foreach (var stage in ShortlistRecord.PipelineStages) stageFilter.Items.Add(stage);
+        stageFilter.SelectedIndex = 0;
+        var priorityFilter = new ComboBox { Width = 145, Height = 34, Margin = new Thickness(0, 3, 7, 7), FontSize = 10 };
+        priorityFilter.Items.Add("All priorities");
+        foreach (var priority in ShortlistRecord.PipelinePriorities) priorityFilter.Items.Add(priority);
+        priorityFilter.SelectedIndex = 0;
+        controls.Children.Add(FilterControl("STAGE FILTER", stageFilter, 165));
+        controls.Children.Add(FilterControl("PRIORITY FILTER", priorityFilter, 155));
+        top.Children.Add(controls);
+        var pipelineSummary = Txt("Loading recruitment pipeline…", 9, false, Muted, wrap: true);
+        pipelineSummary.Margin = new Thickness(0, 2, 0, 9);
+        top.Children.Add(pipelineSummary);
+        DockPanel.SetDock(top, Dock.Top);
+        dock.Children.Add(top);
+
+        TextBlock selectedPlayerLabel = null!;
+        ComboBox stagePicker = null!;
+        ComboBox priorityPicker = null!;
+        TextBox targetFeeBox = null!;
+        TextBox targetWageBox = null!;
+        TextBox nextActionBox = null!;
+        DatePicker reviewDatePicker = null!;
+        TextBox notesEditor = null!;
+        TextBlock detailsStatus = null!;
+        Button saveDetails = null!;
+
+        var dg = CreateGrid();
+        dg.SelectionMode = DataGridSelectionMode.Single;
+        dg.Columns.Add(Column("PLAYER", "PlayerName", 1.2));
+        dg.Columns.Add(Column("CLUB", "DisplayClub", 1));
+        dg.Columns.Add(Column("POSITION", "DisplayPosition", .65));
+        dg.Columns.Add(Column("PRIORITY", "Priority", .65));
+        dg.Columns.Add(Column("STAGE", "Stage", .9));
+        dg.Columns.Add(Column("TARGET FEE · SOURCE UNITS", "TargetFee", .9));
+        dg.Columns.Add(Column("TARGET WAGE · SOURCE UNITS", "TargetWage", .9));
+        dg.Columns.Add(Column("NEXT ACTION", "NextAction", 1.1));
+        dg.Columns.Add(Column("REVIEW", "ReviewDate", .75));
+        dg.SelectionChanged += (_, _) =>
+        {
+            if (dg.SelectedItem is ShortlistRecord selected)
+            {
+                stagePicker.SelectedItem = ShortlistRecord.PipelineStages.FirstOrDefault(x =>
+                    x.Equals(selected.Stage, StringComparison.OrdinalIgnoreCase)) ?? ShortlistRecord.DefaultStage;
+                priorityPicker.SelectedItem = ShortlistRecord.PipelinePriorities.FirstOrDefault(x =>
+                    x.Equals(selected.Priority, StringComparison.OrdinalIgnoreCase)) ?? ShortlistRecord.DefaultPriority;
+                targetFeeBox.Text = selected.TargetFee?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                targetWageBox.Text = selected.TargetWage?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                nextActionBox.Text = selected.NextAction ?? "";
+                reviewDatePicker.SelectedDate = DateTime.TryParseExact(selected.ReviewDate, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var reviewDate)
+                    ? reviewDate : null;
+                notesEditor.Text = selected.Notes ?? "";
+                selectedPlayerLabel.Text = selected.PlayerName + (string.IsNullOrWhiteSpace(selected.DisplayClub) ? "" : " · " + selected.DisplayClub);
+                detailsStatus.Text = "Edit this candidate's pipeline stage or private recruitment notes.";
+                saveDetails.IsEnabled = true;
+            }
+            else
+            {
+                selectedPlayerLabel.Text = "Select a candidate";
+                stagePicker.SelectedItem = ShortlistRecord.DefaultStage;
+                priorityPicker.SelectedItem = ShortlistRecord.DefaultPriority;
+                targetFeeBox.Text = "";
+                targetWageBox.Text = "";
+                nextActionBox.Text = "";
+                reviewDatePicker.SelectedDate = null;
+                notesEditor.Text = "";
+                detailsStatus.Text = "Select a player from the shortlist to edit their stage, priority, target and follow-up details.";
+                saveDetails.IsEnabled = false;
+            }
+        };
+
+        var allPipelineRows = new List<ShortlistRecord>();
+        async Task RefreshPipelineRowsAsync()
+        {
+            if (_shortlistPicker?.SelectedItem is not string selectedList) return;
+            allPipelineRows = await RunDatabaseAsync(() => _database.GetShortlistAsync(selectedList));
+            var selectedStage = stageFilter.SelectedItem?.ToString();
+            var selectedPriority = priorityFilter.SelectedItem?.ToString();
+            var visibleRows = allPipelineRows.Where(row =>
+                (string.IsNullOrWhiteSpace(selectedStage) || selectedStage == "All stages" ||
+                 row.Stage.Equals(selectedStage, StringComparison.OrdinalIgnoreCase)) &&
+                (string.IsNullOrWhiteSpace(selectedPriority) || selectedPriority == "All priorities" ||
+                 row.Priority.Equals(selectedPriority, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            _shortlist.Clear();
+            foreach (var row in visibleRows) _shortlist.Add(row);
+            dg.ItemsSource = _shortlist;
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var reviewsDue = allPipelineRows.Count(row =>
+                DateOnly.TryParseExact(row.ReviewDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var date) && date <= today);
+            var highPriority = allPipelineRows.Count(row => row.Priority.Equals("High", StringComparison.OrdinalIgnoreCase));
+            var feeTotal = allPipelineRows.Where(row => row.TargetFee.HasValue).Sum(row => row.TargetFee!.Value);
+            pipelineSummary.Text =
+                $"{allPipelineRows.Count:N0} candidate(s) · {highPriority:N0} high priority · {reviewsDue:N0} review(s) due · " +
+                $"specified target fees total {feeTotal:N0} source units · showing {visibleRows.Count:N0}";
+        }
+
+        stageFilter.SelectionChanged += async (_, _) =>
+        {
+            dg.SelectedItem = null;
+            await RefreshPipelineRowsAsync();
+        };
+        priorityFilter.SelectionChanged += async (_, _) =>
+        {
+            dg.SelectedItem = null;
+            await RefreshPipelineRowsAsync();
+        };
+
+        dg.MouseDoubleClick += async (_, _) =>
+        {
+            if (dg.SelectedItem is not ShortlistRecord selected) return;
+            var player = new PlayerRecord { SourceId = selected.SourceId, Name = selected.PlayerName, Club = selected.DisplayClub, Position = selected.DisplayPosition };
+            _selectedPlayer = player;
+            await NavigateAsync("Players");
+            try { await ShowPlayerProfileAsync(player); }
+            catch (Exception ex) { ClearProfile("Could not open this shortlist player: " + ex.Message); }
+        };
+        dock.Children.Add(dg);
+
+        var side = new StackPanel();
+        var right = Card(new ScrollViewer
+        {
+            Content = side,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        }, 14);
+        side.Children.Add(Txt("RECRUITMENT WORKFLOW", 9, true, Teal));
+        side.Children.Add(Txt("Candidate details", 19, true, Ink));
+        selectedPlayerLabel = Txt("Select a candidate", 11, true, Muted, wrap: true);
+        selectedPlayerLabel.Margin = new Thickness(0, 4, 0, 12);
+        side.Children.Add(selectedPlayerLabel);
+
+        stagePicker = new ComboBox
+        {
+            ItemsSource = ShortlistRecord.PipelineStages,
+            SelectedItem = ShortlistRecord.DefaultStage,
+            Height = 36,
+            Margin = new Thickness(0, 3, 0, 10),
+            FontSize = 11
+        };
+        side.Children.Add(FilterControl("PIPELINE STAGE", stagePicker, 330));
+        priorityPicker = new ComboBox
+        {
+            ItemsSource = ShortlistRecord.PipelinePriorities,
+            SelectedItem = ShortlistRecord.DefaultPriority,
+            Height = 36,
+            Margin = new Thickness(0, 3, 0, 10),
+            FontSize = 11
+        };
+        side.Children.Add(FilterControl("RECRUITMENT PRIORITY", priorityPicker, 330));
+
+        targetFeeBox = Input("Target fee · source units");
+        targetFeeBox.Width = 200;
+        side.Children.Add(FilterControl("TARGET TRANSFER FEE · SOURCE UNITS", targetFeeBox, 330));
+        targetWageBox = Input("Target wage · source units");
+        targetWageBox.Width = 200;
+        side.Children.Add(FilterControl("TARGET WAGE · SOURCE UNITS", targetWageBox, 330));
+        nextActionBox = Input("Next recruitment action");
+        nextActionBox.Width = 320;
+        side.Children.Add(FilterControl("NEXT ACTION · MAX 300 CHARACTERS", nextActionBox, 340));
+        reviewDatePicker = new DatePicker
+        {
+            SelectedDateFormat = DatePickerFormat.Short,
+            Height = 36,
+            Margin = new Thickness(0, 3, 0, 10)
+        };
+        side.Children.Add(FilterControl("NEXT REVIEW DATE", reviewDatePicker, 330));
+
+        notesEditor = new TextBox
+        {
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            MinHeight = 140,
+            MaxHeight = 220,
+            MaxLength = 2000,
+            Padding = new Thickness(9),
+            Margin = new Thickness(0, 4, 0, 10),
+            Background = Brush("#171F28"),
+            Foreground = Ink,
+            BorderBrush = Line,
+            BorderThickness = new Thickness(1),
+            ToolTip = "Private scouting notes for this shortlist candidate. Maximum 2,000 characters."
+        };
+        side.Children.Add(FilterControl("SCOUTING NOTES", notesEditor, 340));
+        detailsStatus = Txt("Select a player from the shortlist to edit their stage and notes.", 9, false, Muted, wrap: true);
+        detailsStatus.Margin = new Thickness(0, 5, 0, 6);
+        side.Children.Add(detailsStatus);
+        double? ReadOptionalSourceAmount(TextBox box, string label)
+        {
+            if (string.IsNullOrWhiteSpace(box.Text)) return null;
+            if (!double.TryParse(box.Text.Trim(), System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var amount)
+                || !double.IsFinite(amount) || amount < 0 || amount > 1_000_000_000_000d)
+                throw new FormatException($"{label} must be a finite non-negative amount in source units.");
+            return amount;
+        }
+        saveDetails = PrimaryButton("Save candidate details", async (_, _) =>
+        {
+            if (dg.SelectedItem is not ShortlistRecord selected || _shortlistPicker?.SelectedItem is not string name) return;
+            try
+            {
+                await RunDatabaseAsync(() => _database.UpdateShortlistDetailsAsync(
+                    selected.SourceId, name, stagePicker.SelectedItem?.ToString() ?? ShortlistRecord.DefaultStage,
+                    notesEditor.Text, priorityPicker.SelectedItem?.ToString() ?? ShortlistRecord.DefaultPriority,
+                    ReadOptionalSourceAmount(targetFeeBox, "Target fee"),
+                    ReadOptionalSourceAmount(targetWageBox, "Target wage"),
+                    nextActionBox.Text, reviewDatePicker.SelectedDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)));
+                await RefreshPipelineRowsAsync();
+                detailsStatus.Text = $"Saved {selected.PlayerName} · {stagePicker.SelectedItem} · {priorityPicker.SelectedItem}.";
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Error("Shortlist candidate details could not be saved.", ex);
+                detailsStatus.Text = "Could not save candidate details: " + ex.Message;
+            }
+        });
+        saveDetails.IsEnabled = false;
+        side.Children.Add(saveDetails);
+        side.Children.Add(SoftButton("Remove selected", async (_, _) =>
+        {
+            if (dg.SelectedItem is ShortlistRecord item && _shortlistPicker.SelectedItem is string name)
+            {
+                await RunDatabaseAsync(() => _database.RemoveFromShortlistAsync(item.SourceId, name));
+                await RefreshPipelineRowsAsync();
+            }
+        }));
+        side.Children.Add(SoftButton("Export shortlist CSV", (_, _) => ExportShortlistCsv()));
+
+        Grid.SetColumn(left, 0);
+        root.Children.Add(left);
+        Grid.SetColumn(right, 1);
+        root.Children.Add(right);
+
+        var names = await RunDatabaseAsync(() => _database.GetShortlistNamesAsync());
+        _shortlistPicker.ItemsSource = names;
+        _shortlistPicker.SelectedIndex = 0;
+        _shortlistPicker.SelectionChanged += async (_, _) =>
+        {
+            dg.SelectedItem = null;
+            await RefreshPipelineRowsAsync();
+        };
+        await RefreshPipelineRowsAsync();
         return root;
     }
 
@@ -1384,12 +2764,36 @@ public partial class MainWindow : Window
         hs.Children.Add(_editorEnabled
             ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
             : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
-        var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
-        alert.Child = Txt("Atlas local edits are separate from Football Manager. The guarded live-write path currently supports CA, PA and 47 visible standard player attributes only. Five hidden attribute offsets remain blocked pending stronger FM27 evidence. It requires an exact supported Steam/Game Pass module profile, the same career-load counter, fresh UID/name/current-byte preflight, explicit preview confirmation and read-back. Staff, club, contracts, transfers, personality and position edits remain unsupported. Back up your career and test only on a copied offline single-player save.", 10, true, Brush("#E6C477"), wrap: true);
+        var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
+        alert.Child = Txt("Atlas local edits are separate from Football Manager. In this V8 build, Editor Studio saves changes to the FM Atlas database only. Live Apply/Undo remains hard-disabled; no game-memory writes are exposed. The Game Pass 0.9.2435.0 reverse-engineering reference is documented, but Atlas has not yet certified its own field mappings, live witnesses, read-back, rollback and Windows acceptance.", 10, true, Brush("#E6C477"), wrap: true);
+
         hs.Children.Add(alert);
+
+        // This panel reports Atlas certification status, not the capabilities of
+        // the external reverse-engineering projects. A matching profile alone is
+        // never sufficient to unlock a live write.
+        var readiness = Card(new StackPanel(), 12, new Thickness(0, 7, 0, 8));
+        var readinessStack = (StackPanel)readiness.Child;
+        readinessStack.Children.Add(Txt("LIVE WRITE READINESS", 9, true, Teal));
+        readinessStack.Children.Add(Txt("FM27 Game Pass · 0.9.2435.0 reference reviewed", 14, true, Ink));
+        readinessStack.Children.Add(Txt("Atlas status: NOT CERTIFIED · live write gate closed", 11, true, Brush("#E6C477")));
+        readinessStack.Children.Add(Txt(
+            "Build fingerprint: reference documented · Atlas runtime match still required",
+            10, false, Muted, wrap: true));
+        readinessStack.Children.Add(Txt(
+            "Field map + per-field health checks: not yet independently certified in Atlas",
+            10, false, Muted, wrap: true));
+        readinessStack.Children.Add(Txt(
+            "Pre-write identity recheck + read-back verification: not enabled",
+            10, false, Muted, wrap: true));
+        readinessStack.Children.Add(Txt(
+            "Rollback / recovery + Windows live-career acceptance: not enabled",
+            10, false, Muted, wrap: true));
+        hs.Children.Add(readiness);
+
         if (!_editorEnabled)
         {
-            hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas edits and the separately confirmed live-edit path for eligible FM27 player records. The switch resets to OFF when FM Atlas closes; live writes still require their own preview and confirmation.", 11, false, Muted, wrap: true));
+            hs.Children.Add(Txt("The editor is locked. Enable it above to access local Atlas database edits only. The switch resets to OFF when FM Atlas closes; Football Manager itself is never changed.", 11, false, Muted, wrap: true));
             Grid.SetRow(header, 0); root.Children.Add(header); return root;
         }
         if (_selectedPlayer is null)
@@ -1424,45 +2828,14 @@ public partial class MainWindow : Window
         }));
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            abilityRow.Children.Add(SoftButton("Apply CA / PA to live FM", async (_, _) =>
-            {
-                if (!uint.TryParse(_selectedPlayer.SourceId[5..], out var uid) || !int.TryParse(caInput.Text, out var ca) || !int.TryParse(paInput.Text, out var pa) || ca is < 1 or > 200 || pa is < 1 or > 200)
-                { MessageBox.Show(this, "Live CA and PA edits need a live FM player UID and whole-number values from 1 to 200.", "Live editor"); return; }
-                if (!_selectedPlayer.CurrentAbility.HasValue || !_selectedPlayer.PotentialAbility.HasValue)
-                { MessageBox.Show(this, "Atlas has no current CA/PA baseline for this player. Refresh the live import before editing.", "Live editor"); return; }
-                LiveMemoryEditService.BatchReceipt? receipt = null;
-                try
-                {
-                    var pid = await Task.Run(LiveMemoryEditService.FindSupportedProcessId);
-                    var plan = await Task.Run(() => LiveMemoryEditService.StageBatch(pid, uid, _selectedPlayer.Name, new[]
-                    {
-                        new LiveMemoryEditService.Change("ability.current_ability", _selectedPlayer.CurrentAbility.Value, ca),
-                        new LiveMemoryEditService.Change("ability.potential_ability", _selectedPlayer.PotentialAbility.Value, pa)
-                    }));
-                    var confirm = MessageBox.Show(this,
-                        $"LIVE FM27 MEMORY WRITE PREVIEW\n\n{_selectedPlayer.Name} · {plan.ProfileId}\nCurrent Ability: {_selectedPlayer.CurrentAbility} → {ca}\nPotential Ability: {_selectedPlayer.PotentialAbility} → {pa}\n\nBefore applying, confirm these original CA/PA values match an independent editor such as FMRTE or FMLibreEditor. Save a new backup copy of your career, and use an offline single-player save. Atlas will re-check the game build, player UID/name and both old values immediately before writing, then read both values back.\n\nApply these changes to the running game now?",
-                        "FM Atlas · Live editor safety check", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (confirm != MessageBoxResult.Yes) return;
-                    receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(plan));
-                    try
-                    {
-                        await RunDatabaseAsync(() => _database.SaveLocalAbilitiesAsync(_selectedPlayer.SourceId, _selectedPlayer.Name, ca, pa, "FM27 live memory · read-back verified"));
-                        await RunDatabaseAsync(() => _database.UpdateLivePlayerFactAsync(uid, "ability.current_ability", ca));
-                        await RunDatabaseAsync(() => _database.UpdateLivePlayerFactAsync(uid, "ability.potential_ability", pa));
-                    }
-                    catch { await Task.Run(() => LiveMemoryEditService.UndoBatch(receipt)); throw; }
-                    AtlasLog.Info($"Live FM27 CA/PA edit read-back verified: uid={uid}; profile={plan.ProfileId}; fields=2.");
-                    await RefreshPlayerResultsAsync();
-                    _selectedPlayer = _players.FirstOrDefault(x => x.SourceId == _selectedPlayer.SourceId) ?? _selectedPlayer;
-                    await ShowPlayerProfileAsync(_selectedPlayer);
-                    MessageBox.Show(this, "FM27 accepted both live CA/PA writes and Atlas read them back successfully. Press Continue in Football Manager to let the game refresh derived displays, then save your career to persist the changes.", "Live edit verified", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex) { AtlasLog.Error("Live CA/PA edit failed or was blocked.", ex); MessageBox.Show(this, ex.Message, "FM Atlas · Live edit stopped", MessageBoxButton.OK, MessageBoxImage.Warning); }
-            }));
+            var liveAbilityApply = SoftButton("Live CA / PA Apply unavailable", (_, _) => { });
+            liveAbilityApply.IsEnabled = false;
+            liveAbilityApply.ToolTip = "Live memory writes are not certified. Save local changes to the FM Atlas database only.";
+            abilityRow.Children.Add(liveAbilityApply);
         }
         controls.Children.Add(abilityRow);
         controls.Children.Add(Txt("PLAYER ATTRIBUTES", 9, true, Teal));
-        controls.Children.Add(Txt("Edit imported values. Local saves change Atlas only. Live saves are available for current LIVE:UID records and require a separate safety confirmation.", 9, false, Muted));
+        controls.Children.Add(Txt("Edit imported values. Saving here changes the local FM Atlas database only; it does not change the running Football Manager career.", 9, false, Muted));
         DockPanel.SetDock(controls, Dock.Top); dock.Children.Add(controls);
 
         var rows = await RunDatabaseAsync(() => _database.GetPlayerAttributeRowsAsync(_selectedPlayer.SourceId));
@@ -1491,45 +2864,12 @@ public partial class MainWindow : Window
         saveAttributes.Margin = new Thickness(0, 9, 0, 0); DockPanel.SetDock(saveAttributes, Dock.Bottom); dock.Children.Add(saveAttributes);
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            var liveSaveAttributes = SoftButton("Apply changed attributes to live FM", async (_, _) =>
-            {
-                grid.CommitEdit(DataGridEditingUnit.Cell, true); grid.CommitEdit(DataGridEditingUnit.Row, true);
-                var changed = viewRows.Where(x => Math.Abs(x.Value - x.OriginalValue) > 0.0001).ToList();
-                if (changed.Count == 0) { MessageBox.Show(this, "No changed attributes to apply.", "Live editor"); return; }
-                if (changed.Any(x => Math.Abs(x.Value - Math.Round(x.Value)) > 0.0001 || Math.Abs(x.OriginalValue - Math.Round(x.OriginalValue)) > 0.0001 || x.Value is < 1 or > 20 || x.OriginalValue is < 1 or > 20))
-                { MessageBox.Show(this, "Live attribute writes require whole-number current and target values from 1 to 20.", "Live editor"); return; }
-                if (!uint.TryParse(_selectedPlayer.SourceId[5..], out var uid)) { MessageBox.Show(this, "The LIVE player identity could not be decoded.", "Live editor"); return; }
-                LiveMemoryEditService.BatchReceipt? receipt = null;
-                try
-                {
-                    var changes = changed.Select(x => new LiveMemoryEditService.Change(x.AttributeName, (int)Math.Round(x.OriginalValue), (int)Math.Round(x.Value))).ToArray();
-                    var pid = await Task.Run(LiveMemoryEditService.FindSupportedProcessId);
-                    var plan = await Task.Run(() => LiveMemoryEditService.StageBatch(pid, uid, _selectedPlayer.Name, changes));
-                    var preview = string.Join("\n", plan.Changes.Select(x => $"{x.FieldKey}: {x.ExpectedCurrentValue} → {x.TargetValue}"));
-                    var confirm = MessageBox.Show(this,
-                        $"LIVE FM27 ATTRIBUTE WRITE PREVIEW\n\n{_selectedPlayer.Name} · {plan.ProfileId}\n{preview}\n\nConfirm that every original value shown above matches this player's current Attribute screen in Football Manager. Save a new backup copy of your career first and use offline single-player only. Atlas will re-check the exact build, player UID/name and each original byte before writing, then read every field back.\n\nApply {plan.Changes.Count} field(s) to the running FM game now?",
-                        "FM Atlas · Live attribute safety check", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (confirm != MessageBoxResult.Yes) return;
-                    receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(plan));
-                    try
-                    {
-                        await RunDatabaseAsync(() => _database.SavePlayerAttributeBatchAsync(
-                            _selectedPlayer.SourceId,
-                            _selectedPlayer.Name,
-                            changed.Select(item => (item.AttributeName, item.Category, item.Value)).ToArray(),
-                            "FM27 live memory · read-back verified"));
-                        foreach (var item in changed)
-                            await RunDatabaseAsync(() => _database.UpdateLivePlayerFactAsync(uid, "attributes." + item.AttributeName, item.Value));
-                    }
-                    catch { await Task.Run(() => LiveMemoryEditService.UndoBatch(receipt)); throw; }
-                    foreach (var item in changed) item.OriginalValue = item.Value;
-                    AtlasLog.Info($"Live FM27 attribute batch read-back verified: uid={uid}; profile={plan.ProfileId}; fields={plan.Changes.Count}.");
-                    await ShowPlayerProfileAsync(_selectedPlayer);
-                    MessageBox.Show(this, $"FM27 accepted {plan.Changes.Count:N0} live attribute writes and Atlas read each one back successfully. Press Continue in Football Manager to refresh derived displays, then save your career to persist them.", "Live attributes verified", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex) { AtlasLog.Error("Live player attribute write failed or was blocked.", ex); MessageBox.Show(this, ex.Message, "FM Atlas · Live edit stopped", MessageBoxButton.OK, MessageBoxImage.Warning); }
-            });
-            liveSaveAttributes.Margin = new Thickness(0, 8, 0, 0); DockPanel.SetDock(liveSaveAttributes, Dock.Bottom); dock.Children.Add(liveSaveAttributes);
+            var liveAttributeApply = SoftButton("Live attribute Apply unavailable", (_, _) => { });
+            liveAttributeApply.IsEnabled = false;
+            liveAttributeApply.ToolTip = "Live memory writes are not certified. The enabled editor saves changes to the FM Atlas database only.";
+            liveAttributeApply.Margin = new Thickness(0, 8, 0, 0);
+            DockPanel.SetDock(liveAttributeApply, Dock.Bottom);
+            dock.Children.Add(liveAttributeApply);
         }
         Grid.SetRow(editor, 1); root.Children.Add(editor); return root;
     }
@@ -1547,71 +2887,46 @@ public partial class MainWindow : Window
         var panel = Card(new DockPanel(), 15); var dock = (DockPanel)panel.Child;
         var top = new StackPanel();
         top.Children.Add(Txt("AUDIT TRAIL", 9, true, Teal));
-        top.Children.Add(Txt("Edit history & guarded undo", 20, true, Ink));
-        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM entries can request a fresh, guarded inverse write, provided the same career, player and exact game build are still loaded.", 10, false, Muted, wrap: true));
+        top.Children.Add(Txt("Edit history & local undo", 20, true, Ink));
+        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM history entries are retained for audit purposes, but live Undo is disabled in V8.", 10, false, Muted, wrap: true));
         var dg = CreateGrid(); dg.SelectionMode = DataGridSelectionMode.Single;
         dg.Columns.Add(Column("ID", "Id", .35)); dg.Columns.Add(Column("PLAYER", "PlayerName", 1.1)); dg.Columns.Add(Column("FIELD", "FieldName", 1)); dg.Columns.Add(Column("OLD", "OldValue", .6)); dg.Columns.Add(Column("NEW", "NewValue", .6)); dg.Columns.Add(Column("CHANGED", "ChangedUtc", 1)); dg.Columns.Add(Column("SOURCE", "ChangeSource", 1));
         dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
-        top.Children.Add(SoftButton("Undo selected change", async (_, _) =>
+        top.Children.Add(SoftButton("Undo selected local change", async (_, _) =>
         {
-            if (dg.SelectedItem is not AtlasHistoryRecord selected) { MessageBox.Show(this, "Select an edit history row first.", "Undo edit"); return; }
+            if (dg.SelectedItem is not AtlasHistoryRecord selected)
+            {
+                MessageBox.Show(this, "Select an edit history row first.", "Undo edit");
+                return;
+            }
+
             var liveChange = selected.ChangeSource.Contains("FM27 live memory", StringComparison.OrdinalIgnoreCase);
-            if (!liveChange)
+            if (liveChange)
             {
-                var confirmLocal = MessageBox.Show(this, $"Undo local change #{selected.Id} for {selected.PlayerName}?\n\nThis changes the FM Atlas database only, not the live game.", "Confirm local undo", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (confirmLocal != MessageBoxResult.Yes) return;
-                try { await RunDatabaseAsync(() => _database.UndoLocalEditAsync(selected.Id)); AtlasLog.Info($"Local edit history item undone: id={selected.Id}."); }
-                catch (Exception ex) { AtlasLog.Error($"Local edit undo failed for history item {selected.Id}.", ex); MessageBox.Show(this, ex.Message, "Undo failed", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+                MessageBox.Show(this,
+                    "This is a historical live-game entry. Live Apply and Undo are disabled in V8; the record is retained for audit only. No Football Manager process will be written to.",
+                    "FM Atlas · Live undo disabled", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
             }
-            else
+
+            var confirmLocal = MessageBox.Show(this,
+                $"Undo local change #{selected.Id} for {selected.PlayerName}?\\n\\nThis changes the FM Atlas database only, not the live game or source career save.",
+                "Confirm local undo", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (confirmLocal != MessageBoxResult.Yes) return;
+
+            try
             {
-                if (!selected.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase) || !uint.TryParse(selected.SourceId[5..], out var uid))
-                { MessageBox.Show(this, "This history row is marked as a live edit but does not contain a valid LIVE:UID identity. Atlas will not guess which game player to modify.", "Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-                if (!double.TryParse(selected.NewValue, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var expected) || !double.TryParse(selected.OldValue, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var restore))
-                { MessageBox.Show(this, "The old and new values for this live edit are not both numeric. Atlas cannot safely create an inverse write.", "Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-                if (Math.Abs(expected - Math.Round(expected)) > 0.0001 || Math.Abs(restore - Math.Round(restore)) > 0.0001 || expected is < 1 or > 200 || restore is < 1 or > 200)
-                { MessageBox.Show(this, "This live undo value is outside the currently supported whole-number ability/attribute range.", "Live undo blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-                var fieldKey = selected.FieldName switch
-                {
-                    "CurrentAbility" => "ability.current_ability",
-                    "PotentialAbility" => "ability.potential_ability",
-                    _ => selected.FieldName
-                };
-                LiveMemoryEditService.BatchReceipt? receipt = null;
-                try
-                {
-                    var pid = await Task.Run(LiveMemoryEditService.FindSupportedProcessId);
-                    var plan = await Task.Run(() => LiveMemoryEditService.StageBatch(pid, uid, selected.PlayerName,
-                        new[] { new LiveMemoryEditService.Change(fieldKey, (int)Math.Round(expected), (int)Math.Round(restore)) }));
-                    var confirmLive = MessageBox.Show(this,
-                        $"LIVE FM27 UNDO PREVIEW\n\n{selected.PlayerName} · {plan.ProfileId}\n{selected.FieldName}: {expected:0.##} → {restore:0.##}\n\nAtlas has re-resolved the player UID and confirmed that FM currently contains the value recorded as NEW. It will also check that the same career has stayed loaded, then write and read back the old value. Back up your career and use offline single-player only.\n\nApply this inverse write to Football Manager?",
-                        "FM Atlas · Guarded live undo", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (confirmLive != MessageBoxResult.Yes) return;
-                    receipt = await Task.Run(() => LiveMemoryEditService.ApplyBatch(plan));
-                    try
-                    {
-                        await RunDatabaseAsync(() => _database.UndoLocalEditAsync(selected.Id));
-                        var factKey = selected.FieldName switch
-                        {
-                            "CurrentAbility" => "ability.current_ability",
-                            "PotentialAbility" => "ability.potential_ability",
-                            _ => "attributes." + selected.FieldName
-                        };
-                        await RunDatabaseAsync(() => _database.UpdateLivePlayerFactAsync(uid, factKey, restore));
-                    }
-                    catch
-                    {
-                        await Task.Run(() => LiveMemoryEditService.UndoBatch(receipt));
-                        throw;
-                    }
-                    AtlasLog.Info($"Guarded live FM27 undo read-back verified: historyId={selected.Id}; uid={uid}; field={fieldKey}; profile={plan.ProfileId}.");
-                    MessageBox.Show(this, "Football Manager accepted the inverse write and Atlas read the restored value back. Press Continue in FM to refresh derived displays, then save the career if you wish to keep the restoration.", "Live undo verified", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex) { AtlasLog.Error($"Guarded live undo failed for history item {selected.Id}.", ex); MessageBox.Show(this, ex.Message, "Live undo failed or blocked", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+                await RunDatabaseAsync(() => _database.UndoLocalEditAsync(selected.Id));
+                AtlasLog.Info($"Local edit history item undone: id={selected.Id}.");
+                dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
+                await RefreshPlayerResultsAsync();
+                if (_selectedPlayer is not null) await ShowPlayerProfileAsync(_selectedPlayer);
             }
-            dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
-            await RefreshPlayerResultsAsync();
-            if (_selectedPlayer is not null) await ShowPlayerProfileAsync(_selectedPlayer);
+            catch (Exception ex)
+            {
+                AtlasLog.Error($"Local edit undo failed for history item {selected.Id}.", ex);
+                MessageBox.Show(this, ex.Message, "Undo failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }));
         DockPanel.SetDock(top, Dock.Top); dock.Children.Add(top); dock.Children.Add(dg); return panel;
     }
@@ -1665,11 +2980,21 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace((await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync())).SaveValidationJson)) b.Children.Add(Txt("A validation report is stored with the latest snapshot. Reader failures and coverage should be reviewed before relying on the corresponding data.", 10, false, Teal, wrap: true));
         root.Children.Add(bridge);
         var db = Card(new StackPanel(), 16); var d = (StackPanel)db.Child; d.Children.Add(Txt("LOCAL DATA", 9, true, Teal)); d.Children.Add(Txt("Database & safety", 20, true, Ink));
-        d.Children.Add(Txt("Database: %LOCALAPPDATA%\\FmAtlas\\scouting.db", 10, true, Ink)); d.Children.Add(Txt("FM Atlas 27 keeps your existing database. Save imports are stored as versioned snapshots; player attributes are normalized into the local attribute table. The live reader is read-only during discovery. The separately gated live editor currently supports guarded player CA, PA and standard attribute writes only; unsupported fields stay blocked.", 10, false, Muted, wrap: true));
+        d.Children.Add(Txt("Database: %LOCALAPPDATA%\\FmAtlas\\scouting.db", 10, true, Ink)); d.Children.Add(Txt("FM Atlas 27 keeps your existing database. Save imports are stored as versioned snapshots; player attributes are normalized into the local attribute table. The live reader is read-only during discovery. Local Editor Studio changes are stored only in the Atlas database. Live FM Apply/Undo is disabled throughout this V8 build; no game-memory writes are exposed.", 10, false, Muted, wrap: true));
         d.Children.Add(SoftButton("Open FM Atlas data folder", (_, _) => { var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas"); Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true }); })); root.Children.Add(db);
+        var capability = Card(new StackPanel(), 16);
+        var capabilityStack = (StackPanel)capability.Child;
+        capabilityStack.Children.Add(Txt("CAPABILITY & DATA CONFIDENCE", 9, true, Teal));
+        capabilityStack.Children.Add(Txt("What Atlas can safely do today", 20, true, Ink));
+        capabilityStack.Children.Add(Txt("READ-ONLY · Live FM27 process/build/session detection and bounded player, staff and club indexing. Offline save inspection uses the local fmsave reader and does not modify the source save.", 10, false, Muted, wrap: true));
+        capabilityStack.Children.Add(Txt("PROVISIONAL · Live CA/PA, player attributes, positions, personality, staff coaching/preferred-job ratings and manager relationships. Compare these values with the in-game FM27 UI before relying on them.", 10, false, Muted, wrap: true));
+        capabilityStack.Children.Add(Txt("LOCAL ONLY · Editor Studio saves draft CA/PA and attribute changes to the FM Atlas database. These changes do not alter Football Manager.", 10, false, Muted, wrap: true));
+        capabilityStack.Children.Add(Txt("BLOCKED · Live Apply/Undo and direct writes to Football Manager memory are disabled in V8. This is a hard safety gate, not a selectable preference.", 10, true, Brush("#D97736"), wrap: true));
+        root.Children.Add(capability);
+
         var design = Card(new StackPanel(), 16); var ds = (StackPanel)design.Child; ds.Children.Add(Txt("OFFICIAL BRANDING", 9, true, Teal));
         ds.Children.Add(new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Logo.png", UriKind.Absolute)), Height = 150, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 12) });
-        ds.Children.Add(Txt("Obsidian + Swiss Editorial · FM Atlas 27", 20, true, Ink)); ds.Children.Add(Txt("Charcoal surfaces, warm off-white typography, electric-lime focus states, restrained borders, precise spacing and dense editorial layouts.", 10, false, Muted, wrap: true)); root.Children.Add(design);
+        ds.Children.Add(Txt("Monolith Glass · FM Atlas 27", 20, true, Ink)); ds.Children.Add(Txt("Graphite surfaces, warm off-white typography, amber-orange accents, translucent raised cards, restrained shadows and precise editorial layouts.", 10, false, Muted, wrap: true)); root.Children.Add(design);
         var graphics = Card(new StackPanel(), 16); var gs = (StackPanel)graphics.Child;
         gs.Children.Add(Txt("INSTALLED GRAPHICS", 9, true, Teal));
         gs.Children.Add(Txt("Reuse the faces, club logos, competition badges and flags already installed in your Football Manager 27 graphics folder. Atlas reads config.xml mappings and does not bundle or duplicate graphics packs.", 10, false, Muted, wrap: true));
@@ -1701,7 +3026,7 @@ public partial class MainWindow : Window
         var h = (StackPanel)hero.Child;
         h.Children.Add(Txt("FM ATLAS 27 · QUICK START", 10, true, Teal));
         h.Children.Add(Txt("Your career, organised.", 25, true, Ink));
-        h.Children.Add(Txt("A practical guide to FM Atlas 27. The app keeps your local scouting data and save snapshots in place; live editing is available only for the exact supported Windows FM27 build profiles and a narrow set of player fields. It is OFF by default; use a copied offline career and review the Tester & Logs checks before applying changes.", 11, false, Muted, wrap: true));
+        h.Children.Add(Txt("A practical guide to FM Atlas 27. Load your FM27 career and Atlas detects the supported process, build and save generation automatically. The read-only player/staff/club index runs with a two-minute safety limit and a Cancel button; live Apply/Undo remains disabled.", 11, false, Muted, wrap: true));
         h.Children.Add(SoftButton("Open Global Search  ·  Ctrl + F", (_, _) => ShowGlobalSearch()));
         root.Children.Add(hero);
 
@@ -1715,80 +3040,369 @@ public partial class MainWindow : Window
             root.Children.Add(card);
         }
 
-        Section("1 · Connect to a career", "Start Football Manager 27 and load the career you want to inspect.", "Press Load Game to capture the supported live identity information. The live reader imports supported player/club identities, selected CA/PA and 1–20 attribute candidates. Values retain build/source provenance; they are not all independently verified and must be compared with the FM UI.", "For deeper player, staff and club information, choose Import Career Save and select a COPY of your save file. Keep your original save untouched.");
-        Section("2 · Find players", "Press Global Search or Ctrl + F. Choose Players, Staff, Clubs or All records.", "Search by name, club or ID. Use position, age, CA/PA and nationality filters when those values are available.", "Double-click a result or select Open selected record. Player profiles open in their own closable tabs.", "Use Previous and Next in the player directory to browse pages. FM Atlas does not draw tens of thousands of player cards at once.");
+        Section("1 · Detect a career", "Start Football Manager 27 and load your career. Keep FM Atlas open; it automatically indexes the supported live career without asking you to choose a save file.", "Atlas checks the game's save-load generation before and after reading. The scan is profile-bounded, has a two-minute safety limit and can be cancelled from the top toolbar. Loading a different career cancels the current read and starts a fresh snapshot for the new session.", "Use the optional offline read-only save bridge only when you need extended history, match/season statistics, contracts or other fields not included in the live identity scan.");
+        Section("2 · Find people", "Use Global Search, Ctrl + K, Advanced Search or the Players and Staff directories.", "Search imported player and staff records by name, club, nation or UID. In Players, set minimum/maximum CA and PA directly, including signed negative PA ranges, or search by position without a name. CA/PA, attributes and position ratings appear where supplied by the selected source.", "Open a result to inspect facts supplied by the imported save snapshot and existing local database. A missing field remains blank rather than being guessed.", "The player finder is paged and virtualised so large FM databases stay responsive.");
         Section("3 · Read a player profile", "The profile displays attributes in Technical, Set Pieces, Mental, Physical, Goalkeeping and Hidden groups.", "A dash means the source did not supply a value. It is not zero and is never guessed.", "CA/PA and other parsed FM27 fields can be build-dependent and are marked as source-derived. Cross-check values in the game before making decisions.");
-        Section("4 · Clubs and staff", "Open Clubs, search for a club and select it to inspect available club facts and its linked squad.", "Open Staff to browse staff included in the latest imported career snapshot. If no staff records were included, re-export and import a save snapshot.", "Finances, facilities, stadium and contract values are shown only when retained by the parser. Historical money fields must not be treated as current balances without checking their date and unit.");
+        Section("4 · Clubs and staff", "Use the My Club shortcut to open the current human manager's club, or open Clubs to search other teams.", "Open Staff to search live staff identities, including the human manager, CA/PA, club, nation, age and role candidates. Open your manager's profile from the top-toolbar shortcut.", "Finances, facilities, stadium and contract values are shown only when retained by a source. Historical money fields must not be treated as current balances without checking their date and unit.");
         Section("5 · Atlas Assistant", "Use the Assistant for straightforward local queries such as players under a specified age or with an attribute threshold.", "The current assistant is a rule-based search composer, not an external generative AI model. It reports only filters it actually applied.", "For more detailed criteria, use Global Search. Keep the Assistant available as a quick way into the database.");
-        Section("6 · Your data and safety", "The local database is stored at %LOCALAPPDATA%\\FmAtlas\\scouting.db.", "Save imports are versioned snapshots. The importer adds a new snapshot; it does not delete earlier source records.", "Atlas local edits are separate from Football Manager. A separate early live-write path supports CA, PA and 47 visible standard player attributes only for exact supported Windows FM27 profiles; it is OFF by default and requires preview, explicit Apply, session/identity/current-value checks and read-back. Hidden attributes and broader entity editing remain blocked.", "Back up the FmAtlas data folder before major changes or moving the application to another PC.");
+        Section("6 · Your data and safety", "The local database is stored at %LOCALAPPDATA%\\FmAtlas\\scouting.db.", "Live scans are read-only, limited to two minutes and cancellable from the toolbar. A save switch cancels the read and prevents mixed-session records. A successful new live snapshot replaces only the active LIVE player/staff/club facts in one SQLite transaction; offline snapshots, local/CSV records, shortlists and recruitment projects are preserved.", "Live Apply/Undo remains disabled until every writable field and rollback path is independently certified. The first PC test should monitor Football Manager responsiveness and compare provisional CA/PA/attribute values against the in-game UI. Back up the FmAtlas data folder before major changes or moving the application to another PC.");
         Section("7 · Analytics and Mass Edit", "Analytics discovers numeric season/match metrics retained by the latest imported save snapshot. Choose a metric, set minimum/maximum values and search.", "If xG, xA or tackles per 90 are not in the imported source, they will not appear. Atlas does not calculate or invent missing match statistics.", "Mass Edit changes filtered local Atlas player records only. Every changed player is recorded separately in Edit History. Save Atlas checkpoints the local database; it does not save the FM career.");
         Section("8 · Diagnostics", "Use Diagnostics in the top toolbar to export a support report. Check it before sharing because it may include player names, file paths and recent edit history.");
-        Section("Troubleshooting", "If a page appears busy, wait for its progress state to finish. Navigation is locked during a page build to prevent overlapping loads.", "If CA/PA or attributes are blank after Load Game, use Import Career Save from a copy. Identity counts are not the same as complete attribute counts.", "If a club has no squad, verify that a save snapshot was imported and that the club-to-player links are present in the source export.", "After updating, run Build-FM-Atlas-27.bat. The build window must report 0 errors before launching the new executable.");
+        Section("Troubleshooting", "If Atlas cannot connect, confirm FM27 has finished loading a career and that the game build is supported. Close duplicate FM instances if more than one is open.", "If a save changes during indexing, Atlas cancels the old session read and starts the new session after the old worker exits. A two-minute timeout or toolbar Cancel retains the previous snapshot.", "Live CA/PA and attribute mappings remain provisional until compared against the FM UI. Use the optional offline save reader when you need historical or match-stat facts.", "After updating, run Build-FM-Atlas-27.bat. The build window must report 0 errors before launching the new executable.");
         root.Children.Add(SoftButton("Open FM Atlas data folder", (_, _) => { var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas"); Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true }); }));
         return new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = root };
     }
 
-    private async Task LoadLiveCareerAsync()
+    private void StartLiveCareerMonitor()
     {
-        if (_liveLoadButton is not null) { _liveLoadButton.IsEnabled = false; _liveLoadButton.Content = "Loading…"; }
+        if (_liveCareerTimer is not null) return;
+        // Exact-profile/session probe every three seconds. It remains active while the
+        // profile-bounded background importer runs so save switches can cancel it promptly.
+        _liveCareerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _liveCareerTimer.Tick += async (_, _) =>
+        {
+            if (_liveCareerProbeBusy) return;
+            _liveCareerProbeBusy = true;
+            try
+            {
+                var probe = await Task.Run(LiveCareerMonitor.Probe);
+                _currentLiveProbe = probe;
+                if (_liveImportBusy)
+                {
+                    // Keep checking the generation while the worker scans. Cancel promptly
+                    // if FM switches save, exits or changes to an unsupported build.
+                    if (!probe.IsCareerLoaded || !string.Equals(probe.SessionKey, _activeLiveScanSessionKey, StringComparison.Ordinal))
+                        _liveScanCancellation?.Cancel();
+                    return;
+                }
+                if (probe.IsCareerLoaded)
+                {
+                    if (_connectionSummary is not null) _connectionSummary.Text = probe.Status;
+                    if (_connectionDot is not null) _connectionDot.Fill = Brush("#2BA578");
+                    if (LiveMemoryImportEnabled)
+                    {
+                        var isNewSession = !string.Equals(_lastAttemptedLiveSession, probe.SessionKey, StringComparison.Ordinal);
+                        var retryDue = DateTime.UtcNow >= _nextLiveRetryUtc;
+                        if (isNewSession || retryDue)
+                        {
+                            // Let this monitor tick finish while the read-only worker runs.
+                            // Later ticks continue checking save generation and can cancel after a switch.
+                            _ = LoadLiveCareerAsync(probe, automatic: true);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // Detect process/build/save-generation changes without scanning the
+                        // large player/staff/club arrays. Avoid retrying the paused import every tick.
+                        _lastAttemptedLiveSession = probe.SessionKey;
+                        _nextLiveRetryUtc = DateTime.MaxValue;
+                        if (_liveLoadStatus is not null)
+                            _liveLoadStatus.Text = "Career detected · starting bounded player/staff/club index…";
+                    }
+                }
+                else if (probe.IsGameRunning)
+                {
+                    if (_connectionSummary is not null) _connectionSummary.Text = probe.Status;
+                    if (_connectionDot is not null) _connectionDot.Fill = Brush(probe.IsSupportedBuild ? "#D8A34A" : "#C7797B");
+                }
+                else
+                {
+                    // A closed game must never leave the previous career's manager displayed as current.
+                    _lastAttemptedLiveSession = null;
+                    _nextLiveRetryUtc = DateTime.MinValue;
+                    if (_connectionSummary is not null &&
+                        (_connectionSummary.Text.StartsWith("FM27", StringComparison.OrdinalIgnoreCase)
+                         || _connectionSummary.Text.StartsWith("Live FM27", StringComparison.OrdinalIgnoreCase)
+                         || _connectionSummary.Text.StartsWith("Waiting for Football Manager", StringComparison.OrdinalIgnoreCase)))
+                        _connectionSummary.Text = "FM27 is not running · your local Atlas database remains available.";
+                    if (_connectionDot is not null) _connectionDot.Fill = Brush("#C7797B");
+                }
+            }
+            catch (Exception ex)
+            {
+                AtlasLog.Warning("The automatic FM27 career check failed: " + ex.Message);
+                _nextLiveRetryUtc = DateTime.UtcNow.AddSeconds(30);
+            }
+            finally { _liveCareerProbeBusy = false; }
+        };
+        _liveCareerTimer.Start();
+    }
+
+    private bool IsCurrentLiveCareer(WorkspaceMetrics metrics)
+        => LiveMemoryImportEnabled
+           && _currentLiveProbe is { IsCareerLoaded: true } probe
+           && probe.MatchesSession(_lastImportedLiveSessionKey)
+           && metrics.LiveSaveLoadCounter.HasValue
+           && metrics.LiveSaveLoadCounter.Value == checked((long)probe.SaveLoadCounter);
+
+    private async Task OpenMyManagerAsync()
+    {
+        _currentLiveProbe = await Task.Run(LiveCareerMonitor.Probe);
+        var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+        if (!IsCurrentLiveCareer(metrics))
+        {
+            MessageBox.Show(this, "The current live career has not finished indexing yet. Keep FM27 open while the cancellable scan completes, or use Connect / Refresh to retry. The manager shortcut is enabled once this career's staff record is available.", "Manager not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(metrics.CurrentManager))
+        {
+            MessageBox.Show(this, "Atlas has not uniquely identified the human manager in the connected career yet. Search the Staff directory or reconnect after the save finishes loading.", "Manager not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        _pendingStaffSearchQuery = metrics.CurrentManager;
+        await NavigateAsync("Staff");
+    }
+
+    private async Task OpenMyClubAsync()
+    {
+        _currentLiveProbe = await Task.Run(LiveCareerMonitor.Probe);
+        var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+        if (!IsCurrentLiveCareer(metrics))
+        {
+            MessageBox.Show(this, "The current live career has not finished indexing yet. Keep FM27 open while the cancellable scan completes, or use Connect / Refresh to retry. The My Club shortcut is enabled once the manager's current club is available.", "Club not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(metrics.CurrentManagerClub))
+        {
+            MessageBox.Show(this, "Atlas has not identified the human manager's club yet. Check that the live staff scan has completed.", "Club not available", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        _pendingClubSearchQuery = metrics.CurrentManagerClub;
+        await NavigateAsync("Clubs");
+    }
+
+    private async Task LoadLiveCareerAsync(LiveCareerProbe? expectedSession = null, bool automatic = false)
+    {
+        if (!LiveMemoryImportEnabled)
+        {
+            if (!automatic) ShowLiveScanPaused();
+            return;
+        }
+        if (_liveImportBusy || _saveImportCancellation is not null) return;
+        var session = expectedSession ?? await Task.Run(LiveCareerMonitor.Probe);
+        if (!session.IsCareerLoaded)
+        {
+            if (_connectionSummary is not null) _connectionSummary.Text = session.Status;
+            if (!automatic)
+                MessageBox.Show(this, session.Status + "\n\nLoad a supported FM27 career and Atlas will connect automatically.", "FM Atlas · Connect career", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        _liveImportBusy = true;
+        BeginBackgroundOperation("FM27 live-career scan");
+        _liveScanCancelledByUser = false;
+        _activeLiveScanSessionKey = session.SessionKey;
+        _lastAttemptedLiveSession = session.SessionKey;
+        _nextLiveRetryUtc = DateTime.UtcNow.AddMinutes(5);
+        using var scanCancellation = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        _liveScanCancellation = scanCancellation;
+        if (_liveLoadButton is not null) _liveLoadButton.IsEnabled = false;
+        if (_cancelImportButton is not null)
+        {
+            _cancelImportButton.IsEnabled = true;
+            _cancelImportButton.Visibility = Visibility.Visible;
+        }
         if (_liveLoadProgress is not null) { _liveLoadProgress.Visibility = Visibility.Visible; _liveLoadProgress.IsIndeterminate = true; }
-        if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connecting to Football Manager · validating supported build…";
+        if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connecting to the loaded FM27 career · checking save generation…";
+        if (_connectionSummary is not null) _connectionSummary.Text = session.Status;
         try
         {
             await Dispatcher.Yield(DispatcherPriority.Background);
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Reading career identities and relationships…";
-            AtlasLog.Info("Starting read-only live identity scan.");
-            var payload = await Task.Run(LiveDataImporter.Extract);
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Writing validated snapshot to local database…";
-            var result = await RunDatabaseAsync(() => _database.ImportLiveSnapshotAsync(payload));
-            AtlasLog.Info($"Live profile import completed: slots={result.PlayersSeen}, named={result.PlayersImported}, clubs={result.ClubsImported}, attributeFacts={result.AttributeRowsImported}, unreadable={result.UnnamedPlayers}, unresolvedLinks={result.UnlinkedPlayers}.");
-            RefreshConnectionStatus();
+            var scanProgress = new Progress<string>(message =>
+            {
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = message;
+            });
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Reading players, staff, clubs and your manager… (2-minute safety limit; Cancel available)";
+            AtlasLog.Info($"Starting bounded read-only FM27 live scan: pid={session.ProcessId}; profile={session.ProfileId}; saveLoadCounter={session.SaveLoadCounter}; maximumDuration=00:02:00.");
+            var payload = await Task.Run(() => LiveDataImporter.Extract(session, scanCancellation.Token, scanProgress, TimeSpan.FromMinutes(2)));
+            scanCancellation.Token.ThrowIfCancellationRequested();
+            scanCancellation.Token.ThrowIfCancellationRequested();
+            var beforeCommitProbe = await Task.Run(LiveCareerMonitor.Probe);
+            if (!beforeCommitProbe.MatchesSession(session.SessionKey))
+                throw new OperationCanceledException("FM27 changed career before Atlas could publish the live snapshot.", scanCancellation.Token);
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Saving live career snapshot and manager context to Atlas…";
+            var result = await RunDatabaseAsync(() => _database.ImportLiveSnapshotAsync(payload, scanCancellation.Token));
+            scanCancellation.Token.ThrowIfCancellationRequested();
+            var afterCommitProbe = await Task.Run(LiveCareerMonitor.Probe);
+            _currentLiveProbe = afterCommitProbe;
+            if (!afterCommitProbe.MatchesSession(session.SessionKey))
+            {
+                // A career may change in the narrow gap after SQLite commit. Do not present
+                // the just-committed old session as the active career; the next monitor tick
+                // immediately starts the new generation and replaces the LIVE snapshot.
+                _lastAttemptedLiveSession = null;
+                _nextLiveRetryUtc = DateTime.MinValue;
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Career changed after indexing. Refreshing the new FM27 session…";
+                AtlasLog.Warning("The FM27 career changed during snapshot publication; the monitor will immediately index the new session.");
+                return;
+            }
+            _lastImportedLiveSessionKey = session.SessionKey;
+            AtlasLog.Info($"Live career import completed: players={result.PlayersImported:N0}/{result.PlayersSeen:N0}; staff={result.StaffImported:N0}/{result.StaffSeen:N0}; clubs={result.ClubsImported:N0}; player facts={result.AttributeRowsImported:N0}; session={session.SessionKey}.");
+            _nextLiveRetryUtc = DateTime.MaxValue;
             await RefreshCareerStatusAsync();
-            MessageBox.Show(this, $"FM27 live profile snapshot imported.\n\nPlayer slots scanned: {result.PlayersSeen:N0}\nNamed players: {result.PlayersImported:N0}\nClubs: {result.ClubsImported:N0}\nRange-valid attribute/personality rows stored: {result.AttributeRowsImported:N0}\nUnreadable player slots: {result.UnnamedPlayers:N0}\nUnresolved club links: {result.UnlinkedPlayers:N0}\n\nImportant: the module profile matched exactly, but CA/PA and attribute offsets are still provisional field mappings. They are visible in Atlas for comparison with the in-game UI, not certified as safe live-edit targets. Staff, contract, match-stat and club-finance live extraction remain separate work.", "FM Atlas · Live career import", MessageBoxButton.OK, MessageBoxImage.Information);
-            await NavigateAsync("Dashboard");
+            if (_liveLoadStatus is not null)
+                _liveLoadStatus.Text = $"Connected · {result.PlayersImported:N0} players · {result.StaffImported:N0} staff · {result.ClubsImported:N0} clubs";
+            if (!automatic)
+            {
+                var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+                var managerLine = string.IsNullOrWhiteSpace(metrics.CurrentManager)
+                    ? "Human manager: not uniquely identified"
+                    : $"Your manager: {metrics.CurrentManager}\nClub: {metrics.CurrentManagerClub ?? "unavailable"} · Nation: {metrics.CurrentManagerNation ?? "unavailable"}";
+                MessageBox.Show(this,
+                    $"FM27 career connected successfully.\n\n{managerLine}\n\nPlayers: {result.PlayersImported:N0}\nStaff: {result.StaffImported:N0}\nClubs: {result.ClubsImported:N0}\nPlayer attribute facts: {result.AttributeRowsImported:N0}\n\nThe scan is read-only. Live CA/PA and attribute mappings are still provisional until compared with the FM UI. Live editing remains disabled.",
+                    "FM Atlas · Career connected", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            if (!automatic && string.Equals(_activePage, "Dashboard", StringComparison.OrdinalIgnoreCase))
+                await NavigateAsync("Dashboard");
+        }
+        catch (OperationCanceledException)
+        {
+            var sessionChanged = _currentLiveProbe is null
+                || !string.Equals(_currentLiveProbe.SessionKey, session.SessionKey, StringComparison.Ordinal);
+            if (_liveScanCancelledByUser)
+            {
+                _lastAttemptedLiveSession = session.SessionKey;
+                _nextLiveRetryUtc = DateTime.MaxValue;
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Live scan cancelled. Your previous snapshot remains intact; use Connect / Refresh to try again.";
+            }
+            else if (sessionChanged)
+            {
+                _lastAttemptedLiveSession = null;
+                _nextLiveRetryUtc = DateTime.MinValue;
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Career changed during scan. Discarded the partial read; connecting to the newly loaded career.";
+            }
+            else
+            {
+                _nextLiveRetryUtc = DateTime.UtcNow.AddMinutes(5);
+                if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Live scan reached its 2-minute safety limit. Previous snapshot retained; use Connect / Refresh to retry.";
+            }
+            AtlasLog.Warning("The live career scan was cancelled or reached its safety deadline. No partial snapshot was committed.");
         }
         catch (Exception ex)
         {
-            AtlasLog.Error("Live identity import failed; no import committed.", ex);
-            MessageBox.Show(this, "No live import was committed.\n\n" + ex.Message, "FM Atlas · Live import stopped safely", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AtlasLog.Error("Live career import failed; no partial snapshot was committed. Atlas will retry after a five-minute cooldown.", ex);
+            _nextLiveRetryUtc = DateTime.UtcNow.AddMinutes(5);
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Connection stopped safely · retry scheduled · " + ex.Message;
+            if (_connectionSummary is not null) _connectionSummary.Text = "FM27 connection stopped safely · " + ex.Message;
+            if (!automatic)
+                MessageBox.Show(this, "No live snapshot was committed. Atlas will keep your existing local data.\n\n" + ex.Message,
+                    "FM Atlas · Connection stopped safely", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
-            if (_liveLoadButton is not null) { _liveLoadButton.IsEnabled = true; _liveLoadButton.Content = "Reload Game"; }
+            _liveImportBusy = false;
+            _activeLiveScanSessionKey = null;
+            if (ReferenceEquals(_liveScanCancellation, scanCancellation)) _liveScanCancellation = null;
+            if (_saveImportCancellation is null && _cancelImportButton is not null)
+            {
+                _cancelImportButton.IsEnabled = false;
+                _cancelImportButton.Visibility = Visibility.Collapsed;
+            }
+            if (_liveLoadButton is not null) _liveLoadButton.IsEnabled = true;
             if (_liveLoadProgress is not null) { _liveLoadProgress.IsIndeterminate = false; _liveLoadProgress.Visibility = Visibility.Collapsed; }
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Ready · profile-matched live identity + provisional player field snapshot";
+            EndBackgroundOperation();
         }
     }
 
     private async Task ImportCareerSaveAsync()
     {
+        if (_saveImportCancellation is not null || _liveImportBusy) return;
         var open = new OpenFileDialog { Title = "Select a COPY of your Football Manager career save", Filter = "Football Manager saves (*.fm;*.fmf;*.dat)|*.fm;*.fmf;*.dat|All files (*.*)|*.*", CheckFileExists = true };
         if (open.ShowDialog(this) != true) return;
         if (!await FmsaveBridgeService.IsAvailableAsync())
         {
-            var answer = MessageBox.Show(this, "The local save reader is not installed. Run Setup-FMAtlas-Save-Bridge.ps1 from the extracted FM Atlas folder, then restart the app.\n\nWould you like to open the setup script's folder?", "Save bridge not installed", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            var answer = MessageBox.Show(this, "The local save reader is missing or out of date. FM Atlas requires fmsave 0.12.4 or newer. Run Setup-FMAtlas-Save-Bridge.ps1 from the extracted FM Atlas folder, then restart the app.\n\nWould you like to open the setup script's folder?", "Save bridge not installed", MessageBoxButton.YesNo, MessageBoxImage.Information);
             if (answer == MessageBoxResult.Yes) Process.Start(new ProcessStartInfo("explorer.exe", AppContext.BaseDirectory) { UseShellExecute = true });
             return;
         }
-        var confirmation = MessageBox.Show(this, "For safety, select a COPY of your career save, not your only save file. The parser is read-only, but the game may continue saving while you are browsing.\n\nProceed with a local, offline snapshot?", "Import career snapshot", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var confirmation = MessageBox.Show(this, "For safety, select a COPY of your career save, not your only save file. The parser is read-only.\n\nProceed with a local, offline snapshot?", "Import career snapshot", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (confirmation != MessageBoxResult.Yes) return;
+
+        using var cancellation = new CancellationTokenSource();
+        var importTimer = Stopwatch.StartNew();
+        _saveImportCancellation = cancellation;
+        BeginBackgroundOperation("Offline FM career save import");
+        if (_cancelImportButton is not null)
+        {
+            _cancelImportButton.Visibility = Visibility.Visible;
+            _cancelImportButton.IsEnabled = true;
+        }
+        if (_liveLoadProgress is not null)
+        {
+            _liveLoadProgress.Visibility = Visibility.Visible;
+            _liveLoadProgress.IsIndeterminate = true;
+            _liveLoadProgress.Value = 0;
+        }
+        void SetImportStatus(string message)
+        {
+            if (_liveLoadStatus is not null) _liveLoadStatus.Text = message;
+        }
+        var progress = new Progress<string>(message =>
+        {
+            SetImportStatus(message);
+            AtlasLog.Info("Save import: " + message);
+        });
+        string? temporarySnapshotPath = null;
+
         try
         {
-            Mouse.OverrideCursor = Cursors.Wait;
+            SetImportStatus("Starting read-only save inspection…");
             AtlasLog.Info("Starting read-only FM career save export/import.");
-            var result = await FmsaveBridgeService.ExportAsync(open.FileName);
-            var imported = await RunDatabaseAsync(() => _database.ImportFmsaveSnapshotAsync(result.OutputJsonPath));
+            var result = await FmsaveBridgeService.ExportAsync(open.FileName, cancellation.Token, progress);
+            temporarySnapshotPath = result.OutputPath;
+            cancellation.Token.ThrowIfCancellationRequested();
+            SetImportStatus("Save inspection complete. Streaming table rows into the Atlas snapshot…");
+            var imported = await RunDatabaseAsync(() => _database.ImportFmsaveSnapshotAsync(result.OutputPath, cancellation.Token, progress));
+            cancellation.Token.ThrowIfCancellationRequested();
             AtlasLog.Info($"Career snapshot import completed: players={imported.PlayersImported}, staff={imported.StaffImported}, clubs={imported.ClubsImported}, extraRows={imported.ExtraRowsImported}, warnings={imported.Warnings.Count}.");
             var warnings = imported.Warnings.Count == 0 ? "No adapter warnings were reported." : string.Join("\n", imported.Warnings.Take(8));
+            importTimer.Stop();
+            SetImportStatus($"Career snapshot imported in {importTimer.Elapsed:hh\\:mm\\:ss}.");
             MessageBox.Show(this, $"Career save snapshot imported.\n\nPlayers: {imported.PlayersImported:N0}\nStaff: {imported.StaffImported:N0}\nClubs: {imported.ClubsImported:N0}\nAdditional table rows retained: {imported.ExtraRowsImported:N0}\n\n{warnings}\n\nThe source save was read-only; no game process or save was modified.", "FM Atlas · Save snapshot complete", MessageBoxButton.OK, MessageBoxImage.Information);
-            RefreshConnectionStatus(); await RefreshCareerStatusAsync(); await NavigateAsync("Dashboard");
+            RefreshConnectionStatus();
+            await RefreshCareerStatusAsync();
+            await NavigateAsync("Dashboard");
+        }
+        catch (OperationCanceledException)
+        {
+            AtlasLog.Info("FM career save import cancelled; an uncommitted snapshot transaction was discarded.");
+            importTimer.Stop();
+            SetImportStatus($"Import cancelled after {importTimer.Elapsed:hh\\:mm\\:ss}. Existing published snapshots remain available.");
+            MessageBox.Show(this, "The import was cancelled safely. Any uncommitted snapshot transaction was rolled back; your previous imported career snapshot is retained.", "FM Atlas · Import cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             AtlasLog.Error("FM career save import failed.", ex);
+            importTimer.Stop();
+            SetImportStatus($"Import failed after {importTimer.Elapsed:hh\\:mm\\:ss}. The previous published snapshot remains available.");
             MessageBox.Show(this, "The save snapshot was not imported.\n\n" + ex.Message, "FM Atlas · Save import error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        finally { Mouse.OverrideCursor = null; }
+        finally
+        {
+            importTimer.Stop();
+            if (!string.IsNullOrWhiteSpace(temporarySnapshotPath))
+            {
+                try
+                {
+                    if (Directory.Exists(temporarySnapshotPath)) Directory.Delete(temporarySnapshotPath, recursive: true);
+                    else if (File.Exists(temporarySnapshotPath)) File.Delete(temporarySnapshotPath);
+                }
+                catch (Exception ex) { AtlasLog.Warning("Could not remove temporary save snapshot bundle: " + ex.Message); }
+            }
+            if (_liveLoadProgress is not null)
+            {
+                _liveLoadProgress.IsIndeterminate = false;
+                _liveLoadProgress.Visibility = Visibility.Collapsed;
+            }
+            if (_cancelImportButton is not null)
+            {
+                _cancelImportButton.IsEnabled = false;
+                _cancelImportButton.Visibility = Visibility.Collapsed;
+            }
+            _saveImportCancellation = null;
+            EndBackgroundOperation();
+        }
     }
 
     private void RunSaveBridgeSetup()
@@ -1802,7 +3416,7 @@ public partial class MainWindow : Window
     {
         var status = GameProcessDetector.Detect();
         if (_connectionDot is not null) _connectionDot.Fill = Brush(status.MemoryReadVerified ? "#2BA578" : status.IsRunning ? "#D8A34A" : "#C7797B");
-        if (_connectionSummary is not null) _connectionSummary.Text = status.Detail + (status.MemoryReadVerified ? " · memory probe only; full career import remains separately gated" : "");
+        if (_connectionSummary is not null) _connectionSummary.Text = status.Detail + (status.MemoryReadVerified ? " · waiting for FM27 save-generation verification" : "");
     }
 
 
@@ -1810,11 +3424,22 @@ public partial class MainWindow : Window
     {
         if (_connectionSummary is null) return;
         var metrics = await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync());
+        if (IsCurrentLiveCareer(metrics))
+        {
+            _connectionSummary.Text = !string.IsNullOrWhiteSpace(metrics.CurrentManager)
+                ? $"Live FM27 career · {metrics.CurrentManager} · {metrics.CurrentManagerClub ?? "club unavailable"} · {metrics.CurrentManagerNation ?? "nation unavailable"} · player/staff field mappings remain provisional."
+                : $"Live FM27 career connected · {metrics.LivePlayers:N0} players / {metrics.LiveStaff:N0} staff · human manager not uniquely identified.";
+            if (_connectionDot is not null) _connectionDot.Fill = Brush("#2BA578");
+            return;
+        }
         if (!string.IsNullOrWhiteSpace(metrics.SaveBuild))
         {
             var buildStatus = metrics.SaveBuildKnown == true ? "registered parser layout" : metrics.SaveBuildKnown == false ? "unregistered parser layout" : "parser layout status unknown";
-            _connectionSummary.Text = $"Local career snapshot loaded · {metrics.SaveGame ?? "Football Manager"} {metrics.SaveBuild} · {metrics.SaveGameDate ?? "date unknown"} · {buildStatus}. FM27 field meanings remain unconfirmed.";
+            _connectionSummary.Text = $"Local career snapshot loaded · {metrics.SaveGame ?? "Football Manager"} {metrics.SaveBuild} · {metrics.SaveGameDate ?? "date unknown"} · {buildStatus}.";
+            return;
         }
+        if (metrics.LivePlayers > 0)
+            _connectionSummary.Text = $"Cached FM27 live index · {metrics.LivePlayers:N0} player identities · waiting for a currently loaded career.";
     }
 
     private async Task AddSelectedToShortlistAsync()
@@ -1850,9 +3475,26 @@ public partial class MainWindow : Window
         var rows = await RunDatabaseAsync(() => _database.GetShortlistAsync(name));
         var save = new SaveFileDialog { Filter = "CSV file (*.csv)|*.csv", FileName = $"{SanitizeFileName(name)}.csv" };
         if (save.ShowDialog(this) != true) return;
-        static string Escape(string? value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
-        var lines = new[] { "Player,Club,Position,SourceId,Notes" }.Concat(rows.Select(x => string.Join(',', Escape(x.PlayerName), Escape(x.DisplayClub), Escape(x.DisplayPosition), Escape(x.SourceId), Escape(x.Notes))));
-        await File.WriteAllLinesAsync(save.FileName, lines);
+        static string Escape(string? value)
+        {
+            var text = value ?? "";
+            var trimmed = text.TrimStart();
+            if (trimmed.Length > 0 && trimmed[0] is '=' or '+' or '-' or '@') text = "'" + text;
+            return "\"" + text.Replace("\"", "\"\"") + "\"";
+        }
+        var lines = new List<string>
+        {
+            "Player,Club,Position,Stage,Priority,TargetFeeSourceUnits,TargetWageSourceUnits,NextAction,ReviewDate,SourceId,Notes"
+        };
+        lines.AddRange(rows.Select(x => string.Join(",", new[]
+        {
+            Escape(x.PlayerName), Escape(x.DisplayClub), Escape(x.DisplayPosition),
+            Escape(x.Stage), Escape(x.Priority),
+            x.TargetFee?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "",
+            x.TargetWage?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "",
+            Escape(x.NextAction), Escape(x.ReviewDate), Escape(x.SourceId), Escape(x.Notes)
+        })));
+        await File.WriteAllLinesAsync(save.FileName, lines, new System.Text.UTF8Encoding(true));
         MessageBox.Show(this, $"Exported {rows.Count:N0} shortlist entries.", "Export complete");
     }
 
@@ -1874,7 +3516,7 @@ public partial class MainWindow : Window
 
     private static void AddAbilityTile(Grid grid, int column, string label, string value)
     {
-        var border = new Border { Background = Brush("#EAF2F9"), CornerRadius = new CornerRadius(11), Padding = new Thickness(10), Margin = new Thickness(0, 7, 6, 7) };
+        var border = new Border { Background = Brush("#EAF2F9"), CornerRadius = new CornerRadius(0), Padding = new Thickness(10), Margin = new Thickness(0, 7, 6, 7) };
         var stack = new StackPanel(); stack.Children.Add(Txt(label, 8, true, Muted)); stack.Children.Add(Txt(value, 20, true, Ink)); border.Child = stack; Grid.SetColumn(border, column); grid.Children.Add(border);
     }
 
@@ -1888,16 +3530,66 @@ public partial class MainWindow : Window
     {
         var stack = new StackPanel { Margin = new Thickness(0, 5, 0, 5) };
         var row = new Grid(); row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); row.Children.Add(Txt(name.Replace('_', ' ').Replace('.', ' '), 10, true, Ink)); var val = Txt(value.ToString("0.#"), 11, true, Ink); Grid.SetColumn(val, 1); row.Children.Add(val); stack.Children.Add(row);
-        var track = new Border { Background = Brush("#D9E7F1"), Height = 6, CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 5, 0, 0), Child = new Border { Background = Brush(value >= 15 ? "#277BB9" : value >= 11 ? "#E5A65D" : "#D77B7E"), HorizontalAlignment = HorizontalAlignment.Left, Width = Math.Clamp(value, 0, 20) * 12.0, CornerRadius = new CornerRadius(4) } };
+        var track = new Border { Background = Brush("#D9E7F1"), Height = 6, CornerRadius = new CornerRadius(0), Margin = new Thickness(0, 5, 0, 0), Child = new Border { Background = Brush(value >= 15 ? "#277BB9" : value >= 11 ? "#E5A65D" : "#D77B7E"), HorizontalAlignment = HorizontalAlignment.Left, Width = Math.Clamp(value, 0, 20) * 12.0, CornerRadius = new CornerRadius(0) } };
         stack.Children.Add(track); return new Border { Child = stack };
     }
 
     private static DataGrid CreateGrid()
     {
-        var grid = new DataGrid { AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false, CanUserSortColumns = true, HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal, HorizontalGridLinesBrush = Brush("#E1E9EF"), Background = Brush("#171F28"), RowBackground = Brush("#171F28"), AlternatingRowBackground = Brush("#202A35"), BorderThickness = new Thickness(0), RowHeight = 38, FontSize = 11, Foreground = Brush("#25435E"), SelectionMode = DataGridSelectionMode.Single, SelectionUnit = DataGridSelectionUnit.FullRow, EnableRowVirtualization = true, EnableColumnVirtualization = true, FontFamily = new FontFamily("Segoe UI") };
-        VirtualizingPanel.SetIsVirtualizing(grid, true); VirtualizingPanel.SetVirtualizationMode(grid, VirtualizationMode.Recycling); ScrollViewer.SetCanContentScroll(grid, true);
-        grid.ColumnHeaderHeight = 36; grid.Margin = new Thickness(0, 2, 0, 0);
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false, IsReadOnly = true, CanUserAddRows = false, CanUserSortColumns = true,
+            HeadersVisibility = DataGridHeadersVisibility.Column, GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+            HorizontalGridLinesBrush = Brush("#303943"), Background = Brush("#171F28"), RowBackground = Brush("#171F28"),
+            AlternatingRowBackground = Brush("#202A35"), BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1),
+            RowHeight = 40, FontSize = 11, Foreground = Ink, SelectionMode = DataGridSelectionMode.Single,
+            SelectionUnit = DataGridSelectionUnit.FullRow, EnableRowVirtualization = true,
+            EnableColumnVirtualization = true, FontFamily = new FontFamily("Segoe UI")
+        };
+
+        // Shared glass-compatible table treatment keeps dense scouting data crisp.
+        var rowStyle = new Style(typeof(DataGridRow));
+        rowStyle.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
+        rowStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#171F28")));
+        rowStyle.Setters.Add(new Setter(Control.BorderBrushProperty, Brush("#303943")));
+        rowStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0, 0, 0, 1)));
+        rowStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(5, 0, 5, 0)));
+        var rowHover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+        rowHover.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#202A35")));
+        rowStyle.Triggers.Add(rowHover);
+        var rowSelected = new Trigger { Property = DataGridRow.IsSelectedProperty, Value = true };
+        rowSelected.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#483022")));
+        rowSelected.Setters.Add(new Setter(Control.BorderBrushProperty, Teal));
+        rowStyle.Triggers.Add(rowSelected);
+        grid.RowStyle = rowStyle;
+
+        var headerStyle = new Style(typeof(DataGridColumnHeader));
+        headerStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#202A35")));
+        headerStyle.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
+        headerStyle.Setters.Add(new Setter(Control.BorderBrushProperty, Brush("#303943")));
+        headerStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0, 0, 0, 1)));
+        headerStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 7, 9, 7)));
+        headerStyle.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+        headerStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Left));
+        grid.ColumnHeaderStyle = headerStyle;
+
+        var cellStyle = new Style(typeof(DataGridCell));
+        cellStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+        cellStyle.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
+        cellStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
+        cellStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(3, 0, 3, 0)));
+        var cellSelected = new Trigger { Property = DataGridCell.IsSelectedProperty, Value = true };
+        cellSelected.Setters.Add(new Setter(Control.BackgroundProperty, Brush("#483022")));
+        cellSelected.Setters.Add(new Setter(Control.ForegroundProperty, Ink));
+        cellStyle.Triggers.Add(cellSelected);
+        grid.CellStyle = cellStyle;
+
+        VirtualizingPanel.SetIsVirtualizing(grid, true);
+        VirtualizingPanel.SetVirtualizationMode(grid, VirtualizationMode.Recycling);
+        ScrollViewer.SetCanContentScroll(grid, true);
         ScrollViewer.SetIsDeferredScrollingEnabled(grid, true);
+        grid.ColumnHeaderHeight = 38;
+        grid.Margin = new Thickness(0, 2, 0, 0);
         return grid;
     }
 
@@ -1905,63 +3597,236 @@ public partial class MainWindow : Window
         => new() { Header = header, Binding = new Binding(property), Width = new DataGridLength(weight, DataGridLengthUnitType.Star), ElementStyle = new Style(typeof(TextBlock)) { Setters = { new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center), new Setter(TextBlock.MarginProperty, new Thickness(7, 0, 5, 0)), new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis) } } };
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
-        => new() { Background = Brush("#F8FCFA"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(radius), Padding = new Thickness(15), Margin = margin ?? new Thickness(0), Child = child };
+    {
+        // Flat instrument panels: no decorative gradient, glass, shadow or rounded-card treatment.
+        // Keep the original direct-child contract used by existing workspaces.
+        return new Border
+        {
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(0),
+            Padding = new Thickness(15),
+            Margin = margin ?? new Thickness(0),
+            SnapsToDevicePixels = true,
+            Child = child
+        };
+    }
 
     private static TextBlock Txt(string text, double size, bool bold, Brush foreground, bool wrap = false)
-        => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
+        => new() { Text = text, FontSize = Math.Max(10.5, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = MonolithDesignSystem.BodyFont };
 
     private static TextBox Input(string placeholder)
-        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#FBFDFF"), Foreground = Brush("#1A3851"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 12 };
+        => MonolithDesignSystem.TextInput(placeholder, 12.5);
 
-    private static TextBlock FieldLabel(string label) => Txt(label, 9, true, Muted);
+    private static TextBlock FieldLabel(string label) => Txt(label, 10.5, true, Muted);
 
     private static Button SoftButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(13, 8, 13, 8), Margin = new Thickness(3), Background = Brush("#EFF5FA"), Foreground = Brush("#365F83"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
-        button.Click += click; return button;
+        var button = new Button
+        {
+            Content = content,
+            Padding = new Thickness(13, 8, 13, 8),
+            Margin = new Thickness(3),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceRaised),
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Border),
+            BorderThickness = new Thickness(1),
+            FontFamily = MonolithDesignSystem.BodyFont,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            Focusable = true,
+            Template = RoundedButtonTemplate(11)
+        };
+        button.Click += click;
+        return button;
     }
 
     private static Button PrimaryButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#2D75B6"), Foreground = Brush("#0D1117"), BorderBrush = Brush("#C6F36B"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
-        button.Click += click; return button;
+        var button = new Button
+        {
+            Content = content,
+            Padding = new Thickness(15, 9, 15, 9),
+            Margin = new Thickness(3),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
+            Foreground = MonolithDesignSystem.Solid("#17110D"),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
+            BorderThickness = new Thickness(1),
+            FontFamily = MonolithDesignSystem.BodyFont,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            Focusable = true,
+            Template = RoundedButtonTemplate(11)
+        };
+        button.Click += click;
+        return button;
     }
 
     private static Button WhiteButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(13, 9, 13, 9), Margin = new Thickness(3), Background = Brush("#F6FCFA"), Foreground = Brush("#205F91"), BorderBrush = Brush("#D3E9E4"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
-        button.Click += click; return button;
+        var button = new Button
+        {
+            Content = content,
+            Padding = new Thickness(13, 9, 13, 9),
+            Margin = new Thickness(3),
+            Background = MonolithDesignSystem.Solid(MonolithDesignSystem.Surface),
+            Foreground = MonolithDesignSystem.Solid(MonolithDesignSystem.Text),
+            BorderBrush = MonolithDesignSystem.Solid(MonolithDesignSystem.Signal),
+            BorderThickness = new Thickness(1),
+            FontFamily = MonolithDesignSystem.BodyFont,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            Focusable = true,
+            Template = RoundedButtonTemplate(11)
+        };
+        button.Click += click;
+        return button;
     }
 
     private static ControlTemplate RoundedButtonTemplate(double radius)
     {
         var template = new ControlTemplate(typeof(Button));
-        var border = new FrameworkElementFactory(typeof(Border)); border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
-        border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty)); border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty)); border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Control.BorderThicknessProperty)); border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(Control.PaddingProperty));
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center); presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center); border.AppendChild(presenter); template.VisualTree = border; return template;
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.Name = "AtlasButtonSurface";
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(0));
+        border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
+        border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty));
+        border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Control.BorderThicknessProperty));
+        border.SetValue(Border.PaddingProperty, new TemplateBindingExtension(Control.PaddingProperty));
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(presenter);
+        template.VisualTree = border;
+
+        var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.SurfaceHover), "AtlasButtonSurface"));
+        hover.Setters.Add(new Setter(Border.BorderBrushProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal), "AtlasButtonSurface"));
+        template.Triggers.Add(hover);
+
+        var pressed = new Trigger { Property = ButtonBase.IsPressedProperty, Value = true };
+        pressed.Setters.Add(new Setter(UIElement.OpacityProperty, 0.78, "AtlasButtonSurface"));
+        template.Triggers.Add(pressed);
+
+        var focused = new Trigger { Property = UIElement.IsKeyboardFocusedProperty, Value = true };
+        focused.Setters.Add(new Setter(Border.BorderBrushProperty, MonolithDesignSystem.Solid(MonolithDesignSystem.Signal), "AtlasButtonSurface"));
+        focused.Setters.Add(new Setter(Border.BorderThicknessProperty, new Thickness(2), "AtlasButtonSurface"));
+        template.Triggers.Add(focused);
+
+        var disabled = new Trigger { Property = UIElement.IsEnabledProperty, Value = false };
+        disabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.42, "AtlasButtonSurface"));
+        template.Triggers.Add(disabled);
+        return template;
+    }
+
+    private static string LoadThemeMode()
+    {
+        try
+        {
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas", "theme.txt");
+            var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "Monolith Glass";
+            return value is "Monolith Glass" or "Glass Light" or "Studio" or "Glass Dark" ? value : "Monolith Glass";
+        }
+        catch { return "Monolith Glass"; }
     }
 
     private static Brush Brush(string hex)
     {
-        // Central compatibility map: legacy page tokens are rendered in the Obsidian palette.
-        var mapped = hex.ToUpperInvariant() switch
+        var key = hex.ToUpperInvariant();
+        string mapped;
+        if (_themeMode == "Glass Light")
         {
-            "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" => "#E8EEF4",
-            "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#C6F36B",
-            "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9EADB9",
-            "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#303943",
-            "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#171F28",
-            "#EEF4F8" or "#EEF4F9" or "#EAF1F5" => "#0D1117",
-            "#151B22" => "#111820",
-            "#1C242E" or "#EFF5FA" or "#EAF2F9" => "#202A35",
-            "#D9E7F1" or "#DCE5ED" or "#DCE8F2" or "#B7E5E0" => "#35424E",
-            "#F8E8E9" or "#EBD5A7" or "#EED8AA" or "#FFF4DE" or "#FFF5E4" or "#F8F0DF" => "#30291D",
-            "#A54E55" or "#B44B52" or "#B94A48" or "#D77B7E" => "#F08C96",
-            "#176B46" or "#2F825D" or "#37875A" or "#4F9B70" => "#8BCFA6",
-            "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24" or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A" => "#E6C477",
-            "#B45B2F" => "#E6A06E",
-            _ => hex
-        };
+            mapped = key switch
+            {
+                "#E8EEF4" => "#172B40",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" => "#D97736",
+                "#294765" => "#FCE9DC",
+                "#9EADB9" => "#657A8F",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#D1DDE8",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#FFFFFF",
+                "#0D1117" or "#111820" => "#EEF3F8",
+                "#171F28" or "#202A35" or "#1C242E" or "#151B22" => "#E5EDF5",
+                "#35424E" => "#CAD7E4",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" => "#D97736",
+                "#F08C96" => "#C34D68",
+                "#8BCFA6" => "#34845C",
+                "#E6C477" => "#A87822",
+                _ => key
+            };
+        }
+        else if (_themeMode == "Monolith Glass")
+        {
+            mapped = key switch
+            {
+                "#E8EEF4" or "#E8F0FA" or "#C4CED8" => "#F1F0ED",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" or "#79BDEB" => "#F28C45",
+                "#294765" => "#33251E",
+                "#9EADB9" => "#9A9CA2",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#34363B",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#1B1D21",
+                "#0D1117" or "#111820" => "#0C0D10",
+                "#171F28" or "#202A35" or "#1C242E" or "#151B22" => "#17191D",
+                "#35424E" => "#303238",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" or "#F29A5C" or "#D97736" => "#F28C45",
+                "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" or "#344656" => "#F1F0ED",
+                "#2A669C" or "#356C98" or "#536B7E" or "#75B9E7" or "#77BCE8" or "#9DC8EF" or "#A9D7F7" => "#F7A46A",
+                "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#A3A5AA",
+                "#D9E7F1" or "#DCE5ED" or "#EAF1F5" or "#E5EDF5" or "#EEF4F8" or "#EEF4F9" or "#F1F6FC" => "#272A2F",
+                "#EBD5A7" or "#FFF4DE" or "#FFF5E4" => "#46351F",
+                "#F8E8E9" => "#3B2528",
+                "#F08C96" => "#F08C96",
+                "#8BCFA6" => "#72C698",
+                "#E6C477" => "#E6BE70",
+                _ => key
+            };
+        }
+        else if (_themeMode == "Studio")
+        {
+            mapped = key switch
+            {
+                "#E8EEF4" => "#E8F0FA",
+                "#C6F36B" or "#D5E5C3" => "#F29A5C",
+                "#9EADB9" => "#91A4BA",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#2B3A50",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#111D2C",
+                "#0D1117" => "#070E18",
+                "#111820" or "#171F28" => "#0C1726",
+                "#202A35" or "#1C242E" => "#18263A",
+                "#35424E" => "#26364D",
+                "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" => "#F29A5C",
+                "#F08C96" => "#F18EAA",
+                "#8BCFA6" => "#70C99C",
+                "#E6C477" => "#E5BD72",
+                _ => key
+            };
+        }
+        else
+        {
+            mapped = key switch
+            {
+                "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" => "#E8EEF4",
+                "#C6F36B" => "#F08A42",
+                "#D5E5C3" => "#FFD0AA",
+                "#087F91" or "#2D75B6" or "#2D8A63" or "#3988C8" or "#205F91" or "#237C62" or "#2A669C" or "#356C98" or "#277BB9" or "#16845D" or "#4BA6A8" => "#F08A42",
+                "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9EADB9",
+                "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#303943",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#171F28",
+                "#EEF4F8" or "#EEF4F9" or "#EAF1F5" => "#0D1117",
+                "#151B22" => "#111820",
+                "#1C242E" or "#EFF5FA" or "#EAF2F9" => "#202A35",
+                "#D9E7F1" or "#DCE5ED" or "#DCE8F2" or "#B7E5E0" => "#35424E",
+                "#F8E8E9" or "#EBD5A7" or "#EED8AA" or "#FFF4DE" or "#FFF5E4" or "#F8F0DF" => "#30291D",
+                "#A54E55" or "#B44B52" or "#B94A48" or "#D77B7E" => "#F08C96",
+                "#176B46" or "#2F825D" or "#37875A" or "#4F9B70" => "#8BCFA6",
+                "#D9A44D" or "#78591F" or "#84612B" or "#8B622C" or "#94652A" or "#A06B24" or "#A46E2B" or "#A56D22" or "#C47B32" or "#D18A3A" => "#E6C477",
+                "#B45B2F" => "#E6A06E",
+                _ => key
+            };
+        }
         return new SolidColorBrush((Color)ColorConverter.ConvertFromString(mapped));
     }
     private static string Initials(string name)

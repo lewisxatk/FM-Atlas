@@ -101,7 +101,7 @@ public partial class MainWindow
             if (results.Count == 0) { MessageBox.Show(this, "Run Value Finder before exporting.", "FM Atlas · Value Finder"); return; }
             var dialog = new SaveFileDialog { Title = "Export value finder", FileName = "FM-Atlas-value-finder.csv", Filter = "CSV files (*.csv)|*.csv" };
             if (dialog.ShowDialog(this) != true) return;
-            static string Q(string? v) => "\"" + (v ?? "").Replace("\"", "\"\"") + "\"";
+            static string Q(string? v) => CsvExportSafety.QuoteText(v);
             var lines = new List<string> { "ValueIndex,AbilityPercentile,MarketValuePercentile,PotentialUpside,Player,Club,Age,Position,CA,PA,TransferValueSourceUnits,Nation,SourceId" };
             lines.AddRange(results.Select(x => string.Join(",", x.ValueIndex.ToString("0.0", CultureInfo.InvariantCulture), x.AbilityPercentile.ToString("0.0", CultureInfo.InvariantCulture), x.MarketValuePercentile.ToString("0.0", CultureInfo.InvariantCulture), x.PotentialUpside, Q(x.Player.Name), Q(x.Player.Club), x.Player.Age?.ToString(CultureInfo.InvariantCulture) ?? "", Q(x.Player.Position), x.Player.CurrentAbility?.ToString() ?? "", x.Player.PotentialAbility?.ToString() ?? "", x.Player.Value?.ToString(CultureInfo.InvariantCulture) ?? "", Q(x.Player.Nation), Q(x.Player.SourceId))));
             File.WriteAllLines(dialog.FileName, lines, new UTF8Encoding(true));

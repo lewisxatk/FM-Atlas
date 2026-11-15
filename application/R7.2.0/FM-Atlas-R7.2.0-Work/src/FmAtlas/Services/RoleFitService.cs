@@ -1,7 +1,24 @@
 namespace FmAtlas.Services;
 
-public sealed record RoleFitProfile(string Name, string Phase, string PositionGroup, string Description, IReadOnlyDictionary<string, double> Weights);
-public sealed record RoleFitCandidate(string SourceId, string Name, string? Club, int? Age, string? Position, int? CurrentAbility, int? PotentialAbility, double Score, int AttributesAvailable, int AttributesExpected, double Coverage);
+public sealed record RoleFitProfile(string Name, string Phase, string PositionGroup, string Description, IReadOnlyDictionary<string, double> Weights, bool IsCustom = false, RoleFitSearchFilters? SavedFilters = null);
+public sealed record RoleFitAttributeContribution(string Attribute, double Value, double Weight, double WeightedPoints, double ShareOfTotal);
+
+public sealed record RoleFitCandidate(string SourceId, string Name, string? Club, int? Age, string? Position, int? CurrentAbility, int? PotentialAbility, double Score, int AttributesAvailable, int AttributesExpected, double Coverage, IReadOnlyList<RoleFitAttributeContribution>? Contributions = null)
+{
+    public string EvidenceSummary => Contributions is null || Contributions.Count == 0
+        ? "No attribute evidence"
+        : string.Join(" · ", Contributions.Take(4).Select(x => $"{x.Attribute} {x.Value:0.#}"));
+}
+public sealed record RoleFitSearchFilters(
+    int? MinimumAge = null,
+    int? MaximumAge = null,
+    int? MinimumCurrentAbility = null,
+    int? MinimumPotentialAbility = null,
+    string? PositionContains = null,
+    double MinimumCoverage = 0.5,
+    int ResultLimit = 250);
+public sealed record RoleFitScore(double Score, int AttributesAvailable, int AttributesExpected, double Coverage, IReadOnlyList<RoleFitAttributeContribution> Contributions);
+public sealed record RoleFitProfileMatch(RoleFitProfile Profile, RoleFitScore Score);
 
 /// <summary>
 /// Transparent coaching-style role estimates. These are not Sports Interactive's hidden role formula
@@ -38,6 +55,95 @@ public static class RoleFitService
         new("Pressing Midfielder", "Out of Possession", "Midfielder", "Front-foot pressure, ball recovery and repeat running.", W(("Work Rate",2),("Stamina",2),("Aggression",1.5),("Tackling",1.5),("Anticipation",1.5),("Teamwork",1.5),("Bravery",1),("Positioning",1))),
         new("Screening Midfielder", "Out of Possession", "Midfielder", "Protect the central space and disrupt passing lanes.", W(("Positioning",2.5),("Anticipation",2),("Concentration",1.5),("Decisions",1.5),("Teamwork",1.5),("Tackling",1.5),("Work Rate",1),("Strength",.5)))
     };
+
+    /// <summary>
+    /// Computes an explainable weighted mean from source-provided 1–20 attributes only.
+    /// Missing, non-finite and out-of-range values are excluded; coverage is reported separately.
+    /// This is an Atlas estimate, not the game's hidden role formula or star rating.
+    /// </summary>
+    public static RoleFitScore? CalculateScore(
+        RoleFitProfile profile,
+        IReadOnlyDictionary<string, double> attributes,
+        double minimumCoverage = 0.5)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(attributes);
+        if (!double.IsFinite(minimumCoverage) || minimumCoverage is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(minimumCoverage), "Coverage must be between 0 and 1.");
+
+        var weights = profile.Weights
+            .Where(x => double.IsFinite(x.Value) && x.Value > 0)
+            .GroupBy(x => NormalizeAttributeKey(x.Key), StringComparer.OrdinalIgnoreCase)
+            .Select(x => new { Key = x.Key, Label = x.First().Key, Weight = x.Sum(v => v.Value) })
+            .Where(x => x.Key.Length > 0 && x.Weight > 0)
+            .ToList();
+        if (weights.Count == 0) return null;
+
+        var values = attributes
+            .Where(x => double.IsFinite(x.Value) && x.Value is >= 1 and <= 20)
+            .GroupBy(x => NormalizeAttributeKey(x.Key), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Last().Value, StringComparer.OrdinalIgnoreCase);
+
+        double weightedTotal = 0;
+        double availableWeight = 0;
+        var available = 0;
+        var evidence = new List<(string Attribute, double Value, double Weight, double WeightedPoints)>();
+        foreach (var weight in weights)
+        {
+            if (!values.TryGetValue(weight.Key, out var value)) continue;
+            var points = value * weight.Weight;
+            weightedTotal += points;
+            availableWeight += weight.Weight;
+            available++;
+            evidence.Add((weight.Label, value, weight.Weight, points));
+        }
+
+        var coverage = available / (double)weights.Count;
+        if (available == 0 || availableWeight <= 0 || coverage < minimumCoverage) return null;
+        var contributions = evidence
+            .Select(x => new RoleFitAttributeContribution(x.Attribute, x.Value, x.Weight, x.WeightedPoints,
+                weightedTotal > 0 ? x.WeightedPoints / weightedTotal : 0))
+            .OrderByDescending(x => x.WeightedPoints)
+            .ThenBy(x => x.Attribute, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return new RoleFitScore(weightedTotal / availableWeight, available, weights.Count, coverage, contributions);
+    }
+
+    private static string NormalizeAttributeKey(string value)
+    {
+        var separator = value.LastIndexOf(" · ", StringComparison.Ordinal);
+        var attribute = separator >= 0 ? value[(separator + 3)..] : value;
+        return new(attribute.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+    }
+
+    /// <summary>
+    /// Ranks built-in and locally saved custom role templates against one player's actual
+    /// source-backed attributes. This is an Atlas estimate, not Football Manager's role rating.
+    /// </summary>
+    public static IReadOnlyList<RoleFitProfileMatch> RankProfilesForPlayer(
+        IReadOnlyDictionary<string, double> attributes,
+        IEnumerable<RoleFitProfile>? additionalProfiles = null,
+        double minimumCoverage = 0.5,
+        int limit = 6)
+    {
+        ArgumentNullException.ThrowIfNull(attributes);
+        if (!double.IsFinite(minimumCoverage) || minimumCoverage is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(minimumCoverage));
+
+        return GetProfiles()
+            .Concat(additionalProfiles ?? Array.Empty<RoleFitProfile>())
+            .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.Name))
+            .GroupBy(x => x.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .Select(profile => new { Profile = profile, Score = CalculateScore(profile, attributes, minimumCoverage) })
+            .Where(x => x.Score is not null)
+            .OrderByDescending(x => x.Score!.Score)
+            .ThenByDescending(x => x.Score!.Coverage)
+            .ThenBy(x => x.Profile.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Clamp(limit, 1, 100))
+            .Select(x => new RoleFitProfileMatch(x.Profile, x.Score!))
+            .ToList();
+    }
 
     public static IReadOnlyList<RoleFitProfile> GetProfiles() => Profiles;
 }

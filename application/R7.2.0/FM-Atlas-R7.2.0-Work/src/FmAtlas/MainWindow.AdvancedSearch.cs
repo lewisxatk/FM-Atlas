@@ -26,13 +26,16 @@ public partial class MainWindow
         var title = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 12));
         var titleStack = (StackPanel)title.Child;
         titleStack.Children.Add(Txt("PERFORMANCE INTELLIGENCE", 9, true, Teal));
-        titleStack.Children.Add(Txt("Statistical Search Lab", 25, true, Ink));
-        titleStack.Children.Add(Txt("Build multi-condition searches across every numeric field discovered in the imported FM career snapshot. Grouped by role-relevant area, with optional per-90 normalisation and minutes thresholds. Fields only appear when the reader actually supplied them.", 11, false, Muted, wrap: true));
+        titleStack.Children.Add(Txt("Scouting Matrix", 25, true, Ink));
+        titleStack.Children.Add(Txt("A reusable recruitment workspace: combine multiple performance metrics, normalise eligible counting stats per 90, enforce a minutes floor, save scouting profiles and reuse them against the current imported career. Only source-present fields are offered.", 11, false, Muted, wrap: true));
         stack.Children.Add(title);
 
         var metricFields = await RunDatabaseAsync(() => _database.GetSeasonMetricCatalogAsync());
         var filterRows = new List<StatFilterUiRow>();
         var resultRows = new List<StatSearchResult>();
+        var savedProfiles = ScoutingProfileStore.LoadAll().ToList();
+        var profileName = Input("Scouting profile name"); profileName.Width = 190;
+        var profilePicker = new ComboBox { Width = 220, Height = 34, Margin = new Thickness(3), ItemsSource = savedProfiles, DisplayMemberPath = nameof(ScoutingProfile.Name), IsTextSearchEnabled = true, ToolTip = "Reusable multi-metric scouting profiles stored locally." };
         Button findButton = null!;
         Button importViewButton = null!;
         DataGrid grid = null!;
@@ -47,6 +50,11 @@ public partial class MainWindow
         var options = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
         var per90 = new CheckBox { Content = "Calculate per 90 minutes", Foreground = Brush("#DCE5ED"), FontSize = 11, Margin = new Thickness(0, 5, 18, 0), VerticalAlignment = VerticalAlignment.Center };
         var minMinutes = Input("Minimum minutes"); minMinutes.Text = "450"; minMinutes.Width = 135; minMinutes.Margin = new Thickness(0, 0, 8, 0);
+        var matchLogic = new ComboBox { Width = 160, Height = 34, FontSize = 10, Margin = new Thickness(0, 0, 8, 0), ToolTip = "Choose whether every condition must match (AND) or any condition may match (OR)." };
+        matchLogic.Items.Add("All conditions (AND)");
+        matchLogic.Items.Add("Any condition (OR)");
+        matchLogic.SelectedIndex = 0;
+        options.Children.Add(matchLogic);
         options.Children.Add(per90);
         options.Children.Add(FilterControl("PER-90 SAMPLE FLOOR", minMinutes, 150));
         var addButton = SoftButton("＋ Add metric condition", (_, _) => AddFilterRow());
@@ -54,9 +62,16 @@ public partial class MainWindow
         var resetButton = SoftButton("Reset", (_, _) => { filterRows.Clear(); filterPanel.Children.Clear(); AddFilterRow(); status.Text = "Conditions cleared."; });
         var exportButton = SoftButton("Export CSV", (_, _) => ExportResults());
         importViewButton = SoftButton("Import FM View CSV", async (_, _) => await ImportViewCsvAsync());
-        options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton);
+        var performanceValueButton = SoftButton("Performance vs Value", async (_, _) =>
+            await PerformanceValueAnalysisWindow.ShowAsync(this, _database, metricFields));
+        options.Children.Add(addButton); options.Children.Add(findButton); options.Children.Add(resetButton); options.Children.Add(exportButton); options.Children.Add(importViewButton); options.Children.Add(performanceValueButton);
+        options.Children.Add(profileName);
+        options.Children.Add(profilePicker);
+        options.Children.Add(SoftButton("Save profile", (_, _) => SaveCurrentProfile()));
+        options.Children.Add(SoftButton("Load profile", (_, _) => LoadSelectedProfile()));
+        options.Children.Add(SoftButton("Delete profile", (_, _) => DeleteSelectedProfile()));
         controlStack.Children.Add(options);
-        controlStack.Children.Add(Txt("CONDITIONS · ALL CONDITIONS MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
+        controlStack.Children.Add(Txt("CONDITIONS · CHOOSE WHETHER ALL OR ANY CONDITION MUST MATCH THE SAME PLAYER AND PERIOD", 8, true, Muted));
         controlStack.Children.Add(Txt("The catalogue combines every numeric metric found in the latest imported save plus any FM View Exporter CSV you import. To capture more columns, add them to an in-game player view before exporting; FM's own view export has a practical column ceiling.", 9, false, Muted, wrap: true));
         controlStack.Children.Add(filterPanel);
         controlStack.Children.Add(status);
@@ -92,8 +107,17 @@ public partial class MainWindow
             field.GroupStyle.Add(new GroupStyle { HeaderTemplate = new DataTemplate { VisualTree = groupHeader } });
             var min = Input("Min"); min.Width = 90; min.Height = 34; min.Margin = new Thickness(0, 0, 7, 0);
             var max = Input("Max"); max.Width = 90; max.Height = 34; max.Margin = new Thickness(0, 0, 7, 0);
-            if (key is not null) field.SelectedItem = metricFields.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
-            if (field.SelectedIndex < 0) field.SelectedIndex = 0;
+            if (key is not null)
+            {
+                var matchingField = metricFields.FirstOrDefault(x => x.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+                if (matchingField is null)
+                {
+                    status.Text = $"Saved metric '{key}' is not present in the currently imported career. It has not been replaced with a different field.";
+                    return;
+                }
+                field.SelectedItem = matchingField;
+            }
+            else field.SelectedIndex = 0;
             if (minValue.HasValue) min.Text = minValue.Value.ToString(CultureInfo.InvariantCulture);
             if (maxValue.HasValue) max.Text = maxValue.Value.ToString(CultureInfo.InvariantCulture);
             var container = new Border { Background = Brush("#1C242E"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(8), Margin = new Thickness(0, 0, 0, 5) };
@@ -122,17 +146,69 @@ public partial class MainWindow
             if (criteria.Count == 0) { status.Text = "Add at least one metric condition with a minimum or maximum."; return; }
             if (per90.IsChecked == true && (!int.TryParse(minMinutes.Text, out var sample) || sample < 1)) { status.Text = "Enter a valid minimum minutes sample."; return; }
             var minSample = int.TryParse(minMinutes.Text, out var value) ? Math.Clamp(value, 1, 10000) : 450;
+            var matchAll = matchLogic.SelectedIndex == 0;
             findButton.IsEnabled = false; Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
             status.Text = "Searching imported player-season and player-match records…";
             try
             {
-                resultRows = await RunDatabaseAsync(() => _database.SearchSeasonStatCriteriaAsync(criteria, per90.IsChecked == true, minSample, 5000));
+                resultRows = await RunDatabaseAsync(() => _database.SearchSeasonStatCriteriaAsync(criteria, per90.IsChecked == true, minSample, 5000, matchAll));
                 grid.ItemsSource = resultRows;
-                status.Text = $"{resultRows.Count:N0} matching player-period rows · {criteria.Count} condition(s) · {(per90.IsChecked == true ? $"per 90, minimum {minSample:N0} minutes" : "raw source values")} · source fields retained with their original metric keys.";
-                AtlasLog.Info($"Advanced stats search completed: fields={criteria.Count}; per90={per90.IsChecked == true}; results={resultRows.Count}.");
+                status.Text = $"{resultRows.Count:N0} matching player-period rows · {(matchAll ? "ALL / AND" : "ANY / OR")} of {criteria.Count} condition(s) · {(per90.IsChecked == true ? $"per 90, minimum {minSample:N0} minutes" : "raw source values")} · source fields retained with their original metric keys.";
+                AtlasLog.Info($"Advanced stats search completed: fields={criteria.Count}; matchAll={matchAll}; per90={per90.IsChecked == true}; results={resultRows.Count}.");
             }
             catch (Exception ex) { AtlasLog.Error("Advanced stats search failed.", ex); status.Text = "Statistics search failed: " + ex.Message; }
             finally { findButton.IsEnabled = true; Mouse.OverrideCursor = null; }
+        }
+
+        void SaveCurrentProfile()
+        {
+            try
+            {
+                var requirements = new List<ScoutingMetricRequirement>();
+                foreach (var row in filterRows)
+                {
+                    if (row.Field.SelectedItem is not StatMetricField field) continue;
+                    var hasMin = double.TryParse(row.Minimum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var lower);
+                    var hasMax = double.TryParse(row.Maximum.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var upper);
+                    if (!hasMin && !hasMax) continue;
+                    if (hasMin && hasMax && lower > upper) { status.Text = $"Minimum cannot exceed maximum for {field.DisplayName}."; return; }
+                    if (per90.IsChecked == true && !field.SupportsPer90) { status.Text = $"{field.DisplayName} cannot be normalised per 90."; return; }
+                    requirements.Add(new ScoutingMetricRequirement(field.Key, field.DisplayName, hasMin ? lower : null, hasMax ? upper : null, per90.IsChecked == true));
+                }
+                if (requirements.Count == 0) { status.Text = "Add at least one metric condition before saving a profile."; return; }
+                var name = profileName.Text.Trim();
+                if (name.Length == 0) { status.Text = "Enter a name for this scouting profile."; profileName.Focus(); return; }
+                var minutes = int.TryParse(minMinutes.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMinutes) ? Math.Clamp(parsedMinutes, 1, 10000) : 450;
+                var profile = new ScoutingProfile(Guid.NewGuid().ToString("N"), name, DateTime.UtcNow, requirements,
+                    ScoutingCohortBasis.Overall, MinimumMinutes: minutes, MinimumSampleSize: 1, MinimumDataCoverage: 0, ResultLimit: 500);
+                ScoutingProfileStore.Save(profile);
+                savedProfiles = ScoutingProfileStore.LoadAll().ToList();
+                profilePicker.ItemsSource = savedProfiles;
+                profilePicker.SelectedItem = savedProfiles.FirstOrDefault(x => x.Id == profile.Id);
+                status.Text = $"Saved '{profile.Name}' with {requirements.Count} metric requirement(s). Profiles are stored locally and can be reused in this career.";
+            }
+            catch (Exception ex) { status.Text = "Could not save scouting profile: " + ex.Message; }
+        }
+
+        void LoadSelectedProfile()
+        {
+            if (profilePicker.SelectedItem is not ScoutingProfile profile) { status.Text = "Choose a saved scouting profile first."; return; }
+            filterRows.Clear(); filterPanel.Children.Clear();
+            foreach (var requirement in profile.Requirements)
+                AddFilterRow(requirement.MetricKey, requirement.Minimum, requirement.Maximum);
+            per90.IsChecked = profile.Requirements.All(x => x.UsePer90);
+            minMinutes.Text = profile.MinimumMinutes.ToString("0", CultureInfo.InvariantCulture);
+            profileName.Text = profile.Name;
+            status.Text = $"Loaded '{profile.Name}'. Review the conditions, then run the search against the currently imported career snapshot.";
+        }
+
+        void DeleteSelectedProfile()
+        {
+            if (profilePicker.SelectedItem is not ScoutingProfile profile) { status.Text = "Choose a saved scouting profile first."; return; }
+            if (!ScoutingProfileStore.Delete(profile.Id)) { status.Text = "The selected profile could not be found on disk."; return; }
+            savedProfiles = ScoutingProfileStore.LoadAll().ToList();
+            profilePicker.ItemsSource = savedProfiles;
+            status.Text = $"Deleted local profile '{profile.Name}'.";
         }
 
         async Task ImportViewCsvAsync()
@@ -145,7 +221,7 @@ public partial class MainWindow
                 importViewButton.IsEnabled = false;
                 var imported = await RunDatabaseAsync(() => _database.ImportFmViewExporterCsvAsync(dialog.FileName));
                 AtlasLog.Info($"FM View Exporter CSV imported: import={imported.ImportId}; rows={imported.RowsImported}; players={imported.PlayersCreated}; {imported.Note}.");
-                await NavigateAsync("Stats Search");
+                await NavigateAsync("Scouting Matrix");
             }
             catch (Exception ex)
             {
@@ -207,7 +283,12 @@ public partial class MainWindow
         var builder = Card(new StackPanel(), 16, new Thickness(0, 0, 0, 10));
         var builderStack = (StackPanel)builder.Child;
         var search = Input("Optional player, club, nation or UID search"); search.Width = 280; search.Margin = new Thickness(0, 0, 8, 0);
+        var matchLogic = new ComboBox { Width = 160, Height = 34, FontSize = 10, Margin = new Thickness(0, 6, 8, 0), ToolTip = "Choose whether every attribute condition must match (AND) or any one may match (OR)." };
+        matchLogic.Items.Add("All conditions (AND)");
+        matchLogic.Items.Add("Any condition (OR)");
+        matchLogic.SelectedIndex = 0;
         var top = new WrapPanel(); top.Children.Add(FilterControl("OPTIONAL NAME / CLUB", search, 290));
+        top.Children.Add(FilterControl("MATCH LOGIC", matchLogic, 170));
         top.Children.Add(SoftButton("＋ Add attribute", (_, _) => AddFilterRow()));
         findButton = PrimaryButton("Find players", async (_, _) => await RunSearchAsync());
         top.Children.Add(findButton);
@@ -220,7 +301,7 @@ public partial class MainWindow
         presets.Children.Add(SoftButton("Ball Winner", (_, _) => ApplyPreset(new[] { ("tackling", 15d), ("work_rate", 14d), ("stamina", 14d), ("aggression", 12d), ("anticipation", 13d) })));
         presets.Children.Add(SoftButton("Elite Goalkeeper", (_, _) => ApplyPreset(new[] { ("reflexes", 15d), ("handling", 14d), ("one_on_ones", 14d), ("aerial_reach", 14d), ("command_of_area", 13d) })));
         builderStack.Children.Add(presets);
-        builderStack.Children.Add(Txt("ATTRIBUTE CONDITIONS · RATE EACH REQUIREMENT FROM 1 TO 20 · ALL CONDITIONS MATCH", 8, true, Muted));
+        builderStack.Children.Add(Txt("ATTRIBUTE CONDITIONS · RATE EACH REQUIREMENT FROM 1 TO 20 · MATCH LOGIC ABOVE", 8, true, Muted));
         builderStack.Children.Add(filterPanel);
         builderStack.Children.Add(status);
         pageStack.Children.Add(builder);
@@ -270,14 +351,15 @@ public partial class MainWindow
                 criteria.Add(new AttributeSearchCriterion(field.Key, field.Label, hasMin ? lower : null, hasMax ? upper : null));
             }
             if (criteria.Count == 0) { status.Text = "Add at least one attribute condition and set its minimum or maximum."; return; }
+            var matchAll = matchLogic.SelectedIndex == 0;
             findButton.IsEnabled = false; Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
-            status.Text = $"Searching players for {criteria.Count} simultaneous attribute conditions…";
+            status.Text = $"Searching players using {(matchAll ? "ALL" : "ANY")} of {criteria.Count} attribute conditions…";
             try
             {
-                resultRows = await RunDatabaseAsync(() => _database.SearchPlayerAttributeCriteriaAsync(search.Text, criteria, 5000));
+                resultRows = await RunDatabaseAsync(() => _database.SearchPlayerAttributeCriteriaAsync(search.Text, criteria, 5000, matchAll));
                 grid.ItemsSource = resultRows;
-                status.Text = $"{resultRows.Count:N0} player matches · {criteria.Count} conditions · source: latest imported FM save / local scouting facts.";
-                AtlasLog.Info($"Multi-attribute search completed: conditions={criteria.Count}; results={resultRows.Count}.");
+                status.Text = $"{resultRows.Count:N0} player matches · {(matchAll ? "ALL / AND" : "ANY / OR")} of {criteria.Count} conditions · source: latest imported FM save / local scouting facts.";
+                AtlasLog.Info($"Multi-attribute search completed: conditions={criteria.Count}; matchAll={matchAll}; results={resultRows.Count}.");
             }
             catch (Exception ex) { AtlasLog.Error("Multi-attribute search failed.", ex); status.Text = "Attribute search failed: " + ex.Message; }
             finally { findButton.IsEnabled = true; Mouse.OverrideCursor = null; }

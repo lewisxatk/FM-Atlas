@@ -19,8 +19,8 @@ public sealed class GlobalSearchWindow : Window
 {
     private static readonly Brush Ink = BrushOf("#E8EEF4");
     private static readonly Brush Muted = BrushOf("#9EADB9");
-    private static readonly Brush Teal = BrushOf("#C6F36B");
-    private static readonly Brush Line = BrushOf("#303943");
+    private static readonly Brush Teal = BrushOf("#F08A42");
+    private static readonly Brush Line = BrushOf("#3A3E45");
     private readonly ScoutDatabase _database;
     private readonly Action<GlobalSearchHit> _openRecord;
     private readonly ObservableCollection<GlobalSearchHit> _results = new();
@@ -70,7 +70,7 @@ public sealed class GlobalSearchWindow : Window
         MinWidth = 880;
         MinHeight = 580;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = BrushOf("#0D1117");
+        Background = BrushOf("#151719");
         Foreground = Ink;
         FontFamily = new FontFamily("Segoe UI");
         Build();
@@ -104,7 +104,7 @@ public sealed class GlobalSearchWindow : Window
         title.Children.Add(Text("Search players, staff and clubs without loading the full database into the workspace.", 12, false, Muted));
         root.Children.Add(title);
 
-        var filters = new Border { Background = BrushOf("#171F28"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(15), Padding = new Thickness(14), Margin = new Thickness(0, 0, 0, 12) };
+        var filters = new Border { Background = BrushOf("#1B1D22"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(15), Padding = new Thickness(14), Margin = new Thickness(0, 0, 0, 12) };
         var filterGrid = new Grid();
         filterGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         filterGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -115,7 +115,7 @@ public sealed class GlobalSearchWindow : Window
         Grid.SetRow(_query, 0); Grid.SetColumn(_query, 0); _query.Height = 42; _query.Margin = new Thickness(0, 0, 8, 8); filterGrid.Children.Add(_query);
         var allTypes = Text("Search all types", 11, true, Teal); allTypes.VerticalAlignment = VerticalAlignment.Center; allTypes.Margin = new Thickness(8, 0, 8, 8);
         Grid.SetRow(allTypes, 0); Grid.SetColumn(allTypes, 1); filterGrid.Children.Add(allTypes);
-        _searchButton.Background = Teal; _searchButton.Foreground = BrushOf("#0D1117"); _searchButton.BorderBrush = Teal; _searchButton.FontWeight = FontWeights.SemiBold; _searchButton.Cursor = Cursors.Hand;
+        _searchButton.Background = Teal; _searchButton.Foreground = BrushOf("#151719"); _searchButton.BorderBrush = Teal; _searchButton.FontWeight = FontWeights.SemiBold; _searchButton.Cursor = Cursors.Hand;
         Grid.SetRow(_searchButton, 0); Grid.SetColumn(_searchButton, 2); filterGrid.Children.Add(_searchButton);
 
         var advanced = new WrapPanel { Margin = new Thickness(0, 2, 0, 0) };
@@ -157,9 +157,9 @@ public sealed class GlobalSearchWindow : Window
         var footer = new DockPanel { Margin = new Thickness(0, 12, 0, 0) };
         _status.Text = "Ready · enter a search term to begin"; _status.Foreground = Muted; _status.VerticalAlignment = VerticalAlignment.Center;
         DockPanel.SetDock(_status, Dock.Left); footer.Children.Add(_status);
-        var close = new Button { Content = "Close", Padding = new Thickness(16, 8, 16, 8), Background = BrushOf("#171F28"), Foreground = Ink, BorderBrush = Line, Cursor = Cursors.Hand };
+        var close = new Button { Content = "Close", Padding = new Thickness(16, 8, 16, 8), Background = BrushOf("#1B1D22"), Foreground = Ink, BorderBrush = Line, Cursor = Cursors.Hand };
         close.Click += (_, _) => Close(); DockPanel.SetDock(close, Dock.Right); footer.Children.Add(close);
-        var open = new Button { Content = "Open selected record", Padding = new Thickness(16, 8, 16, 8), Background = Teal, Foreground = BrushOf("#0D1117"), BorderBrush = Teal, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 8, 0), Cursor = Cursors.Hand };
+        var open = new Button { Content = "Open selected record", Padding = new Thickness(16, 8, 16, 8), Background = Teal, Foreground = BrushOf("#151719"), BorderBrush = Teal, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 8, 0), Cursor = Cursors.Hand };
         open.Click += (_, _) => OpenSelected(); DockPanel.SetDock(open, Dock.Right); footer.Children.Add(open);
         Grid.SetRow(footer, 3); root.Children.Add(footer);
 
@@ -354,8 +354,8 @@ public sealed class GlobalSearchWindow : Window
         grid.AutoGenerateColumns = false; grid.IsReadOnly = true; grid.CanUserAddRows = false;
         grid.SelectionMode = DataGridSelectionMode.Single; grid.SelectionUnit = DataGridSelectionUnit.FullRow;
         grid.HeadersVisibility = DataGridHeadersVisibility.Column; grid.GridLinesVisibility = DataGridGridLinesVisibility.Horizontal;
-        grid.RowHeight = 38; grid.FontSize = 12; grid.Foreground = Ink; grid.Background = BrushOf("#171F28");
-        grid.RowBackground = BrushOf("#171F28"); grid.AlternatingRowBackground = BrushOf("#202A35"); grid.BorderBrush = Line;
+        grid.RowHeight = 38; grid.FontSize = 12; grid.Foreground = Ink; grid.Background = BrushOf("#1B1D22");
+        grid.RowBackground = BrushOf("#1B1D22"); grid.AlternatingRowBackground = BrushOf("#24272D"); grid.BorderBrush = Line;
         grid.EnableRowVirtualization = true; grid.EnableColumnVirtualization = true;
         VirtualizingPanel.SetIsVirtualizing(grid, true); VirtualizingPanel.SetVirtualizationMode(grid, VirtualizationMode.Recycling);
         ScrollViewer.SetCanContentScroll(grid, true);
@@ -381,7 +381,7 @@ public sealed class GlobalSearchWindow : Window
 
     private static ComboBox Combo(IEnumerable<string> values)
     {
-        var box = new ComboBox { ItemsSource = values, SelectedIndex = 0, Padding = new Thickness(8), Height = 38, Background = BrushOf("#171F28"), Foreground = Ink, BorderBrush = Line, FontSize = 12 };
+        var box = new ComboBox { ItemsSource = values, SelectedIndex = 0, Padding = new Thickness(8), Height = 38, Background = BrushOf("#1B1D22"), Foreground = Ink, BorderBrush = Line, FontSize = 12 };
         return box;
     }
 
@@ -395,8 +395,8 @@ public sealed class GlobalSearchWindow : Window
     {
         var mapped = hex.ToUpperInvariant() switch
         {
-            "#EEF4F8" => "#0D1117", "#FFFFFF" => "#171F28", "#F5F9FC" => "#202A35",
-            "#182F45" => "#E8EEF4", "#63778A" => "#9EADB9", "#087F91" => "#C6F36B", "#D7E3EA" => "#303943",
+            "#EEF4F8" => "#151719", "#FFFFFF" => "#1B1D22", "#F5F9FC" => "#24272D",
+            "#182F45" => "#E8EEF4", "#63778A" => "#9EADB9", "#087F91" => "#F08A42", "#D7E3EA" => "#3A3E45",
             _ => hex
         };
         return new SolidColorBrush((Color)ColorConverter.ConvertFromString(mapped));
