@@ -176,7 +176,7 @@ public partial class MainWindow
         var logic = new ComboBox
         {
             Width = 172, Height = 38, Margin = new Thickness(3, 3, 8, 8),
-            Background = Brush("#17191C"), Foreground = Brush("#EEE9E1"), BorderBrush = Brush("#292C30"),
+            Background = Brush("#050505"), Foreground = Brush("#F08A42"), BorderBrush = Brush("#6A3D25"),
             ToolTip = "Choose how multiple conditions combine."
         };
         logic.Items.Add("ALL conditions");
@@ -326,7 +326,7 @@ public partial class MainWindow
             {
                 Width = 125, Height = 36, Margin = new Thickness(3),
                 ItemsSource = new[] { "Any", "Yes", "No" }, SelectedIndex = 0,
-                Background = Brush("#17191C"), Foreground = Brush("#EEE9E1"), BorderBrush = Brush("#292C30")
+                Background = Brush("#050505"), Foreground = Brush("#F08A42"), BorderBrush = Brush("#6A3D25")
             };
             var values = new WrapPanel();
             values.Children.Add(minimum); values.Children.Add(maximum); values.Children.Add(textValue); values.Children.Add(boolean);
