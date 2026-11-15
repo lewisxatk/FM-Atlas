@@ -468,6 +468,47 @@ public sealed class ScoutDatabase
         return result;
     }
 
+    public async Task<PlayerRecord?> GetPlayerBySourceIdAsync(string sourceId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId)) return null;
+        await using var db = new SqliteConnection(_connectionString);
+        await db.OpenAsync().ConfigureAwait(false);
+        var cmd = db.CreateCommand();
+        cmd.CommandText = """
+            SELECT SourceId, Name, Age, Club, Nation, League, Position, CurrentAbility, PotentialAbility,
+                   Value, HomeGrownClub, HomeGrownNation, DataOrigin, PreferredFoot, LeftFoot, RightFoot
+            FROM Players
+            WHERE SourceId = $sourceId
+              AND (Players.SourceId NOT LIKE 'FMSAVE:%' OR EXISTS (
+                  SELECT 1 FROM FmsavePlayerSnapshots s
+                  WHERE s.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
+                    AND s.PlayerSourceId=Players.SourceId))
+            LIMIT 1;
+            """;
+        cmd.Parameters.AddWithValue("$sourceId", sourceId.Trim());
+        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        if (!await reader.ReadAsync().ConfigureAwait(false)) return null;
+        return new PlayerRecord
+        {
+            SourceId = reader.GetString(0),
+            Name = reader.GetString(1),
+            Age = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+            Club = reader.IsDBNull(3) ? null : reader.GetString(3),
+            Nation = reader.IsDBNull(4) ? null : reader.GetString(4),
+            League = reader.IsDBNull(5) ? null : reader.GetString(5),
+            Position = reader.IsDBNull(6) ? null : reader.GetString(6),
+            CurrentAbility = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+            PotentialAbility = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+            Value = reader.IsDBNull(9) ? null : reader.GetDecimal(9),
+            HomeGrownClub = reader.IsDBNull(10) ? null : reader.GetInt32(10) == 1,
+            HomeGrownNation = reader.IsDBNull(11) ? null : reader.GetInt32(11) == 1,
+            DataOrigin = reader.GetString(12),
+            PreferredFoot = reader.IsDBNull(13) ? null : reader.GetString(13),
+            LeftFoot = reader.IsDBNull(14) ? null : reader.GetInt32(14),
+            RightFoot = reader.IsDBNull(15) ? null : reader.GetInt32(15)
+        };
+    }
+
     public async Task<List<string>> GetNationalitiesAsync()
     {
         await using var db = new SqliteConnection(_connectionString);
