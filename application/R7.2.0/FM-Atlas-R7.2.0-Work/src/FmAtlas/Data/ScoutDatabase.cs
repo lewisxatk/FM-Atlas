@@ -3944,7 +3944,7 @@ public sealed partial class ScoutDatabase
         factCommand.CommandText = """
             SELECT FactGroup,FieldKey,
                    MAX(CASE WHEN NumericValue IS NOT NULL THEN 1 ELSE 0 END),
-                   MAX(CASE WHEN TextValue IS NOT NULL THEN 1 ELSE 0 END),
+                   MAX(CASE WHEN TextValue IS NOT NULL AND lower(TextValue) NOT IN ('true','false') THEN 1 ELSE 0 END),
                    MAX(CASE WHEN lower(COALESCE(TextValue,'')) IN ('true','false') THEN 1 ELSE 0 END)
             FROM FmsavePlayerFacts
             WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
