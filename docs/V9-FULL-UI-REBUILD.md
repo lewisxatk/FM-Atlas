@@ -54,16 +54,22 @@ Use the current FMRTE 27 interaction patterns as functional references, not copi
 
 ## New information architecture
 
-1. **Home / Career Overview** — career identity, connection status, data coverage, active jobs and recent work.
-2. **Players** — full-width player pool, type-ahead search, position/CA/PA quick filters, configurable grid, selection and multi-select.
-3. **Advanced Search** — full workspace with Player / Staff / Club entity types, searchable field library, category navigation, AND/OR groups, ranges, include/exclude, saved profiles and visible result count.
-4. **Record tabs** — every selected player/staff/club opens as a full main tab, with close/reopen behaviour and preserved search tab.
-5. **Player Profile** — identity header and section navigation for Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence. Sections display only supported values.
-6. **Staff and Clubs** — full searchable directories and tabbed records with linked people, teams and career context.
-7. **Moneyball / Performance** — actual save statistics, per-90 where minutes are present, cohort percentiles, comparison and value context.
-8. **Squad / Tactics** — squad depth, position/role suitability, formation and tactical context, clearly separating game values from Atlas estimates.
-9. **Editor / History** — local drafts and live editing remain distinct; unsupported or uncertified live writes stay blocked.
-10. **Data Lab** — import, mapping evidence, build profiles, source coverage, validation, diagnostics and logs.
+The application has **five primary destinations**. Keep the left navigation deliberately short; related pages appear as contextual workspace tabs and secondary tools sit in a More menu.
+
+1. **Home** — career overview, connection state, data coverage, recent work and diagnostics.
+2. **Scouting** — Players, Advanced Search, Recruitment, Clubs and Staff. The More menu contains Value Finder, Attribute Search, Stats Search, Scouting Matrix and Shortlists.
+3. **Squad & Tactics** — Squad Architect, Tactical Lab, Role Lab, Transfers and Analytics.
+4. **Editor** — Live Editor, Mass Edit and Edit History. Local drafts remain distinct from guarded live writes.
+5. **Data & Settings** — Settings, Tester & Logs, Help & Tutorial and Atlas Assistant.
+
+### Record and search workflows
+
+- **Player pool:** full-width search workspace with name/club/nation/UID search, position and CA/PA filters, paging, source/confidence and a virtualised results grid.
+- **Player records:** selecting a player opens a full-width sibling record tab. The player pool remains open; tabs can be closed without losing the search.
+- **Player profile:** Overview, Attributes, Positions & Roles, Contract, Performance, Development, History and Source/Evidence.
+- **Club and staff records:** full-width record tabs, linked entities and save-source facts.
+- **Advanced Search:** first-class workspace for grouped filters and reusable search workflows.
+- **Configurable result columns and saved search profiles** remain part of the parity checklist; do not mark complete until they persist and are visually tested.
 
 ## Shared design system and shell
 
@@ -136,4 +142,20 @@ Branch: `rebuild/v8-full-product-rebuild`
 - FMLibreEditor: https://github.com/tozmoz/FMLibreEditor
 - fm-editor: https://github.com/barak14/fm-editor
 - fmsave: https://github.com/rhiever/fmsave
+
+
+## Latest implementation checkpoint — 15 November 2026
+
+Branch: `rebuild/v8-full-product-rebuild`
+
+- Five-destination primary navigation is implemented with contextual workspace tabs.
+- Home/Dashboard, Players, Advanced Search, Clubs and Staff have rebuilt workspace surfaces.
+- Player selection opens full-width record tabs; the player pool remains persistent.
+- Player record hero and performance evidence presentation use the Monolith design system with readable text sizing.
+- Club profiles now include save-derived league-table facts and a team match-report grid joined to fixtures.
+- Player performance indexing preserves separate current-season rows by competition type and team; legacy generic period keys are reconstructed from raw save rows.
+- The fmsave bridge is pinned to 0.12.5 and streams `team_match_stats`.
+- **Build 793 passed**: Windows .NET 8 Release, Python adapter validation, career-import integration tests and self-contained Windows x64 packaging. Artifact: [GitHub Actions build 793](https://github.com/lewisxatk/FM-Atlas/actions/runs/43775792505).
+- **Not yet accepted:** no visual acceptance on the user's Windows/Game Pass installation and no real FM27 career save has been used for end-to-end field verification. FM27 field mappings remain provisional until checked against the installed game build.
+- **Live writing remains gated** by field-specific offset/mapping evidence, read-back and rollback tests. Do not claim all fields are live-editable yet.
 
