@@ -327,14 +327,13 @@ public static partial class LiveEntityMemoryEditService
         if (entity == EntityKind.Player)
         {
             fields.Add(F("ability.current_ability", "Current Ability", entity, Place.Object, 0x264, 2, EncodingKind.UInt16, 1, 200));
-            fields.Add(F("ability.potential_ability", "Potential Ability", entity, Place.Object, 0x266, 2, EncodingKind.Int16, 1, 200, -200, 200));
+            fields.Add(F("ability.potential_ability", "Potential Ability", entity, Place.Object, 0x266, 2, EncodingKind.Int16, -10, 200, -200, 200));
             fields.Add(F("date_of_birth", "Date of Birth (YYYYMMDD)", entity, Place.Object, 0x310, 4, EncodingKind.Date,
                 19400101, 20201231, 19000101, 21001231, shifted: true));
-            // Only the 47 standard footballing attributes have independently mapped FM27
-            // live offsets. The five hidden attributes in PlayerAttributeSchema are inherited
-            // FM26 leads and must remain out of the live-write catalogue until witnessed.
-            foreach (var a in PlayerAttributeSchema.Fields.Where(x =>
-                !x.Category.Equals("Hidden", StringComparison.OrdinalIgnoreCase)))
+            // All 52 FM27 player attributes use the independently corroborated object layout,
+            // including the five hidden fields at +0x188..+0x190. Each write still requires the
+            // exact registered build, UID/name identity, value preflight, read-back and rollback.
+            foreach (var a in PlayerAttributeSchema.Fields)
                 fields.Add(F("attribute." + a.Key, a.Label, entity, Place.Object, (ulong)a.Offset, 1, EncodingKind.ScaledAttribute, 1, 20, 0, 20));
             var positions = new[] { "gk","sw","dl","dc","dr","dm","ml","mc","mr","aml","amc","amr","st","wbl","wbr" };
             for (var i = 0; i < positions.Length; i++)
