@@ -237,7 +237,7 @@ public partial class MainWindow
         var pitch = new Canvas { Width = 640, Height = 340, ClipToBounds = true };
         var pitchBackground = new Border
         {
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = new CornerRadius(ThemeRadius(14)),
             BorderBrush = Brush("#54776B"),
             BorderThickness = new Thickness(1),
             Background = new LinearGradientBrush(Color.FromRgb(25, 65, 52), Color.FromRgb(16, 48, 41), 90),
@@ -300,7 +300,7 @@ public partial class MainWindow
             {
                 Width = 62, Height = 48,
                 Padding = new Thickness(3),
-                CornerRadius = new CornerRadius(8),
+                CornerRadius = new CornerRadius(ThemeRadius(8)),
                 Background = has ? PositionRatingBrush(rating) : Brush("#263D35"),
                 BorderBrush = Brush("#91AA9D"),
                 BorderThickness = new Thickness(1),
