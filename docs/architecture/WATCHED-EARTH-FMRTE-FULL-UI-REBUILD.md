@@ -151,6 +151,8 @@ Every field is classified as one of:
 3. **Atlas estimate** — a modelled measure such as role fit; show weights, coverage and uncertainty.
 4. **Unavailable / unverified** — not decoded, not present in the source, or not witnessed for this game build. Do not display as zero and do not silently substitute a different metric.
 
+Every FM View Exporter CSV import is bound to the exact FM save snapshot whose player UID mapping was used during import. When the active save snapshot changes, the old CSV remains archived but is excluded from player profiles, metric discovery and stat searches until a new export is imported for that snapshot. Legacy exports with no recorded snapshot are excluded whenever a save snapshot is active. This prevents reused UIDs and stale columns from another career being silently mixed into the current one.
+
 The metric catalogue must be discovered from actual imported schemas and source rows, not a hard-coded list of football metrics. Include raw totals, rates, minutes, period, competition and player context when present. Preserve unknown fields for future compatibility. Where a field changes meaning between FM versions, keep separate version-specific mappings.
 
 ## 6. Editor scope and safe write contract
