@@ -11,11 +11,31 @@ namespace FmAtlas;
 
 public partial class MainWindow
 {
+    private string _playerPoolSearchTextV9 = "";
+    private string _playerPoolPositionV9 = "Any position";
+    private string _playerPoolMinCaV9 = "";
+    private string _playerPoolMaxCaV9 = "";
+    private string _playerPoolMinPaV9 = "";
+    private string _playerPoolMaxPaV9 = "";
+    private string _playerPoolCountTextV9 = "Player database";
+    private string _playerPoolStatusTextV9 = "Search to begin";
+
     // Full-width, record-tab player experience.
     // The player pool remains open as its own tab; each selected player opens
     // as a sibling tab in the main workspace, not as a narrow side inspector.
     private async Task<UIElement> PlayerWorkspaceV9Async(bool recruitmentMode)
     {
+        // Capture the current pool controls before navigating away/rebuilding the
+        // workspace. Search state and the last result page survive tab changes.
+        if (_playerSearch is not null) _playerPoolSearchTextV9 = _playerSearch.Text;
+        if (_positionPicker?.SelectedItem is string selectedPosition) _playerPoolPositionV9 = selectedPosition;
+        if (_playerMinCaInput is not null) _playerPoolMinCaV9 = _playerMinCaInput.Text;
+        if (_playerMaxCaInput is not null) _playerPoolMaxCaV9 = _playerMaxCaInput.Text;
+        if (_playerMinPaInput is not null) _playerPoolMinPaV9 = _playerMinPaInput.Text;
+        if (_playerMaxPaInput is not null) _playerPoolMaxPaV9 = _playerMaxPaInput.Text;
+        if (_playerCountText is not null) _playerPoolCountTextV9 = _playerCountText.Text;
+        if (_playerPageStatus is not null) _playerPoolStatusTextV9 = _playerPageStatus.Text;
+
         var workspaceTabs = new TabControl
         {
             FontSize = 11,
@@ -68,7 +88,7 @@ public partial class MainWindow
         heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var headingCopy = new StackPanel();
         headingCopy.Children.Add(MonolithDesignSystem.MicroLabel(recruitmentMode ? "RECRUITMENT / PLAYER INTELLIGENCE" : "PLAYER INTELLIGENCE", true));
-        _playerCountText = MonolithDesignSystem.DisplayText("Player database", 25);
+        _playerCountText = MonolithDesignSystem.DisplayText(_playerPoolCountTextV9, 25);
         headingCopy.Children.Add(_playerCountText);
         headingCopy.Children.Add(MonolithDesignSystem.BodyText(
             "Search the loaded FM career. Select a player to open a full workspace tab; source and field confidence stay visible.",
@@ -92,6 +112,7 @@ public partial class MainWindow
         searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         _playerSearch = Input("Search by player, club, nation or UID");
+        _playerSearch.Text = _playerPoolSearchTextV9;
         _playerSearch.Height = 42;
         _playerSearch.FontSize = 13;
         _playerSearch.Margin = new Thickness(0, 2, 10, 4);
@@ -121,6 +142,9 @@ public partial class MainWindow
             MinHeight = 42,
             FontSize = 11
         };
+        var savedPositionIndex = Array.FindIndex(positionOptions,
+            x => x.Equals(_playerPoolPositionV9, StringComparison.OrdinalIgnoreCase));
+        _positionPicker.SelectedIndex = savedPositionIndex >= 0 ? savedPositionIndex : 0;
         Grid.SetColumn(_positionPicker, 1);
         searchRow.Children.Add(_positionPicker);
 
@@ -140,10 +164,10 @@ public partial class MainWindow
             Margin = new Thickness(12, 0, 12, 10),
             VerticalAlignment = VerticalAlignment.Center
         };
-        _playerMinCaInput = Input("Min CA"); _playerMinCaInput.Width = 76; _playerMinCaInput.MaxLength = 3;
-        _playerMaxCaInput = Input("Max CA"); _playerMaxCaInput.Width = 76; _playerMaxCaInput.MaxLength = 3;
-        _playerMinPaInput = Input("Min PA"); _playerMinPaInput.Width = 76; _playerMinPaInput.MaxLength = 3;
-        _playerMaxPaInput = Input("Max PA"); _playerMaxPaInput.Width = 76; _playerMaxPaInput.MaxLength = 3;
+        _playerMinCaInput = Input("Min CA"); _playerMinCaInput.Text = _playerPoolMinCaV9; _playerMinCaInput.Width = 76; _playerMinCaInput.MaxLength = 3;
+        _playerMaxCaInput = Input("Max CA"); _playerMaxCaInput.Text = _playerPoolMaxCaV9; _playerMaxCaInput.Width = 76; _playerMaxCaInput.MaxLength = 3;
+        _playerMinPaInput = Input("Min PA"); _playerMinPaInput.Text = _playerPoolMinPaV9; _playerMinPaInput.Width = 76; _playerMinPaInput.MaxLength = 3;
+        _playerMaxPaInput = Input("Max PA"); _playerMaxPaInput.Text = _playerPoolMaxPaV9; _playerMaxPaInput.Width = 76; _playerMaxPaInput.MaxLength = 3;
         filterRow.Children.Add(FilterControl("CA MIN · 1–200", _playerMinCaInput, 84));
         filterRow.Children.Add(FilterControl("CA MAX · 1–200", _playerMaxCaInput, 84));
         filterRow.Children.Add(FilterControl("PA MIN · -10–200", _playerMinPaInput, 84));
@@ -216,7 +240,7 @@ public partial class MainWindow
         resultsDock.Children.Add(_playerResultsGrid);
 
         var pageBar = new DockPanel { Margin = new Thickness(12, 8, 12, 10) };
-        _playerPageStatus = MonolithDesignSystem.DataText("SEARCH TO BEGIN", 10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted));
+        _playerPageStatus = MonolithDesignSystem.DataText(_playerPoolStatusTextV9, 10, MonolithDesignSystem.Solid(MonolithDesignSystem.Muted));
         DockPanel.SetDock(_playerPageStatus, Dock.Left);
         pageBar.Children.Add(_playerPageStatus);
         var pageButtons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
