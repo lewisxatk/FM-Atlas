@@ -290,7 +290,7 @@ public partial class MainWindow : Window
         brand.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var logoLine = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var logoImage = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Icon.png", UriKind.Absolute)), Stretch = Stretch.UniformToFill };
-        var logo = new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(0), ClipToBounds = true, BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), Child = logoImage };
+        var logo = new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(ThemeRadius(0)), ClipToBounds = true, BorderBrush = Brush("#303943"), BorderThickness = new Thickness(1), Child = logoImage };
         logoLine.Children.Add(logo);
         var word = new StackPanel { Margin = new Thickness(10, 0, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
         word.Children.Add(DisplayTxt("FM ATLAS", 17, true, Ink));
@@ -352,7 +352,7 @@ public partial class MainWindow : Window
         var bottom = new Border
         {
             Background = Brush("#0C0E11"), BorderBrush = Brush("#303943"),
-            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(0),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(ThemeRadius(0)),
             Padding = new Thickness(10), Margin = new Thickness(0, 12, 0, 0),
             ToolTip = "FM connection status. Unknown game builds remain read-only."
         };
@@ -460,7 +460,7 @@ public partial class MainWindow : Window
                 },
                 new Point(0, 0), new Point(0, 1)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(18),
+            CornerRadius = new CornerRadius(ThemeRadius(18)),
             Padding = new Thickness(3),
             Effect = new DropShadowEffect
             {
@@ -839,7 +839,7 @@ public partial class MainWindow : Window
         brand.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var logoLine = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var logoImage = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Icon.png", UriKind.Absolute)), Stretch = Stretch.UniformToFill };
-        var logo = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(13), ClipToBounds = true, BorderBrush = Brush("#9DC8EF"), BorderThickness = new Thickness(1), Child = logoImage };
+        var logo = new Border { Width = 40, Height = 40, CornerRadius = new CornerRadius(ThemeRadius(13)), ClipToBounds = true, BorderBrush = Brush("#9DC8EF"), BorderThickness = new Thickness(1), Child = logoImage };
         logoLine.Children.Add(logo);
         var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
         word.Children.Add(Txt("FM ATLAS", 16, true, Ink));
@@ -913,7 +913,7 @@ public partial class MainWindow : Window
                 ? new SolidColorBrush(Color.FromArgb(90, 226, 132, 80))
                 : new SolidColorBrush(Color.FromArgb(85, 175, 205, 235)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(15),
+            CornerRadius = new CornerRadius(ThemeRadius(15)),
             Padding = new Thickness(11),
             Margin = new Thickness(0, 12, 0, 0),
             ToolTip = "FM connection is optional. Offline save import remains the primary safe route."
@@ -1912,7 +1912,7 @@ public partial class MainWindow : Window
             Background = Brush("#171F28"),
             BorderBrush = Brush("#303943"),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(13),
+            CornerRadius = new CornerRadius(ThemeRadius(13)),
             Padding = new Thickness(12),
             Margin = new Thickness(0, 12, 0, 10)
         };
@@ -2132,7 +2132,7 @@ public partial class MainWindow : Window
             panel.Children.Add(new Border
             {
                 Background = Brush("#30291D"), BorderBrush = Brush("#66563A"), BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 10),
+                CornerRadius = new CornerRadius(ThemeRadius(10)), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 10),
                 Child = Txt("NO ATTRIBUTE VALUES IMPORTED · The sections below show the Football Manager attribute catalogue, but this source has not supplied ratings for the player. Blank values are not zero and are never guessed.", 10, true, Brush("#E6C477"), wrap: true)
             });
         }
@@ -2300,7 +2300,7 @@ public partial class MainWindow : Window
                 ? club.SourceId[(club.SourceId.IndexOf(':') + 1)..] : null;
             var clubLogoPath = await Task.Run(() => GraphicsResolver.Shared.ResolveClubLogo(clubUid));
             var clubHero = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 7, 0, 8) };
-            var clubLogo = new Border { Width = 58, Height = 58, Background = Brush("#202A35"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(6), Margin = new Thickness(0, 0, 12, 0) };
+            var clubLogo = new Border { Width = 58, Height = 58, Background = Brush("#202A35"), BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(ThemeRadius(10)), Padding = new Thickness(6), Margin = new Thickness(0, 0, 12, 0) };
             if (!string.IsNullOrWhiteSpace(clubLogoPath) && File.Exists(clubLogoPath))
             {
                 try { var logo = new BitmapImage(); logo.BeginInit(); logo.CacheOption = BitmapCacheOption.OnLoad; logo.DecodePixelWidth = 128; logo.UriSource = new Uri(clubLogoPath, UriKind.Absolute); logo.EndInit(); logo.Freeze(); clubLogo.Child = new Image { Source = logo, Stretch = Stretch.Uniform }; }
@@ -3055,7 +3055,7 @@ public partial class MainWindow : Window
         hs.Children.Add(_editorEnabled
             ? SoftButton("Turn Editor OFF", async (_, _) => { _editorEnabled = false; AtlasLog.Info("FM Atlas editor disabled by user."); await NavigateAsync("Live Editor"); })
             : PrimaryButton("Enable Editor", async (_, _) => { _editorEnabled = true; AtlasLog.Info("FM Atlas editor enabled by user for this session; live writes remain individually gated."); await NavigateAsync("Live Editor"); }));
-        var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
+        var alert = new Border { Background = Brush("#342C1C"), BorderBrush = Brush("#66502C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(ThemeRadius(12)), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 6) };
         alert.Child = Txt("Atlas local edits are separate from Football Manager. In this V8 build, Editor Studio saves changes to the FM Atlas database only. Live Apply/Undo is hard-disabled; no game-memory writes are exposed. Live editing will remain blocked until exact-build identity, field mappings, in-game witnesses, read-back, rollback and Windows acceptance are independently verified.", 10, true, Brush("#E6C477"), wrap: true);
         hs.Children.Add(alert);
         if (!_editorEnabled)
@@ -3797,7 +3797,7 @@ public partial class MainWindow : Window
     {
         var stack = new StackPanel { Margin = new Thickness(0, 5, 0, 5) };
         var row = new Grid(); row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); row.Children.Add(Txt(name.Replace('_', ' ').Replace('.', ' '), 10, true, Ink)); var val = Txt(value.ToString("0.#"), 11, true, Ink); Grid.SetColumn(val, 1); row.Children.Add(val); stack.Children.Add(row);
-        var track = new Border { Background = Brush("#D9E7F1"), Height = 6, CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 5, 0, 0), Child = new Border { Background = Brush(value >= 15 ? "#277BB9" : value >= 11 ? "#E5A65D" : "#D77B7E"), HorizontalAlignment = HorizontalAlignment.Left, Width = Math.Clamp(value, 0, 20) * 12.0, CornerRadius = new CornerRadius(4) } };
+        var track = new Border { Background = Brush("#D9E7F1"), Height = 6, CornerRadius = new CornerRadius(ThemeRadius(4)), Margin = new Thickness(0, 5, 0, 0), Child = new Border { Background = Brush(value >= 15 ? "#277BB9" : value >= 11 ? "#E5A65D" : "#D77B7E"), HorizontalAlignment = HorizontalAlignment.Left, Width = Math.Clamp(value, 0, 20) * 12.0, CornerRadius = new CornerRadius(ThemeRadius(4)) } };
         stack.Children.Add(track); return new Border { Child = stack };
     }
 
@@ -3872,7 +3872,7 @@ public partial class MainWindow : Window
                 Background = Brush("#0C0E11"),
                 BorderBrush = Brush("#303943"),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(0),
+                CornerRadius = new CornerRadius(ThemeRadius(0)),
                 Padding = new Thickness(15),
                 Margin = margin ?? new Thickness(0),
                 SnapsToDevicePixels = true,
@@ -3947,6 +3947,8 @@ public partial class MainWindow : Window
 
     private static TextBlock Txt(string text, double size, bool bold, Brush foreground, bool wrap = false)
         => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
+
+    private static double ThemeRadius(double existingRadius) => _themeMode == "Watched" ? 0 : existingRadius;
 
     private static TextBlock DisplayTxt(string text, double size, bool bold, Brush foreground, bool wrap = false)
     {
