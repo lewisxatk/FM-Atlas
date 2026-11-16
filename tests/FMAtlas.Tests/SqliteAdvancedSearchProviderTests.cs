@@ -430,6 +430,47 @@ public sealed class SqliteAdvancedSearchProviderTests
     }
 
     [Fact]
+    public async Task RelationshipSearchMatchesRelationKindAndRelatedEntityInEitherDirection()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var snapshots = new SqliteEntityRecordSnapshotStore(path);
+
+        var parent = new EntityIdentity(EntityKind.Player, "parent", "test");
+        var child = new EntityIdentity(EntityKind.Player, "child", "test");
+        await snapshots.SaveSnapshotAsync(new PlayerRecord(parent)
+        {
+            FullName = new SourcedValue<string>("Alex Parent", Evidence)
+        }, "Alex Parent");
+        await snapshots.SaveSnapshotAsync(new PlayerRecord(child)
+        {
+            FullName = new SourcedValue<string>("Sam Child", Evidence)
+        }, "Sam Child");
+
+        var relationships = new SqliteEntityRelationshipStore(path);
+        await relationships.SaveRelationshipAsync(child, parent, "father", Evidence);
+
+        var provider = new SqliteAdvancedSearchProvider(path);
+        var relationKindQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("relations", SearchFilterOperator.Contains, TextValue: "father")]);
+        var relatedNameQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("relations", SearchFilterOperator.Contains, TextValue: "Alex")]);
+
+        var byKind = await provider.ExecuteAsync(relationKindQuery);
+        var byRelatedName = await provider.ExecuteAsync(relatedNameQuery);
+
+        Assert.Equal(2, byKind.Count);
+        Assert.Equal("child", Assert.Single(byRelatedName).Identity.SourceId);
+        Assert.Contains(byKind, result => result.Identity.SourceId == "parent");
+        Assert.Contains(byKind, result => result.Identity.SourceId == "child");
+    }
+
+    [Fact]
     public async Task EveryFieldMarkedReadyHasAnExecutableSqliteMapping()
     {
         using var temp = new TemporaryDirectory();
