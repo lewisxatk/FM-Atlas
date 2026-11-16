@@ -203,8 +203,8 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             }
 
             var profile = GameBuildProfileCatalog.MatchReference(fingerprint);
-            if (profile is null || profile.EvidenceStatus != GameBuildEvidenceStatus.ExternalReferenceOnly)
-                throw new InvalidOperationException("The Game Pass fingerprint matched, but its evidence status was unexpected. FM Atlas has stopped rather than guessing.");
+            if (profile is null || !profile.CanAttemptReadOnlyScan || profile.CanWriteLiveData)
+                throw new InvalidOperationException("The Game Pass fingerprint matched, but its evidence status does not permit a read-only scan. FM Atlas has stopped rather than guessing.");
 
             progress?.Report(new LiveGameLoadProgress(10, "Checking FM27 build", "Exact Game Pass package 0.9.2435.0 matched. Opening a read-only process handle."));
 
