@@ -214,7 +214,7 @@ internal sealed class FM27GamePass0935Reader
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "player object");
         // One contiguous object read supplies the identity, attributes, ability, contracts
         // and shifted person-block fields, including the player-coach +0xF8 variant.
-        var data = _memory.ReadBytes(address, 0x4B8);
+        var data = _memory.ReadBytes(address, 0x4C0);
         var shift = FindPlayerPersonShift(address, data);
         if (shift is null)
             return null;
