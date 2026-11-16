@@ -227,11 +227,28 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
             ? groups[0]
             : string.Join(logic, groups);
 
+        // The global preference excludes only records explicitly identified as
+        // female. Unknown gender is retained rather than silently discarded.
+        var womenFilter = query.Entity == SearchEntityKind.Player && !query.IncludeWomenPlayers
+            ? """
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM field_values AS gender
+                  WHERE gender.entity_kind = e.entity_kind
+                    AND gender.source_id = e.source_id
+                    AND gender.provider_key = e.provider_key
+                    AND gender.field_key = 'gender'
+                    AND LOWER(TRIM(gender.text_value)) IN ('female', 'woman', 'women', 'f')
+              )
+              """
+            : string.Empty;
+
         var sql = $"""
             SELECT e.entity_kind, e.source_id, e.provider_key, e.display_name
             FROM entities AS e
             WHERE e.entity_kind = $entityKind
               AND ({criteriaPredicate})
+              {womenFilter}
             ORDER BY e.display_name COLLATE NOCASE, e.provider_key, e.source_id
             LIMIT $limit;
             """;
