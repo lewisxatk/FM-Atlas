@@ -15,7 +15,7 @@ public sealed class AtlasDatabaseTests
 
         await database.InitializeAsync();
 
-        Assert.Equal(1, await database.GetSchemaVersionAsync());
+        Assert.Equal(AtlasDatabase.SchemaVersion, await database.GetSchemaVersionAsync());
         Assert.True(File.Exists(path));
 
         await using var connection = new SqliteConnection($"Data Source={path}");
@@ -29,6 +29,7 @@ public sealed class AtlasDatabaseTests
         Assert.Contains("entity_relationships", tables);
         Assert.Contains("graphics_mappings", tables);
         Assert.Contains("atlas_schema_migrations", tables);
+        Assert.Contains("entity_record_snapshots", tables);
     }
 
     [Fact]
@@ -46,8 +47,60 @@ public sealed class AtlasDatabaseTests
         await using var connection = new SqliteConnection($"Data Source={path}");
         await connection.OpenAsync();
         var migrations = await ReadCountAsync(connection,
-            "SELECT COUNT(*) FROM atlas_schema_migrations WHERE version = 1;");
-        Assert.Equal(1, migrations);
+            "SELECT COUNT(*) FROM atlas_schema_migrations WHERE version IN (1, 2);");
+        Assert.Equal(2, migrations);
+    }
+
+    [Fact]
+    public async Task ExistingVersionOneDatabaseUpgradesToVersionTwo()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "legacy-v1.db");
+
+        await using (var connection = new SqliteConnection($"Data Source={path}"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE atlas_schema_migrations
+                (
+                    version INTEGER PRIMARY KEY,
+                    applied_at_utc TEXT NOT NULL,
+                    description TEXT NOT NULL
+                );
+                CREATE TABLE entities
+                (
+                    entity_kind TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    provider_key TEXT NOT NULL,
+                    display_name TEXT,
+                    data_source_id TEXT,
+                    imported_at_utc TEXT NOT NULL,
+                    PRIMARY KEY (entity_kind, provider_key, source_id)
+                );
+                INSERT INTO atlas_schema_migrations(version, applied_at_utc, description)
+                VALUES (1, '2026-11-16T00:00:00Z', 'Legacy schema');
+                PRAGMA user_version = 1;
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var database = new AtlasDatabase(path);
+        await database.InitializeAsync();
+
+        Assert.Equal(2, await database.GetSchemaVersionAsync());
+
+        await using var verify = new SqliteConnection($"Data Source={path}");
+        await verify.OpenAsync();
+        var tableCount = await ReadCountAsync(
+            verify,
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='entity_record_snapshots';");
+        Assert.Equal(1, tableCount);
+
+        var migrationCount = await ReadCountAsync(
+            verify,
+            "SELECT COUNT(*) FROM atlas_schema_migrations WHERE version=2;");
+        Assert.Equal(1, migrationCount);
     }
 
     [Fact]
