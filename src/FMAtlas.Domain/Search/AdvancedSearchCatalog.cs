@@ -226,7 +226,7 @@ public static class AdvancedSearchCatalog
             F("reputation_world", "World Reputation", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, PlayersAndCoaches, 0, 10000),
             F("current_ability", "CA", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, PlayersAndCoaches, 0, 200),
             F("potential_ability", "PA", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, PlayersAndCoaches, 0, 200),
-            F("ability_difference", "Difference", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players, 0, 200),
+            F("ability_difference", "PA − CA Difference", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players, -200, 200),
             F("recommended_ca", "Recommended CA / RCA", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players, 0, 200),
             F("left_foot", "Left Foot", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players, 0, 20),
             F("right_foot", "Right Foot", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players, 0, 20),
@@ -300,7 +300,7 @@ public static class AdvancedSearchCatalog
                 "club_average_attendance" or "international_caps" or "international_goals" or
                 "reputation_home" or "reputation_current" or "reputation_world" or
                 "ability_difference" or "continent" or "region" or
-                "city_of_birth" or "ethnicity" or "division" or "training_status_club" or
+                "city_of_birth" or "ethnicity" or "gender" or "game_uid" or "division" or "training_status_club" or
                 "training_status_nation" or "primary_role" or "training_rating" or
                 "contract_status" or "release_clause" or "club_balance" or "club_debt" or
                 "club_transfer_budget" or "club_wage_budget" or "club_loans" or "club_sponsorship" ||
