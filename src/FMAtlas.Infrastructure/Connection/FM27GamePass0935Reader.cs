@@ -468,33 +468,6 @@ internal sealed class FM27GamePass0935Reader
         };
     }
 
-? new SourcedValue<DateOnly>(dob, evidence) : null,
-            Age = age is int playerAge ? new SourcedValue<int>(playerAge, evidence) : null,
-            Nationality = nationality is not null ? new SourcedValue<string>(nationality, evidence) : null,
-            CityOfBirth = cityOfBirth is not null ? new SourcedValue<string>(cityOfBirth, evidence) : null,
-            Gender = new SourcedValue<string>((genderFlags & 0x10) != 0 ? "Female" : "Male", evidence),
-            ClubName = club is not null ? new SourcedValue<string>(club, evidence) : null,
-            PrimaryPosition = positionName is not null ? new SourcedValue<string>(positionName, evidence) : null,
-            HeightCentimetres = height is > 0 and < 300 ? new SourcedValue<decimal>(height, evidence) : null,
-            CurrentAbility = currentAbility is > 0 and <= 200 ? new SourcedValue<int>(currentAbility, evidence) : null,
-            PotentialAbility = rawPotential is > 0 and <= 200 ? new SourcedValue<int>(rawPotential, evidence) : null,
-            InternationalCaps = new SourcedValue<int>(caps, evidence),
-            InternationalGoals = new SourcedValue<int>(goals, evidence),
-            ContractExpires = contractExpiry is DateOnly expiry ? new SourcedValue<DateOnly>(expiry, evidence) : null,
-            Wage = wage is int playerWage and >= 0 ? new SourcedValue<decimal>(playerWage, evidence) : null,
-            TransferValue = transferValue >= 0 ? new SourcedValue<decimal>(transferValue, evidence) : null,
-            Attributes = attributes,
-            HiddenAttributes = hidden,
-            Personality = personality,
-            FootRatings = feet,
-            PositionRatings = positions,
-            SearchIntegerFields = searchIntegers,
-            SearchBooleanFields = searchBooleans,
-            SearchDateFields = searchDates,
-            IsNewgen = new SourcedValue<bool>((madeByGameFlags & 0x08) != 0, evidence)
-        };
-    }
-
     private StaffRecord? ReadStaff(ulong address, FieldProvenance evidence, DateOnly inGameDate)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "staff object");
