@@ -128,6 +128,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public void NotifyPlayerExportImported(int importedPlayers, string providerKey)
+    {
+        var dataset = providerKey.Length > 8 ? providerKey[^8..] : providerKey;
+        LastAction = $"Imported {importedPlayers:N0} FM export player(s) · dataset {dataset}";
+        ScheduleQuickSearch();
+    }
+
     public void CloseQuickSearch()
     {
         IsQuickSearchOpen = false;
