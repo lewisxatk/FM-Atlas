@@ -53,7 +53,11 @@
             <Border Grid.Column="0" Style="{StaticResource Atlas.ProfilePanel}" Padding="16">
                 <StackPanel>
                     <Border Height="116" Background="#151515" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="6">
-                        <TextBlock Text="CLUB CREST / BADGE" Foreground="{StaticResource Atlas.Subtle}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Grid>
+                            <Image Source="{Binding ClubLogoUri}" Stretch="Uniform"/>
+                            <TextBlock Text="CLUB CREST / BADGE" Foreground="{StaticResource Atlas.Subtle}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding HasClubLogo, Converter={StaticResource Atlas.BooleanToVisibility}}"/>
+                        </Grid>
                     </Border>
                     <TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="19" Foreground="{StaticResource Atlas.Text}" Margin="0,13,0,5"/>
                     <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
