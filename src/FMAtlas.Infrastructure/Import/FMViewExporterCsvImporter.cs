@@ -21,6 +21,9 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
     private const int MaximumColumns = 512;
     private const int MaximumWarnings = 50;
 
+    private enum DynamicFieldKind { Text, Integer, Decimal, Boolean, Date }
+    private sealed record DynamicColumnDefinition(string Key, DynamicFieldKind Kind);
+
     private static readonly FieldProvenance CsvEvidence = new(
         DataSourceKind.GameExport,
         FieldEvidenceStatus.Mapped,
@@ -92,11 +95,10 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         var imported = 0;
         var skipped = 0;
         var duplicateIds = 0;
-        var dynamicFieldsIndexed = 0;
         var rowsRead = 0;
 
         var mappedColumns = BuildMappedColumnSet(headerLookup);
-        var dynamicColumns = BuildDynamicColumnMap(headers, mappedColumns);
+        var dynamicColumns = BuildDynamicColumnMap(headers, mappedColumns, rows, delimiter);
 
         for (var rowIndex = 1; rowIndex < rows.Count; rowIndex++)
         {
@@ -133,7 +135,6 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             {
                 await _snapshotStore.SaveSnapshotAsync(record, name, cancellationToken).ConfigureAwait(false);
                 imported++;
-                dynamicFieldsIndexed += record.SearchTextFields.Count;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -152,7 +153,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             imported,
             skipped,
             duplicateIds,
-            dynamicFieldsIndexed,
+            imported > 0 ? dynamicColumns.Count : 0,
             warnings.AsReadOnly());
     }
 
@@ -160,7 +161,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         IReadOnlyList<string> row,
         IReadOnlyList<string> headers,
         IReadOnlyDictionary<string, int> headerLookup,
-        IReadOnlyDictionary<int, string> dynamicColumns,
+        IReadOnlyDictionary<int, DynamicColumnDefinition> dynamicColumns,
         string uid,
         string providerKey,
         string name,
@@ -173,6 +174,10 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         var hidden = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         var personality = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         var foot = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+        var dynamicIntegers = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+        var dynamicDecimals = new Dictionary<string, SourcedValue<decimal>>(StringComparer.OrdinalIgnoreCase);
+        var dynamicBooleans = new Dictionary<string, SourcedValue<bool>>(StringComparer.OrdinalIgnoreCase);
+        var dynamicDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase);
         var dynamicText = new Dictionary<string, SourcedValue<string>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (headerKey, fieldKey) in AttributeAliases)
@@ -204,13 +209,30 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             }
         }
 
-        foreach (var (columnIndex, fieldKey) in dynamicColumns)
+        foreach (var (columnIndex, definition) in dynamicColumns)
         {
             var raw = GetCell(row, columnIndex).Trim();
-            if (raw.Length == 0)
+            if (IsMissingValue(raw))
                 continue;
 
-            dynamicText[fieldKey] = new SourcedValue<string>(raw, CsvEvidence);
+            switch (definition.Kind)
+            {
+                case DynamicFieldKind.Integer when TryInt(raw, out var integer):
+                    dynamicIntegers[definition.Key] = new SourcedValue<int>(integer, CsvEvidence);
+                    break;
+                case DynamicFieldKind.Decimal when TryDecimalText(raw, useGermanDecimalSeparator, out var decimalValue):
+                    dynamicDecimals[definition.Key] = new SourcedValue<decimal>(decimalValue, CsvEvidence);
+                    break;
+                case DynamicFieldKind.Boolean when TryBoolean(raw, out var boolean):
+                    dynamicBooleans[definition.Key] = new SourcedValue<bool>(boolean, CsvEvidence);
+                    break;
+                case DynamicFieldKind.Date when TryDateText(raw, out var date):
+                    dynamicDates[definition.Key] = new SourcedValue<DateOnly>(date, CsvEvidence);
+                    break;
+                default:
+                    dynamicText[definition.Key] = new SourcedValue<string>(raw, CsvEvidence);
+                    break;
+            }
         }
 
         var dob = GetDate(row, FindColumn(headerLookup, "Date of Birth", "DOB", "Birth Date"));
@@ -245,6 +267,10 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             HiddenAttributes = hidden,
             Personality = personality,
             FootRatings = foot,
+            SearchIntegerFields = dynamicIntegers,
+            SearchDecimalFields = dynamicDecimals,
+            SearchBooleanFields = dynamicBooleans,
+            SearchDateFields = dynamicDates,
             SearchTextFields = dynamicText
         };
     }
@@ -268,11 +294,13 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         return aliases;
     }
 
-    private static IReadOnlyDictionary<int, string> BuildDynamicColumnMap(
+    private static IReadOnlyDictionary<int, DynamicColumnDefinition> BuildDynamicColumnMap(
         IReadOnlyList<string> headers,
-        IReadOnlySet<int> mappedColumns)
+        IReadOnlySet<int> mappedColumns,
+        IReadOnlyList<string[]> rows,
+        char delimiter)
     {
-        var result = new Dictionary<int, string>();
+        var result = new Dictionary<int, DynamicColumnDefinition>();
         var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < headers.Count; index++)
         {
@@ -288,7 +316,27 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             while (!used.Add(key))
                 key = $"export_{slug}_{suffix++}";
 
-            result[index] = key;
+            var values = rows.Skip(1)
+                .Select(row => GetCell(row, index).Trim())
+                .Where(value => !IsMissingValue(value))
+                .ToArray();
+            if (values.Length == 0)
+                continue;
+
+            // Type inference is based on every non-empty value in this one export
+            // column. Any mixed/ambiguous column remains text so search never
+            // silently coerces labels, ranges, money strings or mixed formats.
+            var kind = values.All(value => TryBoolean(value, out _))
+                ? DynamicFieldKind.Boolean
+                : values.All(value => TryInt(value, out _))
+                    ? DynamicFieldKind.Integer
+                    : values.All(value => TryDecimalText(value, delimiter == ';', out _))
+                        ? DynamicFieldKind.Decimal
+                        : values.All(value => TryDateText(value, out _))
+                            ? DynamicFieldKind.Date
+                            : DynamicFieldKind.Text;
+
+            result[index] = new DynamicColumnDefinition(key, kind);
         }
 
         return result;
@@ -385,6 +433,15 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         if (allowCentimetres && value.EndsWith("cm", StringComparison.OrdinalIgnoreCase))
             value = value[..^2].Trim();
 
+        return TryDecimalText(value, useGermanDecimalSeparator, out var parsed) ? parsed : null;
+    }
+
+    private static bool TryDecimalText(string value, bool useGermanDecimalSeparator, out decimal parsed)
+    {
+        var normalized = value.Trim();
+        if (normalized.EndsWith('%'))
+            normalized = normalized[..^1].Trim();
+
         var preferredCulture = useGermanDecimalSeparator
             ? CultureInfo.GetCultureInfo("de-DE")
             : CultureInfo.InvariantCulture;
@@ -392,13 +449,41 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             ? CultureInfo.InvariantCulture
             : CultureInfo.GetCultureInfo("de-DE");
 
-        if (decimal.TryParse(value, NumberStyles.Number, preferredCulture, out var parsed))
-            return parsed;
-
-        return decimal.TryParse(value, NumberStyles.Number, fallbackCulture, out parsed)
-            ? parsed
-            : null;
+        return decimal.TryParse(normalized, NumberStyles.Number, preferredCulture, out parsed) ||
+               decimal.TryParse(normalized, NumberStyles.Number, fallbackCulture, out parsed);
     }
+
+    private static bool TryBoolean(string value, out bool parsed)
+    {
+        var normalized = value.Trim();
+        if (normalized.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("true", StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = true;
+            return true;
+        }
+
+        if (normalized.Equals("no", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("false", StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = false;
+            return true;
+        }
+
+        parsed = false;
+        return false;
+    }
+
+    private static bool TryDateText(string value, out DateOnly parsed)
+    {
+        var formats = new[] { "yyyy-MM-dd", "dd/MM/yyyy", "d/M/yyyy", "dd.MM.yyyy", "d.M.yyyy", "d MMM yyyy", "dd MMM yyyy" };
+        return DateOnly.TryParseExact(value.Trim(), formats, CultureInfo.GetCultureInfo("en-GB"), DateTimeStyles.AllowWhiteSpaces, out parsed) ||
+               DateOnly.TryParse(value.Trim(), CultureInfo.GetCultureInfo("en-GB"), DateTimeStyles.AllowWhiteSpaces, out parsed);
+    }
+
+    private static bool IsMissingValue(string value) =>
+        string.IsNullOrWhiteSpace(value) || value.Trim() is "-" or "—" or "–" ||
+        value.Trim().Equals("N/A", StringComparison.OrdinalIgnoreCase);
 
     private static bool TryInt(string value, out int parsed) =>
         int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed);
