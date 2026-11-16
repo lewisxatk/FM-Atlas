@@ -77,6 +77,66 @@ public sealed class LiveGameBatchImportTests
     }
 
     [Fact]
+    public async Task LiveBatchRecordsExposePreferredMovesAndClubLiveFieldsToAdvancedSearch()
+    {
+        using var temp = new TemporaryDirectory();
+        var databasePath = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(databasePath).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(databasePath);
+        var batch = (IEntityRecordBatchSnapshotStore)store;
+        const string providerKey = "live-fm27-gamepass-test";
+
+        IEntityRecord[] records =
+        [
+            new PlayerRecord(new EntityIdentity(EntityKind.Player, "player-traits", providerKey))
+            {
+                FullName = new SourcedValue<string>("Trait Player", LiveEvidence),
+                PreferredMoves = [new SourcedValue<string>("Tries tricks", LiveEvidence)],
+                SearchIntegerFields = new Dictionary<string, SourcedValue<int>>
+                {
+                    ["condition"] = new(8_500, LiveEvidence),
+                    ["morale"] = new(17, LiveEvidence)
+                }
+            },
+            new ClubRecord(new EntityIdentity(EntityKind.Club, "club-live", providerKey))
+            {
+                Name = new SourcedValue<string>("Live Facilities Club", LiveEvidence),
+                SearchIntegerFields = new Dictionary<string, SourcedValue<int>>
+                {
+                    ["club_training_facilities"] = new(18, LiveEvidence),
+                    ["stadium_capacity"] = new(62_000, LiveEvidence)
+                },
+                SearchBooleanFields = new Dictionary<string, SourcedValue<bool>>
+                {
+                    ["club_is_women"] = new(false, LiveEvidence)
+                }
+            }
+        ];
+
+        await batch.SaveSnapshotsAsync(records);
+
+        var advanced = new SqliteAdvancedSearchProvider(databasePath);
+        var playerQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("preferred_moves", SearchFilterOperator.HasTrait, TextValue: "Tries tricks")]);
+        var players = await advanced.ExecuteAsync(playerQuery);
+        Assert.Equal("player-traits", Assert.Single(players).Identity.SourceId);
+
+        var clubFields = await advanced.GetIndexedFieldsAsync(SearchEntityKind.Club);
+        Assert.Contains(clubFields, field => field.Key == "club_training_facilities" && field.CanExecute);
+        Assert.Contains(clubFields, field => field.Key == "stadium_capacity" && field.CanExecute);
+
+        var clubQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Club,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("club_training_facilities", SearchFilterOperator.Range, Minimum: 18)],
+            IndexedFields: clubFields);
+        var clubs = await advanced.ExecuteAsync(clubQuery);
+        Assert.Equal("club-live", Assert.Single(clubs).Identity.SourceId);
+    }
+
+    [Fact]
     public async Task DeletingLiveProviderRemovesItsRecordsButPreservesExportedRecords()
     {
         using var temp = new TemporaryDirectory();
