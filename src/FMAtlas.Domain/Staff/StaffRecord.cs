@@ -13,6 +13,9 @@ public sealed record StaffRecord(EntityIdentity Identity) : IEntityRecord
     public SourcedValue<DateOnly>? DateOfBirth { get; init; }
     public SourcedValue<int>? Age { get; init; }
     public SourcedValue<string>? Nationality { get; init; }
+    public SourcedValue<string>? Continent { get; init; }
+    public SourcedValue<string>? Region { get; init; }
+    public SourcedValue<string>? CityOfBirth { get; init; }
     public SourcedValue<string>? ClubName { get; init; }
     public SourcedValue<string>? PrimaryRole { get; init; }
     public SourcedValue<int>? CurrentAbility { get; init; }
@@ -24,6 +27,12 @@ public sealed record StaffRecord(EntityIdentity Identity) : IEntityRecord
         new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlyDictionary<string, SourcedValue<int>> Knowledge { get; init; } =
+        new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyDictionary<string, SourcedValue<int>> Personality { get; init; } =
+        new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyDictionary<string, SourcedValue<int>> RolePreferences { get; init; } =
         new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Explicit generated/newgen classification; null means unknown.</summary>
