@@ -59,3 +59,10 @@ The Windows CI build, automated tests, packaging and startup smoke test passed f
 The subsequent advanced-search name-fallback and copy update is a separate commit and must pass CI before its package is treated as validated. The exact user's running FM27 process and save still require an on-machine Load Game test; matching static RVAs alone do not prove that the user's current process passed its runtime fingerprint and layout checks.
 
 The final branch-head build and test result is recorded in the associated GitHub Actions run; a successful earlier commit is not a substitute for validating later source changes.
+
+
+## My Career and compact pitch follow-up
+
+- The human manager's dedicated staff person block is checked first when staff identity evidence ties, avoiding a tie being resolved to the generic staff block.
+- My Career opens the unique human-manager profile, then resolves the club by its source-backed UID or a unique exact-name match. It displays club nation and manager nationality separately; it does not invent a full Nation profile that the current live importer does not provide.
+- The compact pitch buttons use larger base text and button dimensions so labels remain readable after the Viewbox scales the pitch down.
