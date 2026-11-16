@@ -245,3 +245,17 @@ The desktop buttons do not imply that live save loading or writing is already fu
 - [~] M5.18 Profile binds CA/PA, player attributes, hidden/personality/foot ratings, position ratings, preferred moves, season statistics and newgen evidence where values exist in the local snapshot.
 - [~] M5.19 Startup now uses one dependency-injected OnStartup path and initialises/migrates the local Atlas database before opening read-only search providers.
 - [!] M8.2 Windows restore/build/test verification blocked: latest GitHub Actions jobs fail before exposing runner steps/logs. Do not mark tests as passing.
+
+
+## Update — global women-player visibility (2026-11-16)
+
+- [~] M5.20 Global **Include women** preference added to the main header, defaults OFF, persists locally, and is shared by Quick Search and Advanced Search.
+- [~] M5.21 SQLite Quick Search and Advanced Search exclude records explicitly identified as female while the preference is OFF; unknown/missing gender remains visible rather than guessed.
+- [~] M5.22 Regression tests added for both search paths and OFF/ON behaviour; tests are committed but not executed because GitHub-hosted Windows jobs fail before runner steps/logs.
+- [~] M5.23 Rechecked one-sided numeric search: minimum-only and maximum-only conditions are supported; maximum-only has an existing SQLite integration test. Newgen/original search remains Yes / No / Unknown through `is_newgen`.
+- [!] M8.2 Current Windows restore/build/test verification blocked by GitHub Actions job startup failure (zero steps, no runner logs); this is not evidence of a source compile failure.
+- [-] Wyscout/StatsBomb analytics remain deferred until the simple editor works.
+
+Latest code/test commit: `46ffc47057336684ae1c2c32bffbf00ae6002587`.  
+Checkpoint documentation commit: `4fdce8dc8dbbe42c76532d67bec67d6ceba837d4`.  
+Current task: resolve hosted-runner/account Actions usage restriction and run the full Windows CI suite.
