@@ -424,6 +424,8 @@ internal sealed class FM27GamePass0935Reader
         var searchText = new Dictionary<string, SourcedValue<string>>(relationSearchText, StringComparer.OrdinalIgnoreCase);
         if (teamInfo.TeamKind is not null)
             searchText["team_kind"] = new SourcedValue<string>(teamInfo.TeamKind, evidence);
+
+        var searchDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase);
         if (contractSigned is DateOnly signed)
             searchDates["contract_signed"] = new SourcedValue<DateOnly>(signed, evidence);
         if (contractJoined is DateOnly joined)
