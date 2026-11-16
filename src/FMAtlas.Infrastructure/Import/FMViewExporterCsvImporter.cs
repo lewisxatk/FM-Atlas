@@ -172,11 +172,12 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         var foot = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         var dynamicText = new Dictionary<string, SourcedValue<string>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var (columnIndex, fieldKey) in AttributeAliases)
+        foreach (var (headerKey, fieldKey) in AttributeAliases)
         {
-            if (!headerLookup.TryGetValue(columnIndex, out var header))
+            if (!headerLookup.TryGetValue(headerKey, out var columnIndex))
                 continue;
 
+            var header = headers[columnIndex];
             var raw = GetCell(row, columnIndex).Trim();
             if (raw.Length == 0)
                 continue;
@@ -217,9 +218,6 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         var pa = GetInt(row, FindColumn(headerLookup, "PA", "Potential Ability"));
         var caps = GetInt(row, FindColumn(headerLookup, "International Caps", "Caps"));
         var goals = GetInt(row, FindColumn(headerLookup, "International Goals"));
-        var leftFoot = foot.TryGetValue("left_foot", out var left) ? left : null;
-        var rightFoot = foot.TryGetValue("right_foot", out var right) ? right : null;
-
         return new PlayerRecord(identity)
         {
             FullName = new SourcedValue<string>(name, CsvEvidence),
