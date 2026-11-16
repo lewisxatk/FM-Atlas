@@ -113,11 +113,14 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
             !fieldKey.StartsWith("position_", StringComparison.OrdinalIgnoreCase))
             return;
 
-        if (!GetIndexedFieldsFor(SelectedEntity).Any(field =>
+        // Position roles are UI filters, not fields that should disappear until
+        // a career has been imported. The static catalog contains all 15 player
+        // positions and the SQL provider can query them once records are indexed.
+        if (!AdvancedSearchCatalog.GetFields(SelectedEntity, AdvancedSearchCategoryKind.General).Any(field =>
                 string.Equals(field.Key, fieldKey, StringComparison.OrdinalIgnoreCase) &&
                 field.ValueKind == SearchFieldValueKind.IntegerRange && field.CanExecute))
         {
-            StatusText = "This position rating is not in the current index. Load your FM27 career, then reopen Advanced Search.";
+            StatusText = "This position is not available for the selected search type.";
             return;
         }
 
