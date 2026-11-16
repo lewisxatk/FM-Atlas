@@ -89,6 +89,26 @@ public partial class MainWindow : Window
         };
     }
 
+    private void LoadGameButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_mainWindowViewModel.LoadGameCommand.CanExecute(null))
+            return;
+
+        var choice = MessageBox.Show(
+            this,
+            "FM Atlas will inspect the running FM27 Game Pass process using a read-only memory scan.\n\n" +
+            "Before it reads anything, it checks the exact game_plugin.dll fingerprint. Every requested memory range is checked for committed, readable memory, and the resulting player/staff/club data must pass layout sanity checks before it is imported.\n\n" +
+            "FM Atlas requests read/query permissions only. It does not request process-termination or memory-write permissions, and Save Live Changes remains disabled.\n\n" +
+            "This scanner is still undergoing first-user validation. A read-only design is not a guarantee against an unrelated game crash or an unexpected game-side issue. Save your career in FM27 first, wait until the career is fully loaded, and do not switch saves while the scan runs.\n\n" +
+            "Start the read-only connection test?",
+            "FM Atlas — Read-only live connection",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (choice == MessageBoxResult.Yes)
+            _mainWindowViewModel.LoadGameCommand.Execute(null);
+    }
+
     private async void ImportPlayerExportButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
