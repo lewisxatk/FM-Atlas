@@ -1,6 +1,6 @@
 # FM Atlas — Fresh Rebuild Master Plan
 
-**Revision:** 002  
+**Revision:** 003  
 **Date:** 2026-11-16  
 **Working branch:** `rebuild/fresh-foundation-001`  
 **Design authority:** [Reference Library](./REFERENCE_LIBRARY.md) and [Design Specification](./DESIGN_SPECIFICATION.md)  
@@ -194,6 +194,8 @@ The selected foundation is .NET 8 WPF with Domain, Application, Infrastructure, 
 9. Release and test.
 10. Only then resume deferred tactical/scouting analytics.
 
-## 8. Current status
+## 8. Current implementation status
 
-Recovery source is available in the historical GitHub branch. The original recovery ZIP is located in the user's Library but its raw bytes could not be materialized in this tool session. Seven uploaded packages are inventoried. Initial repository research and licensing review are recorded. Architecture is selected. No new application code has yet been created.
+The fresh solution has been created in `FMAtlas.sln` with Domain, Application, Infrastructure, Desktop and Tests projects. The initial WPF shell has the compact no-Search sidebar, top Quick Search placeholder, Advanced Search action, compact Save Atlas/Save Changes controls and prominent Load Game button. Load Game currently performs process/module presence detection only; it does not read memory or import a career. All unimplemented controls are disabled and labelled In Progress through tooltips.
+
+The Windows GitHub Actions build/test workflow is committed. The current execution environment has no .NET SDK, so no local compile has been claimed. Windows CI and a user-side build/screenshot review remain required. See `CURRENT_CHECKPOINT.md` and `FRESH_REBUILD_CHECKLIST.md`.
