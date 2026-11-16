@@ -481,10 +481,11 @@ internal sealed class FM27GamePass0935Reader
 
     private DateOnly ReadInGameDate()
     {
-        var day = _memory.ReadUInt16(checked(_moduleBase + CurrentDateRva));
+        var dayField = _memory.ReadUInt16(checked(_moduleBase + CurrentDateRva));
+        var day = (ushort)(dayField & 0x1FF);
         var year = _memory.ReadUInt16(checked(_moduleBase + CurrentDateRva + 2));
-        if (year is < 1900 or > 2200 || day is < 1 or > 366)
-            throw new InvalidDataException($"The FM27 in-game date did not validate (raw day {day}, year {year}).");
+        if (year is <= 1900 or > 2200 || day is < 1 or > 366)
+            throw new InvalidDataException($"The FM27 in-game date did not validate (raw day field 0x{dayField:X4}, year {year}).");
         return new DateOnly(year, 1, 1).AddDays(day - 1);
     }
 
@@ -638,9 +639,12 @@ internal sealed class FM27GamePass0935Reader
         catch { return null; }
     }
 
-    private static DateOnly? MakeFmDate(ushort day, ushort year)
+    private static DateOnly? MakeFmDate(ushort dayField, ushort year)
     {
-        if (year is < 1900 or > 2200 || day is < 1 or > 366)
+        // FM27 reserves the upper bits of its day field for flags; only the low
+        // nine bits carry the one-based day of year.
+        var day = (ushort)(dayField & 0x1FF);
+        if (year is <= 1900 or > 2200 || day is < 1 or > 366)
             return null;
         return new DateOnly(year, 1, 1).AddDays(day - 1);
     }
@@ -651,14 +655,8 @@ internal sealed class FM27GamePass0935Reader
         catch { return null; }
     }
 
-    private DateOnly? ReadFmDate(ulong address)
-    {
-        var day = _memory.ReadUInt16(address);
-        var year = _memory.ReadUInt16(address + 2);
-        if (year is < 1900 or > 2200 || day is < 1 or > 366)
-            return null;
-        return new DateOnly(year, 1, 1).AddDays(day - 1);
-    }
+    private DateOnly? ReadFmDate(ulong address) =>
+        MakeFmDate(_memory.ReadUInt16(address), _memory.ReadUInt16(address + 2));
 
     private static int CalculateAge(DateOnly birth, DateOnly today)
     {
