@@ -165,11 +165,6 @@
                                      Padding="0"
                                      VerticalContentAlignment="Center"
                                      ToolTip="Quick Search searches records already imported into FM Atlas."/>
-                            <TextBlock Grid.Column="2"
-                                       Text="{Binding IsQuickSearchBusy, Converter={StaticResource BooleanToSearchStatusConverter}}"
-                                       Foreground="{StaticResource Atlas.Muted}"
-                                       FontSize="9"
-                                       VerticalAlignment="Center"/>
                             <Popup PlacementTarget="{Binding ElementName=QuickSearchTextBox}"
                                    Placement="Bottom"
                                    AllowsTransparency="True"
