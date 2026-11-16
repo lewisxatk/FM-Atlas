@@ -107,12 +107,12 @@ internal sealed class FM27GamePass0935Reader
         var players = ReadArray(PlayersArrayRva, "players");
         var staff = ReadArray(StaffArrayRva, "staff");
         var clubs = ReadArray(ClubsArrayRva, "clubs");
-        if (players.Count == 0)
+        if (players.Length == 0)
             throw new InvalidOperationException("Football Manager is at the main menu or the player list is not loaded. Load a career in FM27, then select Load Game again.");
         if (generation <= 0)
             throw new InvalidDataException("The FM27 save-generation marker did not contain a valid loaded-save count.");
         var date = ReadInGameDate();
-        return (players.Count, staff.Count, clubs.Count, checked((long)generation), date);
+        return (players.Length, staff.Length, clubs.Length, checked((long)generation), date);
     }
 
     public long ReadSaveGeneration() => ReadSaveGeneration(_memory, _moduleBase);
@@ -127,7 +127,7 @@ internal sealed class FM27GamePass0935Reader
 
     public bool IsPlayerArrayEmpty()
     {
-        try { return ReadArray(PlayersArrayRva, "players").Count == 0; }
+        try { return ReadArray(PlayersArrayRva, "players").Length == 0; }
         catch { return true; }
     }
 
