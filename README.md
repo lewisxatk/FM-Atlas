@@ -35,6 +35,8 @@ GitHub Actions cross-builds the Windows WPF target on a Linux hosted runner usin
 
 ## First user test
 
+After checking out this branch on Windows, double-click `Run-FMAtlas-TestBuild.cmd` in the repository root. It runs restore, Release build, automated tests, creates a self-contained Windows x64 package, and launches the freshly built `FMAtlas.exe` only if all build/test/publish steps pass. Alternatively run `powershell -ExecutionPolicy Bypass -File .\scripts\Run-FMAtlas-TestBuild.ps1` from the repository root.
+
 Follow `docs/TEST_HANDOFF_2026-11-16.md`. It explains how to obtain the Windows test package, safely prepare a disposable FM27 career, exercise Load Game, Quick Search, Advanced Search and the profile workspaces, and report results without sharing a career-save file.
 
 ## Product and technical references

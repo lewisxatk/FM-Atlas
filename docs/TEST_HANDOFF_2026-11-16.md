@@ -14,7 +14,7 @@ Use the newest successful **FM Atlas Windows Build** workflow run for the exact 
 - Run `FMAtlas.exe` from the extracted folder.
 - Do not use an artifact from an earlier commit.
 
-If the hosted workflow has not produced a green run, build on the Windows PC from the repository root:
+If the hosted workflow has not produced a green run, the easiest local route is to double-click `Run-FMAtlas-TestBuild.cmd` in the repository root. It builds, tests, packages and launches the newly built app only after success. Or build on the Windows PC from the repository root:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Build-Test-Package.ps1

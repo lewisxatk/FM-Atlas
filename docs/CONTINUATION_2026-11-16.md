@@ -58,7 +58,8 @@ Apply the approved Watched.Earth-inspired black/charcoal/off-white/orange visual
 - Do not merge PR #10 or mark the app release-ready before Windows and Game Pass acceptance.
 
 
-## Runner workaround
-- Windows-hosted runner attempts failed before any steps started.
-- The workflow now uses Ubuntu 24.04 to cross-compile the WPF project for Windows x64 and run platform-neutral tests.
-- A successful cross-build can produce the Windows package, but it cannot verify WPF startup, graphics loading or live FM27 memory reads. Those still require a Windows PC.
+## Runner status and local build route
+- Windows-hosted runner attempts failed before any steps started. The Ubuntu cross-build run `43874025965` also failed with no steps and no job log, so hosted Actions execution remains unavailable.
+- The workflow is configured for Ubuntu 24.04 cross-targeting, but no successful restore/build/test has yet been observed.
+- Added `Run-FMAtlas-TestBuild.cmd` and `scripts/Run-FMAtlas-TestBuild.ps1`. On Windows, the one-click launcher performs restore, Release build, automated tests, self-contained x64 publish, ZIP packaging and launches the freshly built app only if all steps pass.
+- A local successful build can produce the test program. WPF startup and live FM27 memory reads still require Windows runtime acceptance.
