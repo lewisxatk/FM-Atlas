@@ -282,6 +282,9 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
                 : $"e.display_name LIKE {parameter} ESCAPE '\\'";
         }
 
+        if (condition.FieldKey.Equals("relations", StringComparison.OrdinalIgnoreCase))
+            return BuildRelationshipPredicate(condition, parameters, ref nextParameter);
+
         if (condition.FieldKey.Equals("preferred_moves", StringComparison.OrdinalIgnoreCase))
         {
             var trait = AddParameter(parameters, ref nextParameter, condition.TextValue!);
@@ -375,6 +378,56 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
                   AND {alias}.provider_key = e.provider_key
                   AND {alias}.field_key IN ({string.Join(", ", keyParameters)})
                   AND {predicate}
+            )
+            """;
+    }
+
+    private static string BuildRelationshipPredicate(
+        SearchFilterCondition condition,
+        ICollection<(string Name, object Value)> parameters,
+        ref int nextParameter)
+    {
+        var value = condition.Operator == SearchFilterOperator.Equals
+            ? condition.TextValue!
+            : BuildContainsPattern(condition.TextValue!);
+        var parameter = AddParameter(parameters, ref nextParameter, value);
+        var comparison = condition.Operator == SearchFilterOperator.Equals
+            ? $"= {parameter} COLLATE NOCASE"
+            : $"LIKE {parameter} ESCAPE '\\'";
+
+        return $"""
+            (
+                EXISTS (
+                    SELECT 1
+                    FROM entity_relationships AS rel_out
+                    LEFT JOIN entities AS related_out
+                      ON related_out.entity_kind = rel_out.to_entity_kind
+                     AND related_out.source_id = rel_out.to_source_id
+                     AND related_out.provider_key = rel_out.to_provider_key
+                    WHERE rel_out.from_entity_kind = e.entity_kind
+                      AND rel_out.from_source_id = e.source_id
+                      AND rel_out.from_provider_key = e.provider_key
+                      AND (
+                          rel_out.relation_kind {comparison}
+                          OR related_out.display_name {comparison}
+                      )
+                )
+                OR
+                EXISTS (
+                    SELECT 1
+                    FROM entity_relationships AS rel_in
+                    LEFT JOIN entities AS related_in
+                      ON related_in.entity_kind = rel_in.from_entity_kind
+                     AND related_in.source_id = rel_in.from_source_id
+                     AND related_in.provider_key = rel_in.from_provider_key
+                    WHERE rel_in.to_entity_kind = e.entity_kind
+                      AND rel_in.to_source_id = e.source_id
+                      AND rel_in.to_provider_key = e.provider_key
+                      AND (
+                          rel_in.relation_kind {comparison}
+                          OR related_in.display_name {comparison}
+                      )
+                )
             )
             """;
     }
