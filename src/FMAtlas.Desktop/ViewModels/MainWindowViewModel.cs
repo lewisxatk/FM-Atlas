@@ -87,7 +87,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 case GameProcessProbeState.ProcessAndModuleFound:
                     var candidate = result.Candidates.First(x => x.HasGamePluginModule);
                     ConnectionStatus = "Game module detected";
-                    ConnectionDetail = $"FM process {candidate.ProcessId} and game_plugin.dll were detected. Exact build fingerprint, career identity and live data import remain In Progress. No player data has been read.";
+                    ConnectionDetail = candidate.ModuleFingerprint is null
+                        ? $"FM process {candidate.ProcessId} and game_plugin.dll were detected, but the static module fingerprint could not be read. Exact build support, career identity and live data import remain In Progress. No player data has been read."
+                        : $"FM process {candidate.ProcessId} and game_plugin.dll were detected. Static module metadata: {candidate.ModuleFingerprint.Summary}. This is not yet a supported-build match; career identity and live data import remain In Progress. No player data has been read.";
                     LastAction = $"Detected FM process {candidate.ProcessId}; read-only verification still required";
                     break;
             }
