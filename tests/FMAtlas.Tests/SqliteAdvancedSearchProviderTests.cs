@@ -327,6 +327,43 @@ public sealed class SqliteAdvancedSearchProviderTests
     }
 
     [Fact]
+    public async Task PositionFiltersCanRequireAllOrAnySelectedPositions()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        var goalkeeper = new EntityIdentity(EntityKind.Player, "goalkeeper", "test");
+        var centreBack = new EntityIdentity(EntityKind.Player, "centre-back", "test");
+        await store.SaveSnapshotAsync(new PlayerRecord(goalkeeper)
+        {
+            FullName = new SourcedValue<string>("Keeper", Evidence),
+            PositionRatings = new Dictionary<string, SourcedValue<int>> { ["gk"] = new(18, Evidence) }
+        }, "Keeper");
+        await store.SaveSnapshotAsync(new PlayerRecord(centreBack)
+        {
+            FullName = new SourcedValue<string>("Defender", Evidence),
+            PositionRatings = new Dictionary<string, SourcedValue<int>> { ["dc"] = new(18, Evidence) }
+        }, "Defender");
+
+        var conditions = new[]
+        {
+            new SearchFilterCondition("position_gk", SearchFilterOperator.Range, Minimum: 15),
+            new SearchFilterCondition("position_dc", SearchFilterOperator.Range, Minimum: 15)
+        };
+        var allQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player, SearchFilterLogic.All, conditions, SearchFilterLogic.All);
+        var anyQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player, SearchFilterLogic.All, conditions, SearchFilterLogic.Any);
+        var provider = new SqliteAdvancedSearchProvider(path);
+
+        Assert.Empty(await provider.ExecuteAsync(allQuery));
+        var anyResults = await provider.ExecuteAsync(anyQuery);
+        Assert.Equal(2, anyResults.Count);
+    }
+
+    [Fact]
     public async Task AbilityDifferenceSearchCalculatesPotentialMinusCurrentAbility()
     {
         using var temp = new TemporaryDirectory();
