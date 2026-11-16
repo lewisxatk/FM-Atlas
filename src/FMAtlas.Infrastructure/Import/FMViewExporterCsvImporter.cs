@@ -463,10 +463,15 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         if (normalized.EndsWith('%'))
             normalized = normalized[..^1].Trim();
 
-        var preferredCulture = useGermanDecimalSeparator
+        var hasComma = normalized.Contains(',');
+        var hasDot = normalized.Contains('.');
+        var germanFormat = hasComma && !hasDot ||
+            hasComma && hasDot && useGermanDecimalSeparator;
+
+        var preferredCulture = germanFormat
             ? CultureInfo.GetCultureInfo("de-DE")
             : CultureInfo.InvariantCulture;
-        var fallbackCulture = useGermanDecimalSeparator
+        var fallbackCulture = germanFormat
             ? CultureInfo.InvariantCulture
             : CultureInfo.GetCultureInfo("de-DE");
 
