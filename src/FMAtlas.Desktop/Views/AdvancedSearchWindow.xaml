@@ -206,7 +206,7 @@
                     <StackPanel>
                         <TextBlock Text="POSITION SELECTOR" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,7"/>
                         <Border Background="#142019" BorderBrush="#385541" BorderThickness="1" CornerRadius="5" Padding="8">
-                            <Canvas Width="390" Height="190" HorizontalAlignment="Center">
+                            <Canvas Width="390" Height="210" HorizontalAlignment="Center">
                                 <Rectangle Width="390" Height="190" Stroke="#52745A" StrokeThickness="1"/>
                                 <Line X1="0" Y1="95" X2="390" Y2="95" Stroke="#52745A" StrokeThickness="1"/>
                                 <Ellipse Width="58" Height="58" Stroke="#52745A" StrokeThickness="1" Canvas.Left="166" Canvas.Top="66"/>
@@ -222,11 +222,11 @@
                                 <Button Content="WBL" Tag="position_wbl" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="18" Canvas.Top="116" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
                                 <Button Content="DM" Tag="position_dm" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="171" Canvas.Top="116" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
                                 <Button Content="WBR" Tag="position_wbr" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="324" Canvas.Top="116" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
-                                <Button Content="DL" Tag="position_dl" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="65" Canvas.Top="150" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
+                                <Button Content="DL" Tag="position_dl" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="65" Canvas.Top="125" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
                                 <Button Content="DC" Tag="position_dc" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="171" Canvas.Top="150" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
                                 <Button Content="DR" Tag="position_dr" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="277" Canvas.Top="150" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
-                                <Button Content="SW" Tag="position_sw" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="171" Canvas.Top="183" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
-                                <Button Content="GK" Tag="position_gk" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="171" Canvas.Top="183" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
+                                <Button Content="SW" Tag="position_sw" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="171" Canvas.Top="155" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
+                                <Button Content="GK" Tag="position_gk" Click="PositionButton_Click" Width="48" Height="25" Canvas.Left="171" Canvas.Top="180" Background="#28583B" Foreground="#E8F4EA" BorderBrush="#6A9A75" FontSize="9"/>
                             </Canvas>
                         </Border>
                         <TextBlock Text="Select a position to find its 1–20 familiarity filter. The MIN and MAX fields remain editable; green markers are position selectors, not a player's rating." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
