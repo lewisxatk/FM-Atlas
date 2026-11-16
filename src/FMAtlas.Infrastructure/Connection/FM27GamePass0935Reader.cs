@@ -797,9 +797,13 @@ internal sealed class FM27GamePass0935Reader
             var fullName = BitConverter.ToUInt64(data, checked((int)(0x2C8 + shift)));
             var firstName = BitConverter.ToUInt64(data, checked((int)(0x2D8 + shift)));
             var lastName = BitConverter.ToUInt64(data, checked((int)(0x2E0 + shift)));
+            var commonName = BitConverter.ToUInt64(data, checked((int)(0x2E8 + shift)));
             if (ReadFmString(fullName) is not null) score += 2;
             if (ReadNameEntry(firstName) is not null) score++;
             if (ReadNameEntry(lastName) is not null) score++;
+            // Some name-patched records rely on their common name when the
+            // first/last-name entries or full-name string are absent.
+            if (ReadNameEntry(commonName) is not null) score++;
             if (score > bestScore)
             {
                 bestScore = score;
@@ -824,9 +828,11 @@ internal sealed class FM27GamePass0935Reader
             var fullName = BitConverter.ToUInt64(data, checked((int)(0x140 + shift)));
             var firstName = BitConverter.ToUInt64(data, checked((int)(0x150 + shift)));
             var lastName = BitConverter.ToUInt64(data, checked((int)(0x158 + shift)));
+            var commonName = BitConverter.ToUInt64(data, checked((int)(0x160 + shift)));
             if (ReadFmString(fullName) is not null) score += 2;
             if (ReadNameEntry(firstName) is not null) score++;
             if (ReadNameEntry(lastName) is not null) score++;
+            if (ReadNameEntry(commonName) is not null) score++;
             if (score > bestScore)
             {
                 bestScore = score;
