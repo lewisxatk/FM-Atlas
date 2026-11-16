@@ -16,6 +16,7 @@ namespace FMAtlas.Desktop.ViewModels;
 public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
 {
     private readonly IAdvancedSearchProvider _searchProvider;
+    private readonly Func<bool> _includeWomenPlayers;
     private readonly IIndexedAdvancedSearchFieldProvider? _indexedFieldProvider;
     private readonly Dictionary<SearchEntityKind, IReadOnlyList<AdvancedSearchFieldDefinition>> _indexedFields = [];
     private readonly Dictionary<(SearchEntityKind Entity, string Key), AdvancedSearchFieldViewModel> _fieldState = [];
@@ -27,9 +28,10 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     private string _fieldSearchText = string.Empty;
     private bool _isBusy;
 
-    public AdvancedSearchWindowViewModel(IAdvancedSearchProvider searchProvider)
+    public AdvancedSearchWindowViewModel(IAdvancedSearchProvider searchProvider, Func<bool>? includeWomenPlayers = null)
     {
         _searchProvider = searchProvider ?? throw new ArgumentNullException(nameof(searchProvider));
+        _includeWomenPlayers = includeWomenPlayers ?? (() => false);
         _indexedFieldProvider = searchProvider as IIndexedAdvancedSearchFieldProvider;
         Results = [];
         SelectEntity(SearchEntityKind.Player);
@@ -188,7 +190,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         }
 
         var query = new AdvancedSearchQuery(
-            SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic, GetIndexedFieldsFor(SelectedEntity));
+            SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic, GetIndexedFieldsFor(SelectedEntity), _includeWomenPlayers());
         var validation = AdvancedSearchQueryValidator.Validate(query);
         if (!validation.IsValid)
         {
