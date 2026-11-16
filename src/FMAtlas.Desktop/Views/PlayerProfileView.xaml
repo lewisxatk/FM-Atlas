@@ -84,7 +84,7 @@
                 </Border>
             </StackPanel>
 
-            <!-- Centre attribute editor. The source catalogue supplies the order; values remain empty until read. -->
+            <!-- Read-only attribute profile. Values and evidence come from the stored typed snapshot. -->
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
                     <Grid Margin="0,0,0,11">
