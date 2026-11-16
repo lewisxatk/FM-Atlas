@@ -220,6 +220,8 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
                 => "FOOT RATINGS",
             AdvancedSearchCategoryKind.General when key is "is_newgen" or "wonderkid"
                 => "PLAYER ORIGIN / DEVELOPMENT",
+            AdvancedSearchCategoryKind.General when key.StartsWith("role_preference_", StringComparison.OrdinalIgnoreCase)
+                => "STAFF ROLE PREFERENCES",
             AdvancedSearchCategoryKind.General when key is "division" or "team" or "training_status_club" or "training_status_nation"
                 => "TEAM / DIVISION / TRAINING",
             AdvancedSearchCategoryKind.General when key.StartsWith("club_", StringComparison.OrdinalIgnoreCase)
