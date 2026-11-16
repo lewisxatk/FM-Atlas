@@ -209,7 +209,50 @@ internal sealed class FM27GamePass0935Reader
             {
                 var staff = ReadStaff(address, evidence, inGameDate);
                 if (staff is not null)
-                 private PlayerRecord? ReadPlayer(ulong address, FieldProvenance evidence, DateOnly inGameDate)
+                    records.Add(staff);
+            }
+            catch (Exception ex) when (IsRecoverableEntityReadException(ex))
+            {
+            }
+
+            processed++;
+            if (processed % 250 == 0 || processed == playerPointers.Length + staffPointers.Length)
+            {
+                var percent = 67 + (int)(16.0 * (processed - playerPointers.Length) / Math.Max(1, total - playerPointers.Length));
+                progress?.Report(new LiveGameLoadProgress(percent, "Reading staff", $"Read {processed - playerPointers.Length:N0} of {staffPointers.Length:N0} staff entries."));
+            }
+        }
+
+        var staffCount = records.Count - playerCount;
+        progress?.Report(new LiveGameLoadProgress(84, "Reading clubs", $"Preparing {clubPointers.Length:N0} club records."));
+        foreach (var address in clubPointers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var club = ReadClub(address, evidence);
+                if (club is not null)
+                    records.Add(club);
+            }
+            catch (Exception ex) when (IsRecoverableEntityReadException(ex))
+            {
+            }
+
+            processed++;
+            if (processed % 250 == 0 || processed == total)
+            {
+                var percent = 84 + (int)(11.0 * (processed - playerPointers.Length - staffPointers.Length) / Math.Max(1, clubPointers.Length));
+                progress?.Report(new LiveGameLoadProgress(percent, "Reading clubs", $"Read {processed - playerPointers.Length - staffPointers.Length:N0} of {clubPointers.Length:N0} club entries."));
+            }
+        }
+
+        var clubCount = records.Count - playerCount - staffCount;
+        progress?.Report(new LiveGameLoadProgress(96, "Indexing live data", $"Preparing {records.Count:N0} records for the local search index."));
+        _ = clubCount;
+        return records;
+    }
+
+    private PlayerRecord? ReadPlayer(ulong address, FieldProvenance evidence, DateOnly inGameDate)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "player object");
         // One contiguous object read supplies the identity, attributes, ability, contracts
