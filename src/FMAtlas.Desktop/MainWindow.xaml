@@ -109,7 +109,7 @@
             </Grid>
         </Border>
 
-        <!-- Global header: quick search, local Atlas save, live-save placeholders and process detection. -->
+        <!-- Global header: workspace breadcrumb, include-women preference and global Quick Search/actions. -->
         <Border Grid.Column="1"
                 Grid.Row="0"
                 Background="#090909"
@@ -130,7 +130,7 @@
                 <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
                     <TextBlock Text="WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
                     <TextBlock Text="  /  " FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
-                    <TextBlock Text="DASHBOARD" FontSize="9" Foreground="{StaticResource Atlas.Text}"/>
+                    <TextBlock x:Name="CurrentWorkspaceBreadcrumb" Text="DASHBOARD" FontSize="9" Foreground="{StaticResource Atlas.Text}"/>
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Ellipse Width="6" Height="6" Fill="#8B6B4D" Margin="0,0,7,0"/>
@@ -251,7 +251,7 @@
         </Border>
 
         <!-- Main dashboard. All values are real application states, not demo data. -->
-        <TabControl x:Name="WorkspaceTabControl"
+        <TabControl x:Name="WorkspaceTabControl" SelectionChanged="WorkspaceTabControl_SelectionChanged"
                     Grid.Column="1"
                     Grid.Row="1"
                     Background="{StaticResource Atlas.Canvas}"
