@@ -66,6 +66,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event EventHandler? LiveDataInvalidated;
 
     public ICommand LoadGameCommand { get; }
     public ICommand SaveAtlasCommand { get; }
@@ -230,6 +231,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _liveWritesEnabled, value);
     }
 
+    private void NotifyLiveDataInvalidated()
+    {
+        for (var index = _recentlyOpenedProfiles.Count - 1; index >= 0; index--)
+        {
+            if (_recentlyOpenedProfiles[index].Result.Identity.ProviderKey.StartsWith(
+                    "live-fm27-gamepass-", StringComparison.OrdinalIgnoreCase))
+            {
+                _recentlyOpenedProfiles.RemoveAt(index);
+            }
+        }
+
+        OnPropertyChanged(nameof(HasNoRecentlyOpenedProfiles));
+        LiveDataInvalidated?.Invoke(this, EventArgs.Empty);
+    }
+
     public async Task CheckLiveSessionAsync(CancellationToken cancellationToken = default)
     {
         if (!LiveSessionActive || _sessionCheckRunning || IsBusy)
@@ -243,6 +259,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 LiveSessionActive = false;
                 LiveWritesEnabled = false;
+                NotifyLiveDataInvalidated();
                 ConnectionStatus = "Career changed — reload";
                 ConnectionDetail = status.Message;
                 LastAction = "Live career changed; stale live records invalidated";
@@ -263,6 +280,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             LiveSessionActive = false;
             LiveWritesEnabled = false;
+            NotifyLiveDataInvalidated();
             ConnectionStatus = "Live session unavailable";
             ConnectionDetail = exception.Message;
             LastAction = "Live session monitor stopped";
@@ -418,6 +436,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private async Task LoadLiveGameAsync()
     {
         var refreshSearchAfterLoad = false;
+        NotifyLiveDataInvalidated();
+        LiveSessionActive = false;
+        LiveWritesEnabled = false;
         IsBusy = true;
         LiveSessionActive = false;
         LiveWritesEnabled = false;
