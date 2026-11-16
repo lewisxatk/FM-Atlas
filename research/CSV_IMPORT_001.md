@@ -41,6 +41,8 @@ Known fields mapped into typed PlayerRecord properties include:
 
 The importer does not convert star-based `Ability` / `Potential` scout opinions into CA/PA. Those remain separate additional fields. It does not infer Newgen status, gender, hidden attributes, role ratings or statistics that are not present in the file.
 
+**Gender limitation:** the inspected FM View Exporter FM27 column catalogue does not list a standard `Gender` column. If the selected CSV does not include an explicit `Gender` header, imported players remain gender-unknown and the importer warns about it. The global Include women filter deliberately retains those unknown records; it cannot reliably exclude women from a CSV that contains no gender evidence. The live Game Pass reader will need its own field-level gender verification before it can populate this value.
+
 ## 3. Additional exported columns
 
 Columns not covered by the fixed mapping are retained as provider-scoped `export_*` fields and indexed for Advanced Search.
