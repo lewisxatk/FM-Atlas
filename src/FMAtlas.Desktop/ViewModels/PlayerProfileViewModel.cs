@@ -28,8 +28,11 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
             "Transfer Proposals", "Retire Date", "Scout Information"
         ];
 
+        // The public FMLibreEditor profile catalogue uses GK >= 15 to select
+        // the goalkeeper profile group. A small non-zero GK familiarity alone
+        // does not make a player a goalkeeper for profile presentation.
         var isGoalkeeper = player.PositionRatings.TryGetValue("gk", out var goalkeeperRating) &&
-                           goalkeeperRating.Value > 0;
+                           goalkeeperRating.Value >= 15;
         AttributeGroups = new ObservableCollection<PlayerAttributeGroupViewModel>(
             PlayerAttributeCatalog.GetProfileGroups(isGoalkeeper)
                 .Select(group => new PlayerAttributeGroupViewModel(
@@ -100,7 +103,9 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     public string PositionInfoText => $"Position  ·  {Format(Player.PrimaryPosition?.Value)}";
     public string PreferredFootInfoText => $"Preferred foot  ·  {Format(Player.PreferredFoot?.Value)}";
     public string HeightWeightInfoText =>
-        $"Height / Weight  ·  {Format(Player.HeightCentimetres?.Value, " cm")} / {Format(Player.WeightKilograms?.Value, " kg")}";
+        "Height / Weight  ·  " +
+        Format(Player.HeightCentimetres?.Value, " cm") + " / " +
+        Format(Player.WeightKilograms?.Value, " kg");
     public string UniqueIdInfoText => $"Unique ID  ·  {Format(Player.GameUid?.Value ?? Player.Identity.SourceId)}";
     public string WageInfoText => $"Wage  ·  {Format(Player.Wage?.Value)}";
     public string ExpiryInfoText => $"Expiry  ·  {Format(Player.ContractExpires?.Value)}";
@@ -119,9 +124,9 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         false => "ORIGINAL DATABASE",
         null => "UNKNOWN / UNCLASSIFIED"
     };
-    public string NewgenEvidenceText => Player.IsNewgen is null
-        ? "The imported source did not provide a verified generation classification."
-        : Evidence(Player.IsNewgen.Provenance);
+    public string NewgenEvidenceText => Player.IsNewgen is { } newgen
+        ? Evidence(newgen.Provenance)
+        : "The imported source did not provide a verified generation classification.";
     public string SeasonStatisticsEmptyText => SeasonStatistics.Count == 0
         ? "No season statistics have been imported for this player."
         : string.Empty;
@@ -221,7 +226,7 @@ public sealed class PlayerAttributeRowViewModel
     public string Key { get; }
     public string DisplayName { get; }
     public bool IsHidden { get; }
-    public string ValueText => _value?.Value.ToString(CultureInfo.InvariantCulture) ?? "—";
+    public string ValueText => _value is null ? "—" : _value.Value.ToString(CultureInfo.InvariantCulture);
     public string EvidenceText => _value is null ? "No value imported" : $"{_value.Provenance.Source} · {_value.Provenance.EvidenceStatus}";
     public bool HasValue => _value is not null;
     public bool IsReadVerified => _value?.IsReadVerified == true;
