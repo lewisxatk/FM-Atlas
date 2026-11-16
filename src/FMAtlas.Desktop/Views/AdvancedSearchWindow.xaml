@@ -46,7 +46,10 @@
                     <ColumnDefinition Width="112"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding DisplayName}" Style="{StaticResource FilterLabel}" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" ToolTip="{Binding EvidenceStatus}">
+                    <TextBlock Text="{Binding DisplayName}" Style="{StaticResource FilterLabel}"/>
+                    <TextBlock Text="{Binding ImplementationStatus}" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" Margin="0,2,0,0"/>
+                </StackPanel>
                 <StackPanel x:Name="RangeControls" Grid.Column="1" Orientation="Horizontal">
                     <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum value"/>
                     <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="5,0"/>
@@ -120,7 +123,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="ADVANCED SEARCH" FontFamily="Georgia" FontSize="23" Foreground="{StaticResource Atlas.Text}"/>
-                <TextBlock Text="FMRTE-style filter workspace · REF-002" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
+                <TextBlock Text="FM Atlas search workspace · FMRTE-inspired · REF-002" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
             </StackPanel>
             <Border Grid.Column="1" Background="{StaticResource Atlas.AccentSoft}" BorderBrush="#59301E" BorderThickness="1" CornerRadius="5" Padding="9,5" VerticalAlignment="Center">
                 <TextBlock Text="LOCAL INDEX · SUPPORTED FIELDS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
@@ -160,7 +163,7 @@
                 <Button x:Name="PreferredMovesCategoryButton" Content="Preferred Moves" Tag="PreferredMoves" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Button x:Name="RelationsCategoryButton" Content="Relations" Tag="Relations" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Border Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="5" Padding="8" Margin="0,14,0,0">
-                    <TextBlock Text="Categories and controls are shown for layout review. They will be enabled only when their field mappings and query handlers are verified." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                    <TextBlock Text="Only fields marked READY are active. Searches use records already imported into the local FM Atlas database. Live-career search is still IN PROGRESS." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
                 </Border>
             </StackPanel>
 
@@ -330,7 +333,7 @@
             </Grid>
         </Border>
         <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
-            <TextBlock Text="SUPPORTED FIELD MAPPINGS ONLY · OTHER FILTERS IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
+            <TextBlock Text="READ-ONLY LOCAL INDEX · READY FIELDS ONLY · LIVE CAREER DATA IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <Button Content="Cancel" Click="Cancel_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,8,0"/>
                 <Button Content="Search" Click="Search_Click" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="78"/>

@@ -8,6 +8,7 @@ namespace FMAtlas.Desktop;
 public partial class MainWindow : Window
 {
     private readonly IAdvancedSearchProvider _advancedSearchProvider;
+    private AdvancedSearchWindow? _advancedSearchWindow;
 
     public MainWindow(MainWindowViewModel viewModel, IAdvancedSearchProvider advancedSearchProvider)
     {
@@ -18,10 +19,30 @@ public partial class MainWindow : Window
 
     private void AdvancedSearchButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new AdvancedSearchWindow(_advancedSearchProvider)
+        // Advanced Search is a workspace, not a modal dialog: keep the main Atlas
+        // window usable while the user builds and reviews a filter query.
+        if (_advancedSearchWindow is { } openWindow)
+        {
+            if (openWindow.WindowState == WindowState.Minimized)
+                openWindow.WindowState = WindowState.Normal;
+
+            openWindow.Activate();
+            return;
+        }
+
+        var searchWindow = new AdvancedSearchWindow(_advancedSearchProvider)
         {
             Owner = this
         };
-        dialog.ShowDialog();
+
+        _advancedSearchWindow = searchWindow;
+        searchWindow.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_advancedSearchWindow, searchWindow))
+                _advancedSearchWindow = null;
+        };
+
+        searchWindow.Show();
+        searchWindow.Activate();
     }
 }

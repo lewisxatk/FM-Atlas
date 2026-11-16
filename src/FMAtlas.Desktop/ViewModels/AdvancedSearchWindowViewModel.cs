@@ -464,7 +464,9 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
         Key = definition.Key;
         DisplayName = definition.DisplayName;
         EvidenceStatus = definition.EvidenceStatus.ToString();
-        ImplementationStatus = definition.ImplementationStatus.ToString();
+        ImplementationStatus = definition.ImplementationStatus == SearchImplementationStatus.Ready
+            ? "READY"
+            : "IN PROGRESS";
         ValueKind = definition.ValueKind;
         IsEnabled = definition.CanExecute;
         ControlKind = definition.ValueKind switch
