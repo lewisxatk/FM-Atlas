@@ -212,19 +212,59 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            DELETE FROM entity_record_snapshots
-            WHERE entity_kind = $kind
-              AND source_id = $sourceId
-              AND provider_key = $provider
-              AND record_type = $recordType;
-            """;
-        command.Parameters.AddWithValue("$kind", identity.Kind.ToString());
-        command.Parameters.AddWithValue("$sourceId", identity.SourceId);
-        command.Parameters.AddWithValue("$provider", identity.ProviderKey);
-        command.Parameters.AddWithValue("$recordType", GetRecordType<TRecord>());
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, null, "PRAGMA foreign_keys = ON;", cancellationToken)
+            .ConfigureAwait(false);
+
+        await using var transaction = connection.BeginTransaction();
+        await using (var deleteCommand = connection.CreateCommand())
+        {
+            deleteCommand.Transaction = transaction;
+            deleteCommand.CommandText = """
+                DELETE FROM entity_record_snapshots
+                WHERE entity_kind = $kind
+                  AND source_id = $sourceId
+                  AND provider_key = $provider
+                  AND record_type = $recordType;
+                """;
+            deleteCommand.Parameters.AddWithValue("$kind", identity.Kind.ToString());
+            deleteCommand.Parameters.AddWithValue("$sourceId", identity.SourceId);
+            deleteCommand.Parameters.AddWithValue("$provider", identity.ProviderKey);
+            deleteCommand.Parameters.AddWithValue("$recordType", GetRecordType<TRecord>());
+            await deleteCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        long remainingSnapshots;
+        await using (var countCommand = connection.CreateCommand())
+        {
+            countCommand.Transaction = transaction;
+            countCommand.CommandText = """
+                SELECT COUNT(*) FROM entity_record_snapshots
+                WHERE entity_kind = $kind AND source_id = $sourceId AND provider_key = $provider;
+                """;
+            countCommand.Parameters.AddWithValue("$kind", identity.Kind.ToString());
+            countCommand.Parameters.AddWithValue("$sourceId", identity.SourceId);
+            countCommand.Parameters.AddWithValue("$provider", identity.ProviderKey);
+            var value = await countCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            remainingSnapshots = Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (remainingSnapshots == 0)
+        {
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                DELETE FROM field_values
+                WHERE entity_kind = $kind AND source_id = $sourceId AND provider_key = $provider;
+                """,
+                cancellationToken,
+                ("$kind", identity.Kind.ToString()),
+                ("$sourceId", identity.SourceId),
+                ("$provider", identity.ProviderKey))
+                .ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static void ValidateIdentity(EntityIdentity identity)
