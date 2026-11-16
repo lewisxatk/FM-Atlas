@@ -142,7 +142,7 @@ public static class FM27LiveScanValidator
         foreach (var player in players)
         {
             if (player.CurrentAbility is { Value: < 1 or > 200 } ||
-                player.PotentialAbility is { Value: < 1 or > 200 } ||
+                player.PotentialAbility is { Value: < -200 or > 200 } ||
                 player.Attributes.Values.Any(value => value.Value is < 1 or > 20) ||
                 player.HiddenAttributes.Values.Any(value => value.Value is < 1 or > 20) ||
                 player.Personality.Values.Any(value => value.Value is < 1 or > 20) ||
