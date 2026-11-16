@@ -13,6 +13,7 @@ public enum SearchFilterOperator
     Equals,
     IsTrue,
     IsFalse,
+    IsUnknown,
     Before,
     After,
     HasTrait,
@@ -110,6 +111,21 @@ public static class AdvancedSearchQueryValidator
         return null;
     }
 
+    private static void ValidateBounds(
+        AdvancedSearchFieldDefinition field,
+        decimal? minimum,
+        decimal? maximum,
+        ICollection<SearchValidationIssue> issues)
+    {
+        if (field.MinimumAllowed is decimal lower &&
+            (minimum is decimal min && min < lower || maximum is decimal max && max < lower))
+            issues.Add(new SearchValidationIssue(field.Key, $"Values cannot be below {lower}."));
+
+        if (field.MaximumAllowed is decimal upper &&
+            (minimum is decimal min && min > upper || maximum is decimal max && max > upper))
+            issues.Add(new SearchValidationIssue(field.Key, $"Values cannot be above {upper}."));
+    }
+
     private static void ValidateOperatorAndValue(
         AdvancedSearchFieldDefinition field,
         SearchFilterCondition condition,
@@ -131,6 +147,8 @@ public static class AdvancedSearchQueryValidator
                 if (condition.Minimum is not null && condition.Maximum is not null &&
                     condition.Minimum > condition.Maximum)
                     issues.Add(new SearchValidationIssue(field.Key, "The minimum cannot be greater than the maximum."));
+
+                ValidateBounds(field, condition.Minimum, condition.Maximum, issues);
 
                 if (field.ValueKind == SearchFieldValueKind.IntegerRange &&
                     (condition.Minimum is decimal min && decimal.Truncate(min) != min ||
@@ -154,6 +172,7 @@ public static class AdvancedSearchQueryValidator
                 if (condition.Minimum is not null && condition.Maximum is not null &&
                     condition.Minimum > condition.Maximum)
                     issues.Add(new SearchValidationIssue(field.Key, "The minimum cannot be greater than the maximum."));
+                ValidateBounds(field, condition.Minimum, condition.Maximum, issues);
                 break;
 
             case SearchFieldValueKind.Text:
@@ -165,7 +184,7 @@ public static class AdvancedSearchQueryValidator
                 break;
 
             case SearchFieldValueKind.Boolean:
-                if (condition.Operator is not (SearchFilterOperator.IsTrue or SearchFilterOperator.IsFalse))
+                if (condition.Operator is not (SearchFilterOperator.IsTrue or SearchFilterOperator.IsFalse or SearchFilterOperator.IsUnknown))
                     issues.Add(new SearchValidationIssue(field.Key, "This field requires a true/false operator."));
                 break;
 
