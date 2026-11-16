@@ -59,8 +59,10 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     public ObservableCollection<ProfileSectionTabViewModel> Sections { get; }
     public ObservableCollection<ProfileValueRowViewModel> SectionRows { get; } = [];
     public ObservableCollection<EntitySearchResult> SquadPlayers { get; } = [];
+    public ObservableCollection<EntitySearchResult> ClubStaff { get; } = [];
     public bool IsSquadsSection => SelectedSection == "Squads";
-    public bool IsNotSquadsSection => !IsSquadsSection;
+    public bool IsStaffSection => SelectedSection == "Staff";
+    public bool IsOtherProfileSection => !IsSquadsSection && !IsStaffSection;
     public ICommand SelectSectionCommand { get; }
     public string SelectedSection
     {
@@ -73,6 +75,8 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
                 tab.IsSelected = tab.Name == value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsSquadsSection));
+            OnPropertyChanged(nameof(IsStaffSection));
+            OnPropertyChanged(nameof(IsOtherProfileSection));
             UpdateRows();
         }
     }
@@ -101,6 +105,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
 
         SectionRows.Clear();
         SquadPlayers.Clear();
+        ClubStaff.Clear();
         var rows = new List<ProfileValueRowViewModel>();
         void Add(string name, string? value, FieldProvenance? evidence = null)
         {
@@ -173,8 +178,8 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
                 AddMap("transfer", Club.SearchDecimalFields);
                 break;
             case "Staff":
-                SectionDescription = "Staff attached to the club, where the loaded data contains those relationships.";
-                AddMap("staff", Club.SearchTextFields);
+                SectionDescription = "Staff attached to this club by the current contract’s numeric club ID in the loaded career.";
+                isAsyncSection = true;
                 break;
             case "Wage Contributions":
                 SectionDescription = "Wage contributions and shared salary terms where supported.";
@@ -227,18 +232,21 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(HasSectionEmptyText));
 
         if (isAsyncSection)
-            _ = LoadSquadPlayersAsync(sectionLoadVersion);
+            _ = LoadLinkedPeopleAsync(
+                SelectedSection == "Staff" ? SearchEntityKind.Coach : SearchEntityKind.Player,
+                sectionLoadVersion);
     }
 
-    private async Task LoadSquadPlayersAsync(int sectionLoadVersion)
+    private async Task LoadLinkedPeopleAsync(SearchEntityKind entityKind, int sectionLoadVersion)
     {
-        if (SelectedSection != "Squads" || sectionLoadVersion != _sectionLoadVersion)
+        var expectedSection = entityKind == SearchEntityKind.Coach ? "Staff" : "Squads";
+        if (SelectedSection != expectedSection || sectionLoadVersion != _sectionLoadVersion)
             return;
 
         if (!uint.TryParse(Club.Identity.SourceId, NumberStyles.None, CultureInfo.InvariantCulture, out var clubId) ||
             clubId == 0)
         {
-            SectionEmptyText = "This club record does not have a numeric game ID, so its player links cannot be resolved safely.";
+            SectionEmptyText = "This club record does not have a numeric game ID, so linked records cannot be resolved safely.";
             return;
         }
 
@@ -253,10 +261,10 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         try
         {
             var fields = await indexedProvider.GetIndexedFieldsAsync(
-                SearchEntityKind.Player,
+                entityKind,
                 cancellation.Token).ConfigureAwait(true);
             if (cancellation.IsCancellationRequested ||
-                SelectedSection != "Squads" ||
+                SelectedSection != expectedSection ||
                 sectionLoadVersion != _sectionLoadVersion)
                 return;
 
@@ -266,12 +274,14 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
                 field.CanExecute);
             if (clubIdField is null)
             {
-                SectionEmptyText = "The current player index does not contain a queryable club ID. Reload the live career after the club-link field is available.";
+                SectionEmptyText = entityKind == SearchEntityKind.Coach
+                    ? "The current staff index does not contain a queryable club ID. Reload the live career after the staff contract link is available."
+                    : "The current player index does not contain a queryable club ID. Reload the live career after the player-team link is available.";
                 return;
             }
 
             var query = new AdvancedSearchQuery(
-                SearchEntityKind.Player,
+                entityKind,
                 SearchFilterLogic.All,
                 [
                     new SearchFilterCondition(
@@ -282,23 +292,35 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
                 ],
                 IndexedFields: fields);
 
-            var players = await _advancedSearchProvider.ExecuteAsync(
+            var linkedRecords = await _advancedSearchProvider.ExecuteAsync(
                 query,
                 limit: 200,
                 cancellationToken: cancellation.Token).ConfigureAwait(true);
 
             if (cancellation.IsCancellationRequested ||
-                SelectedSection != "Squads" ||
+                SelectedSection != expectedSection ||
                 sectionLoadVersion != _sectionLoadVersion)
                 return;
 
-            SquadPlayers.Clear();
-            foreach (var player in players.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
-                SquadPlayers.Add(player);
+            if (entityKind == SearchEntityKind.Coach)
+            {
+                ClubStaff.Clear();
+                foreach (var staff in linkedRecords.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
+                    ClubStaff.Add(staff);
+                OnPropertyChanged(nameof(ClubStaff));
+            }
+            else
+            {
+                SquadPlayers.Clear();
+                foreach (var player in linkedRecords.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
+                    SquadPlayers.Add(player);
+                OnPropertyChanged(nameof(SquadPlayers));
+            }
 
-            OnPropertyChanged(nameof(SquadPlayers));
-            SectionEmptyText = players.Count == 0
-                ? "No players in the indexed snapshot are linked to this club ID. The active source may not have supplied their current-team relationship."
+            SectionEmptyText = linkedRecords.Count == 0
+                ? entityKind == SearchEntityKind.Coach
+                    ? "No staff records in the indexed snapshot are linked to this club ID. The active source may not have supplied their contract relationship."
+                    : "No players in the indexed snapshot are linked to this club ID. The active source may not have supplied their current-team relationship."
                 : string.Empty;
             OnPropertyChanged(nameof(SectionRows));
             OnPropertyChanged(nameof(HasSectionEmptyText));
@@ -308,8 +330,8 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         }
         catch (Exception exception)
         {
-            if (SelectedSection == "Squads" && sectionLoadVersion == _sectionLoadVersion)
-                SectionEmptyText = $"The club squad could not be loaded: {exception.Message}";
+            if (SelectedSection == expectedSection && sectionLoadVersion == _sectionLoadVersion)
+                SectionEmptyText = $"The linked {expectedSection.ToLowerInvariant()} list could not be loaded: {exception.Message}";
         }
         finally
         {
