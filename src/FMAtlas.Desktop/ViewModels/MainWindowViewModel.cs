@@ -146,9 +146,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         var dataset = providerKey.Length > 8 ? providerKey[^8..] : providerKey;
         LastImportCountText = importedPlayers.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
-        LastImportStatusText = importedPlayers == 1
-            ? "Player imported in latest CSV"
-            : $"Players imported in latest CSV · {dataset}";
+        LastImportStatusText = importedPlayers switch
+        {
+            0 => $"No players imported from latest CSV · {dataset}",
+            1 => "1 player imported from latest CSV",
+            _ => $"{importedPlayers:N0} players imported from latest CSV · {dataset}"
+        };
         LastAction = $"Imported {importedPlayers:N0} FM export player(s) · dataset {dataset}";
         ScheduleQuickSearch();
     }
