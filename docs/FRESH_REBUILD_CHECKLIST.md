@@ -230,3 +230,9 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M5.1 Wire Quick Search input/results to IEntitySearchProvider.
 
 The desktop buttons do not imply that live save loading or writing is already functional. Only local Atlas database initialisation is currently wired.
+
+
+## Update — checkpoint 014 (2026-11-16)
+
+- [x] Corrected the stale schema idempotence test to assert the current schema version (v2).
+- [ ] Full .NET restore/build/xUnit run remains blocked by GitHub Actions jobs failing before runner allocation; no compiler logs are available.
