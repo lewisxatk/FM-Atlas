@@ -241,6 +241,7 @@ internal sealed class FM27GamePass0935Reader
         var dateOfBirth = MakeFmDate(U16(0x310, offset), U16(0x312, offset));
         var age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
         var nationality = ReadNationName(U64(0x2F0, offset));
+        var (secondNationality, relationSearchText) = ReadPlayerRelations(U64(0x300, offset), evidence);
         var cityOfBirth = ReadCityName(U64(0x308, offset));
         var club = ReadPlayerClubName(U64(0x130));
         var genderFlags = B(0x2A1, offset);
@@ -366,7 +367,7 @@ internal sealed class FM27GamePass0935Reader
             searchBooleans["loan_listed"] = new SourcedValue<bool>((listingFlags & 0x02) != 0, evidence);
         }
 
-        var searchDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase);
+        var searchText = new Dictionary<string, SourcedValue<string>>(relationSearchText, StringComparer.OrdinalIgnoreCase);
         if (contractSigned is DateOnly signed)
             searchDates["contract_signed"] = new SourcedValue<DateOnly>(signed, evidence);
         if (contractJoined is DateOnly joined)
@@ -379,6 +380,7 @@ internal sealed class FM27GamePass0935Reader
             DateOfBirth = dateOfBirth is DateOnly dob ? new SourcedValue<DateOnly>(dob, evidence) : null,
             Age = age is int playerAge ? new SourcedValue<int>(playerAge, evidence) : null,
             Nationality = nationality is not null ? new SourcedValue<string>(nationality, evidence) : null,
+            SecondNationality = secondNationality is not null ? new SourcedValue<string>(secondNationality, evidence) : null,
             CityOfBirth = cityOfBirth is not null ? new SourcedValue<string>(cityOfBirth, evidence) : null,
             Gender = new SourcedValue<string>((genderFlags & 0x10) != 0 ? "Female" : "Male", evidence),
             ClubName = club is not null ? new SourcedValue<string>(club, evidence) : null,
@@ -400,6 +402,7 @@ internal sealed class FM27GamePass0935Reader
             SearchIntegerFields = searchIntegers,
             SearchBooleanFields = searchBooleans,
             SearchDateFields = searchDates,
+            SearchTextFields = searchText,
             IsNewgen = new SourcedValue<bool>((madeByGameFlags & 0x08) != 0, evidence)
         };
     }
@@ -785,6 +788,85 @@ internal sealed class FM27GamePass0935Reader
         }
 
         return bestScore >= 2 ? bestShift : null;
+    }
+
+    private (string? SecondNationality, Dictionary<string, SourcedValue<string>> SearchFields) ReadPlayerRelations(
+        ulong relationHeader,
+        FieldProvenance evidence)
+    {
+        var fields = new Dictionary<string, SourcedValue<string>>(StringComparer.OrdinalIgnoreCase);
+        if (!WindowsProcessMemoryAccessor.IsUserPointer(relationHeader))
+            return (null, fields);
+
+        try
+        {
+            // Relation record starts with (begin, end, capacity), followed by 16-byte entries.
+            var header = _memory.ReadBytes(relationHeader, 24);
+            var begin = BitConverter.ToUInt64(header, 0);
+            var end = BitConverter.ToUInt64(header, 8);
+            var capacity = BitConverter.ToUInt64(header, 16);
+            if (begin == 0 && end == 0 && capacity == 0)
+                return (null, fields);
+
+            const ulong entrySize = 16;
+            const ulong maximumEntries = 256;
+            if (!WindowsProcessMemoryAccessor.IsUserPointer(begin) ||
+                end < begin || capacity < end ||
+                (end - begin) % entrySize != 0 ||
+                (capacity - begin) % entrySize != 0 ||
+                capacity - begin > entrySize * maximumEntries)
+                return (null, fields);
+
+            var count = (end - begin) / entrySize;
+            if (count == 0)
+                return (null, fields);
+
+            var bytes = _memory.ReadBytes(begin, checked((int)(end - begin)));
+            string? secondNationality = null;
+            var trainedNation = 0;
+            var trainedClub = 0;
+            var workPermitNation = 0;
+
+            for (var index = 0; index < checked((int)count); index++)
+            {
+                var offset = index * (int)entrySize;
+                var target = BitConverter.ToUInt64(bytes, offset);
+                var targetKind = bytes[offset + 0x0A];
+                var relationKind = bytes[offset + 0x0B];
+                if (!WindowsProcessMemoryAccessor.IsUserPointer(target))
+                    continue;
+
+                if (targetKind == 8 && relationKind == 9)
+                {
+                    secondNationality ??= ReadNationName(target);
+                }
+                else if (targetKind == 8 && relationKind == 70)
+                {
+                    var name = ReadNationName(target);
+                    if (name is not null)
+                        fields[$"trained_in_nation_{++trainedNation}"] = new SourcedValue<string>(name, evidence);
+                }
+                else if (targetKind == 1 && relationKind == 72)
+                {
+                    var name = ReadFmString(SafeReadPointer(target + 0xC0));
+                    if (name is not null)
+                        fields[$"trained_at_club_{++trainedClub}"] = new SourcedValue<string>(name, evidence);
+                }
+                else if (targetKind == 8 && relationKind == 109)
+                {
+                    var name = ReadNationName(target);
+                    if (name is not null)
+                        fields[$"work_permit_nation_{++workPermitNation}"] = new SourcedValue<string>(name, evidence);
+                }
+            }
+
+            return (secondNationality, fields);
+        }
+        catch (Exception exception) when (exception is Win32Exception or InvalidDataException or OverflowException or ArgumentException)
+        {
+            // A malformed relationship list is unknown, not a reason to invent a nationality or abort all player reads.
+            return (null, fields);
+        }
     }
 
     private string? ReadNationName(ulong nation)
