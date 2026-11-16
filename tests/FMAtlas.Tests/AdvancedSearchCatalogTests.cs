@@ -14,6 +14,7 @@ public sealed class AdvancedSearchCatalogTests
             AdvancedSearchCategoryKind.General,
             AdvancedSearchCategoryKind.Contract,
             AdvancedSearchCategoryKind.TechnicalGoalkeeping,
+            AdvancedSearchCategoryKind.Goalkeeping,
             AdvancedSearchCategoryKind.MentalAttributes,
             AdvancedSearchCategoryKind.PhysicalHidden,
             AdvancedSearchCategoryKind.PreferredMoves,
@@ -50,9 +51,14 @@ public sealed class AdvancedSearchCatalogTests
             SearchEntityKind.Player, AdvancedSearchCategoryKind.TechnicalGoalkeeping);
 
         Assert.Contains(fields, x => x.Key == "attribute_corners" && x.CanExecute);
-        Assert.Contains(fields, x => x.Key == "attribute_aerial_reach" && x.CanExecute);
         Assert.Contains(fields, x => x.Key == "attribute_first_touch" && x.CanExecute);
-        Assert.Equal(fields.Count, fields.Select(x => x.Key).Distinct().Count());
+        Assert.DoesNotContain(fields, x => x.Key == "attribute_aerial_reach");
+
+        var goalkeeper = AdvancedSearchCatalog.GetAttributeFields(
+            SearchEntityKind.Player, AdvancedSearchCategoryKind.Goalkeeping);
+        Assert.Contains(goalkeeper, x => x.Key == "attribute_aerial_reach" && x.CanExecute);
+        Assert.Contains(goalkeeper, x => x.Key == "attribute_handling" && x.CanExecute);
+        Assert.Equal(goalkeeper.Count, goalkeeper.Select(x => x.Key).Distinct().Count());
     }
 
     [Fact]
