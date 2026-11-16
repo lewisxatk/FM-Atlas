@@ -136,6 +136,13 @@
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Ellipse Width="6" Height="6" Fill="#8B6B4D" Margin="0,0,7,0"/>
                     <TextBlock Text="{Binding ConnectionStatus}" FontSize="10" Foreground="{StaticResource Atlas.Muted}"/>
+                    <CheckBox Content="Include women"
+                              IsChecked="{Binding IncludeWomenPlayers, Mode=TwoWay}"
+                              Foreground="{StaticResource Atlas.Muted}"
+                              FontSize="9"
+                              Margin="14,0,0,0"
+                              VerticalAlignment="Center"
+                              ToolTip="Off by default. Includes women players in Quick Search and Advanced Search when enabled."/>
                 </StackPanel>
 
                 <Grid Grid.Row="2" Grid.ColumnSpan="2">
