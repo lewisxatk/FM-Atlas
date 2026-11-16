@@ -75,7 +75,7 @@ public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
             SELECT e.entity_kind, e.source_id, e.provider_key, e.display_name
             FROM entities AS e
             WHERE e.display_name IS NOT NULL
-              {nameFilter} '\'
+              {nameFilter}
               {kindFilter}
               {womenFilter}
             ORDER BY e.display_name COLLATE NOCASE, e.entity_kind, e.provider_key, e.source_id
