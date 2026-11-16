@@ -22,6 +22,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     private SearchFilterLogic _selectedLogic = SearchFilterLogic.All;
     private SearchFilterLogic _selectedPositionLogic = SearchFilterLogic.All;
     private string _statusText = "Enter criteria in supported fields, then run the search.";
+    private string _fieldSearchText = string.Empty;
     private bool _isBusy;
 
     public AdvancedSearchWindowViewModel(IAdvancedSearchProvider searchProvider)
@@ -64,6 +65,16 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     {
         get => _statusText;
         private set => SetField(ref _statusText, value);
+    }
+
+    public string FieldSearchText
+    {
+        get => _fieldSearchText;
+        set
+        {
+            if (SetField(ref _fieldSearchText, value))
+                RebuildSections();
+        }
     }
 
     public bool IsBusy
@@ -178,20 +189,52 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     {
         Sections.Clear();
 
-        var fields = AdvancedSearchCatalog.GetFields(SelectedEntity, SelectedCategory)
-            .Concat(AdvancedSearchCatalog.GetAttributeFields(SelectedEntity, SelectedCategory))
+        var isFieldSearch = !string.IsNullOrWhiteSpace(FieldSearchText);
+        IEnumerable<AdvancedSearchFieldDefinition> fields = isFieldSearch
+            ? AdvancedSearchCatalog.Categories.SelectMany(category =>
+                AdvancedSearchCatalog.GetFields(SelectedEntity, category.Kind)
+                    .Concat(AdvancedSearchCatalog.GetAttributeFields(SelectedEntity, category.Kind)))
+            : AdvancedSearchCatalog.GetFields(SelectedEntity, SelectedCategory)
+                .Concat(AdvancedSearchCatalog.GetAttributeFields(SelectedEntity, SelectedCategory));
+
+        var search = FieldSearchText.Trim();
+        var filteredFields = (isFieldSearch
+                ? fields.Where(field =>
+                    field.DisplayName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    field.Key.Contains(search, StringComparison.OrdinalIgnoreCase))
+                : fields)
+            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .ToArray();
 
-        if (fields.Length == 0)
+        if (filteredFields.Length == 0)
         {
             Sections.Add(new AdvancedSearchSectionViewModel(
-                "NO DOCUMENTED FILTERS",
-                "There are no documented fields for this entity and category. No substitute fields have been invented.",
+                isFieldSearch ? "NO MATCHING FIELDS" : "NO DOCUMENTED FILTERS",
+                isFieldSearch
+                    ? $"No {SelectedEntity.ToString().ToLowerInvariant()} filters match “{search}”. Try another field name or key."
+                    : "There are no documented fields for this entity and category. No substitute fields have been invented.",
                 Array.Empty<AdvancedSearchFieldViewModel>()));
             return;
         }
 
-        foreach (var group in fields.GroupBy(GetSectionTitle))
+        if (isFieldSearch)
+        {
+            foreach (var categoryGroup in filteredFields.GroupBy(field => field.Category))
+            {
+                var categoryName = AdvancedSearchCatalog.Categories
+                    .First(category => category.Kind == categoryGroup.Key).DisplayName.ToUpperInvariant();
+                var fieldModels = categoryGroup.Select(GetOrCreateFieldModel).ToArray();
+                Sections.Add(new AdvancedSearchSectionViewModel(
+                    $"{categoryName} · {fieldModels.Length} MATCHING",
+                    string.Empty,
+                    fieldModels));
+            }
+
+            return;
+        }
+
+        foreach (var group in filteredFields.GroupBy(GetSectionTitle))
         {
             var fieldModels = group.Select(GetOrCreateFieldModel).ToArray();
             Sections.Add(new AdvancedSearchSectionViewModel(group.Key, string.Empty, fieldModels));
@@ -505,6 +548,10 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
     public string ControlKind { get; private set; } = "Text";
     public string EvidenceStatus { get; private set; } = string.Empty;
     public string ImplementationStatus { get; private set; } = string.Empty;
+    public string HelpText { get; private set; } = string.Empty;
+    public string BooleanTrueLabel { get; private set; } = "Yes";
+    public string BooleanFalseLabel { get; private set; } = "No";
+    public string BooleanUnknownLabel { get; private set; } = "Unknown";
     public SearchFieldValueKind ValueKind { get; private set; }
 
     public string MinimumText { get => _minimumText; set => SetField(ref _minimumText, value); }
@@ -541,6 +588,21 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
         ImplementationStatus = definition.ImplementationStatus == SearchImplementationStatus.Ready
             ? "READY"
             : "IN PROGRESS";
+        HelpText = definition.Key.Equals("is_newgen", StringComparison.OrdinalIgnoreCase)
+            ? "Yes = the data source explicitly identifies this record as generated. No = the source explicitly confirms an original database person. Unknown = not classified. FM Atlas will not guess from age, PA, face or name."
+            : $"{definition.DisplayName} · {definition.ValueKind} · Evidence: {definition.EvidenceStatus} · Query: {ImplementationStatus}";
+        if (definition.Key.Equals("is_newgen", StringComparison.OrdinalIgnoreCase))
+        {
+            BooleanTrueLabel = "Generated / newgen";
+            BooleanFalseLabel = "Original database";
+            BooleanUnknownLabel = "Unknown / unclassified";
+        }
+        else
+        {
+            BooleanTrueLabel = "Yes";
+            BooleanFalseLabel = "No";
+            BooleanUnknownLabel = "Unknown";
+        }
         ValueKind = definition.ValueKind;
         IsEnabled = definition.CanExecute;
         ControlKind = definition.ValueKind switch
@@ -558,6 +620,10 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(EvidenceStatus));
         OnPropertyChanged(nameof(ImplementationStatus));
+        OnPropertyChanged(nameof(HelpText));
+        OnPropertyChanged(nameof(BooleanTrueLabel));
+        OnPropertyChanged(nameof(BooleanFalseLabel));
+        OnPropertyChanged(nameof(BooleanUnknownLabel));
         OnPropertyChanged(nameof(ValueKind));
         OnPropertyChanged(nameof(ControlKind));
         OnPropertyChanged(nameof(BooleanSelection));
