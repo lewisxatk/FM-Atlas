@@ -184,6 +184,15 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
             return false;
         }
 
+        var validation = AdvancedSearchQueryValidator.Validate(
+            new AdvancedSearchQuery(preset.Entity, preset.Logic, preset.Conditions, preset.PositionLogic));
+        if (!validation.IsValid)
+        {
+            StatusText = $"The saved search is invalid: {string.Join("  ·  ", validation.Issues.Select(issue => issue.Message))}";
+            return false;
+        }
+
+        FieldSearchText = string.Empty;
         SelectEntity(preset.Entity);
         foreach (var field in _fieldState
                      .Where(pair => pair.Key.Entity == SelectedEntity)
@@ -235,6 +244,10 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
             }
         }
 
+        var firstCategory = preset.Conditions
+            .Select(condition => definitions.GetValueOrDefault(condition.FieldKey)?.Category)
+            .FirstOrDefault(category => category is not null);
+        SelectedCategory = firstCategory ?? AdvancedSearchCategoryKind.General;
         RebuildSections();
         Results.Clear();
         StatusText = skipped.Count == 0
