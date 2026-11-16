@@ -204,6 +204,8 @@ public static class AdvancedSearchCatalog
             F("name", "Name", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Text, AllEntities),
             F("age", "Age", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, PlayersAndCoaches, 0, 100),
             F("nationality", "Nationality", AdvancedSearchCategoryKind.General, SearchFieldValueKind.EntityLookup, PlayersAndCoaches),
+            F("gender", "Gender", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Enum, Players),
+            F("game_uid", "Game UID", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Text, PlayersAndCoaches),
             F("second_nationality", "Second Nationality", AdvancedSearchCategoryKind.General, SearchFieldValueKind.EntityLookup, Players),
             F("continent", "Continent", AdvancedSearchCategoryKind.General, SearchFieldValueKind.EntityLookup, PlayersAndCoaches),
             F("region", "Region", AdvancedSearchCategoryKind.General, SearchFieldValueKind.EntityLookup, PlayersAndCoaches),
