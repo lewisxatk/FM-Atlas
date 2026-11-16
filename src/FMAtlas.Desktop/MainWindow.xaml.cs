@@ -31,8 +31,18 @@ public partial class MainWindow : Window
         _mainWindowViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _mainWindowViewModel.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName == nameof(MainWindowViewModel.IsLiveLoadOverlayVisible) &&
-                _mainWindowViewModel.IsLiveLoadOverlayVisible)
+            if (args.PropertyName != nameof(MainWindowViewModel.IsLiveLoadOverlayVisible))
+                return;
+
+            var isLoading = _mainWindowViewModel.IsLiveLoadOverlayVisible;
+
+            // Advanced Search and player profiles are separate owned windows. The
+            // in-window overlay alone cannot block those windows, so disable every
+            // owned workspace until the live snapshot is complete or rejected.
+            foreach (Window ownedWindow in OwnedWindows)
+                ownedWindow.IsEnabled = !isLoading;
+
+            if (isLoading)
             {
                 Dispatcher.BeginInvoke(() =>
                 {
