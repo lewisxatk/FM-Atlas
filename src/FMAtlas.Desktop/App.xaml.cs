@@ -21,12 +21,14 @@ public partial class App : System.Windows.Application
         var entitySearchProvider = new SqliteEntitySearchProvider(databasePath);
         var advancedSearchProvider = new SqliteAdvancedSearchProvider(databasePath);
 
+        var snapshotStore = new SqliteEntityRecordSnapshotStore(databasePath);
+
         var viewModel = new MainWindowViewModel(
             processProbe,
             atlasDatabase,
             entitySearchProvider,
             databasePath);
-        var window = new MainWindow(viewModel, advancedSearchProvider);
+        var window = new MainWindow(viewModel, advancedSearchProvider, snapshotStore);
         MainWindow = window;
         window.Show();
     }
