@@ -14,7 +14,8 @@ public sealed record GameProcessCandidate(
     string? ExecutablePath,
     bool HasGamePluginModule,
     string? GamePluginModulePath,
-    string? Diagnostic);
+    string? Diagnostic,
+    GameModuleFingerprint? ModuleFingerprint = null);
 
 public sealed record GameProcessProbeResult(
     GameProcessProbeState State,
