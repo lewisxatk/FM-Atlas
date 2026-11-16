@@ -24,7 +24,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly string _searchPreferencesPath;
     private CancellationTokenSource? _quickSearchCancellation;
     private string _connectionStatus = "Live load paused";
-    private string _connectionDetail = "Detect Game checks for the FM process and game module only. Loading a career is still In Progress.";
+    private string _connectionDetail = "Live FM27 loading is temporarily disabled following a report that Football Manager closed during connection. CSV import and local search remain available.";
     private string _lastAction = "Live FM27 connection paused for safety investigation";
     private string _quickSearchText = string.Empty;
     private string _quickSearchMessage = "Search imported FM Atlas records.";
@@ -268,7 +268,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 ConnectionDetail = status.Message;
                 LastAction = "Live career changed; stale live records invalidated";
                 QuickSearchResults.Clear();
-                QuickSearchMessage = "The active career changed. Press Load Game to read the new save before searching live data.";
+                QuickSearchMessage = "The live connection is currently paused. Import a player CSV to search records while the safety review is underway.";
                 IsQuickSearchOpen = !string.IsNullOrWhiteSpace(QuickSearchText);
                 LivePlayerCount = 0;
                 LiveStaffCount = 0;
@@ -525,7 +525,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ConnectionDetail = exception.Message;
             LastAction = "Live career load failed";
             QuickSearchResults.Clear();
-            QuickSearchMessage = "Live connection failed. Check the FM27 version and active career, then try Load Game again.";
+            QuickSearchMessage = "Live connection is paused. Import a player CSV to search records while the safety review is underway.";
         }
         finally
         {
