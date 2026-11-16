@@ -38,6 +38,11 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         Add(fields, "age", player.Age);
         Add(fields, "nationality", player.Nationality);
         Add(fields, "second_nationality", player.SecondNationality);
+        Add(fields, "gender", player.Gender);
+        Add(fields, "continent", player.Continent);
+        Add(fields, "region", player.Region);
+        Add(fields, "city_of_birth", player.CityOfBirth);
+        Add(fields, "ethnicity", player.Ethnicity);
         Add(fields, "club_name", player.ClubName);
         Add(fields, "team_name", player.TeamName);
         Add(fields, "league_name", player.LeagueName);
@@ -47,6 +52,10 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         Add(fields, "weight_kg", player.WeightKilograms);
         Add(fields, "current_ability", player.CurrentAbility);
         Add(fields, "potential_ability", player.PotentialAbility);
+        Add(fields, "international_caps", player.InternationalCaps);
+        Add(fields, "international_goals", player.InternationalGoals);
+        Add(fields, "eu_nationality", player.IsEuNationality);
+        Add(fields, "wonderkid", player.IsWonderkid);
         Add(fields, "contract_expires", player.ContractExpires);
         Add(fields, "wage", player.Wage);
         Add(fields, "transfer_value", player.TransferValue);
@@ -83,6 +92,9 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         Add(fields, "date_of_birth", staff.DateOfBirth);
         Add(fields, "age", staff.Age);
         Add(fields, "nationality", staff.Nationality);
+        Add(fields, "continent", staff.Continent);
+        Add(fields, "region", staff.Region);
+        Add(fields, "city_of_birth", staff.CityOfBirth);
         Add(fields, "club_name", staff.ClubName);
         Add(fields, "primary_role", staff.PrimaryRole);
         Add(fields, "current_ability", staff.CurrentAbility);
@@ -93,6 +105,8 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
 
         AddIntMap(fields, "attribute_", staff.Attributes);
         AddIntMap(fields, "knowledge_", staff.Knowledge);
+        AddIntMap(fields, "personality_", staff.Personality);
+        AddIntMap(fields, "role_preference_", staff.RolePreferences);
         AddStringMap(fields, "extra_", staff.ExtendedFields);
         AddIntMap(fields, string.Empty, staff.SearchIntegerFields);
         AddDecimalMap(fields, string.Empty, staff.SearchDecimalFields);
@@ -116,8 +130,14 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         Add(fields, "nation_name", club.NationName);
         Add(fields, "competition_name", club.CompetitionName);
         Add(fields, "stadium_name", club.StadiumName);
+        Add(fields, "stadium_capacity", club.StadiumCapacity);
         Add(fields, "founded_year", club.FoundedYear);
         Add(fields, "reputation", club.Reputation);
+        Add(fields, "minimum_attendance", club.MinimumAttendance);
+        Add(fields, "average_attendance", club.AverageAttendance);
+        Add(fields, "maximum_attendance", club.MaximumAttendance);
+        Add(fields, "ownership_type", club.OwnershipType);
+        Add(fields, "chairperson_title", club.ChairpersonTitle);
 
         AddDecimalMap(fields, "finance_", club.Finances);
         AddIntMap(fields, "facility_", club.Facilities);
@@ -254,6 +274,6 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         IReadOnlyDictionary<string, SourcedValue<string>> values)
     {
         foreach (var (key, value) in values.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
-            Add(fields, prefix + key, value);
+            Add(fields, ComposeKey(prefix, key), value);
     }
 }
