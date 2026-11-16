@@ -7,7 +7,7 @@ namespace FMAtlas.Tests;
 public sealed class AtlasDatabaseTests
 {
     [Fact]
-    public async Task InitialisationCreatesSchemaVersionOneAndCoreTables()
+    public async Task InitialisationCreatesCurrentSchemaAndCoreTables()
     {
         using var temp = new TemporaryDirectory();
         var path = Path.Combine(temp.Root, "data", "atlas.db");
