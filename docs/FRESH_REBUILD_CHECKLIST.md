@@ -36,12 +36,12 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [~] M2.3 Initial application shell created against REF-001 composition; visual comparison not yet performed.
 - [~] M2.4 Watched visual tokens (black/off-white/orange) added; font/spacing polish and screenshot comparison remain.
 - [x] M2.5 Compact left navigation has no Search item.
-- [~] M2.6 Top Quick Search placeholder added; actual search is intentionally disabled until real data/index exists.
-- [~] M2.7 Top Advanced Search action placed; intentionally disabled until query service/dialog exists.
-- [~] M2.8 Prominent right-side Load Game button added; currently performs process/module presence check only, not career loading.
-- [~] M2.9 Compact Save Atlas / Save Changes controls placed; intentionally disabled until persistence/live writer exist.
-- [~] M2.10 Player-profile workspace shell created with an open-player tab row; multi-player tab management is not wired.
-- [~] M2.11 Local SQLite schema v2 and typed snapshot persistence implemented; settings/logs/diagnostics integration and Windows verification remain.
+- [~] M2.6 Top Quick Search is wired to the read-only SQLite entity index; it searches imported Atlas records only, not live FM memory.
+- [~] M2.7 Advanced Search opens a separate non-modal FMRTE-inspired workspace and executes supported filters against the read-only SQLite provider.
+- [~] M2.8 Detect Game performs a process/module presence probe only; Load Live Save remains disabled because no career importer is connected.
+- [~] M2.9 Save Atlas initialises/verifies the local SQLite database; Save Live Save remains disabled pending field/build/write verification.
+- [~] M2.10 Double-clicking a player search result opens its typed local snapshot in a separate read-only profile window; independent player tabs and editable sections remain unfinished.
+- [~] M2.11 Local SQLite schema v2, migrations, typed snapshots, normalised field_values and relationship persistence are implemented in source; final Windows verification and settings/logs integration remain.
 - [ ] M2.12 Windows desktop resize/accessibility tests.
 
 ## M3 — Game connection and data
@@ -57,14 +57,14 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M3.10 Data accuracy comparison against FM.
 
 ## M4 — Player workspace
-- [x] M4.1 Full-screen REF-004 profile layout shell created; actual screenshot comparison and live-data integration remain.
-- [~] M4.2 Left identity/information rail and portrait placeholder created; read-only graphics locator exists, WPF photo binding remains.
+- [~] M4.1 REF-004 profile opens from player search results and binds a read-only typed local snapshot; full section navigation, graphics binding and FM27 live data remain.
+- [~] M4.2 Identity rail binds imported player details; portrait placeholder remains until graphics locator is connected to WPF image loading/cache.
 - [~] M4.3 Read-only config.xml graphics locator and synthetic tests implemented; actual user-folder validation, image decoding/cache and profile binding remain.
-- [~] M4.4 Central attribute groups are rendered from the Domain catalogue with empty/unavailable values; real player values and editing remain.
+- [~] M4.4 Central attribute groups bind imported visible/hidden/personality/foot values with per-value evidence; profile remains read-only and live importer is outstanding.
 - [~] M4.5 Names/grouping/source order documented and coded; personality is separate from hidden attributes; final FM27/FMRTE visual order verification remains.
-- [ ] M4.6 CA and PA display.
-- [ ] M4.7 Right-side grounded information panels.
-- [~] M4.8 Compact top-of-profile FMRTE-style section tabs added (including Personality, Hidden, Staff, Clone Center and Role Attributes); they remain disabled until a real player record is loaded and section navigation is connected.
+- [~] M4.6 CA and PA display from typed PlayerRecord snapshots with evidence shown on hover; live FM27 reading is not verified.
+- [~] M4.7 Right-side panels display snapshot-backed ability, newgen status/evidence, season statistics, positions and field-evidence summary.
+- [~] M4.8 Compact section tabs are present and can update the selected-section state; individual section-specific views/content are not yet fully switched or implemented.
 - [ ] M4.8a Information and complete attribute view.
 - [ ] M4.8b Contract.
 - [ ] M4.8c Stats (read-only, real save data).
@@ -77,25 +77,25 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M4.8j Scout Information (verified only).
 - [ ] M4.8k Conditional Staff and Clone Center.
 - [ ] M4.8l History and Personality/Hidden where supported.
-- [ ] M4.9 Multiple open player tabs.
+- [~] M4.9 Multiple player profiles can be open as separate windows; duplicate windows for the same provider-scoped player identity are focused rather than recreated. In-window multi-player tab strip is not implemented.
 - [ ] M4.10 Unsaved change protection.
 
 ## M5 — Search
-- [~] M5.1 Top Quick Search UI shell exists and a SQLite Quick Search provider is implemented; UI/provider wiring and profile navigation remain.
-- [~] M5.2 REF-002 FMRTE-style Advanced Search dialog shell created; not connected to search execution.
-- [~] M5.3 Player / Coach / Club selectors now switch the schema context; filter controls stay disabled until entity/query providers are verified.
-- [~] M5.4 General player panel retains the REF-002 layout; other categories are rendered from the schema; query execution is not connected.
-- [~] M5.5 Contract panel now renders schema-defined fields; controls/query remain disabled.
-- [~] M5.6 Technical/GK panel now renders schema-defined player/coach fields; controls/query remain disabled.
-- [~] M5.7 Mental and separate personality panels now render schema-defined fields; controls/query remain disabled.
-- [~] M5.8 Physical/Hidden panel now renders schema-defined fields; controls/query remain disabled.
-- [~] M5.9 Preferred Moves panel now renders schema-defined fields; controls/query remain disabled.
-- [~] M5.10 Relations panel now renders schema-defined fields; controls/query remain disabled.
-- [ ] M5.11 Position pitch and suitability.
-- [ ] M5.12 Min/max, boolean and lookup controls.
-- [ ] M5.13 Explicit AND/OR semantics.
-- [ ] M5.14 Saved searches and result sorting/columns.
-- [~] M5.15 Quick Search provider tests cover entity filters, literal wildcard handling and limits; Advanced Search executor tests remain.
+- [~] M5.1 Quick Search is wired to SQLite and displays imported local entity results; double-click player result opens its read-only typed snapshot profile.
+- [~] M5.2 Advanced Search is connected to the read-only SQLite query provider and runs validated Player/Coach/Club searches for fields marked READY or discovered in Indexed Data.
+- [~] M5.3 Player / Coach / Club selectors change the field catalogue and query entity; controls remain disabled individually where a field mapping is still In Progress.
+- [~] M5.4 General category is populated from the typed field catalogue; supported fields execute against local imported values.
+- [~] M5.5 Contract category includes supported numeric/date/text fields; unsupported fields remain labelled In Progress.
+- [~] M5.6 Technical/GK category uses the player attribute catalogue plus staff-specific coaching/GK fields; only tested mappings are enabled.
+- [~] M5.7 Mental and personality categories include the separate eight-field personality catalogue; supported indexed values can be queried.
+- [~] M5.8 Physical/Hidden category includes physical and hidden fields with declared 0–20 bounds; supported indexed values can be queried.
+- [~] M5.9 Preferred Moves supports Has/Lacks trait query semantics where the indexed relationship data exists.
+- [~] M5.10 Relations executes read-only bidirectional relationship queries by relation kind or related entity name; FM importer population remains outstanding.
+- [~] M5.11 Individual position-rating filters and separate All chosen / Any chosen logic are implemented; pitch visualization and five-colour suitability presentation remain outstanding.
+- [~] M5.12 Typed controls support independent numeric/date MIN/MAX, Boolean Yes/No/Unknown, text/enum lookup, traits and named position ratings. Blank MIN/MAX means no bound.
+- [x] M5.13 Global All/Any logic and independent position All/Any grouping are implemented with regression coverage in source.
+- [~] M5.14 Versioned JSON presets and Clear Filters are implemented; result sorting, custom result columns and exclusions/groups remain.
+- [~] M5.15 Regression tests cover the query provider, ranges, Boolean newgen states, position logic, relationships, discovered indexed stats and every READY mapping; tests are committed but not executed on Windows yet.
 
 ## M6 — Live editing
 - [ ] M6.1 Separate guarded write adapter.
@@ -236,3 +236,12 @@ The desktop buttons do not imply that live save loading or writing is already fu
 
 - [x] Corrected the stale schema idempotence test to assert the current schema version (v2).
 - [ ] Full .NET restore/build/xUnit run remains blocked by GitHub Actions jobs failing before runner allocation; no compiler logs are available.
+
+
+## Update — advanced search and read-only player profile (2026-11-16)
+
+- [~] M5.16 Dynamic Indexed Data category inspects typed field keys already present in `field_values`; consistently typed integer, decimal, text, date and Boolean keys are exposed. Unknown/ambiguous keys are not guessed.
+- [~] M5.17 Search result identity handoff opens a read-only typed PlayerRecord snapshot in a separate profile window; Coach and Club profile windows are still In Progress.
+- [~] M5.18 Profile binds CA/PA, player attributes, hidden/personality/foot ratings, position ratings, preferred moves, season statistics and newgen evidence where values exist in the local snapshot.
+- [~] M5.19 Startup now uses one dependency-injected OnStartup path and initialises/migrates the local Atlas database before opening read-only search providers.
+- [!] M8.2 Windows restore/build/test verification blocked: latest GitHub Actions jobs fail before exposing runner steps/logs. Do not mark tests as passing.
