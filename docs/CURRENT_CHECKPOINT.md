@@ -1,10 +1,10 @@
 # FM Atlas — Current Checkpoint
 
-**Checkpoint:** 002  
+**Checkpoint:** 003  
 **Date:** 2026-11-16 UTC  
 **Branch:** `rebuild/fresh-foundation-001`  
-**Previous saved branch head:** `2f8a21b1bd29d12a3a56ddb4224303443da2784a`  
-**Status:** Recovery and research inventory completed; architecture selected; fresh application shell is next.
+**Previous saved branch head:** `e088c9f43bf91c08ef1d161a662d683ecc10e030`  
+**Status:** First clean WPF foundation and initial dashboard shell committed. Windows build result pending.
 
 ## Mission
 
@@ -24,7 +24,7 @@ Build a genuinely fresh FM Atlas desktop application. Legacy source is a researc
 
 ## Uploaded research inventory
 
-The seven newly uploaded packages have been SHA-256 inventoried and statically inspected. No installer or executable was run.
+The seven newly uploaded packages have been SHA-256 inventoried and statically inspected. No installer or application executable was run.
 
 - FM Player Analyzer 2.2.3 source ZIP extracted for static review (GPL-3.0): C++20/Qt 6, headless core, SQLite schema v16, read-only FM27 save import, graphics config index and extensive tests.
 - TalentSeer 27.1.2 ZIP contains README + compiled EXE + notices, no source; treated as product benchmark only.
@@ -48,57 +48,52 @@ The seven newly uploaded packages have been SHA-256 inventoried and statically i
 ## Architecture decision
 
 - Selected a fresh .NET 8 WPF solution for the Windows 10/Game Pass target.
-- This is a clean solution with new Domain, Application, Infrastructure, Desktop and Tests projects; the old WPF UI/code-behind is not reused.
-- SQLite is the local Atlas store; live memory, offline save parsing, FM export import and graphics lookup are separate data providers.
+- New projects: Domain, Application, Infrastructure, Desktop and Tests.
+- The old WPF UI/code-behind is not reused.
+- SQLite is referenced by Infrastructure for the local Atlas store; schema/repositories are not yet implemented.
+- Live memory, offline save parsing, FM export import and graphics lookup will be separate providers.
 - Live writer remains a separate disabled-by-default service, gated by exact build and field-level evidence.
 - Full rationale: `docs/ARCHITECTURE_DECISION.md`.
 
-## Design authority
+## Initial application shell committed
 
-REF-001 to REF-004 are now present in this branch:
-- REF-001 main application composition.
-- REF-002 FMRTE-style Advanced Search structure.
-- REF-003 Watched black/off-white/orange visual language.
-- REF-004 full-screen tabbed player profile.
-
-See `docs/REFERENCE_LIBRARY.md` and `docs/DESIGN_SPECIFICATION.md`.
+- `FMAtlas.sln` and `Directory.Build.props`.
+- Domain / Application / Infrastructure / WPF Desktop / Tests project files.
+- WPF black/off-white/orange theme resources.
+- Compact left navigation with no Search item.
+- Top Quick Search placeholder and Advanced Search action.
+- Compact Save Atlas / Save Changes controls (disabled until implemented).
+- Prominent Load Game action on the right.
+- Honest dashboard state: no career loaded, no player records imported, no pending edits.
+- Load Game currently performs a read-only process/module presence check only. It does not read memory, identify the build, load a career or edit the game.
+- A Windows GitHub Actions restore/build/test workflow is committed.
+- Initial unit tests cover connection-result state objects.
 
 ## Current milestone
 
-**M1 — Research and blueprint; architecture decision complete.**
-
-## Completed and saved
-
-- [x] Located the original recovery ZIP in Library metadata and verified the imported recovery branch/source tree.
-- [x] Confirmed 106 imported R7.2.0 application files in GitHub.
-- [x] Inventoried all seven newly uploaded packages and recorded hashes.
-- [x] Inspected FM Player Analyzer source files relevant to save import, database, profiles and graphics.
-- [x] Inspected public FMLibreEditor, fm-editor, FMSuperScout, fmsave and FM View Exporter documentation/source metadata.
-- [x] Recorded licence boundaries.
-- [x] Selected clean .NET 8 WPF architecture.
-- [x] Synced approved design references and specification into this branch.
-- [x] Preserved all work in Git commits.
-
-## Next actions
-
-1. Create the clean solution and Windows CI build/test workflow.
-2. Implement the first shell only: approved navigation, global header, top Quick Search, Advanced Search action, prominent right-side Load Game and compact save controls.
-3. Add no fake players or placeholder metrics; use honest disconnected/empty states.
-4. Build through Windows GitHub Actions because this execution environment has no .NET SDK installed.
-5. After shell compile, implement the FMRTE-style search dialog and REF-004 player workspace against the approved specs.
+**M2 — Fresh application foundation.**
 
 ## Tests and environment
 
-- Python ZIP integrity/file manifests: completed for uploaded ZIPs.
-- SHA-256 inventory: completed for uploaded files.
-- Public repository documentation/source reads: completed for initial research pass.
+- Uploaded ZIP manifest and SHA-256 inventory: completed.
+- Public repository source/documentation reads: initial pass completed.
 - No installer executed.
 - No FM process attached.
 - No live memory read/write test.
-- No Windows WPF compile or runtime test: `dotnet` is not installed in this container.
-- GitHub source tree check: completed.
-- New application code: not yet created at this checkpoint.
+- No local WPF compile: `dotnet` is not installed in this container.
+- GitHub Actions workflow file committed; run/status not yet verified.
+- No visual screenshot comparison yet.
+- All work committed to GitHub; no uncommitted changes in the GitHub branch.
 
-## User action needed later
+## Next actions
 
-When we reach live integration, provide the exact FM27 Game Pass package/build version from the user's PC and use a disposable offline career copy for validation. Do not upload the user's only career save to GitHub.
+1. Run/verify the Windows GitHub Actions build; fix any XAML/C# compile errors.
+2. If Actions cannot run automatically, user builds on Windows with the README commands and supplies the unedited build log.
+3. Compare the actual desktop screenshot with REF-001 and refine only against the approved reference.
+4. Build the REF-002 Advanced Search dialog structure.
+5. Build the REF-004 player profile workspace/tab layout.
+6. Continue field-level research and read-only Game Pass probe.
+
+## User action needed
+
+No new download is required now. The R7.2.0 recovery ZIP is located in the Library; the imported source branch is available. Later, provide the exact FM27 Game Pass package/build details and use a disposable offline career for live integration tests.
