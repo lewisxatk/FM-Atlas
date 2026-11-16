@@ -21,10 +21,12 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     private readonly ObservableCollection<ProfileValueRowViewModel> _selectedSectionRows = [];
     private string _sectionDescription = "Player information and the full supported FM attribute set.";
     private string _sectionEmptyText = string.Empty;
+    private readonly string? _portraitImagePath;
 
-    public PlayerProfileViewModel(PlayerRecord player)
+    public PlayerProfileViewModel(PlayerRecord player, string? portraitImagePath = null)
     {
         Player = player ?? throw new ArgumentNullException(nameof(player));
+        _portraitImagePath = portraitImagePath;
         OpenPlayers = [];
         Sections = new ObservableCollection<ProfileSectionTabViewModel>
         {
@@ -139,6 +141,10 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     public bool IsInformationSection => SelectedSection == "Information";
 
     public string PlayerTitle => Player.FullName?.Value ?? "Unnamed player record";
+    public Uri? PortraitUri => !string.IsNullOrWhiteSpace(_portraitImagePath) && File.Exists(_portraitImagePath)
+        ? new Uri(_portraitImagePath, UriKind.Absolute)
+        : null;
+    public bool HasPortrait => PortraitUri is not null;
     public string PlayerSubtitle => $"{Player.Identity.ProviderKey} · Source ID {Player.Identity.SourceId}";
     public string AgeInfoText => $"Age  ·  {Format(Player.Age?.Value)}";
     public string DateOfBirthInfoText => $"Date of birth  ·  {Format(Player.DateOfBirth?.Value)}";
