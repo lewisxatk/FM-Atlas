@@ -10,13 +10,6 @@ public partial class EntityBrowserView : UserControl
     public EntityBrowserView()
     {
         InitializeComponent();
-        Loaded += (_, _) =>
-        {
-            if (DataContext is EntityBrowserViewModel viewModel &&
-                viewModel.Results.Count == 0 &&
-                string.IsNullOrWhiteSpace(viewModel.SearchText))
-                viewModel.SearchCommand.Execute(null);
-        };
     }
 
     private void ResultsListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)

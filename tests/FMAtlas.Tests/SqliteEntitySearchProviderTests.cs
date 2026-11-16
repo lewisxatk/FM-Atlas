@@ -142,29 +142,6 @@ public sealed class SqliteEntitySearchProviderTests
     }
 
     [Fact]
-    public async Task EmptyEntityScopedQueryBrowsesTheEntityDirectory()
-    {
-        using var temp = new TemporaryDirectory();
-        var path = Path.Combine(temp.Root, "atlas.db");
-        await new AtlasDatabase(path).InitializeAsync();
-        var store = new SqliteEntityRecordSnapshotStore(path);
-        var player = new EntityIdentity(EntityKind.Player, "p-1", "browse-test");
-        var staff = new EntityIdentity(EntityKind.Staff, "s-1", "browse-test");
-        await store.SaveSnapshotAsync(
-            new PlayerRecord(player) { FullName = new SourcedValue<string>("Browse Player", Evidence) },
-            "Browse Player");
-        await store.SaveSnapshotAsync(
-            new StaffRecord(staff) { FullName = new SourcedValue<string>("Browse Staff", Evidence) },
-            "Browse Staff");
-
-        var results = await new SqliteEntitySearchProvider(path).QuickSearchAsync(
-            string.Empty, [EntityKind.Player], limit: 200);
-
-        Assert.Single(results);
-        Assert.Equal(player, results[0].Identity);
-    }
-
-    [Fact]
     public async Task RejectsInvalidResultLimit()
     {
         using var temp = new TemporaryDirectory();

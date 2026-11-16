@@ -219,6 +219,46 @@ public sealed class SqliteAdvancedSearchProviderTests
     }
 
     [Fact]
+    public async Task ContractStatusUsesTheCurrentInGameDate()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+        var today = new DateOnly(2027, 1, 1);
+        const string providerKey = "live-contract-test";
+
+        async Task AddPlayer(string id, DateOnly expiry)
+        {
+            var identity = new EntityIdentity(EntityKind.Player, id, providerKey);
+            await store.SaveSnapshotAsync(new PlayerRecord(identity)
+            {
+                FullName = new SourcedValue<string>($"Player {id}", Evidence),
+                ContractExpires = new SourcedValue<DateOnly>(expiry, Evidence),
+                SearchDateFields = new Dictionary<string, SourcedValue<DateOnly>>
+                {
+                    ["current_game_date"] = new(today, Evidence)
+                }
+            }, $"Player {id}");
+        }
+
+        await AddPlayer("expired", new DateOnly(2026, 12, 31));
+        await AddPlayer("three-months", new DateOnly(2027, 3, 31));
+        await AddPlayer("six-months", new DateOnly(2027, 5, 1));
+
+        var provider = new SqliteAdvancedSearchProvider(path);
+        var expired = await provider.ExecuteAsync(new AdvancedSearchQuery(
+            SearchEntityKind.Player, SearchFilterLogic.All,
+            [new SearchFilterCondition("contract_status", SearchFilterOperator.Equals, TextValue: "Expired")]));
+        var threeMonths = await provider.ExecuteAsync(new AdvancedSearchQuery(
+            SearchEntityKind.Player, SearchFilterLogic.All,
+            [new SearchFilterCondition("contract_status", SearchFilterOperator.Equals, TextValue: "Expires in 3 months")]));
+
+        Assert.Equal("expired", Assert.Single(expired).Identity.SourceId);
+        Assert.Equal("three-months", Assert.Single(threeMonths).Identity.SourceId);
+    }
+
+    [Fact]
     public async Task UnsupportedFieldsAndNonIntegralAgeBoundariesAreRejected()
     {
         using var temp = new TemporaryDirectory();
@@ -544,7 +584,8 @@ public sealed class SqliteAdvancedSearchProviderTests
                         new SearchFilterCondition(field.Key, SearchFilterOperator.Range,
                             DateMinimum: new DateOnly(2026, 1, 1)),
                     SearchFieldValueKind.Enum =>
-                        new SearchFilterCondition(field.Key, SearchFilterOperator.Equals, TextValue: "test"),
+                        new SearchFilterCondition(field.Key, SearchFilterOperator.Equals,
+                            TextValue: field.Key.Equals("contract_status", StringComparison.OrdinalIgnoreCase) ? "Expired" : "test"),
                     SearchFieldValueKind.TraitSelector =>
                         new SearchFilterCondition(field.Key, SearchFilterOperator.HasTrait, TextValue: "test"),
                     SearchFieldValueKind.Text or SearchFieldValueKind.EntityLookup =>

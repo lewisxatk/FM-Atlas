@@ -100,6 +100,7 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         Add(fields, "city_of_birth", staff.CityOfBirth);
         Add(fields, "club_name", staff.ClubName);
         Add(fields, "primary_role", staff.PrimaryRole);
+        Add(fields, "is_human_manager", staff.IsHumanManager);
         Add(fields, "current_ability", staff.CurrentAbility);
         Add(fields, "potential_ability", staff.PotentialAbility);
         Add(fields, "contract_expires", staff.ContractExpires);

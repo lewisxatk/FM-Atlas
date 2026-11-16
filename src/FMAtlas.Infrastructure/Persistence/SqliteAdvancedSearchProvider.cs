@@ -279,6 +279,42 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
     private static bool IsPositionCondition(string fieldKey) =>
         fieldKey.StartsWith("position_", StringComparison.OrdinalIgnoreCase);
 
+    private static string BuildContractStatusPredicate(int conditionIndex, SearchFilterCondition condition)
+    {
+        if (condition.Operator != SearchFilterOperator.Equals)
+            throw new NotSupportedException("Contract Status requires one of the dropdown options.");
+
+        var expiry = $"contractExpiry{conditionIndex}";
+        var currentDate = $"currentDate{conditionIndex}";
+        var predicate = condition.TextValue switch
+        {
+            "Expired" => $"date({expiry}.date_value) < date({currentDate}.date_value)",
+            "Expires in 3 months" => $"date({expiry}.date_value) >= date({currentDate}.date_value) AND date({expiry}.date_value) <= date({currentDate}.date_value, '+3 months')",
+            "Expires in 6 months" => $"date({expiry}.date_value) >= date({currentDate}.date_value) AND date({expiry}.date_value) <= date({currentDate}.date_value, '+6 months')",
+            "Expires in 12 months" => $"date({expiry}.date_value) >= date({currentDate}.date_value) AND date({expiry}.date_value) <= date({currentDate}.date_value, '+12 months')",
+            _ => throw new NotSupportedException("Choose Expired or one of the 3, 6 or 12 month options.")
+        };
+
+        return $"""
+            EXISTS (
+                SELECT 1
+                FROM field_values AS {expiry}
+                INNER JOIN field_values AS {currentDate}
+                  ON {currentDate}.entity_kind = {expiry}.entity_kind
+                 AND {currentDate}.source_id = {expiry}.source_id
+                 AND {currentDate}.provider_key = {expiry}.provider_key
+                WHERE {expiry}.entity_kind = e.entity_kind
+                  AND {expiry}.source_id = e.source_id
+                  AND {expiry}.provider_key = e.provider_key
+                  AND {expiry}.field_key = 'contract_expires'
+                  AND {currentDate}.field_key = 'current_game_date'
+                  AND {expiry}.date_value IS NOT NULL
+                  AND {currentDate}.date_value IS NOT NULL
+                  AND {predicate}
+            )
+            """;
+    }
+
     private static string BuildCondition(
         SearchEntityKind entity,
         SearchFilterCondition condition,
@@ -298,6 +334,9 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
                 ? $"e.display_name = {parameter} COLLATE NOCASE"
                 : $"e.display_name LIKE {parameter} ESCAPE '\\'";
         }
+
+        if (condition.FieldKey.Equals("contract_status", StringComparison.OrdinalIgnoreCase))
+            return BuildContractStatusPredicate(conditionIndex, condition);
 
         if (condition.FieldKey.Equals("relations", StringComparison.OrdinalIgnoreCase))
             return BuildRelationshipPredicate(condition, parameters, ref nextParameter);

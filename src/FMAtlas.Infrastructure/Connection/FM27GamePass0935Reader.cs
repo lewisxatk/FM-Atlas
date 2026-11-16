@@ -426,8 +426,11 @@ internal sealed class FM27GamePass0935Reader
         if (teamInfo.TeamKind is not null)
             searchText["team_kind"] = new SourcedValue<string>(teamInfo.TeamKind, evidence);
 
-        var searchDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase);
-        if (contractSigned is DateOnly signed)
+        var searchDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["current_game_date"] = new SourcedValue<DateOnly>(inGameDate, evidence)
+        };
+        if (contractSigned is DateOnly signed
             searchDates["contract_signed"] = new SourcedValue<DateOnly>(signed, evidence);
         if (contractJoined is DateOnly joined)
             searchDates["contract_joined"] = new SourcedValue<DateOnly>(joined, evidence);
@@ -584,6 +587,7 @@ internal sealed class FM27GamePass0935Reader
             Nationality = nationality is not null ? new SourcedValue<string>(nationality, evidence) : null,
             ClubName = clubName is not null ? new SourcedValue<string>(clubName, evidence) : null,
             PrimaryRole = primaryRole is not null ? new SourcedValue<string>(primaryRole, evidence) : null,
+            IsHumanManager = new SourcedValue<bool>(offset == 0x340, evidence),
             CurrentAbility = currentAbility is > 0 and <= 200 ? new SourcedValue<int>(currentAbility, evidence) : null,
             PotentialAbility = potentialAbility is > 0 and <= 200 ? new SourcedValue<int>(potentialAbility, evidence) : null,
             ContractExpires = contractExpiry is DateOnly expiry ? new SourcedValue<DateOnly>(expiry, evidence) : null,

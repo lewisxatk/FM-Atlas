@@ -14,14 +14,14 @@
     <Window.Resources>
         <Style x:Key="FilterLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10"/>
-            <Setter Property="Foreground" Value="{StaticResource Atlas.Muted}"/>
+            <Setter Property="Foreground" Value="#E0E3E8"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style x:Key="FilterValue" TargetType="TextBox">
             <Setter Property="Height" Value="25"/>
             <Setter Property="MinWidth" Value="66"/>
             <Setter Property="Background" Value="#171717"/>
-            <Setter Property="Foreground" Value="{StaticResource Atlas.Muted}"/>
+            <Setter Property="Foreground" Value="#F4F5F7"/>
             <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="6,3"/>
@@ -72,6 +72,13 @@
                     <TextBox Style="{StaticResource FilterValue}" Width="82" IsEnabled="{Binding IsEnabled}" Text="{Binding DateMaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="End date, YYYY-MM-DD"/>
                 </StackPanel>
                 <TextBox x:Name="TextControl" Grid.Column="1" Style="{StaticResource FilterValue}" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed"/>
+                <ComboBox x:Name="EnumControl" Grid.Column="1" Width="210" Height="25"
+                          ItemsSource="{Binding EnumOptions}"
+                          SelectedItem="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}"
+                          Background="#171717" Foreground="#F4F5F7"
+                          BorderBrush="{StaticResource Atlas.Border}" FontSize="10"
+                          IsEnabled="{Binding IsEnabled}" Visibility="Collapsed"
+                          ToolTip="{Binding HelpText}"/>
                 <StackPanel x:Name="PositionControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
                     <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" ToolTip="Position code, for example DR or ST"/>
                     <TextBlock Text="MIN" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" Margin="6,0,3,0" VerticalAlignment="Center"/>
@@ -100,7 +107,7 @@
                     </DataTrigger>
                     <DataTrigger Binding="{Binding ControlKind}" Value="Enum">
                         <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
-                        <Setter TargetName="TextControl" Property="Visibility" Value="Visible"/>
+                        <Setter TargetName="EnumControl" Property="Visibility" Value="Visible"/>
                     </DataTrigger>
                     <DataTrigger Binding="{Binding ControlKind}" Value="Position">
                         <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>

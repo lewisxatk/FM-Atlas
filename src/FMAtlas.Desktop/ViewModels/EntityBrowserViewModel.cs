@@ -14,7 +14,7 @@ public sealed class EntityBrowserViewModel : INotifyPropertyChanged
     private readonly EntityKind _kind;
     private readonly Func<bool> _includeWomen;
     private string _searchText = string.Empty;
-    private string _statusText = "Loading indexed records…";
+    private string _statusText = "Enter at least two characters to search this loaded dataset.";
     private bool _isBusy;
 
     public EntityBrowserViewModel(IEntitySearchProvider provider, EntityKind kind, Func<bool> includeWomen)
@@ -37,30 +37,22 @@ public sealed class EntityBrowserViewModel : INotifyPropertyChanged
     private async Task SearchAsync()
     {
         var term = SearchText.Trim();
-        if (term.Length == 1)
+        if (term.Length < 2)
         {
-            StatusText = "Enter at least two characters, or choose Browse All.";
+            StatusText = "Enter at least two characters to search.";
             Results.Clear();
             return;
         }
 
         IsBusy = true;
-        StatusText = term.Length == 0
-            ? $"Loading all indexed {Title.ToLowerInvariant()}…"
-            : "Searching the active FM Atlas dataset…";
+        StatusText = "Searching the active FM Atlas dataset…";
         try
         {
             var found = await _provider.QuickSearchAsync(term, [_kind], 200, includeWomenPlayers: _includeWomen());
             Results.Clear();
             foreach (var result in found)
                 Results.Add(result);
-            StatusText = found.Count == 0
-                ? term.Length == 0
-                    ? $"No {Title.ToLowerInvariant()} are indexed yet. Load an FM27 career or import supported data, then choose Browse All."
-                    : $"No {Title.ToLowerInvariant()} matched “{term}”."
-                : term.Length == 0
-                    ? $"Showing {found.Count:N0} indexed {Title.ToLowerInvariant()}. Double-click a record to open its profile."
-                    : $"{found.Count:N0} {Title.ToLowerInvariant()} found. Double-click a record to open its profile.";
+            StatusText = found.Count == 0 ? $"No {Title.ToLowerInvariant()} matched “{term}”." : $"{found.Count:N0} {Title.ToLowerInvariant()} found. Double-click a record to open its profile.";
         }
         catch (Exception exception)
         {

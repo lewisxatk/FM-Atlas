@@ -20,6 +20,8 @@ public sealed record StaffRecord(EntityIdentity Identity) : IEntityRecord
     public SourcedValue<string>? CityOfBirth { get; init; }
     public SourcedValue<string>? ClubName { get; init; }
     public SourcedValue<string>? PrimaryRole { get; init; }
+    /// <summary>True for the dedicated human-manager person block in the current supported layout.</summary>
+    public SourcedValue<bool>? IsHumanManager { get; init; }
     public SourcedValue<int>? CurrentAbility { get; init; }
     public SourcedValue<int>? PotentialAbility { get; init; }
     public SourcedValue<DateOnly>? ContractExpires { get; init; }

@@ -752,6 +752,7 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
     public string BooleanTrueLabel { get; private set; } = "Yes";
     public string BooleanFalseLabel { get; private set; } = "No";
     public string BooleanUnknownLabel { get; private set; } = "Unknown";
+    public IReadOnlyList<string> EnumOptions { get; private set; } = Array.Empty<string>();
     public SearchFieldValueKind ValueKind { get; private set; }
 
     public string MinimumText { get => _minimumText; set => SetField(ref _minimumText, value); }
@@ -790,8 +791,10 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
             : definition.ImplementationStatus == SearchImplementationStatus.Ready
                 ? "READY"
                 : "IN PROGRESS";
-        HelpText = definition.Key.Equals("is_newgen", StringComparison.OrdinalIgnoreCase)
-            ? "Yes = the data source explicitly identifies this record as generated. No = the source explicitly confirms an original database person. Unknown = not classified. FM Atlas will not guess from age, PA, face or name."
+        HelpText = definition.Key.Equals("contract_status", StringComparison.OrdinalIgnoreCase)
+            ? "Uses the FM27 in-game date from the loaded career. Each option matches contracts expiring on or before that in-game calendar-month boundary."
+            : definition.Key.Equals("is_newgen", StringComparison.OrdinalIgnoreCase)
+                ? "Yes = the data source explicitly identifies this record as generated. No = the source explicitly confirms an original database person. Unknown = not classified. FM Atlas will not guess from age, PA, face or name."
             : definition.EvidenceStatus == FieldEvidenceStatus.Mapped
                 ? $"{definition.DisplayName} · discovered from values already in the local index · not proof of a live FM27 read."
                 : $"{definition.DisplayName} · {definition.ValueKind} · Evidence: {definition.EvidenceStatus} · Query: {ImplementationStatus}";
@@ -808,6 +811,9 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
             BooleanUnknownLabel = "Unknown";
         }
         ValueKind = definition.ValueKind;
+        EnumOptions = definition.Key.Equals("contract_status", StringComparison.OrdinalIgnoreCase)
+            ? new[] { "Expired", "Expires in 3 months", "Expires in 6 months", "Expires in 12 months" }
+            : Array.Empty<string>();
         IsEnabled = definition.CanExecute;
         ControlKind = definition.ValueKind switch
         {
@@ -828,6 +834,7 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BooleanTrueLabel));
         OnPropertyChanged(nameof(BooleanFalseLabel));
         OnPropertyChanged(nameof(BooleanUnknownLabel));
+        OnPropertyChanged(nameof(EnumOptions));
         OnPropertyChanged(nameof(ValueKind));
         OnPropertyChanged(nameof(ControlKind));
         OnPropertyChanged(nameof(BooleanSelection));

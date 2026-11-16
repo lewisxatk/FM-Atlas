@@ -12,10 +12,9 @@
             <TextBlock Text="Browse records from the currently loaded career or imported dataset." FontSize="11" Foreground="{StaticResource Atlas.Muted}"/>
         </StackPanel>
         <Grid Grid.Row="1" Margin="0,0,0,14">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Atlas.TextBox}" Height="38" VerticalContentAlignment="Center" ToolTip="Search by player, staff or club name."/>
-            <Button Grid.Column="1" Content="Search" Command="{Binding SearchCommand}" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="84" Margin="9,0,0,0"/>
-            <Button Grid.Column="2" Content="Browse All" Command="{Binding SearchCommand}" Style="{StaticResource Atlas.ButtonBase}" MinWidth="88" Margin="7,0,0,0"/>
+            <Button Grid.Column="1" Content="Search" Command="{Binding SearchCommand}" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="90" Margin="9,0,0,0"/>
         </Grid>
         <Border Grid.Row="2" Style="{StaticResource Atlas.Card}" Padding="15">
             <DockPanel LastChildFill="True">
