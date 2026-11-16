@@ -122,7 +122,7 @@ Club results now open a dedicated in-app club profile, with sections:
 
 The currently mapped club record can surface identity, nation, competition, founded year, reputation, facilities, finances, stadium information and other typed search fields. Each section uses source evidence and a clear empty state when the loaded provider has no corresponding record.
 
-**Not complete:** the current live reader does not yet import the complete club-to-player roster, board vision, youth intake, all clauses, kits, affiliations, staff assignments or every stadium/attendance detail. These are profile destinations and data contracts, not fully populated features yet. A full club profile will only be complete when those related entity families are loaded and joined by verified IDs.
+**Partially complete:** the live reader now indexes each player's current club UID and each staff member's contract club UID. The Club **Squads** and **Staff** tabs query those exact numeric IDs and open the matching Player/Staff profile from the result. This makes membership visible when the current-team/contract link is present in the imported snapshot. The live offsets are still Mapped and need in-game verification. Board vision, youth intake, all clauses, kits, affiliations, player proposals and every stadium/attendance detail are not yet populated by the live reader. A full club profile still requires all related entity families to be loaded and joined by verified IDs.
 
 ## 6. Installed player faces and club badges
 
@@ -207,3 +207,13 @@ This is a presentation-layer coverage improvement only. It displays values alrea
 - Club profile identity rail now surfaces crest, nation/competition, stadium/capacity, ownership, average attendance and chairperson when supplied. The full Information and Stadium sections continue to expose the corresponding sourced rows.
 - Internal rebuild labelling has been removed from the left navigation footer; it now carries a neutral product label.
 - These changes improve presentation of existing typed fields only. They do not increase live importer coverage or change the read-only safety boundary.
+
+## 13. Final navigation and relationship acceptance follow-up
+
+- The top workspace breadcrumb now follows the selected in-app tab (Dashboard, directory or selected profile).
+- The stale “IN PROGRESS” marker has been removed from the Players navigation entry. Players, Staff and Clubs now route to working directories; genuinely deferred Squad & Tactics and Recruitment tools remain disabled.
+- Staff profile identity rail now includes date of birth, club, role, unique ID, wage and contract expiry in addition to gender and nationality.
+- Club Squads and Staff are both backed by exact numeric club-ID queries. The regression fixture confirms that club 77 includes only records with UID 77 and excludes records with UID 88.
+- The main sidebar keeps no Search item; Quick Search remains in the top header and Advanced Search remains a modal dialog.
+
+**Verification update:** latest Windows run #821 (ID `43866844802`) on commit `fa8ebd4d5199ddc82c03512d1e065c04ff8323d8` failed before job steps. Its job response has `steps=null` and no log URL. A retry has been accepted and is currently queued (job `133298049321`); it has not yet produced a Restore/Build/Test result. The static UI check passes: seven XAML files have balanced element structure, all 38 declared UI event handlers resolve, and there are no missing static resource keys. This remains a static check, not a WPF compile or runtime test.
