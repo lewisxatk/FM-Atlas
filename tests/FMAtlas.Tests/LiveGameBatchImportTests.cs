@@ -5,6 +5,7 @@ using FMAtlas.Domain.Data;
 using FMAtlas.Domain.Entities;
 using FMAtlas.Domain.Players;
 using FMAtlas.Domain.Staff;
+using FMAtlas.Domain.Search;
 using FMAtlas.Infrastructure.Persistence;
 using Xunit;
 
@@ -149,6 +150,68 @@ public sealed class LiveGameBatchImportTests
             IndexedFields: clubFields);
         var clubs = await advanced.ExecuteAsync(clubQuery);
         Assert.Equal("club-live", Assert.Single(clubs).Identity.SourceId);
+    }
+
+    [Fact]
+    public async Task ClubSquadQueryFindsPlayersBySourceBackedClubUid()
+    {
+        using var temp = new TemporaryDirectory();
+        var databasePath = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(databasePath).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(databasePath);
+        var batch = (IEntityRecordBatchSnapshotStore)store;
+        const string provider = "live-fm27-gamepass-test";
+
+        IEntityRecord[] records =
+        [
+            new PlayerRecord(new EntityIdentity(EntityKind.Player, "squad-player-1", provider))
+            {
+                FullName = new SourcedValue<string>("Squad Player One", LiveEvidence),
+                SearchIntegerFields = new Dictionary<string, SourcedValue<int>>
+                {
+                    ["club_uid"] = new(77, LiveEvidence)
+                }
+            },
+            new PlayerRecord(new EntityIdentity(EntityKind.Player, "other-club-player", provider))
+            {
+                FullName = new SourcedValue<string>("Other Club Player", LiveEvidence),
+                SearchIntegerFields = new Dictionary<string, SourcedValue<int>>
+                {
+                    ["club_uid"] = new(88, LiveEvidence)
+                }
+            },
+            new ClubRecord(new EntityIdentity(EntityKind.Club, "77", provider))
+            {
+                Name = new SourcedValue<string>("Squad Test Club", LiveEvidence)
+            }
+        ];
+
+        await batch.SaveSnapshotsAsync(records);
+
+        var advanced = new SqliteAdvancedSearchProvider(databasePath);
+        var playerFields = await advanced.GetIndexedFieldsAsync(SearchEntityKind.Player);
+        Assert.Contains(playerFields, field =>
+            field.Key == "club_uid" &&
+            field.ValueKind == SearchFieldValueKind.IntegerRange &&
+            field.CanExecute);
+
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [
+                new SearchFilterCondition(
+                    "club_uid",
+                    SearchFilterOperator.Range,
+                    Minimum: 77,
+                    Maximum: 77)
+            ],
+            IndexedFields: playerFields);
+
+        var squad = await advanced.ExecuteAsync(query, limit: 200);
+
+        var player = Assert.Single(squad);
+        Assert.Equal("squad-player-1", player.Identity.SourceId);
+        Assert.Equal("Squad Player One", player.DisplayName);
     }
 
     [Fact]
