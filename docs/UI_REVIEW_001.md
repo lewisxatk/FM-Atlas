@@ -171,3 +171,17 @@ Enabling live editing without a real test against the user's exact FM27 Game Pas
 7. Compare desktop screenshots with REF-001 / REF-002 / REF-003 and tune spacing/type sizes to the actual reference.
 
 **Acceptance conclusion:** the workspace structure and core profile navigation are substantially closer to the approved design. The program is not yet “complete” as a live FM editor: runtime read verification, missing entity relationships, full section data, write/undo and successful Windows release testing remain outstanding.
+
+
+## 11. Club squads and staff relationship follow-up
+
+The current Club profile now has a real indexed relationship path for **Squads** and **Staff**:
+- Player live records index a numeric `club_uid` from the player's current team -> club object.
+- Staff live records index a numeric `club_uid` from their contract -> team -> club object.
+- The Club Squads tab queries Player records using exact `club_uid` equality through the existing typed Advanced Search provider.
+- The Club Staff tab queries Staff/Coach records using the same exact numeric club ID.
+- Both lists are selectable. Double-click opens the respective player/staff profile in the main workspace.
+- The query is bounded to 200 records, preserves provider-scoped identities and does not use fuzzy club-name comparisons.
+- A regression test now imports two players and two staff records linked to different clubs, then proves that the correct Player and Staff records are returned for Club ID 77.
+
+These are still externally mapped live relationship fields. The regression verifies the SQLite/index/query behaviour with representative records; it does not independently prove the memory offsets on a running FM27 Game Pass career. Real runtime comparison remains an acceptance gate.
