@@ -180,6 +180,22 @@ public sealed class LiveGameBatchImportTests
                     ["club_uid"] = new(88, LiveEvidence)
                 }
             },
+            new StaffRecord(new EntityIdentity(EntityKind.Staff, "club-staff-1", provider))
+            {
+                FullName = new SourcedValue<string>("Club Coach", LiveEvidence),
+                SearchIntegerFields = new Dictionary<string, SourcedValue<int>>
+                {
+                    ["club_uid"] = new(77, LiveEvidence)
+                }
+            },
+            new StaffRecord(new EntityIdentity(EntityKind.Staff, "other-club-staff", provider))
+            {
+                FullName = new SourcedValue<string>("Other Club Coach", LiveEvidence),
+                SearchIntegerFields = new Dictionary<string, SourcedValue<int>>
+                {
+                    ["club_uid"] = new(88, LiveEvidence)
+                }
+            },
             new ClubRecord(new EntityIdentity(EntityKind.Club, "77", provider))
             {
                 Name = new SourcedValue<string>("Squad Test Club", LiveEvidence)
@@ -212,6 +228,27 @@ public sealed class LiveGameBatchImportTests
         var player = Assert.Single(squad);
         Assert.Equal("squad-player-1", player.Identity.SourceId);
         Assert.Equal("Squad Player One", player.DisplayName);
+
+        var staffFields = await advanced.GetIndexedFieldsAsync(SearchEntityKind.Coach);
+        Assert.Contains(staffFields, field =>
+            field.Key == "club_uid" &&
+            field.ValueKind == SearchFieldValueKind.IntegerRange &&
+            field.CanExecute);
+        var staffQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Coach,
+            SearchFilterLogic.All,
+            [
+                new SearchFilterCondition(
+                    "club_uid",
+                    SearchFilterOperator.Range,
+                    Minimum: 77,
+                    Maximum: 77)
+            ],
+            IndexedFields: staffFields);
+        var staff = await advanced.ExecuteAsync(staffQuery, limit: 200);
+        var coach = Assert.Single(staff);
+        Assert.Equal("club-staff-1", coach.Identity.SourceId);
+        Assert.Equal("Club Coach", coach.DisplayName);
     }
 
     [Fact]
