@@ -165,6 +165,22 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
+    public void GamePass0932435FullReleaseProfileIsRegisteredForTheCorroboratedObjectLayout()
+    {
+        var profile = Fm27BuildProfiles.Match(0x17969000, 0x6AE8CF77);
+        Assert.NotNull(profile);
+        Assert.Equal("gamepass-0.9.2435.0", profile!.Id);
+    }
+
+    [Fact]
+    public void GamePass2493426FingerprintMatchesTheRegisteredLiveProfile()
+    {
+        var profile = Fm27BuildProfiles.Match(0x175DA000, 0x6AE563A1);
+        Assert.NotNull(profile);
+        Assert.Equal("gamepass-0.9.2409.0", profile!.Id);
+    }
+
+    [Fact]
     public void CurrentRetailSteamAndGamePassProfilesHaveTacticalManagerPointers()
     {
         var steam = Fm27BuildProfiles.All.Single(x => x.Id == "steam-26385295");
@@ -176,36 +192,72 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
-    public void LivePlayerCatalogueIncludesVisibleHiddenPositionPersonalityTraitAndContractFields()
+    public void LivePlayerCatalogueIncludesCaPaAndAllFiftyTwoAttributesIncludingHiddenFields()
     {
         var fields = LiveEntityMemoryEditService.GetEditableFields(LiveEntityMemoryEditService.EntityKind.Player);
-        var keys = fields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var byKey = fields.ToDictionary(x => x.Key, StringComparer.OrdinalIgnoreCase);
+
+        Assert.Contains("ability.current_ability", byKey.Keys);
+        Assert.Contains("ability.potential_ability", byKey.Keys);
+        Assert.Equal(-10, byKey["ability.potential_ability"].Minimum);
+        Assert.Equal(200, byKey["ability.potential_ability"].Maximum);
+
+        var attributes = new[]
+        {
+            "crossing", "dribbling", "finishing", "heading", "long_shots", "marking", "off_the_ball",
+            "passing", "penalty_taking", "tackling", "vision", "handling", "aerial_reach",
+            "command_of_area", "communication", "kicking", "throwing", "anticipation", "decisions",
+            "one_on_ones", "positioning", "reflexes", "first_touch", "technique", "flair", "corners",
+            "teamwork", "work_rate", "long_throws", "eccentricity", "rushing_out", "punching",
+            "acceleration", "free_kicks", "strength", "stamina", "pace", "jumping_reach", "leadership",
+            "dirtiness", "balance", "bravery", "consistency", "aggression", "agility", "important_matches",
+            "injury_proneness", "versatility", "natural_fitness", "determination", "composure", "concentration"
+        };
+        Assert.Equal(52, attributes.Length);
+        foreach (var key in attributes)
+        {
+            Assert.Contains("attribute." + key, byKey.Keys);
+            Assert.True(LiveEntityMemoryEditService.SupportsField(
+                LiveEntityMemoryEditService.EntityKind.Player, "attribute." + key));
+        }
+
         foreach (var key in new[]
         {
-            "attribute.finishing", "attribute.consistency", "attribute.important_matches",
-            "attribute.injury_proneness", "attribute.dirtiness", "attribute.versatility",
             "date_of_birth", "contract.unhappiness", "loan.expires", "loan.option_fee",
-            "position.gk", "position.amc", "personality.professionalism",
-            "left_foot", "right_foot", "trait.0", "trait.63",
-            "contract.wage", "contract.signed", "contract.expires", "contract.joined", "contract.squad_number",
-            "contract.squad_status", "contract.transfer_listed", "contract.loan_listed",
+            "position.gk", "position.amc", "personality.professionalism", "left_foot", "right_foot",
+            "trait.0", "trait.63", "contract.wage", "contract.signed", "contract.expires", "contract.joined",
+            "contract.squad_number", "contract.squad_status", "contract.transfer_listed", "contract.loan_listed",
             "contract.loyalty_bonus", "contract.happiness", "contract.playing_time_happiness"
         })
-            Assert.Contains(key, keys);
+            Assert.Contains(key, byKey.Keys);
     }
 
     [Fact]
-    public void LiveStaffCatalogueUsesStaffSpecificFieldsAndContracts()
+    public void LiveStaffCatalogueIncludesCaPaAndEveryMappedStaffAttribute()
     {
         var fields = LiveEntityMemoryEditService.GetEditableFields(LiveEntityMemoryEditService.EntityKind.Staff);
         var keys = fields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in new[]
+        Assert.Contains("ability.current_ability", keys);
+        Assert.Contains("ability.potential_ability", keys);
+        var staffPa = fields.Single(x => x.Key == "ability.potential_ability");
+        Assert.Equal(-10, staffPa.Minimum);
+        Assert.Equal(200, staffPa.Maximum);
+
+        var staffAttributes = new[]
         {
-            "ability.current_ability", "ability.potential_ability", "reputation.world", "date_of_birth",
-            "attribute.goalkeeping", "attribute.judging_ability", "attribute.working_with_youngsters",
-            "attribute.authority", "personality.professionalism", "contract.wage"
-        })
-            Assert.Contains(key, keys);
+            "goalkeeping", "judging_ability", "judging_potential", "people_management", "motivating",
+            "physiotherapy", "tactical_knowledge", "attacking", "defending", "fitness", "possession",
+            "technical", "tactical", "data_analysis", "sports_science", "negotiating", "judging_staff",
+            "set_pieces", "determination", "authority", "working_with_youngsters"
+        };
+        Assert.Equal(21, staffAttributes.Length);
+        foreach (var key in staffAttributes)
+            Assert.Contains("attribute." + key, keys);
+
+        Assert.Contains("reputation.world", keys);
+        Assert.Contains("date_of_birth", keys);
+        Assert.Contains("personality.professionalism", keys);
+        Assert.Contains("contract.wage", keys);
         Assert.DoesNotContain("contract.expires", keys);
         Assert.DoesNotContain("contract.signed", keys);
         Assert.DoesNotContain("contract.joined", keys);
@@ -238,7 +290,6 @@ public sealed class LiveMemoryWriteGateTests
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "supporters.mix.core")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "supporters.trait.passion")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Club, "finance.ticket_price_pence")]
-    [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "attribute.consistency")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "trait.63")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Player, "contract.transfer_listed")]
     [InlineData(LiveEntityMemoryEditService.EntityKind.Staff, "attribute.sports_science")]

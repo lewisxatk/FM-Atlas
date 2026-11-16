@@ -1,0 +1,108 @@
+# FM Atlas V12 — FMRTE × Watched rebuild
+
+## Product direction
+
+The application design is **FMRTE × Watched**. This is not a Monolith Glass reskin and does not retain the prior glass UI as the primary experience.
+
+Watched supplies the visual reference: flat graphite surfaces, warm off-white typography, restrained signal orange, hairline borders, compact technical labels and data-first layouts. FMRTE supplies the functional reference: a fast search workspace, multiple entity types, extensive fields, filter conditions and full record workflows.
+
+Official reference material:
+- FMRTE search and advanced-search guide: https://docs.fmrte.com/scouting/search/
+- FMRTE interface tour: https://docs.fmrte.com/getting-started/interface-tour/
+- Watched.earth design reference: https://www.watched.earth/
+
+## Implementation in this branch
+
+Branch: `rebuild/fmrte-watched-search-priority`
+
+Parent: `rebuild/precision-instrument` (preserves the later V12 scouting/editor/reverse-engineering work).
+
+### Shell and design system
+- Ported the Watched shell and sidebar into the newer V12 code line.
+- Made Watched Instrument the default application appearance.
+- Changed the default surface system to solid ink/graphite fills, warm off-white type, orange accents, square corners and thin borders.
+- Removed gradient/card shadows from shared cards and applied the flat treatment recursively to workspace controls.
+- Updated app title/product metadata to FM Atlas · FMRTE × Watched.
+- Retained all existing page routes and the existing FM Atlas database location.
+
+### Unified Advanced Search
+The Advanced Search route is now a unified entity hub:
+- Player
+- Staff
+- Club
+
+Each entity has an independent field catalogue and condition builder.
+
+#### Player
+- Retains the existing dynamic field discovery for core identity, PlayerAttributes and current FMSave player facts.
+- Retains saved profiles, global ALL/ANY logic, sort and paging controls.
+- Retains the dedicated position filter and its ALL/ANY + exact/At Least semantics.
+- Replaced the 15 numeric position tiles with a pitch layout, with 0–20 rating inputs at each FM position node.
+- Text-only search is supported without requiring an additional condition.
+
+#### Staff
+- Adds an advanced field catalogue from the latest FMSave staff RawJson plus current LiveStaffFacts.
+- Core indexed fields include name, age, club, job, nation, current ability, potential ability and human-manager identity.
+- Supports number range, text contains, boolean, ALL/ANY and paged results.
+- Double-click opens the existing Staff workspace.
+
+#### Club
+- Adds an advanced field catalogue from club RawJson, current LiveClubFacts and club-linked FMSave extra tables where a club relationship is identifiable.
+- Core indexed fields include name, nation, linked player count and data source.
+- The imported linked-table sources include finances, facilities, stadiums, affiliates, managed clubs, sponsorships and competition rules.
+- Supports number range, text contains, boolean, ALL/ANY and paged results.
+- Double-click opens the existing Clubs workspace.
+
+### Keyboard
+- Ctrl+K and Ctrl+F continue to open global Quick Search.
+- Ctrl+Shift+F opens the Player / Staff / Club Advanced Search hub.
+
+## Data integrity and limits
+
+The field menus are source-discovered. They must only offer fields actually present in the latest imported save or current live field registry. The catalogue is not a claim that every possible internal FM27 memory field has been decoded.
+
+The live player scalar writer now includes CA, signed PA (including FM random-potential negative values), and all 52 player attributes. The five hidden attribute offsets are corroborated against the independent FM27 Game Pass 27.0.0+2493426 offset profile (PE fingerprint 0x175DA000 / 0x6AE563A1). FMLibreEditor also documents that the Game Pass 0.9.2435.0 full-release update kept the object layout unchanged field-by-field from 0.9.2409.0; Atlas registers that full-release profile as SizeOfImage 0x17969000 / timestamp 0x6AE8CF77. The field writer still applies the same exact-build, UID/name, original-byte preflight, explicit session opt-in, read-back and rollback gates. A user must still verify the displayed values against their own in-game FM27 UI before relying on a specific build.
+
+The Home workspace exposes **Load Live Save** to connect to the career already loaded in Football Manager. **Save Career · In Progress** is intentionally not a fake save action: Atlas cannot invoke FM's native save command. After a successful live Apply, use Ctrl+S inside Football Manager to persist the changed memory to the career file. **Save Atlas** checkpoints Atlas-local data only.
+
+The live importer stores validation status and some values remain provisional. Do not present a field as verified solely because it can be read. The 52 player attribute mappings cited above are explicitly supported by the FM27 source profile; unrelated fields remain provisional unless their own evidence and tests support them. UI changes do not weaken the exact-build, identity, preflight, read-back or rollback gates.
+
+Performance metrics in the separate Stats Search / Scouting Matrix remain their own data workflow. They must not be silently mixed into a player attribute criterion unless a field-specific query and unit/period semantics are implemented.
+
+## Validation required
+
+- Fresh Windows x64 .NET 8 restore/build.
+- Full existing xUnit suite.
+- Confirm WPF pack URIs and all shell assets resolve.
+- Test entity switch Player / Staff / Club.
+- Confirm dynamic field menus against a real FM27 save import.
+- Test numeric, text, boolean and ALL/ANY filters.
+- Test pitch ratings including zero, exact matching, At Least and Any of these.
+- Confirm CA, signed PA (including negative random-potential values), and all 52 live player attributes against the in-game FM27 UI on a disposable career copy.
+- Confirm live Apply/read-back/Undo, then save in FM and reload the disposable career to verify persistence.
+- Confirm saved player profiles still load with position criteria.
+- Confirm paging, sorting, record double-click and navigation.
+- Test 100% / 125% / 150% / 200% Windows DPI and smaller laptop display.
+- Real FM27 acceptance is required before claiming full field coverage or live-write support.
+
+
+## Core-first testing update
+
+The current priority is to get the base application, career connection, standard player editing and save workflow ready for hands-on testing. Wyscout, StatsBomb and performance-stat scouting surfaces are parked: Stats Search and Scouting Matrix are visibly labelled **IN PROGRESS** and disabled in the main navigation until the core pass is accepted.
+
+### Career load and save actions
+
+- **LOAD LIVE SAVE** connects to the currently running, supported FM27 career. Open Football Manager and load the career first.
+- **IMPORT SAVE COPY** is a separate, read-only offline snapshot import. Use a copy of the career file.
+- **SAVE ATLAS DATA** persists FM Atlas's own local database/settings only.
+- **SAVE FM CAREER · IN PROGRESS** is deliberately not presented as a working game-save writer. Live edits are written to the running game process; to persist them, use Football Manager's own Ctrl+S save command and confirm its dialog. Do not assume the Atlas local save action saves the FM career.
+
+### Player and staff CA / PA / attributes
+
+The active player live scalar catalogue includes Current Ability, signed Potential Ability (including Football Manager's negative random-potential ranges), and all 52 FM27 player attributes: the 47 standard technical, set-piece, mental, physical and goalkeeper ratings plus Consistency, Important Matches, Injury Proneness, Dirtiness and Versatility. The five hidden offsets are present in the independent FM27 profile [FMLibreEditor `profiles/fm27/layout.toml`](https://github.com/tozmoz/FMLibreEditor/blob/main/profiles/fm27/layout.toml) and are included in Atlas's 52-field catalogue test. The registered Game Pass PE fingerprint is also pinned by a regression test. These mappings are only used when the exact supported build and the selected player identity resolve; live writes still require original-byte preflight, validated ranges, explicit session opt-in, read-back and rollback.
+
+The staff catalogue has its own staff-specific CA/PA layout, signed PA range and 21 mapped coaching/person ratings. Staff fields are resolved separately from player fields; this is not a claim that all staff, player-coach or contract structures are editable.
+
+### Test boundary
+
+Automated Windows restore/build/test and self-contained publish must pass on the current commit. The live acceptance step still requires the user to run the build with an actual FM27 installation and a disposable copy of a career save. Verify load/refresh, player CA/PA, all 52 attributes, staff CA/PA and mapped staff ratings, undo, in-game Ctrl+S, close/reopen and re-import before calling the live workflow accepted. No live game process or user save file is available to this automated repository session, so that final acceptance cannot be claimed here.

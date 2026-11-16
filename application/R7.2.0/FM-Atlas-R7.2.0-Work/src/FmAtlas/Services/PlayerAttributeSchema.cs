@@ -3,9 +3,11 @@ namespace FmAtlas.Services;
 internal sealed record PlayerAttributeField(string Key, string Label, string Category, int Offset);
 internal static class PlayerAttributeSchema
 {
-    // Source: FMLibreEditor profiles/fm27/layout.toml [player.attributes], cross-checked with
-    // crates/fmlibre-core/src/details.rs ATTRIBUTE_GROUPS. The 52 mapped attributes (including
-    // the five hidden attributes) are present in the FM27 layout; feet are mapped separately.
+    // Source: FMLibreEditor profiles/fm27/layout.toml [player.attributes], crates/fmlibre-core/src/details.rs
+    // ATTRIBUTE_GROUPS, and Jackhamerp24/Football-Manager-27-Editor FM27 Game Pass +2493426 offsets.
+    // FMLibreEditor confirms Game Pass 0.9.2435.0 kept the 0.9.2409.0 object layout unchanged field-by-field.
+    // The 47 standard plus five hidden fields (52 total) map to this FM27 player layout. Live writes
+    // still require exact-build, UID/name, raw-byte preflight, explicit opt-in, read-back and rollback.
     internal static readonly PlayerAttributeField[] Fields = new PlayerAttributeField[] {
         new("crossing", "Crossing", "Technical", 0x15F),
         new("dribbling", "Dribbling", "Technical", 0x160),
@@ -54,7 +56,7 @@ internal static class PlayerAttributeSchema
         new("eccentricity", "Eccentricity", "Goalkeeping", 0x17E),
         new("rushing_out", "Rushing Out", "Goalkeeping", 0x17F),
         new("punching", "Punching", "Goalkeeping", 0x180),
-        // Hidden attributes: inherited FM26 offsets; retain provisional status until live witnesses confirm.
+        // Hidden attributes: corroborated against the independent FM27 profile at +0x188..+0x190.
         new("consistency", "Consistency", "Hidden", 0x18B),
         new("important_matches", "Important Matches", "Hidden", 0x18E),
         new("injury_proneness", "Injury Proneness", "Hidden", 0x18F),

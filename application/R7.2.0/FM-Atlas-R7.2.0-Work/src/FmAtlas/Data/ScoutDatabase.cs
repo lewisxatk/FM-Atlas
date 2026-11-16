@@ -24,7 +24,7 @@ public sealed record FmsaveImportResult(int SnapshotId, int PlayersImported, int
 public sealed record FmTeamMatchMetric(string MatchDate, string CompetitionId, string HomeTeamId, string AwayTeamId, string MetricKey, double Value, bool FixtureMatched, string RawMatchJson, string? FixtureJson);
 public sealed record FmLeagueTableEntry(string? CompetitionId, string? CompetitionName, int? Position, string? ClubName, string? TeamId, int? Played, int? Won, int? Drawn, int? Lost, int? GoalsFor, int? GoalsAgainst, int? Points, string SourceJson);
 
-public sealed class ScoutDatabase
+public sealed partial class ScoutDatabase
 {
     private readonly string _connectionString;
     // All mutating operations across ScoutDatabase instances share one writer gate.
@@ -763,7 +763,7 @@ public sealed class ScoutDatabase
         try
         {
         if (currentAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(currentAbility), "CA must be between 0 and 200.");
-        if (potentialAbility is < 0 or > 200) throw new ArgumentOutOfRangeException(nameof(potentialAbility), "PA must be between 0 and 200.");
+        if (potentialAbility is < -10 or > 200) throw new ArgumentOutOfRangeException(nameof(potentialAbility), "PA must be between -10 and 200; negative values represent random-potential ranges.");
         await using var db = new SqliteConnection(_connectionString);
         await db.OpenAsync().ConfigureAwait(false);
         await using var tx = await db.BeginTransactionAsync().ConfigureAwait(false);
@@ -3944,7 +3944,8 @@ public sealed class ScoutDatabase
         factCommand.CommandText = """
             SELECT FactGroup,FieldKey,
                    MAX(CASE WHEN NumericValue IS NOT NULL THEN 1 ELSE 0 END),
-                   MAX(CASE WHEN TextValue IS NOT NULL THEN 1 ELSE 0 END)
+                   MAX(CASE WHEN TextValue IS NOT NULL AND lower(TextValue) NOT IN ('true','false') THEN 1 ELSE 0 END),
+                   MAX(CASE WHEN lower(COALESCE(TextValue,'')) IN ('true','false') THEN 1 ELSE 0 END)
             FROM FmsavePlayerFacts
             WHERE SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns)
             GROUP BY FactGroup,FieldKey
@@ -3963,6 +3964,8 @@ public sealed class ScoutDatabase
                     || group.Equals("accomplished_positions", StringComparison.OrdinalIgnoreCase))
                     continue;
                 var hasNumeric = reader.GetInt32(2) == 1;
+                var hasText = reader.GetInt32(3) == 1;
+                var hasBoolean = reader.GetInt32(4) == 1 && !hasNumeric && !hasText;
                 var category = group switch
                 {
                     "contract" => "Contract",
@@ -3974,7 +3977,9 @@ public sealed class ScoutDatabase
                     "raw_attributes" => "Raw attributes",
                     _ => HumanizeMetric(group)
                 };
-                var fieldType = hasNumeric ? AdvancedSearchFieldType.Number : AdvancedSearchFieldType.Text;
+                var fieldType = hasNumeric ? AdvancedSearchFieldType.Number
+                    : hasBoolean ? AdvancedSearchFieldType.Boolean
+                    : AdvancedSearchFieldType.Text;
                 fields.Add(new AdvancedSearchField("fact:" + group + ":" + key, HumanizeMetric(key), category, fieldType, "FmsavePlayerFacts"));
             }
         }
@@ -3998,7 +4003,7 @@ public sealed class ScoutDatabase
         AdvancedPositionFilter? positionFilter = null)
     {
         positionFilter = AdvancedPositionFilterRules.Normalize(positionFilter);
-        if (criteria.Count == 0 && positionFilter is null) return new();
+        if (criteria.Count == 0 && positionFilter is null && string.IsNullOrWhiteSpace(search)) return new();
         if (criteria.Count > 60) throw new ArgumentOutOfRangeException(nameof(criteria), "Use up to 60 conditions in one advanced player search.");
 
         var coreColumns = new Dictionary<string, (string Column, AdvancedSearchFieldType Type)>(StringComparer.OrdinalIgnoreCase)
@@ -4089,6 +4094,12 @@ public sealed class ScoutDatabase
                     predicates.Add($"EXISTS (SELECT 1 FROM FmsavePlayerFacts f{index} WHERE f{index}.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND f{index}.PlayerSourceId=p.SourceId AND f{index}.FactGroup=$group{index} AND f{index}.FieldKey=$fact{index} AND f{index}.NumericValue IS NOT NULL AND ($min{index} IS NULL OR f{index}.NumericValue >= $min{index}) AND ($max{index} IS NULL OR f{index}.NumericValue <= $max{index}))");
                     cmd.Parameters.AddWithValue(minName, (object?)criterion.Minimum ?? DBNull.Value);
                     cmd.Parameters.AddWithValue(maxName, (object?)criterion.Maximum ?? DBNull.Value);
+                }
+                else if (criterion.BooleanValue.HasValue)
+                {
+                    predicates.Add($"EXISTS (SELECT 1 FROM FmsavePlayerFacts f{index} WHERE f{index}.SnapshotId=(SELECT MAX(SnapshotId) FROM FmsaveImportRuns) AND f{index}.PlayerSourceId=p.SourceId AND f{index}.FactGroup=$group{index} AND f{index}.FieldKey=$fact{index} AND (lower(COALESCE(f{index}.TextValue,''))=$bool{index} OR f{index}.NumericValue=$boolNumeric{index}))");
+                    cmd.Parameters.AddWithValue("$bool" + index, criterion.BooleanValue.Value ? "true" : "false");
+                    cmd.Parameters.AddWithValue("$boolNumeric" + index, criterion.BooleanValue.Value ? 1 : 0);
                 }
                 else if (!string.IsNullOrWhiteSpace(criterion.TextValue))
                 {

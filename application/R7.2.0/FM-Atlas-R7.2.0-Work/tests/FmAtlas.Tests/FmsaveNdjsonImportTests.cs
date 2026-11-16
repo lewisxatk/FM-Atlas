@@ -30,6 +30,32 @@ public sealed class FmsaveNdjsonImportTests
     }
 
     [Fact]
+    public async Task LocalAbilityEditorPreservesNegativeRandomPotentialValues()
+    {
+        using var temp = new TemporaryFolder();
+        var databasePath = Path.Combine(temp.Path, "random-potential.db");
+        var database = new ScoutDatabase(databasePath);
+        await database.InitialiseAsync();
+
+        await using (var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            await db.OpenAsync();
+            var insert = db.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO Players(SourceId,Name,CurrentAbility,PotentialAbility,DataOrigin,UpdatedUtc)
+                VALUES('LOCAL:random-pa','Random PA Player',100,150,'Test fixture','2026-11-15');
+                """;
+            await insert.ExecuteNonQueryAsync();
+        }
+
+        await database.SaveLocalAbilitiesAsync("LOCAL:random-pa", "Random PA Player", 120, -9);
+
+        Assert.Equal(120, await ScalarIntAsync(databasePath, "SELECT CurrentAbility FROM Players WHERE SourceId='LOCAL:random-pa';"));
+        Assert.Equal(-9, await ScalarIntAsync(databasePath, "SELECT PotentialAbility FROM Players WHERE SourceId='LOCAL:random-pa';"));
+        Assert.Equal(2, await ScalarIntAsync(databasePath, "SELECT COUNT(*) FROM EditHistory WHERE SourceId='LOCAL:random-pa';"));
+    }
+
+    [Fact]
     public async Task Fm27ContextTablesArePreservedInTheCareerSnapshot()
     {
         using var temp = new TemporaryFolder();

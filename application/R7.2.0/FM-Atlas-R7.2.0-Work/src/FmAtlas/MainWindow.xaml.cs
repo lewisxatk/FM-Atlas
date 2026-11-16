@@ -136,7 +136,7 @@ public partial class MainWindow : Window
             else if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.F)
             {
                 e.Handled = true;
-                ShowGlobalSearch();
+                _ = NavigateAsync("Advanced Search");
             }
             else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.W)
             {
@@ -165,138 +165,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void BuildShell()
-    {
-        RootGrid.Children.Clear();
-        _shell = new Grid();
-        _navColumn = new ColumnDefinition { Width = new GridLength(_navCollapsed ? 76 : 248) };
-        _shell.ColumnDefinitions.Add(_navColumn);
-        _shell.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _shell.Background = new LinearGradientBrush(
-            Color.FromRgb(_themeMode == "Glass Light" ? (byte)239 : (byte)10, _themeMode == "Glass Light" ? (byte)244 : (byte)11, _themeMode == "Glass Light" ? (byte)250 : (byte)13),
-            Color.FromRgb(_themeMode == "Glass Light" ? (byte)222 : (byte)27, _themeMode == "Glass Light" ? (byte)232 : (byte)28, _themeMode == "Glass Light" ? (byte)244 : (byte)31), 35);
-        RootGrid.Children.Add(_shell);
-
-        var sidebar = BuildSidebar();
-        Grid.SetColumn(sidebar, 0);
-        _shell.Children.Add(sidebar);
-
-        var main = new Grid { Margin = new Thickness(20, 14, 20, 18) };
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64) });
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(88) });
-        main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        Grid.SetColumn(main, 1);
-        _shell.Children.Add(main);
-
-        var headerGrid = new Grid();
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(15, 0, 12, 0) };
-        _pageTitle = Txt("Dashboard", 23, true, Ink);
-        _pageSubTitle = Txt("Career intelligence · scouting · analysis · squad planning", 10, false, Muted);
-        titleStack.Children.Add(_pageTitle);
-        titleStack.Children.Add(_pageSubTitle);
-        headerGrid.Children.Add(titleStack);
-
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 10, 0) };
-        actions.Children.Add(ToolbarIcon("\uE721", "Global search — find players, staff and clubs. Shortcut: Ctrl+K.", (_, _) => ShowGlobalSearch()));
-        actions.Children.Add(ToolbarIcon("\uE71C", "Open Advanced Search and choose player, attribute or performance-stat filters.", async (_, _) => await NavigateAsync("Advanced Search")));
-        actions.Children.Add(ToolbarIcon("\uE8E5", "Import a local copy of an FM career save. The reader is read-only.", async (_, _) => await ImportCareerSaveAsync()));
-        _cancelImportButton = ToolbarIcon("\uE711", "Cancel the current live-game scan or career-save import. An uncommitted snapshot is not published.", (_, _) =>
-        {
-            if (_liveScanCancellation is not null)
-            {
-                _liveScanCancelledByUser = true;
-                _liveScanCancellation.Cancel();
-            }
-            _saveImportCancellation?.Cancel();
-            if (_liveLoadStatus is not null) _liveLoadStatus.Text = "Cancellation requested — safely stopping at the next scan/import checkpoint…";
-        });
-        _cancelImportButton.IsEnabled = _saveImportCancellation is not null || _liveScanCancellation is not null;
-        _cancelImportButton.Visibility = _saveImportCancellation is not null || _liveScanCancellation is not null ? Visibility.Visible : Visibility.Collapsed;
-        actions.Children.Add(_cancelImportButton);
-        actions.Children.Add(ToolbarIcon("\uE823", "Activity Centre — view the active live scan or save import, elapsed time and cancellation controls.", (_, _) => ShowActivityCenter()));
-        actions.Children.Add(ToolbarIcon("\uE74E", "Save your current FM Atlas workspace and local changes.", async (_, _) => await SaveAtlasAsync()));
-        actions.Children.Add(ToolbarIcon("\uE8A7", "Open your saved shortlists.", async (_, _) => await NavigateAsync("Shortlists")));
-        actions.Children.Add(ToolbarIcon("\uE9D2", "Open recruitment and performance analytics.", async (_, _) => await NavigateAsync("Analytics")));
-        actions.Children.Add(ToolbarIcon("\uE80F", "Open your human-manager profile in the Staff directory.", async (_, _) => await OpenMyManagerAsync()));
-        actions.Children.Add(ToolbarIcon("\uE77B", "Open your current club in the Club directory.", async (_, _) => await OpenMyClubAsync()));
-        _liveLoadButton = ToolbarIcon("\uE72C", "Connect to or refresh the currently loaded FM27 career. Atlas also detects save changes automatically.", async (_, _) => await LoadLiveCareerAsync());
-        _liveLoadButton.IsEnabled = true;
-        actions.Children.Add(_liveLoadButton);
-        actions.Children.Add(ToolbarIcon("\uE713", "Current appearance: " + _themeMode + ". Click to cycle Monolith Glass, Glass Dark, Glass Light and Studio.", async (_, _) => await CycleThemeAsync()));
-        actions.Children.Add(ToolbarIcon("\uE9D9", "Export diagnostics and recent application logs.", (_, _) => ExportDiagnostics()));
-        Grid.SetColumn(actions, 1);
-        headerGrid.Children.Add(actions);
-
-        var header = new Border
-        {
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(_themeMode == "Glass Light"
-                        ? Color.FromArgb(240, 255, 255, 255)
-                        : Color.FromArgb(222, 38, 40, 45), 0),
-                    new GradientStop(_themeMode == "Glass Light"
-                        ? Color.FromArgb(220, 233, 241, 249)
-                        : Color.FromArgb(188, 20, 22, 27), 1)
-                },
-                new Point(0, 0), new Point(0, 1)),
-            BorderBrush = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb(172, 255, 255, 255), 0),
-                    new GradientStop(Color.FromArgb(68, 244, 155, 100), 1)
-                },
-                new Point(0, 0), new Point(0, 1)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(18),
-            Padding = new Thickness(3),
-            Effect = new DropShadowEffect
-            {
-                Color = Color.FromRgb(0, 0, 0),
-                BlurRadius = 20,
-                ShadowDepth = 3,
-                Opacity = _themeMode == "Glass Light" ? 0.08 : 0.22
-            },
-            Child = headerGrid
-        };
-        header.Margin = new Thickness(0, 0, 0, 12);
-        Grid.SetRow(header, 0);
-        main.Children.Add(header);
-
-        var career = Card(new Grid(), 16);
-        careerGridForBuild(career);
-        void careerGridForBuild(Border careerBorder)
-        {
-            var careerGrid = (Grid)careerBorder.Child;
-            careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            careerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var careerStack = new StackPanel();
-            careerStack.Children.Add(Txt("MONOLITH GLASS · LIVE CAREER", 9, true, Teal));
-            careerStack.Children.Add(Txt("Waiting for your FM27 career", 15, true, Ink));
-            _connectionSummary = Txt("Open Football Manager 27 and load a career, or import a local save copy.", 10, false, Muted);
-            careerStack.Children.Add(_connectionSummary);
-            _liveLoadStatus = Txt("Automatic career detection and bounded read-only indexing active", 9, false, Muted);
-            _liveLoadStatus.Margin = new Thickness(0, 5, 0, 0);
-            careerStack.Children.Add(_liveLoadStatus);
-            _liveLoadProgress = new ProgressBar { Height = 4, Minimum = 0, Maximum = 100, Value = 0, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 5, 0, 0), Foreground = Brush("#3988C8"), Background = Brush("#DCE8F2") };
-            careerStack.Children.Add(_liveLoadProgress);
-            careerGrid.Children.Add(careerStack);
-            var state = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            _connectionDot = new Ellipse { Width = 9, Height = 9, Fill = Brush("#D9A44D"), Margin = new Thickness(0, 0, 7, 0) };
-            state.Children.Add(_connectionDot);
-            state.Children.Add(Txt("Awaiting verified save", 10, true, Muted));
-            Grid.SetColumn(state, 1);
-            careerGrid.Children.Add(state);
-        }
-        Grid.SetRow(career, 1);
-        main.Children.Add(career);
-
-        _pageHost = new ContentControl { Margin = new Thickness(0, 14, 0, 0), ClipToBounds = true };
-        Grid.SetRow(_pageHost, 2);
-        main.Children.Add(_pageHost);
-    }
+    private void BuildShell() => BuildWatchedShell();
 
     private Button ToolbarIcon(string glyph, string description, RoutedEventHandler click)
     {
@@ -615,7 +484,7 @@ public partial class MainWindow : Window
         logoLine.Children.Add(logo);
         var word = new StackPanel { Margin = new Thickness(10, 2, 0, 0), Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible };
         word.Children.Add(Txt("FM ATLAS", 16, true, Ink));
-        word.Children.Add(Txt(_themeMode == "Monolith Glass" ? "MONOLITH GLASS" : "V8 · ATLAS LIQUID", 8, true, Muted));
+        word.Children.Add(Txt("FMRTE × WATCHED", 8, true, Muted));
         logoLine.Children.Add(word);
         Grid.SetColumn(logoLine, 0);
         brand.Children.Add(logoLine);
@@ -721,13 +590,16 @@ public partial class MainWindow : Window
 
     private static TextBlock Configure(TextBlock t, Thickness margin) { t.Margin = margin; return t; }
 
-    private void AddNav(string icon, string label)
+    private void AddNav(string icon, string label, bool inProgress = false)
     {
         if (_navPanel is null) return;
-        var glyph = Txt(icon, 15, true, TealDark);
+        var displayLabel = inProgress ? label + " · IN PROGRESS" : label;
+        var progressHelp = "IN PROGRESS — Wyscout / StatsBomb and performance-stat scouting is parked until the core career and editor workflow has been tested.";
+        var help = inProgress ? progressHelp : PageDescription(label);
+        var glyph = Txt(icon, 15, true, inProgress ? Muted : TealDark);
         glyph.Width = 22;
         glyph.TextAlignment = TextAlignment.Center;
-        var caption = Txt(_navCollapsed ? "" : label, 11, true, Ink);
+        var caption = Txt(_navCollapsed ? "" : displayLabel, 11, true, inProgress ? Muted : Ink);
         caption.Visibility = _navCollapsed ? Visibility.Collapsed : Visibility.Visible;
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(glyph);
@@ -742,17 +614,20 @@ public partial class MainWindow : Window
             Background = Brushes.Transparent,
             BorderBrush = Brushes.Transparent,
             BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand,
-            ToolTip = PageDescription(label),
-            MinHeight = 42
+            Cursor = inProgress ? Cursors.Arrow : Cursors.Hand,
+            ToolTip = help,
+            MinHeight = 42,
+            IsEnabled = !inProgress,
+            Opacity = inProgress ? 0.58 : 1.0
         };
         ToolTipService.SetInitialShowDelay(button, 350);
         ToolTipService.SetShowDuration(button, 30000);
         ToolTipService.SetShowOnDisabled(button, true);
-        System.Windows.Automation.AutomationProperties.SetName(button, label);
-        System.Windows.Automation.AutomationProperties.SetHelpText(button, PageDescription(label));
+        System.Windows.Automation.AutomationProperties.SetName(button, displayLabel);
+        System.Windows.Automation.AutomationProperties.SetHelpText(button, help);
         button.Template = RoundedButtonTemplate(13);
-        button.Click += async (_, _) => await NavigateAsync(label);
+        if (!inProgress)
+            button.Click += async (_, _) => await NavigateAsync(label);
         _navPanel.Children.Add(button);
     }
 
@@ -813,8 +688,12 @@ public partial class MainWindow : Window
                 _ => DashboardPageFallback()
             };
             _pageHost.Content = content;
-            try { ApplyGlassControlTheme(content); }
-            catch (Exception themeEx) { AtlasLog.Warning("Workspace glass-control styling was skipped: " + themeEx.Message); }
+            try
+            {
+                if (_themeMode == "Watched Instrument") ApplyWatchedInstrumentVisuals(content);
+                else ApplyGlassControlTheme(content);
+            }
+            catch (Exception themeEx) { AtlasLog.Warning("Workspace appearance styling was skipped: " + themeEx.Message); }
             if (SystemParameters.ClientAreaAnimation)
             {
                 _pageHost.Opacity = 0;
@@ -850,6 +729,107 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(queued) && !string.Equals(queued, page, StringComparison.OrdinalIgnoreCase))
                 await NavigateAsync(queued);
         }
+    }
+
+
+    private static void ApplyWatchedInstrumentVisuals(DependencyObject root)
+    {
+        if (root is Border border)
+        {
+            border.CornerRadius = new CornerRadius(0);
+            border.Effect = null;
+            if (border.Background is LinearGradientBrush) border.Background = Brush("#0C0E11");
+            if (border.BorderBrush is LinearGradientBrush) border.BorderBrush = Brush("#303943");
+        }
+        if (root is Button button)
+            button.Template = RoundedButtonTemplate(0);
+        if (root is TextBox textBox)
+        {
+            // Search and editable query fields use the requested orange-on-black treatment.
+            textBox.Background = Brush("#050505");
+            textBox.Foreground = Brush("#F08A42");
+            textBox.CaretBrush = Brush("#FF9A50");
+            textBox.SelectionBrush = Brush("#633719");
+            textBox.SelectionTextBrush = Brush("#FF9A50");
+            textBox.BorderBrush = Brush("#6A3D25");
+        }
+        if (root is ComboBox comboBox)
+        {
+            comboBox.Background = Brush("#050505");
+            comboBox.Foreground = Brush("#F08A42");
+            comboBox.BorderBrush = Brush("#6A3D25");
+            comboBox.ItemContainerStyle = new Style(typeof(ComboBoxItem))
+            {
+                Setters =
+                {
+                    new Setter(Control.BackgroundProperty, Brush("#050505")),
+                    new Setter(Control.ForegroundProperty, Brush("#F08A42")),
+                    new Setter(Control.BorderBrushProperty, Brush("#35383C")),
+                    new Setter(Control.PaddingProperty, new Thickness(8, 6, 8, 6))
+                },
+                Triggers =
+                {
+                    new Trigger
+                    {
+                        Property = ComboBoxItem.IsHighlightedProperty,
+                        Value = true,
+                        Setters =
+                        {
+                            new Setter(Control.BackgroundProperty, Brush("#352319")),
+                            new Setter(Control.ForegroundProperty, Brush("#F2A36C"))
+                        }
+                    },
+                    new Trigger
+                    {
+                        Property = ComboBoxItem.IsSelectedProperty,
+                        Value = true,
+                        Setters =
+                        {
+                            new Setter(Control.BackgroundProperty, Brush("#483022")),
+                            new Setter(Control.ForegroundProperty, Brush("#EEE9E1"))
+                        }
+                    }
+                }
+            };
+        }
+        if (root is ComboBoxItem comboItem)
+        {
+            comboItem.Background = Brush("#111316");
+            comboItem.Foreground = Brush("#EEE9E1");
+        }
+        if (root is CheckBox checkBox)
+        {
+            checkBox.Foreground = Brush("#EEE9E1");
+        }
+        if (root is DataGrid dataGrid)
+        {
+            dataGrid.Background = Brush("#090A0C");
+            dataGrid.Foreground = Brush("#EEE9E1");
+            dataGrid.RowBackground = Brush("#111316");
+            dataGrid.AlternatingRowBackground = Brush("#17191C");
+            dataGrid.BorderBrush = Brush("#6A3D25");
+            dataGrid.ColumnHeaderStyle = new Style(typeof(DataGridColumnHeader))
+            {
+                Setters =
+                {
+                    new Setter(Control.BackgroundProperty, Brush("#111316")),
+                    new Setter(Control.ForegroundProperty, Brush("#F08A42")),
+                    new Setter(Control.BorderBrushProperty, Brush("#6A3D25")),
+                    new Setter(Control.PaddingProperty, new Thickness(8, 7, 8, 7)),
+                    new Setter(Control.FontWeightProperty, FontWeights.SemiBold)
+                }
+            };
+        }
+        if (root is DataGridCell cell)
+        {
+            cell.Background = Brush("#111316");
+            cell.Foreground = Brush("#EEE9E1");
+            cell.BorderBrush = Brush("#292C30");
+        }
+        if (root is not Visual) return;
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+            ApplyWatchedInstrumentVisuals(VisualTreeHelper.GetChild(root, i));
     }
 
     private static UIElement NavigationLoadingPane(string page)
@@ -896,7 +876,7 @@ public partial class MainWindow : Window
     private static string PageDescription(string page) => page switch
     {
         "Dashboard" => "Your career at a glance · data coverage · import health",
-        "Advanced Search" => "Choose player identity, attributes/personality or performance-stat criteria",
+        "Advanced Search" => "FMRTE-style player, staff and club search with source-backed filters",
         "Players" => "Player intelligence · name/position/CA/PA search · full profile",
         "Recruitment" => "Build an explainable shortlist from your imported career data",
         "Squad Architect" => "Inspect club squads, age distribution and positional coverage",
@@ -932,16 +912,17 @@ public partial class MainWindow : Window
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var heroLeft = new StackPanel();
-        heroLeft.Children.Add(Txt("FM ATLAS · MONOLITH GLASS", 9, true, Teal));
+        heroLeft.Children.Add(Txt("FMRTE × WATCHED", 9, true, Teal));
         heroLeft.Children.Add(Txt("Your Football Manager intelligence workspace.", 25, true, Ink));
         heroLeft.Children.Add(Txt("Load an FM27 career and Atlas automatically indexes supported player, staff, club and manager identity data. The live scan is read-only, cancellable and limited to two minutes; offline save import adds historical and match data.", 11, false, Muted, wrap: true));
         heroGrid.Children.Add(heroLeft);
-        var heroActions = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Width = 185 };
-        heroActions.Children.Add(WhiteButton("Import career save", async (_, _) => await ImportCareerSaveAsync()));
-        var liveButton = new Button { Content = "Connect / Refresh career", Margin = new Thickness(3), Padding = new Thickness(12, 9, 12, 9), Foreground = Brush("#0D1117"), Background = Brush("#F08A42"), BorderBrush = Brush("#C86D34"), Template = RoundedButtonTemplate(12), FontWeight = FontWeights.SemiBold };
-        liveButton.ToolTip = "Connect to the current supported FM27 career or refresh the live index.";
+        var heroActions = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Width = 205 };
+        heroActions.Children.Add(WhiteButton("IMPORT SAVE COPY", async (_, _) => await ImportCareerSaveAsync()));
+        var liveButton = new Button { Content = "LOAD LIVE SAVE", Margin = new Thickness(3), Padding = new Thickness(12, 9, 12, 9), Foreground = Brush("#0D1117"), Background = Brush("#F08A42"), BorderBrush = Brush("#C86D34"), Template = RoundedButtonTemplate(0), FontWeight = FontWeights.SemiBold };
+        liveButton.ToolTip = "Connect to the currently loaded supported FM27 career. Open Football Manager and load your career first.";
         liveButton.Click += async (_, _) => await LoadLiveCareerAsync();
         heroActions.Children.Add(liveButton);
+        heroActions.Children.Add(SoftButton("SAVE CAREER · IN PROGRESS", (_, _) => ShowCareerSaveInProgress()));
         Grid.SetColumn(heroActions, 1);
         heroGrid.Children.Add(heroActions);
         root.Children.Add(Card(heroGrid, 23, new Thickness(0, 0, 0, 14)));
@@ -1009,7 +990,7 @@ public partial class MainWindow : Window
         headline.Children.Add(Txt("Search results are paged and virtualized. The 40K identity count is not a count of fully decoded player profiles or attribute sets.", 10, false, Muted, wrap: true));
         top.Children.Add(headline);
         var headButtons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        headButtons.Children.Add(SoftButton("⌕ Advanced Search", (_, _) => ShowGlobalSearch()));
+        headButtons.Children.Add(SoftButton("⌕ Advanced Search", async (_, _) => await NavigateAsync("Advanced Search")));
         headButtons.Children.Add(SoftButton("Import report", async (_, _) => await ImportIntelligenceReportAsync()));
         headButtons.Children.Add(PrimaryButton("＋ Shortlist", async (_, _) => await AddSelectedToShortlistAsync()));
         Grid.SetColumn(headButtons, 1); top.Children.Add(headButtons);
@@ -1336,6 +1317,10 @@ public partial class MainWindow : Window
         panel.Children.Add(Txt(
             "These values are read from the currently loaded FM27 career. Apply writes the selected, verified fields into the running game and reads each value back. Use a separate offline career copy for first testing, then save inside Football Manager to commit the changes to the career file.",
             9, false, Muted, wrap: true));
+        if (entityType == LiveEntityMemoryEditService.EntityKind.Player)
+            panel.Children.Add(Txt(
+                "PLAYER ATTRIBUTES · CA, signed PA (including random-potential ranges) and all 52 player attributes are in the supported live field catalogue, including Consistency, Important Matches, Injury Proneness, Dirtiness and Versatility. Fields are shown only when the current FM27 build and record resolve safely.",
+                9, false, Muted, wrap: true));
 
         if (!_liveEditingEnabled)
         {
@@ -1492,7 +1477,7 @@ public partial class MainWindow : Window
                 finally { Mouse.OverrideCursor = null; }
             });
 
-            applyButton = PrimaryButton("Apply to live FM career", async (_, _) =>
+            applyButton = PrimaryButton("Save Changes to FM", async (_, _) =>
             {
                 if (stagedPlan is null) return;
                 var answer = MessageBox.Show(this,
@@ -1514,7 +1499,7 @@ public partial class MainWindow : Window
                         row.CurrentValue = item.TargetValue;
                         row.TargetValue = item.TargetValue.ToString(CultureInfo.InvariantCulture);
                     }
-                    status.Text = "LIVE WRITE VERIFIED · " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
+                    status.Text = "SAVED TO RUNNING FM SESSION · " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
                         + " field(s) written and read back from FM memory. Save the career inside FM to persist to disk.";
                     stagedPlan = null;
                     applyButton!.IsEnabled = false;
@@ -1524,7 +1509,7 @@ public partial class MainWindow : Window
                         "FM27 accepted " + appliedReceipt.Plan.Values.Count.ToString(CultureInfo.InvariantCulture)
                         + " change(s) for " + displayName + ". Every field passed read-back verification." + Environment.NewLine
                         + Environment.NewLine + "Save the career in Football Manager to persist the changes to the save file. Undo remains available in this profile while the same career session is loaded.",
-                        "FM Atlas · Live changes applied", MessageBoxButton.OK, MessageBoxImage.Information);
+                        "FM Atlas · Changes saved to live FM session", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
@@ -2211,9 +2196,9 @@ public partial class MainWindow : Window
             {
                 if (!int.TryParse(profileCaInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ca) ||
                     !int.TryParse(profilePaInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pa) ||
-                    ca is < 0 or > 200 || pa is < 0 or > 200)
+                    ca is < 0 or > 200 || pa is < -10 or > 200)
                 {
-                    MessageBox.Show(this, "Enter CA and PA as whole numbers from 0 to 200.", "Profile editor");
+                    MessageBox.Show(this, "Enter CA from 0 to 200 and PA from -10 to 200 (negative PA values represent random-potential ranges).", "Profile editor");
                     return;
                 }
                 try
@@ -3855,8 +3840,8 @@ public partial class MainWindow : Window
         abilityRow.Children.Add(FieldLabel("CA")); abilityRow.Children.Add(caInput); abilityRow.Children.Add(FieldLabel("PA")); abilityRow.Children.Add(paInput);
         abilityRow.Children.Add(PrimaryButton("Save CA / PA locally", async (_, _) =>
         {
-            if (!int.TryParse(caInput.Text, out var ca) || !int.TryParse(paInput.Text, out var pa) || ca < 0 || ca > 200 || pa < 0 || pa > 200)
-            { MessageBox.Show(this, "Enter both CA and PA as whole numbers from 0 to 200.", "Local editor"); return; }
+            if (!int.TryParse(caInput.Text, out var ca) || !int.TryParse(paInput.Text, out var pa) || ca < 0 || ca > 200 || pa < -10 || pa > 200)
+            { MessageBox.Show(this, "Enter CA from 0 to 200 and PA from -10 to 200 (negative PA values represent random-potential ranges).", "Local editor"); return; }
             try
             {
                 await RunDatabaseAsync(() => _database.SaveLocalAbilitiesAsync(_selectedPlayer.SourceId, _selectedPlayer.Name, ca, pa));
@@ -3870,9 +3855,9 @@ public partial class MainWindow : Window
         }));
         if (_selectedPlayer.SourceId.StartsWith("LIVE:", StringComparison.OrdinalIgnoreCase))
         {
-            var liveAbilityApply = SoftButton("Live CA / PA Apply disabled in V8", (_, _) => { });
+            var liveAbilityApply = SoftButton("Live CA / PA is available in the live editor", (_, _) => { });
             liveAbilityApply.IsEnabled = false;
-            liveAbilityApply.ToolTip = "Live memory writes are hard-disabled. Save local changes to the FM Atlas database only.";
+            liveAbilityApply.ToolTip = "Open the live editor for staged, verified FM27 changes. This local button only saves Atlas data.";
             abilityRow.Children.Add(liveAbilityApply);
         }
         controls.Children.Add(abilityRow);
@@ -4030,7 +4015,7 @@ public partial class MainWindow : Window
         var top = new StackPanel();
         top.Children.Add(Txt("AUDIT TRAIL", 9, true, Teal));
         top.Children.Add(Txt("Edit history & local undo", 20, true, Ink));
-        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM history entries are retained for audit purposes, but live Undo is disabled in V8.", 10, false, Muted, wrap: true));
+        top.Children.Add(Txt("Local Atlas edits can be undone in the local database. Live FM history entries are retained for audit. Use Undo in the same live profile session immediately after Apply; this history page cannot replay an old memory edit after the live session changes.", 10, false, Muted, wrap: true));
         var dg = CreateGrid(); dg.SelectionMode = DataGridSelectionMode.Single;
         dg.Columns.Add(Column("ID", "Id", .35)); dg.Columns.Add(Column("PLAYER", "PlayerName", 1.1)); dg.Columns.Add(Column("FIELD", "FieldName", 1)); dg.Columns.Add(Column("OLD", "OldValue", .6)); dg.Columns.Add(Column("NEW", "NewValue", .6)); dg.Columns.Add(Column("CHANGED", "ChangedUtc", 1)); dg.Columns.Add(Column("SOURCE", "ChangeSource", 1));
         dg.ItemsSource = await RunDatabaseAsync(() => _database.GetRecentEditHistoryAsync());
@@ -4046,7 +4031,7 @@ public partial class MainWindow : Window
             if (liveChange)
             {
                 MessageBox.Show(this,
-                    "This is a historical live-game entry. Live Apply and Undo are disabled in V8; the record is retained for audit only. No Football Manager process will be written to.",
+                    "This is a historical live-game entry. The live Undo receipt is available only from the original profile during the same FM career session. This history page is audit-only; no process will be written to from here.",
                     "FM Atlas · Live undo disabled", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -4122,7 +4107,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace((await RunDatabaseAsync(() => _database.GetWorkspaceMetricsAsync())).SaveValidationJson)) b.Children.Add(Txt("A validation report is stored with the latest snapshot. Reader failures and coverage should be reviewed before relying on the corresponding data.", 10, false, Teal, wrap: true));
         root.Children.Add(bridge);
         var db = Card(new StackPanel(), 16); var d = (StackPanel)db.Child; d.Children.Add(Txt("LOCAL DATA", 9, true, Teal)); d.Children.Add(Txt("Database & safety", 20, true, Ink));
-        d.Children.Add(Txt("Database: %LOCALAPPDATA%\\FmAtlas\\scouting.db", 10, true, Ink)); d.Children.Add(Txt("FM Atlas 27 keeps your existing database. Save imports are stored as versioned snapshots; player attributes are normalized into the local attribute table. The live reader is read-only during discovery. Local Editor Studio changes are stored only in the Atlas database. Live FM Apply/Undo is disabled throughout this V8 build; no game-memory writes are exposed.", 10, false, Muted, wrap: true));
+        d.Children.Add(Txt("Database: %LOCALAPPDATA%\\FmAtlas\\scouting.db", 10, true, Ink)); d.Children.Add(Txt("FM Atlas 27 keeps your existing database. Save imports are stored as versioned snapshots; player attributes are normalized into the local attribute table. The live reader is read-only during discovery. Local Editor Studio changes are stored only in the Atlas database. The separate Live Editor uses exact-build, identity-checked, staged writes with read-back and Undo for its supported field catalogue. Save the career in Football Manager to persist those changes.", 10, false, Muted, wrap: true));
         d.Children.Add(SoftButton("Open FM Atlas data folder", (_, _) => { var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FmAtlas"); Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true }); })); root.Children.Add(db);
         var capability = Card(new StackPanel(), 16);
         var capabilityStack = (StackPanel)capability.Child;
@@ -4131,12 +4116,12 @@ public partial class MainWindow : Window
         capabilityStack.Children.Add(Txt("READ-ONLY · Live FM27 process/build/session detection and bounded player, staff and club indexing. Offline save inspection uses the local fmsave reader and does not modify the source save.", 10, false, Muted, wrap: true));
         capabilityStack.Children.Add(Txt("PROVISIONAL · Live CA/PA, player attributes, positions, personality, staff coaching/preferred-job ratings and manager relationships. Compare these values with the in-game FM27 UI before relying on them.", 10, false, Muted, wrap: true));
         capabilityStack.Children.Add(Txt("LOCAL ONLY · Editor Studio saves draft CA/PA and attribute changes to the FM Atlas database. These changes do not alter Football Manager.", 10, false, Muted, wrap: true));
-        capabilityStack.Children.Add(Txt("BLOCKED · Live Apply/Undo and direct writes to Football Manager memory are disabled in V8. This is a hard safety gate, not a selectable preference.", 10, true, Brush("#D97736"), wrap: true));
+        capabilityStack.Children.Add(Txt("GUARDED · Live Apply/Undo is available only for fields in the exact-build whitelist after explicit session opt-in, staged preview, identity checks and read-back verification. Unsupported fields stay unavailable.", 10, true, Brush("#D97736"), wrap: true));
         root.Children.Add(capability);
 
         var design = Card(new StackPanel(), 16); var ds = (StackPanel)design.Child; ds.Children.Add(Txt("OFFICIAL BRANDING", 9, true, Teal));
         ds.Children.Add(new Image { Source = new BitmapImage(new Uri("pack://application:,,,/FmAtlas;component/Assets/FM-Atlas-27-Logo.png", UriKind.Absolute)), Height = 150, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 12) });
-        ds.Children.Add(Txt("Monolith Glass · FM Atlas 27", 20, true, Ink)); ds.Children.Add(Txt("Graphite surfaces, warm off-white typography, amber-orange accents, translucent raised cards, restrained shadows and precise editorial layouts.", 10, false, Muted, wrap: true)); root.Children.Add(design);
+        ds.Children.Add(Txt("Watched × FMRTE · FM Atlas 27", 20, true, Ink)); ds.Children.Add(Txt("A flat, instrument-like interface: graphite surfaces, warm off-white typography, restrained orange signals, fine borders, compact data grids and no decorative glass effects.", 10, false, Muted, wrap: true)); root.Children.Add(design);
         var graphics = Card(new StackPanel(), 16); var gs = (StackPanel)graphics.Child;
         gs.Children.Add(Txt("INSTALLED GRAPHICS", 9, true, Teal));
         gs.Children.Add(Txt("Reuse the faces, club logos, competition badges and flags already installed in your Football Manager 27 graphics folder. Atlas reads config.xml mappings and does not bundle or duplicate graphics packs.", 10, false, Muted, wrap: true));
@@ -4168,7 +4153,7 @@ public partial class MainWindow : Window
         var h = (StackPanel)hero.Child;
         h.Children.Add(Txt("FM ATLAS 27 · QUICK START", 10, true, Teal));
         h.Children.Add(Txt("Your career, organised.", 25, true, Ink));
-        h.Children.Add(Txt("A practical guide to FM Atlas 27. Load your FM27 career and Atlas detects the supported process, build and save generation automatically. The read-only player/staff/club index runs with a two-minute safety limit and a Cancel button; live Apply/Undo remains disabled.", 11, false, Muted, wrap: true));
+        h.Children.Add(Txt("A practical guide to FM Atlas 27. Load your FM27 career and Atlas detects the supported process, build and save generation automatically. The read-only player/staff/club index runs with a two-minute safety limit and a Cancel button. Live Apply/Undo is a separate opt-in for the current session and starts OFF.", 11, false, Muted, wrap: true));
         h.Children.Add(SoftButton("Open Global Search  ·  Ctrl + F", (_, _) => ShowGlobalSearch()));
         root.Children.Add(hero);
 
@@ -4187,7 +4172,7 @@ public partial class MainWindow : Window
         Section("3 · Read a player profile", "The profile displays attributes in Technical, Set Pieces, Mental, Physical, Goalkeeping and Hidden groups.", "A dash means the source did not supply a value. It is not zero and is never guessed.", "CA/PA and other parsed FM27 fields can be build-dependent and are marked as source-derived. Cross-check values in the game before making decisions.");
         Section("4 · Clubs and staff", "Use the My Club shortcut to open the current human manager's club, or open Clubs to search other teams.", "Open Staff to search live staff identities, including the human manager, CA/PA, club, nation, age and role candidates. Open your manager's profile from the top-toolbar shortcut.", "Finances, facilities, stadium and contract values are shown only when retained by a source. Historical money fields must not be treated as current balances without checking their date and unit.");
         Section("5 · Atlas Assistant", "Use the Assistant for straightforward local queries such as players under a specified age or with an attribute threshold.", "The current assistant is a rule-based search composer, not an external generative AI model. It reports only filters it actually applied.", "For more detailed criteria, use Global Search. Keep the Assistant available as a quick way into the database.");
-        Section("6 · Your data and safety", "The local database is stored at %LOCALAPPDATA%\\FmAtlas\\scouting.db.", "Live scans are read-only, limited to two minutes and cancellable from the toolbar. A save switch cancels the read and prevents mixed-session records. A successful new live snapshot replaces only the active LIVE player/staff/club facts in one SQLite transaction; offline snapshots, local/CSV records, shortlists and recruitment projects are preserved.", "Live Apply/Undo remains disabled until every writable field and rollback path is independently certified. The first PC test should monitor Football Manager responsiveness and compare provisional CA/PA/attribute values against the in-game UI. Back up the FmAtlas data folder before major changes or moving the application to another PC.");
+        Section("6 · Your data and safety", "The local database is stored at %LOCALAPPDATA%\\FmAtlas\\scouting.db.", "Live scans are read-only, limited to two minutes and cancellable from the toolbar. A save switch cancels the read and prevents mixed-session records. A successful new live snapshot replaces only the active LIVE player/staff/club facts in one SQLite transaction; offline snapshots, local/CSV records, shortlists and recruitment projects are preserved.", "Live Apply/Undo is available only for the exact-build field whitelist and starts OFF. Enable it manually in Editor Studio for the current session, stage and review each change, then Apply and confirm the read-back result. The first PC test must use a disposable offline career copy: compare player CA, signed PA (including negative random-potential values), and all 52 player attributes against the FM27 UI; test Undo before using Ctrl+S in Football Manager. Back up the FmAtlas data folder before major changes or moving the application to another PC.");
         Section("7 · Analytics and Mass Edit", "Analytics discovers numeric season/match metrics retained by the latest imported save snapshot. Choose a metric, set minimum/maximum values and search.", "If xG, xA or tackles per 90 are not in the imported source, they will not appear. Atlas does not calculate or invent missing match statistics.", "Mass Edit changes filtered local Atlas player records only. Every changed player is recorded separately in Edit History. Save Atlas checkpoints the local database; it does not save the FM career.");
         Section("8 · Diagnostics", "Use Diagnostics in the top toolbar to export a support report. Check it before sharing because it may include player names, file paths and recent edit history.");
         Section("Troubleshooting", "If Atlas cannot connect, confirm FM27 has finished loading a career and that the game build is supported. Close duplicate FM instances if more than one is open.", "If a save changes during indexing, Atlas cancels the old session read and starts the new session after the old worker exits. A two-minute timeout or toolbar Cancel retains the previous snapshot.", "Live CA/PA and attribute mappings remain provisional until compared against the FM UI. Use the optional offline save reader when you need historical or match-stat facts.", "After updating, run Build-FM-Atlas-27.bat. The build window must report 0 errors before launching the new executable.");
@@ -4392,7 +4377,7 @@ public partial class MainWindow : Window
                     ? "Human manager: not uniquely identified"
                     : $"Your manager: {metrics.CurrentManager}\nClub: {metrics.CurrentManagerClub ?? "unavailable"} · Nation: {metrics.CurrentManagerNation ?? "unavailable"}";
                 MessageBox.Show(this,
-                    $"FM27 career connected successfully.\n\n{managerLine}\n\nPlayers: {result.PlayersImported:N0}\nStaff: {result.StaffImported:N0}\nClubs: {result.ClubsImported:N0}\nPlayer attribute facts: {result.AttributeRowsImported:N0}\n\nThe scan is read-only. Live CA/PA and attribute mappings are still provisional until compared with the FM UI. Live editing remains disabled.",
+                    $"FM27 career connected successfully.\n\n{managerLine}\n\nPlayers: {result.PlayersImported:N0}\nStaff: {result.StaffImported:N0}\nClubs: {result.ClubsImported:N0}\nPlayer attribute facts: {result.AttributeRowsImported:N0}\n\nThe scan is read-only. The supported live player editor includes CA, signed PA and all 52 attributes on registered FM27 builds. Compare values against the in-game UI before relying on them. Live Apply/Undo starts OFF and requires explicit session opt-in in Editor Studio.",
                     "FM Atlas · Career connected", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             if (!automatic && string.Equals(_activePage, "Dashboard", StringComparison.OrdinalIgnoreCase))
@@ -4445,6 +4430,16 @@ public partial class MainWindow : Window
             if (_liveLoadProgress is not null) { _liveLoadProgress.IsIndeterminate = false; _liveLoadProgress.Visibility = Visibility.Collapsed; }
             EndBackgroundOperation();
         }
+    }
+
+    private void ShowCareerSaveInProgress()
+    {
+        MessageBox.Show(this,
+            "SAVE CAREER · IN PROGRESS" + Environment.NewLine + Environment.NewLine
+            + "FM Atlas can connect to a supported live FM27 career and apply only its individually validated live fields. It does not yet invoke Football Manager's native Save Game command." + Environment.NewLine + Environment.NewLine
+            + "To persist a live edit, switch to Football Manager, press Ctrl+S and confirm the save dialog. Use a separate disposable career copy while testing." + Environment.NewLine + Environment.NewLine
+            + "The toolbar's Save Atlas action saves FM Atlas local data only; it does not save the Football Manager career.",
+            "FM Atlas · Save career", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private async Task ImportCareerSaveAsync()
@@ -4740,69 +4735,48 @@ public partial class MainWindow : Window
 
     private static Border Card(UIElement child, double radius, Thickness? margin = null)
     {
-        // Keep the original direct-child contract: many established workspaces populate
-        // Card(...).Child after construction. A nested visual host here breaks those
-        // callers at runtime. The material is therefore rendered by the Border itself.
+        if (_themeMode == "Watched Instrument")
+        {
+            return new Border
+            {
+                Background = Brush("#0C0E11"),
+                BorderBrush = Brush("#303943"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(0),
+                Padding = new Thickness(15),
+                Margin = margin ?? new Thickness(0),
+                SnapsToDevicePixels = true,
+                Child = child
+            };
+        }
+        // Legacy appearance modes remain available to existing user settings.
         var light = _themeMode == "Glass Light";
         var studio = _themeMode == "Studio";
         var monolith = _themeMode == "Monolith Glass";
         var top = light
             ? Color.FromArgb(246, 255, 255, 255)
-            : studio
-                ? Color.FromArgb(238, 23, 26, 32)
-                : monolith
-                    ? Color.FromArgb(236, 47, 48, 53)
-                    : Color.FromArgb(222, 26, 35, 46);
+            : studio ? Color.FromArgb(238, 23, 26, 32)
+            : monolith ? Color.FromArgb(236, 47, 48, 53)
+            : Color.FromArgb(222, 26, 35, 46);
         var bottom = light
             ? Color.FromArgb(232, 237, 244, 250)
-            : studio
-                ? Color.FromArgb(228, 13, 16, 21)
-                : monolith
-                    ? Color.FromArgb(224, 23, 24, 28)
-                    : Color.FromArgb(204, 15, 24, 35);
-        var edgeTop = light
-            ? Color.FromArgb(210, 255, 255, 255)
-            : monolith
-                ? Color.FromArgb(188, 242, 140, 69)
-                : Color.FromArgb(158, 244, 155, 100);
-        var edgeBottom = light
-            ? Color.FromArgb(132, 151, 178, 205)
-            : monolith
-                ? Color.FromArgb(88, 242, 140, 69)
-                : Color.FromArgb(58, 244, 155, 100);
-
+            : studio ? Color.FromArgb(228, 13, 16, 21)
+            : monolith ? Color.FromArgb(224, 23, 24, 28)
+            : Color.FromArgb(204, 15, 24, 35);
+        var edgeTop = light ? Color.FromArgb(210, 255, 255, 255)
+            : monolith ? Color.FromArgb(188, 242, 140, 69)
+            : Color.FromArgb(158, 244, 155, 100);
+        var edgeBottom = light ? Color.FromArgb(132, 151, 178, 205)
+            : monolith ? Color.FromArgb(88, 242, 140, 69)
+            : Color.FromArgb(58, 244, 155, 100);
         return new Border
         {
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(top, 0),
-                    new GradientStop(bottom, 1)
-                },
-                new Point(0, 0),
-                new Point(0, 1)),
-            BorderBrush = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(edgeTop, 0),
-                    new GradientStop(Color.FromArgb(light ? (byte)120 : monolith ? (byte)64 : (byte)50, 255, 255, 255), 0.42),
-                    new GradientStop(edgeBottom, 1)
-                },
-                new Point(0, 0),
-                new Point(0, 1)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(radius),
-            Padding = new Thickness(15),
+            Background = new LinearGradientBrush(new GradientStopCollection { new GradientStop(top, 0), new GradientStop(bottom, 1) }, new Point(0, 0), new Point(0, 1)),
+            BorderBrush = new LinearGradientBrush(new GradientStopCollection { new GradientStop(edgeTop, 0), new GradientStop(Color.FromArgb(light ? (byte)120 : monolith ? (byte)64 : (byte)50, 255, 255, 255), 0.42), new GradientStop(edgeBottom, 1) }, new Point(0, 0), new Point(0, 1)),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(radius), Padding = new Thickness(15),
             Margin = margin ?? new Thickness(0),
-            Effect = new DropShadowEffect
-            {
-                Color = light ? Color.FromRgb(111, 126, 145) : Color.FromRgb(0, 0, 0),
-                BlurRadius = monolith ? 26 : 22,
-                ShadowDepth = monolith ? 5 : 4,
-                Opacity = light ? 0.10 : monolith ? 0.30 : 0.24
-            },
-            SnapsToDevicePixels = true,
-            Child = child
+            Effect = new DropShadowEffect { Color = light ? Color.FromRgb(111, 126, 145) : Color.FromRgb(0, 0, 0), BlurRadius = monolith ? 26 : 22, ShadowDepth = monolith ? 5 : 4, Opacity = light ? 0.10 : monolith ? 0.30 : 0.24 },
+            SnapsToDevicePixels = true, Child = child
         };
     }
 
@@ -4810,19 +4784,19 @@ public partial class MainWindow : Window
         => new() { Text = text, FontSize = Math.Max(10, size), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, Foreground = foreground, TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe UI") };
 
     private static TextBox Input(string placeholder)
-        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#FBFDFF"), Foreground = Brush("#1A3851"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 12 };
+        => new() { Text = "", Tag = placeholder, ToolTip = placeholder, Height = 35, Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 3, 0, 8), Background = Brush("#050505"), Foreground = Brush("#F08A42"), CaretBrush = Brush("#FF9A50"), BorderBrush = Brush("#6A3D25"), BorderThickness = new Thickness(1), FontSize = 12, SelectionBrush = Brush("#633719"), SelectionTextBrush = Brush("#FF9A50") };
 
     private static TextBlock FieldLabel(string label) => Txt(label, 9, true, Muted);
 
     private static Button SoftButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(13, 8, 13, 8), Margin = new Thickness(3), Background = Brush("#EFF5FA"), Foreground = Brush("#365F83"), BorderBrush = Brush("#D4E1EC"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button { Content = content, Padding = new Thickness(13, 8, 13, 8), Margin = new Thickness(3), Background = Brush("#111316"), Foreground = Brush("#F08A42"), BorderBrush = Brush("#6A3D25"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
         button.Click += click; return button;
     }
 
     private static Button PrimaryButton(string content, RoutedEventHandler click)
     {
-        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#2D75B6"), Foreground = Brush("#0D1117"), BorderBrush = Brush("#C6F36B"), FontSize = 11, FontWeight = FontWeights.SemiBold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
+        var button = new Button { Content = content, Padding = new Thickness(15, 9, 15, 9), Margin = new Thickness(3), Background = Brush("#F08A42"), Foreground = Brush("#090A0C"), BorderBrush = Brush("#F08A42"), BorderThickness = new Thickness(1), FontSize = 11, FontWeight = FontWeights.Bold, Cursor = Cursors.Hand, Template = RoundedButtonTemplate(11) };
         button.Click += click; return button;
     }
 
@@ -4837,7 +4811,7 @@ public partial class MainWindow : Window
         var template = new ControlTemplate(typeof(Button));
         var border = new FrameworkElementFactory(typeof(Border));
         border.Name = "AtlasButtonSurface";
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(_themeMode == "Watched Instrument" ? 0 : radius));
         border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
         border.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty));
         border.SetValue(Border.BorderThicknessProperty, new TemplateBindingExtension(Control.BorderThicknessProperty));
@@ -4870,20 +4844,37 @@ public partial class MainWindow : Window
 
     private static string LoadThemeMode()
     {
-        try
-        {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FMAtlas", "theme.txt");
-            var value = File.Exists(path) ? File.ReadAllText(path).Trim() : "Monolith Glass";
-            return value is "Monolith Glass" or "Glass Light" or "Studio" or "Glass Dark" ? value : "Monolith Glass";
-        }
-        catch { return "Monolith Glass"; }
+        // The rebuild ships with one deliberate default. Legacy theme preferences are
+        // migrated to Watched Instrument so an old Monolith selection cannot leak into
+        // the new visual system.
+        return "Watched Instrument";
     }
 
     private static Brush Brush(string hex)
     {
         var key = hex.ToUpperInvariant();
         string mapped;
-        if (_themeMode == "Glass Light")
+        if (_themeMode == "Watched Instrument")
+        {
+            mapped = key switch
+            {
+                "#E8EEF4" or "#E8F0FA" or "#F1F0ED" or "#182F45" or "#183B56" or "#1A3851" or "#173B55" or "#25435E" or "#334F65" or "#365F83" or "#3D586E" or "#486477" or "#344656" => "#EEE9E1",
+                "#C6F36B" or "#D5E5C3" or "#A9D6FF" or "#2D75B6" or "#087F91" or "#3988C8" or "#205F91" or "#277BB9" or "#F29A5C" or "#D97736" => "#E9823B",
+                "#9EADB9" or "#63778A" or "#647A8E" or "#6F8293" or "#8293A1" or "#526B7D" or "#536C7F" => "#9CA1A6",
+                "#303943" or "#D7E3EA" or "#D4E1EC" or "#DDE7ED" or "#D5E0E7" or "#D8E4ED" or "#D9E5EF" or "#E1E9EF" or "#C9D9E8" => "#292C30",
+                "#FFFFFF" or "#FBFDFF" or "#F9FDFC" or "#F8FCFA" or "#F7FBFA" or "#F6FCFA" or "#F4F8FC" or "#F4F8FB" or "#F5F8FC" or "#EFF5FA" or "#EAF1F8" or "#EAF2F9" or "#E9EFF3" or "#E8EEF2" or "#E6EDF2" or "#E1F3EA" or "#D3E9E4" or "#DBF2EF" => "#17191C",
+                "#0D1117" or "#111820" => "#090A0C",
+                "#171F28" or "#202A35" or "#1C242E" or "#151B22" => "#111316",
+                "#35424E" => "#35383C",
+                "#294765" => "#352319",
+                "#F08C96" => "#D77A82",
+                "#8BCFA6" => "#8CC7A0",
+                "#E6C477" => "#DDB36D",
+                "#F7A46A" or "#2A669C" or "#356C98" or "#75B9E7" or "#77BCE8" => "#F2A36C",
+                _ => key
+            };
+        }
+        else if (_themeMode == "Glass Light")
         {
             mapped = key switch
             {
