@@ -51,10 +51,8 @@ public partial class AdvancedSearchWindow : Window
         if (sender is not Button button || string.IsNullOrWhiteSpace(button.Tag?.ToString()))
             return;
 
-        _viewModel.SelectCategory(AdvancedSearchCategoryKind.General);
-        _viewModel.FieldSearchText = button.Tag.ToString()!;
-        RefreshSelection();
-        _viewModel.SetStatus("Position selected. Set the familiarity MIN/MAX range, then run Search.");
+        _viewModel.TogglePosition(button.Tag.ToString()!);
+        RefreshPositionSelector();
     }
 
     private void CategoryButton_Click(object sender, RoutedEventArgs e)
@@ -108,6 +106,7 @@ public partial class AdvancedSearchWindow : Window
         LogicComboBox.SelectedIndex = 0;
         PositionLogicComboBox.SelectedIndex = 0;
         _viewModel.ClearFilters();
+        RefreshSelection();
     }
 
     private void SavePreset_Click(object sender, RoutedEventArgs e)
@@ -239,6 +238,25 @@ public partial class AdvancedSearchWindow : Window
         SetSelected(PreferredMovesCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.PreferredMoves);
         SetSelected(RelationsCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.Relations);
         SetSelected(IndexedFieldsCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.IndexedFields);
+        RefreshPositionSelector();
+    }
+
+    private void RefreshPositionSelector()
+    {
+        if (PositionButtonsCanvas is null)
+            return;
+
+        foreach (var button in PositionButtonsCanvas.Children.OfType<Button>())
+        {
+            var selected = _viewModel.IsPositionSelected(button.Tag?.ToString() ?? string.Empty);
+            button.Background = selected
+                ? new SolidColorBrush(Color.FromRgb(0xD8, 0x78, 0x3C))
+                : new SolidColorBrush(Color.FromRgb(0x50, 0x58, 0x61));
+            button.BorderBrush = selected
+                ? new SolidColorBrush(Color.FromRgb(0xF1, 0xA0, 0x64))
+                : new SolidColorBrush(Color.FromRgb(0x7B, 0x83, 0x8D));
+            button.Foreground = Brushes.WhiteSmoke;
+        }
     }
 
     private void SetSelected(Button button, bool selected)

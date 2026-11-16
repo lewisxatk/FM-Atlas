@@ -27,6 +27,9 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     private string _statusText = "Enter criteria in supported fields, then run the search.";
     private string _fieldSearchText = string.Empty;
     private bool _isBusy;
+    private readonly HashSet<string> _selectedPositions = new(StringComparer.OrdinalIgnoreCase);
+    private string _positionMinimumText = "1";
+    private string _positionMaximumText = "20";
 
     public AdvancedSearchWindowViewModel(IAdvancedSearchProvider searchProvider, Func<bool>? includeWomenPlayers = null)
     {
@@ -88,9 +91,52 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         private set => SetField(ref _isBusy, value);
     }
 
+    public string PositionMinimumText
+    {
+        get => _positionMinimumText;
+        set => SetField(ref _positionMinimumText, value);
+    }
+
+    public string PositionMaximumText
+    {
+        get => _positionMaximumText;
+        set => SetField(ref _positionMaximumText, value);
+    }
+
+    public IReadOnlyCollection<string> SelectedPositions => _selectedPositions.ToArray();
+
+    public bool IsPositionSelected(string fieldKey) => _selectedPositions.Contains(fieldKey);
+
+    public void TogglePosition(string fieldKey)
+    {
+        if (string.IsNullOrWhiteSpace(fieldKey) ||
+            !fieldKey.StartsWith("position_", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (!GetIndexedFieldsFor(SelectedEntity).Any(field =>
+                string.Equals(field.Key, fieldKey, StringComparison.OrdinalIgnoreCase) &&
+                field.ValueKind == SearchFieldValueKind.IntegerRange && field.CanExecute))
+        {
+            StatusText = "This position rating is not in the current index. Load your FM27 career, then reopen Advanced Search.";
+            return;
+        }
+
+        if (!_selectedPositions.Add(fieldKey))
+            _selectedPositions.Remove(fieldKey);
+
+        OnPropertyChanged(nameof(SelectedPositions));
+        StatusText = _selectedPositions.Count == 0
+            ? "No positions selected."
+            : $"{_selectedPositions.Count} position(s) selected. Set the familiarity range, then run Search.";
+    }
+
     public void SelectEntity(SearchEntityKind entity)
     {
         SelectedEntity = entity;
+        _selectedPositions.Clear();
+        PositionMinimumText = "1";
+        PositionMaximumText = "20";
+        OnPropertyChanged(nameof(SelectedPositions));
         SelectedPositionLogic = SearchFilterLogic.All;
         RebuildSections();
         Results.Clear();
@@ -148,6 +194,10 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         }
 
         Results.Clear();
+        _selectedPositions.Clear();
+        PositionMinimumText = "1";
+        PositionMaximumText = "20";
+        OnPropertyChanged(nameof(SelectedPositions));
         SelectedLogic = SearchFilterLogic.All;
         SelectedPositionLogic = SearchFilterLogic.All;
         StatusText = "Filters cleared for the selected entity.";
@@ -183,6 +233,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
                 conditions.Add(condition);
         }
 
+        AddSelectedPositionConditions(conditions, inputIssues);
         if (inputIssues.Count > 0)
         {
             StatusText = string.Join("  ·  ", inputIssues);
@@ -245,6 +296,11 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
 
         SelectedLogic = preset.Logic;
         SelectedPositionLogic = preset.PositionLogic;
+        _selectedPositions.Clear();
+        foreach (var position in preset.Conditions.Where(condition =>
+                     condition.FieldKey.StartsWith("position_", StringComparison.OrdinalIgnoreCase)))
+            _selectedPositions.Add(position.FieldKey);
+        OnPropertyChanged(nameof(SelectedPositions));
 
         var definitions = GetAllFieldDefinitions(SelectedEntity)
             .ToDictionary(field => field.Key, StringComparer.OrdinalIgnoreCase);
@@ -322,6 +378,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
                 conditions.Add(condition);
         }
 
+        AddSelectedPositionConditions(conditions, inputIssues);
         if (inputIssues.Count > 0)
         {
             StatusText = string.Join("  ·  ", inputIssues);
@@ -366,6 +423,42 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private void AddSelectedPositionConditions(
+        ICollection<SearchFilterCondition> conditions,
+        ICollection<string> inputIssues)
+    {
+        if (_selectedPositions.Count == 0)
+            return;
+
+        if (!TryParseDecimal(PositionMinimumText, out var minimum) ||
+            !TryParseDecimal(PositionMaximumText, out var maximum))
+        {
+            inputIssues.Add("Position familiarity MIN/MAX must be numeric.");
+            return;
+        }
+
+        if (minimum is null && maximum is null)
+        {
+            inputIssues.Add("Enter a position familiarity MIN or MAX value.");
+            return;
+        }
+
+        if (minimum is decimal min && maximum is decimal max && min > max)
+        {
+            inputIssues.Add("Position familiarity MIN cannot be greater than MAX.");
+            return;
+        }
+
+        foreach (var key in _selectedPositions)
+        {
+            if (conditions.Any(condition => string.Equals(condition.FieldKey, key, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            conditions.Add(new SearchFilterCondition(
+                key, SearchFilterOperator.Range, Minimum: minimum, Maximum: maximum));
         }
     }
 
