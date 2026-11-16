@@ -1,6 +1,6 @@
 # FM Atlas — Session Continuity and Work Preservation
 
-**Revision:** 002  
+**Revision:** 003  
 **Date:** 2026-11-16  
 **Working branch:** `rebuild/fresh-foundation-001`
 
@@ -16,9 +16,11 @@ This project must survive streaming interruptions, conversation length limits, a
 4. Architecture decision: `ARCHITECTURE_DECISION.md`.
 5. Uploaded package inventory: `../research/UPLOADED_RESEARCH_INVENTORY.md`.
 6. Technical findings: `../research/RESEARCH_FINDINGS_001.md` and `../research/RESEARCH_REGISTER.md`.
-7. Current work state: `CURRENT_CHECKPOINT.md`.
-8. Task-by-task progress: `FRESH_REBUILD_CHECKLIST.md`.
-9. Change history: Git commits and pull requests.
+7. FMRTE parity inventory: `../research/FMRTE_FEATURE_AUDIT_001.md`.
+8. Field counts and confidence: `../research/FIELD_COVERAGE_LEDGER.md`.
+9. Current work state: `CURRENT_CHECKPOINT.md`.
+10. Task-by-task progress: `FRESH_REBUILD_CHECKLIST.md`.
+11. Change history: Git commits and pull requests.
 
 If chat history conflicts with the latest committed specification/checkpoint, stop and reconcile explicitly. Do not guess.
 
@@ -29,7 +31,7 @@ If chat history conflicts with the latest committed specification/checkpoint, st
 - After each completed task or test: update the checklist and checkpoint.
 - After each coherent code change: commit to the active feature branch.
 - Before changing architecture, field mappings or live-write behaviour: write the decision and evidence first.
-- Before ending a work session: update checkpoint with exact completed work, open work, next action, branch and commit SHA.
+- Before ending a work session: update checkpoint with exact completed work, open work, branch and commit SHA.
 - Never leave several hours of completed work only in chat text or an uncommitted working tree.
 
 ## Atomic work units
