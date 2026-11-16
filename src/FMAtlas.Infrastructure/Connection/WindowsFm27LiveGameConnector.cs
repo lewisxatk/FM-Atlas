@@ -61,6 +61,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
         {
             var previousSession = _session;
             DisconnectCore();
+            _disconnectRequested = false;
 
             // A live provider is a disposable snapshot, never a fallback cache.
             // Clear it before scanning so a failed/cancelled reload cannot leave the
@@ -72,7 +73,8 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 await _snapshotStore.DeleteProviderAsync(previousSession.ProviderKey, CancellationToken.None).ConfigureAwait(false);
             }
 
-            _disconnectRequested = false;
+            if (_disconnectRequested)
+                throw new OperationCanceledException("FM Atlas was asked to disconnect before the live scan started.");
             progress?.Report(new LiveGameLoadProgress(2, "Finding Football Manager", "Looking for the running FM27 Game Pass process."));
 
             var work = await Task.Run(
