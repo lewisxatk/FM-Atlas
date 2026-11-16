@@ -142,7 +142,7 @@
                               FontSize="9"
                               Margin="14,0,0,0"
                               VerticalAlignment="Center"
-                              ToolTip="Off by default. Includes women players in Quick Search and Advanced Search when enabled."/>
+                              ToolTip="Off by default. Includes women when enabled. Records with missing/unknown gender stay visible and cannot be filtered reliably."/>
                 </StackPanel>
 
                 <Grid Grid.Row="2" Grid.ColumnSpan="2">
