@@ -145,7 +145,7 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     public string NationalityInfoText => $"Nationality  ·  {Format(Player.Nationality?.Value)}";
     public string SecondNationalityInfoText => $"Second nationality  ·  {Format(Player.SecondNationality?.Value)}";
     public string CityOfBirthInfoText => $"Born  ·  {Format(Player.CityOfBirth?.Value)}";
-    public string AskingPriceInfoText => $"Asking price  ·  {Format(Player.SearchIntegerFields.GetValueOrDefault("asking_price")?.Value, " currency units")}";
+    public string AskingPriceInfoText => $"Asking price  ·  {Format(Player.SearchIntegerFields.GetValueOrDefault("asking_price")?.Value)}";
     public string ClubInfoText => $"Club / Team  ·  {Format(Player.ClubName?.Value ?? Player.TeamName?.Value)}";
     public string LeagueInfoText => $"League  ·  {Format(Player.LeagueName?.Value)}";
     public string PositionInfoText => $"Position  ·  {Format(Player.PrimaryPosition?.Value)}";
