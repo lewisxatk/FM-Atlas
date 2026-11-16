@@ -228,7 +228,24 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         IReadOnlyDictionary<string, SourcedValue<decimal>> values)
     {
         foreach (var (key, value) in values.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
-            Add(fields, prefix + key, value);
+            Add(fields, ComposeKey(prefix, key), value);
+    }
+
+    private static string ComposeKey(string prefix, string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException("A projection field key is required.", nameof(key));
+
+        var normalisedPrefix = (prefix ?? string.Empty).Trim().ToLowerInvariant();
+        var normalisedKey = key.Trim()
+            .Replace(' ', '_')
+            .Replace('-', '_')
+            .ToLowerInvariant();
+
+        return normalisedPrefix.Length > 0 &&
+               normalisedKey.StartsWith(normalisedPrefix, StringComparison.OrdinalIgnoreCase)
+            ? normalisedKey
+            : normalisedPrefix + normalisedKey;
     }
 
     private static void AddStringMap(
