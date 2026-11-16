@@ -476,14 +476,12 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             normalised is "is_newgen" or "wonderkid" or "eu_nationality" or
                 "left_foot" or "right_foot" or "preferred_foot" or "gender" or "game_uid" or
                 "international_caps" or "international_goals" or "continent" or
-                "region" or "city_of_birth" or "ethnicity" or "division" or
+                "region" or "city_of_birth" or "ethnicity" or
                 "training_status_club" or "training_status_nation" or
-                "primary_role" or "training_rating" or "club_founded_year" or
-                "club_stadium_name" or "club_stadium_capacity" or "club_average_attendance" or
+                "primary_role" or "training_rating" or
                 "reputation_home" or "reputation_current" or "reputation_world" or
                 "ability_difference" or "recommended_ca" or "contract_status" or
-                "release_clause" or "club_balance" or "club_debt" or "club_transfer_budget" or
-                "club_wage_budget" or "club_loans" or "club_sponsorship")
+                "release_clause")
             return [normalised];
 
         return normalised switch
