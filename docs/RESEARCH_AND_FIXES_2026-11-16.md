@@ -57,3 +57,5 @@ Reference: https://docs.fmrte.com/scouting/search/
 The Windows CI build, automated tests, packaging and startup smoke test passed for commit 7003a11775767caf33d1e51edbeef76e385d20e8.
 
 The subsequent advanced-search name-fallback and copy update is a separate commit and must pass CI before its package is treated as validated. The exact user's running FM27 process and save still require an on-machine Load Game test; matching static RVAs alone do not prove that the user's current process passed its runtime fingerprint and layout checks.
+
+The final branch-head build and test result is recorded in the associated GitHub Actions run; a successful earlier commit is not a substitute for validating later source changes.
