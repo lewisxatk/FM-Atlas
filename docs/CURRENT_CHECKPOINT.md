@@ -975,3 +975,12 @@ When a compatible UTF-8 FM27 player CSV is available:
 **Game Pass caveat:** the currently documented FM View Exporter build targets Steam/Windows; Game Pass plugin support is not established. FM Atlas imports a compatible CSV from any exporter, but its importer does not make the exporter Game Pass-compatible. This CSV route is separate from the still-incomplete Game Pass live-save reader.
 
 **Safety boundary unchanged:** no live process-memory read/write and no career-file modification. `Load Live Save` and `Save Live Save` remain disabled. Historical recovery and `main` remain untouched.
+
+
+### Post-checkpoint Windows Actions verification — current head
+
+- Checkpoint sync commit: `298e158b70705d9bc2756df8c1988b63ae2016ad`.
+- Windows workflow run #451, ID `43853394674`, was created for that head and failed with job `build` reporting `steps=null` and no log URL.
+- A failed-job retry was accepted. Retry job ID `133251606257` also completed with failure, returned zero steps and its job-log download returned 404/BlobNotFound.
+- No Restore / Build / Test command ran, no compiler/test output exists, and no artifact was uploaded. This remains a hosted Actions provisioning/access blocker, not a diagnosed source compile failure and not a pass.
+- The added local PowerShell script is therefore the available route to obtain an actionable Windows build/test result. The script itself has not been run in this environment because the .NET SDK and Windows PowerShell are unavailable.
