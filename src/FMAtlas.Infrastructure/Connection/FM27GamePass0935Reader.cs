@@ -430,7 +430,7 @@ internal sealed class FM27GamePass0935Reader
         {
             ["current_game_date"] = new SourcedValue<DateOnly>(inGameDate, evidence)
         };
-        if (contractSigned is DateOnly signed
+        if (contractSigned is DateOnly signed)
             searchDates["contract_signed"] = new SourcedValue<DateOnly>(signed, evidence);
         if (contractJoined is DateOnly joined)
             searchDates["contract_joined"] = new SourcedValue<DateOnly>(joined, evidence);
@@ -569,7 +569,10 @@ internal sealed class FM27GamePass0935Reader
         AddSearchInt("job_code", jobCode);
         AddSearchInt("contract_type", contractType);
 
-        var searchDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase);
+        var searchDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["current_game_date"] = new SourcedValue<DateOnly>(inGameDate, evidence)
+        };
         if (contractSigned is DateOnly signed)
             searchDates["contract_signed"] = new SourcedValue<DateOnly>(signed, evidence);
         if (contractJoined is DateOnly joined)
