@@ -13,9 +13,9 @@ namespace FMAtlas.Desktop.ViewModels;
 
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
-    // Fail-closed production switch. Live reading is suspended until the reported
-    // FM27 process exit has been reproduced and independently explained.
-    private const bool LiveLoadSafetyGateEnabled = false;
+    // Enables only the exact-build, read-only Game Pass scanner. Live writing
+    // remains disabled and the UI requires an explicit confirmation before scanning.
+    private const bool LiveLoadSafetyGateEnabled = true;
     private readonly IGameProcessProbe _processProbe;
     private readonly IAtlasDatabase _atlasDatabase;
     private readonly IEntitySearchProvider _entitySearchProvider;
@@ -23,9 +23,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly string _databasePath;
     private readonly string _searchPreferencesPath;
     private CancellationTokenSource? _quickSearchCancellation;
-    private string _connectionStatus = "Live load paused";
-    private string _connectionDetail = "Live FM27 loading is temporarily disabled following a report that Football Manager closed during connection. CSV import and local search remain available.";
-    private string _lastAction = "Live FM27 connection paused for safety investigation";
+    private string _connectionStatus = "Not connected";
+    private string _connectionDetail = "Start FM27, load your career fully, then use Load Game to run the exact-build read-only connection check.";
+    private string _lastAction = "Fresh application foundation";
     private string _quickSearchText = string.Empty;
     private string _quickSearchMessage = "Search imported FM Atlas records.";
     private bool _isQuickSearchOpen;
@@ -525,7 +525,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ConnectionDetail = exception.Message;
             LastAction = "Live career load failed";
             QuickSearchResults.Clear();
-            QuickSearchMessage = "Live connection is paused. Import a player CSV to search records while the safety review is underway.";
+            QuickSearchMessage = "Live connection failed. Check the active FM27 career and supported Game Pass build, then review the local live-connection diagnostics.";
         }
         finally
         {
