@@ -107,8 +107,14 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     public string SectionEmptyText
     {
         get => _sectionEmptyText;
-        private set { _sectionEmptyText = value; OnPropertyChanged(); }
+        private set
+        {
+            _sectionEmptyText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasSectionEmptyText));
+        }
     }
+    public bool HasSectionEmptyText => !string.IsNullOrWhiteSpace(SectionEmptyText);
     public bool IsInformationSection => SelectedSection == "Information";
 
     public string PlayerTitle => Player.FullName?.Value ?? "Unnamed player record";
