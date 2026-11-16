@@ -49,7 +49,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         }
     }
     public string SectionDescription { get => _sectionDescription; private set { _sectionDescription = value; OnPropertyChanged(); } }
-    public string SectionEmptyText { get => _sectionEmptyText; private set { _sectionEmptyText = value; OnPropertyChanged(); } }
+    public string SectionEmptyText { get => _sectionEmptyText; private set { _sectionEmptyText = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSectionEmptyText)); } }
     public bool HasSectionEmptyText => !string.IsNullOrWhiteSpace(SectionEmptyText);
     public string Name => Club.Name?.Value ?? "Unnamed club record";
     public string Subtitle => $"{Club.NationName?.Value ?? "Nation not imported"} · {Club.CompetitionName?.Value ?? "Competition not imported"} · {Club.Identity.ProviderKey}";
