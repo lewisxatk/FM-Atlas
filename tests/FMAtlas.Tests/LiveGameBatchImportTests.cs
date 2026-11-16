@@ -153,7 +153,7 @@ public sealed class LiveGameBatchImportTests
     }
 
     [Fact]
-    public async Task ClubSquadQueryFindsPlayersBySourceBackedClubUid()
+    public async Task ClubProfileFindsPlayersAndStaffBySourceBackedClubUid()
     {
         using var temp = new TemporaryDirectory();
         var databasePath = Path.Combine(temp.Root, "atlas.db");
