@@ -33,7 +33,8 @@ public sealed record SearchFilterCondition(
 public sealed record AdvancedSearchQuery(
     SearchEntityKind Entity,
     SearchFilterLogic Logic,
-    IReadOnlyList<SearchFilterCondition> Conditions)
+    IReadOnlyList<SearchFilterCondition> Conditions,
+    SearchFilterLogic PositionLogic = SearchFilterLogic.All)
 {
     /// <summary>Indicates that every selected field has a query implementation.</summary>
     public bool CanExecute => Conditions.Count > 0 && Conditions.All(condition =>
