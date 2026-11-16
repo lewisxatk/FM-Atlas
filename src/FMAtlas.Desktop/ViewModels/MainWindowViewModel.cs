@@ -1,3 +1,4 @@
+using System.IO;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -321,9 +322,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         try
         {
-            return File.Exists(_searchPreferencesPath) &&
-                   bool.TryParse(File.ReadAllText(_searchPreferencesPath).Trim(), out var enabled) &&
-                   enabled;
+            if (!File.Exists(_searchPreferencesPath))
+                return false;
+
+            var contents = File.ReadAllText(_searchPreferencesPath).Trim();
+            return bool.TryParse(contents, out var enabled) && enabled;
         }
         catch (IOException)
         {
@@ -603,6 +606,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             IsBusy = false;
         }
     }
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
