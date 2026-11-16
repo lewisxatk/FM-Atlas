@@ -363,7 +363,7 @@
               Focusable="True"
               KeyboardNavigation.TabNavigation="Cycle">
             <Border Width="456"
-                    MaxWidth="92%"
+                    MaxWidth="560"
                     Background="#111214"
                     BorderBrush="#4A3025"
                     BorderThickness="1"
@@ -414,7 +414,6 @@
                     <TextBlock Text="{Binding LiveLoadStage}"
                                FontSize="10"
                                FontWeight="Bold"
-                               CharacterSpacing="90"
                                Foreground="{StaticResource Atlas.Accent}"
                                HorizontalAlignment="Center"
                                TextAlignment="Center"/>
