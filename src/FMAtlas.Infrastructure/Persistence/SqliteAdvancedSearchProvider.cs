@@ -657,6 +657,7 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
         foreach (var category in new[]
         {
             AdvancedSearchCategoryKind.TechnicalGoalkeeping,
+            AdvancedSearchCategoryKind.Goalkeeping,
             AdvancedSearchCategoryKind.MentalAttributes,
             AdvancedSearchCategoryKind.PhysicalHidden
         })
