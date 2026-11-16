@@ -108,6 +108,7 @@ public static class AdvancedSearchQueryValidator
         var attributeCategories = new[]
         {
             AdvancedSearchCategoryKind.TechnicalGoalkeeping,
+            AdvancedSearchCategoryKind.Goalkeeping,
             AdvancedSearchCategoryKind.MentalAttributes,
             AdvancedSearchCategoryKind.PhysicalHidden
         };
