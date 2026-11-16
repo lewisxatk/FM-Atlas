@@ -69,6 +69,39 @@ public sealed class SqliteEntitySearchProviderTests
     }
 
     [Fact]
+    public async Task QuickSearchExcludesExplicitlyFemalePlayersUnlessPreferenceIsEnabled()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        foreach (var (id, gender) in new[]
+        {
+            ("male", "Male"),
+            ("female", "Female"),
+            ("unknown", (string?)null)
+        })
+        {
+            var player = new PlayerRecord(new EntityIdentity(EntityKind.Player, id, "test"))
+            {
+                FullName = new SourcedValue<string>($"{id} Player", Evidence),
+                Gender = gender is null ? null : new SourcedValue<string>(gender, Evidence)
+            };
+            await store.SaveSnapshotAsync(player, $"{id} Player");
+        }
+
+        var provider = new SqliteEntitySearchProvider(path);
+        var defaultResults = await provider.QuickSearchAsync("Player");
+        var inclusiveResults = await provider.QuickSearchAsync("Player", includeWomenPlayers: true);
+
+        Assert.Equal(2, defaultResults.Count);
+        Assert.DoesNotContain(defaultResults, result => result.Identity.SourceId == "female");
+        Assert.Equal(3, inclusiveResults.Count);
+        Assert.Contains(inclusiveResults, result => result.Identity.SourceId == "female");
+    }
+
+    [Fact]
     public async Task PercentAndUnderscoreAreTreatedAsLiteralSearchCharacters()
     {
         using var temp = new TemporaryDirectory();
