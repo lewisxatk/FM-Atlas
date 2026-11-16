@@ -185,3 +185,18 @@ The current Club profile now has a real indexed relationship path for **Squads**
 - A regression test now imports two players and two staff records linked to different clubs, then proves that the correct Player and Staff records are returned for Club ID 77.
 
 These are still externally mapped live relationship fields. The regression verifies the SQLite/index/query behaviour with representative records; it does not independently prove the memory offsets on a running FM27 Game Pass career. Real runtime comparison remains an acceptance gate.
+
+
+## 12. Club profile typed-section coverage follow-up
+
+The Club profile section projector now exposes every typed value family relevant to each existing section rather than limiting several sections to text-only or a narrow key prefix:
+- Youth Intake: typed text, integer, decimal, date and Boolean fields with youth/intake keys.
+- Finances: all canonical finance values plus every additional typed decimal field not already present in the canonical finance map. This includes generic keys such as balance and budgets when the importer has supplied them.
+- Club Vision: text, date, integer and Boolean vision/objective/culture fields.
+- Possible Signings: text, integer, decimal and date fields.
+- Player Clauses: text, integer, decimal, date and Boolean fields.
+- Transfer Center: text, integer, decimal, date and Boolean fields.
+- Wage Contributions, Kits & Colours, Affiliations and Match Preparation: their related typed values across the available field types.
+- Stadium: typed integer, text, decimal and date stadium fields in addition to the core stadium name/capacity properties.
+
+This is a presentation-layer coverage improvement only. It displays values already present in the typed ClubRecord; it does not claim the live importer currently supplies every family. Missing source data continues to produce the existing honest empty state. Windows compilation and runtime acceptance remain blocked by GitHub Actions jobs failing before any runner steps are created.
