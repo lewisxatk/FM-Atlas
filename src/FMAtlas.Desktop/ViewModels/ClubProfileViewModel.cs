@@ -13,10 +13,12 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     private string _selectedSection = "Information";
     private string _sectionDescription = string.Empty;
     private string _sectionEmptyText = string.Empty;
+    private readonly string? _clubLogoImagePath;
 
-    public ClubProfileViewModel(ClubRecord club)
+    public ClubProfileViewModel(ClubRecord club, string? clubLogoImagePath = null)
     {
         Club = club ?? throw new ArgumentNullException(nameof(club));
+        _clubLogoImagePath = clubLogoImagePath;
         Sections = new ObservableCollection<ProfileSectionTabViewModel>
         {
             new("Information", isSelected: "Information" == "Information"),
@@ -64,6 +66,10 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     public string SectionEmptyText { get => _sectionEmptyText; private set { _sectionEmptyText = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSectionEmptyText)); } }
     public bool HasSectionEmptyText => !string.IsNullOrWhiteSpace(SectionEmptyText);
     public string Name => Club.Name?.Value ?? "Unnamed club record";
+    public Uri? ClubLogoUri => !string.IsNullOrWhiteSpace(_clubLogoImagePath) && File.Exists(_clubLogoImagePath)
+        ? new Uri(_clubLogoImagePath, UriKind.Absolute)
+        : null;
+    public bool HasClubLogo => ClubLogoUri is not null;
     public string Subtitle => $"{Club.NationName?.Value ?? "Nation not imported"} · {Club.CompetitionName?.Value ?? "Competition not imported"} · {Club.Identity.ProviderKey}";
     public string FoundedText => Format(Club.FoundedYear?.Value);
     public string ReputationText => Format(Club.Reputation?.Value);
