@@ -309,21 +309,38 @@ Third-party-style scores, percentiles, xPerf and reliability measures may only b
 
 ### Compact player sub-tabs
 
-Each player profile needs its own compact row of small, clearly labelled tabs/buttons, following the FMRTE-style workflow requested by the user. These are within the player's profile and must not be confused with the global application navigation.
+Each player profile needs its own compact row of small, clearly labelled buttons/tabs across the **top of the player workspace**, following the FMRTE section workflow requested by the user. Do not put these sections in a large left-hand navigation rail: REF-004 and the user's written instruction require top-of-profile tabs. They are separate from the global application navigation and the tabs for other open players.
 
-Required player areas to provide, where supported:
-- **Overview** — identity, summary and key ability information.
-- **Attributes** — complete FM attribute list and editing.
-- **Contract** — contract details and supported editable fields.
-- **Positions** — position familiarity and ratings.
-- **Preferred Moves / Traits** — player traits and supported editing.
-- **Season Stats** — season-by-season and current-season statistics available in the loaded save.
-- **History** — career history, transfers and development history where available.
-- **Personality / Hidden** — supported personality and hidden fields, with provenance and write support clearly indicated.
-- **Relationships** — supported relationships.
-- **Other information** — additional FMRTE-style player information discovered during feature research, grouped logically rather than crammed into the overview.
+The official FMRTE 27 player-section audit is recorded in `research/FMRTE_FEATURE_AUDIT_001.md`. Reproduce the supported section coverage, while retaining the user's top-tab placement.
 
-The user explicitly wants the tabs to expose the kinds of information and editable player fields available in FMRTE. The list above is a baseline, not a reason to omit other verified FMRTE player-profile sections discovered during research.
+Required player areas, where the relevant record/data exists:
+
+- **Information** — FM attributes, CA/PA, personal details, fitness and morale. This is the main information/attribute surface; do not split the core attributes into an unrelated generic dashboard.
+- **Contract** — existing club/national-team contracts where applicable; wage, dates, playing time, bonuses, clauses and other supported fields.
+- **Stats** — season overview, season detail and league ranks/comparisons where the loaded save exposes them. Treat as read-only initially. Do not invent xPerf, percentiles, report grades or third-party metrics.
+- **Unavailability** — bans and other reasons the player cannot play.
+- **Transfer Proposals** — existing offers involving the player, where available.
+- **Retire Date** — scheduled retirement, when present.
+- **Positions** — all supported position familiarity values, using the FM pitch layout.
+- **Preferred Moves** — player traits and supported editing.
+- **Relationships** — links to people, clubs and nations, including secondary nationality where available.
+- **Languages** — spoken languages and proficiency.
+- **Scout Information** — general, positional and role ratings only when the underlying source/calculation is verified and labelled.
+- **Staff** — only for a player who is also staff/player-coach; expose the staff-side sections that apply.
+- **Clone Center** — later/conditional: copy selected data from the open player to existing target players only if the operation is technically supported and safely validated. It must not claim to create a new player.
+- **Personality / Hidden** — expose supported hidden/personality values with field provenance and individual read/write status. These can appear as a sub-section of Information or a dedicated compact tab if needed to preserve readability.
+- **History** — career/transfer/development history when present in the loaded career and supported by the data provider.
+
+The compact tab strip should:
+- use small, consistent, restrained controls;
+- show a clear selected state using the orange accent;
+- keep labels readable;
+- support horizontal scrolling or a restrained overflow menu on narrower windows;
+- retain the current player's tab state when switching between open player records;
+- show a subtle unsaved marker on the affected section;
+- conditionally hide or mark unavailable sections when the record has no relevant data.
+
+The screenshot's profile header also informs a compact identity/ability summary: player portrait/name/club, CA/PA and Asking Price where supported, plus contract wage/expiry and current/potential rating summaries. The centre remains the main FM attribute editor. The right side is reserved for grounded performance/information panels.
 
 ### Editing behaviour
 
@@ -353,7 +370,7 @@ The user explicitly wants the tabs to expose the kinds of information and editab
 - [ ] Correct player face is resolved from installed graphics when available.
 - [ ] Centre shows the complete supported FM attribute set in verified FM/FMRTE order.
 - [ ] CA and PA display correctly.
-- [ ] Compact player sub-tabs appear at the top of the profile.
+- [ ] Compact FMRTE-style player sub-tabs appear across the top of the profile, including Information, Contract, Stats, Unavailability, Transfer Proposals, Retire Date, Positions, Preferred Moves, Relationships, Languages, Scout Information, conditional Staff/Clone Center and supported History/Personality sections.
 - [ ] Contract, positions, preferred moves/traits, season statistics, history, personality/hidden information and other supported FMRTE-style areas are accessible.
 - [ ] Each supported editable field is connected to the correct data mapping and editing service.
 - [ ] Right-side intelligence only displays grounded data/calculations.
