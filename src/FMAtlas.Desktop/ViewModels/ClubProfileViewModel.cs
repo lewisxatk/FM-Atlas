@@ -60,6 +60,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     public ObservableCollection<ProfileValueRowViewModel> SectionRows { get; } = [];
     public ObservableCollection<EntitySearchResult> SquadPlayers { get; } = [];
     public bool IsSquadsSection => SelectedSection == "Squads";
+    public bool IsNotSquadsSection => !IsSquadsSection;
     public ICommand SelectSectionCommand { get; }
     public string SelectedSection
     {
