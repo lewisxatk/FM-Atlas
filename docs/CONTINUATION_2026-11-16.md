@@ -22,7 +22,7 @@ The current profiles intentionally show Not Imported / Unknown / In Progress for
 - No verified Windows test ZIP exists for the current head. The source-authoring environment has no Windows/.NET SDK/MSBuild, so a Windows build and WPF launch remain outstanding.
 
 ## Changes in this follow-up
-- Pin Windows CI to the supported Windows Server 2022 hosted runner instead of following `windows-latest`.
+- Replace the failing Windows hosted runner with an Ubuntu 24.04 cross-build. Restore/build/publish the Windows WPF target with `EnableWindowsTargeting=true`, execute platform-neutral automated tests on Linux, and package a self-contained `win-x64` ZIP. This bypasses Windows runner allocation, but a Windows launch and FM27 live test remain outstanding.
 - Expand CI to run restore, Release build, automated tests with TRX output, self-contained Windows x64 publish and ZIP packaging.
 - Always upload available environment/test diagnostics; upload the runnable ZIP only after the full build/test/publish job succeeds.
 - Update the local PowerShell packaging script to write per-step logs, TRX test results, a SHA-256 package hash and a human-readable pass report. The Windows ZIP is self-contained and does not require a separate .NET Desktop Runtime.
@@ -58,7 +58,7 @@ Apply the approved Watched.Earth-inspired black/charcoal/off-white/orange visual
 - Do not merge PR #10 or mark the app release-ready before Windows and Game Pass acceptance.
 
 
-## Latest retry outcome
-- Retried the newest failed CI job for current head `4da2a118335fe6ec8269955196d30dc888ccd197`.
-- GitHub accepted the retry, but attempt 2 again failed before runner allocation; the job exposed no steps.
-- Use the local Windows PowerShell package script as the next build route if hosted Actions continues to fail. Attach its per-step logs and TRX test result to the next report.
+## Runner workaround
+- Windows-hosted runner attempts failed before any steps started.
+- The workflow now uses Ubuntu 24.04 to cross-compile the WPF project for Windows x64 and run platform-neutral tests.
+- A successful cross-build can produce the Windows package, but it cannot verify WPF startup, graphics loading or live FM27 memory reads. Those still require a Windows PC.

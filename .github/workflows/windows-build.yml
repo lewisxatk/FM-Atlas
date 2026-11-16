@@ -15,9 +15,12 @@ permissions:
 
 jobs:
   build:
-    # Pin to a stable supported Windows image instead of following windows-latest.
-    runs-on: windows-2022
-    timeout-minutes: 30
+    # Cross-build the Windows WPF target without depending on a Windows runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,45 +31,39 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Prepare diagnostics
-        shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force artifacts/test-results | Out-Null
-          dotnet --info | Tee-Object artifacts/dotnet-info.txt
-          Get-CimInstance Win32_OperatingSystem |
-            Select-Object Caption, Version, BuildNumber, OSArchitecture |
-            Format-List | Out-File artifacts/windows-info.txt
+          mkdir -p artifacts/test-results
+          dotnet --info | tee artifacts/dotnet-info.txt
+          uname -a | tee artifacts/runner-info.txt
 
-      - name: Restore
-        run: dotnet restore FMAtlas.sln
+      - name: Restore Windows-targeted solution
+        run: dotnet restore FMAtlas.sln -p:EnableWindowsTargeting=true
 
-      - name: Build
-        run: dotnet build FMAtlas.sln --configuration Release --no-restore
+      - name: Build Windows-targeted solution
+        run: dotnet build FMAtlas.sln --configuration Release --no-restore -p:EnableWindowsTargeting=true
 
-      - name: Test
+      - name: Run automated tests
         run: dotnet test FMAtlas.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=FMAtlas.Tests.trx" --results-directory artifacts/test-results
 
-      - name: Publish self-contained Windows x64 app
-        run: dotnet publish src/FMAtlas.Desktop/FMAtlas.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/publish
+      - name: Cross-publish self-contained Windows x64 app
+        run: dotnet publish src/FMAtlas.Desktop/FMAtlas.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/publish -p:EnableWindowsTargeting=true
 
       - name: Verify and package desktop app
-        shell: pwsh
         run: |
-          $exe = Join-Path $PWD "artifacts/publish/FMAtlas.exe"
-          if (-not (Test-Path -LiteralPath $exe)) {
-            throw "Publish completed but FMAtlas.exe was not found. No test package will be uploaded."
-          }
-          Compress-Archive -Path "artifacts/publish/*" -DestinationPath "artifacts/FMAtlas-win-x64.zip" -CompressionLevel Optimal -Force
-          Get-FileHash "artifacts/FMAtlas-win-x64.zip" -Algorithm SHA256 |
-            Format-List | Out-File artifacts/package-sha256.txt
+          test -f artifacts/publish/FMAtlas.exe
+          cd artifacts/publish
+          zip -qr ../FMAtlas-win-x64.zip .
+          cd ../..
+          sha256sum artifacts/FMAtlas-win-x64.zip | tee artifacts/package-sha256.txt
 
-      - name: Upload build, test and runtime diagnostics
+      - name: Upload build, test and cross-build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fm-atlas-diagnostics-${{ github.run_number }}
           path: |
             artifacts/dotnet-info.txt
-            artifacts/windows-info.txt
+            artifacts/runner-info.txt
             artifacts/test-results/**
             artifacts/package-sha256.txt
           if-no-files-found: warn

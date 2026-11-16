@@ -31,7 +31,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Build-Test-Package.ps1
 
 The script performs restore, Release build, the full solution test suite and a self-contained Windows x64 publish. It stops at the first failed step, writes a separate log for each .NET step under `artifacts\logs`, stores TRX test results under `artifacts\test-results`, and creates a timestamped ZIP plus a text test report only after every step passes. The ZIP includes the runtime and does not require a separate .NET Desktop Runtime installation.
 
-GitHub Actions uses a pinned Windows Server 2022 runner, runs the same restore/build/test gate, produces a self-contained ZIP when all checks pass, and uploads test diagnostics even if a build or test step fails. Artifacts are retained for 14 days.
+GitHub Actions cross-builds the Windows WPF target on a Linux hosted runner using `EnableWindowsTargeting=true`, runs the automated tests, and publishes a self-contained Windows x64 ZIP. This avoids the current Windows hosted-runner allocation failure. Cross-compilation and unit tests do not replace launching the WPF app on Windows or validating the live FM27 connection. Artifacts and diagnostics are retained for 14 days.
 
 ## First user test
 
