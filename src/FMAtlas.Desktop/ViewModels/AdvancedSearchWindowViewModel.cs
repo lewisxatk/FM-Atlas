@@ -850,12 +850,22 @@ public sealed class AdvancedSearchResultViewModel
 {
     public AdvancedSearchResultViewModel(EntitySearchResult result)
     {
+        Result = result ?? throw new ArgumentNullException(nameof(result));
         DisplayName = result.DisplayName;
-        EntityType = result.Identity.Kind.ToString().ToUpperInvariant();
+        EntityType = result.Identity.Kind switch
+        {
+            EntityKind.Player => "PLAYER",
+            EntityKind.Staff => "COACH",
+            EntityKind.Club => "CLUB",
+            EntityKind.Nation => "NATION",
+            EntityKind.Competition => "COMPETITION",
+            _ => "RECORD"
+        };
         SourceId = result.Identity.SourceId;
         Provider = result.Identity.ProviderKey;
     }
 
+    public EntitySearchResult Result { get; }
     public string DisplayName { get; }
     public string EntityType { get; }
     public string SourceId { get; }
