@@ -113,6 +113,34 @@
                         <StackPanel>
                             <TextBlock Text="PLAYER ATTRIBUTES" FontSize="10" Foreground="{StaticResource Atlas.Accent}"/>
                             <TextBlock Text="Football Manager profile order · source-documented, visual verification pending" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="TECHNICAL" Command="{Binding SelectAttributeModeCommand}" CommandParameter="Technical" Margin="0,0,6,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsTechnicalAttributeMode}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Atlas.AccentSoft}"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="GOALKEEPER" Command="{Binding SelectAttributeModeCommand}" CommandParameter="Goalkeeping">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsGoalkeepingAttributeMode}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Atlas.AccentSoft}"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0">
                             <TextBlock Text="CA" FontSize="9" Foreground="{StaticResource Atlas.Muted}" HorizontalAlignment="Center"/>
