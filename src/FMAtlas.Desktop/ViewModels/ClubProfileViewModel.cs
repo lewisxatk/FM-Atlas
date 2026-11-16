@@ -17,16 +17,26 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     public ClubProfileViewModel(ClubRecord club)
     {
         Club = club ?? throw new ArgumentNullException(nameof(club));
-        Sections =
-        [
-            "Information", "Squads", "Youth Intake", "Finances", "Club Vision",
-            "Possible Signings", "Player Clauses", "Transfer Center", "Staff",
-            "Wage Contributions", "Kits & Colours", "Affiliations",
-            "Match Preparation", "Stadium"
-        ];
+        Sections = new ObservableCollection<ProfileSectionTabViewModel>
+        {
+            new("Information", isSelected: "Information" == "Information"),
+            new("Squads", isSelected: "Squads" == "Information"),
+            new("Youth Intake", isSelected: "Youth Intake" == "Information"),
+            new("Finances", isSelected: "Finances" == "Information"),
+            new("Club Vision", isSelected: "Club Vision" == "Information"),
+            new("Possible Signings", isSelected: "Possible Signings" == "Information"),
+            new("Player Clauses", isSelected: "Player Clauses" == "Information"),
+            new("Transfer Center", isSelected: "Transfer Center" == "Information"),
+            new("Staff", isSelected: "Staff" == "Information"),
+            new("Wage Contributions", isSelected: "Wage Contributions" == "Information"),
+            new("Kits & Colours", isSelected: "Kits & Colours" == "Information"),
+            new("Affiliations", isSelected: "Affiliations" == "Information"),
+            new("Match Preparation", isSelected: "Match Preparation" == "Information"),
+            new("Stadium", isSelected: "Stadium" == "Information")
+        };
         SelectSectionCommand = new ProfileSectionCommand(section =>
         {
-            if (section is string name && Sections.Contains(name))
+            if (section is string name && Sections.Any(tab => tab.Name == name))
                 SelectedSection = name;
         });
         UpdateRows();
@@ -34,7 +44,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private ClubRecord Club { get; }
-    public IReadOnlyList<string> Sections { get; }
+    public ObservableCollection<ProfileSectionTabViewModel> Sections { get; }
     public ObservableCollection<ProfileValueRowViewModel> SectionRows { get; } = [];
     public ICommand SelectSectionCommand { get; }
     public string SelectedSection
@@ -44,6 +54,8 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         {
             if (_selectedSection == value) return;
             _selectedSection = value;
+            foreach (var tab in Sections)
+                tab.IsSelected = tab.Name == value;
             OnPropertyChanged();
             UpdateRows();
         }
