@@ -668,6 +668,11 @@ internal sealed class FM27GamePass0935Reader
             AddFinanceField(finances, "total_wage_budget", TryReadInt32(finance + 0x808), evidence, 0, 10_000_000_000m);
             AddFinanceField(finances, "wage_budget", TryReadInt32(finance + 0x814), evidence, 0, 10_000_000_000m);
 
+            CopyFinanceToSearch(finances, "balance", "club_balance", indexedDecimals);
+            CopyFinanceToSearch(finances, "transfer_budget", "club_transfer_budget", indexedDecimals);
+            CopyFinanceToSearch(finances, "total_wage_budget", "club_total_wage_budget", indexedDecimals);
+            CopyFinanceToSearch(finances, "wage_budget", "club_wage_budget", indexedDecimals);
+
             var corporate = TryReadByte(finance + 0x8A9);
             if (corporate is byte rating and >= 1 and <= 20)
                 indexedIntegers["club_corporate_facilities"] = new SourcedValue<int>(rating, evidence);
@@ -936,6 +941,16 @@ internal sealed class FM27GamePass0935Reader
     {
         if (rawValue is uint value && value >= minimum && value <= maximum && value <= int.MaxValue)
             fields[key] = new SourcedValue<int>((int)value, evidence);
+    }
+
+    private static void CopyFinanceToSearch(
+        IReadOnlyDictionary<string, SourcedValue<decimal>> source,
+        string sourceKey,
+        string searchKey,
+        IDictionary<string, SourcedValue<decimal>> target)
+    {
+        if (source.TryGetValue(sourceKey, out var value))
+            target[searchKey] = value;
     }
 
     private static void AddFinanceField(
