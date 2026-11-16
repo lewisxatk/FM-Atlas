@@ -79,6 +79,8 @@ public sealed class AdvancedSearchQueryValidatorTests
         Assert.Equal(SearchFilterLogic.Any, any.Logic);
         Assert.True(AdvancedSearchQueryValidator.Validate(all).IsValid);
         Assert.True(AdvancedSearchQueryValidator.Validate(any).IsValid);
+        Assert.False(all.CanExecute);
+        Assert.False(any.CanExecute);
     }
 
     [Fact]
