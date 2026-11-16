@@ -301,10 +301,10 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock Text="FM Atlas" FontFamily="Georgia" FontSize="31" Foreground="{StaticResource Atlas.Text}"/>
-                        <TextBlock Text="Your Football Manager workspace." FontSize="12" Foreground="{StaticResource Atlas.Muted}" Margin="1,5,0,0"/>
+                        <TextBlock Text="Manage the active career, player records, staff and clubs." FontSize="12" Foreground="{StaticResource Atlas.Muted}" Margin="1,5,0,0"/>
                     </StackPanel>
                     <Border Grid.Column="1" Background="#17110E" BorderBrush="#3D261B" BorderThickness="1" CornerRadius="6" Padding="10,7" VerticalAlignment="Center">
-                        <TextBlock Text="NEW FOUNDATION" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
+                        <TextBlock Text="CAREER WORKSPACE" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
                     </Border>
                 </Grid>
 
@@ -341,50 +341,58 @@
 
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.55*"/>
-                        <ColumnDefinition Width="0.95*"/>
+                        <ColumnDefinition Width="1.45*"/>
+                        <ColumnDefinition Width="1.05*"/>
                     </Grid.ColumnDefinitions>
 
                     <Border Grid.Column="0" Style="{StaticResource Atlas.Card}" Margin="0,0,10,0" MinHeight="245">
                         <StackPanel>
-                            <Grid Margin="0,0,0,18">
-                                <TextBlock Text="YOUR WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
-                                <TextBlock Grid.Column="1" Text="01 / 04" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
-                            </Grid>
-                            <TextBlock Text="A clean start." FontFamily="Georgia" FontSize="25" Foreground="{StaticResource Atlas.Text}"/>
-                            <TextBlock Text="Load Game checks the exact FM27 Game Pass package, reads the active player, staff and club lists, then indexes the snapshot for search. Data is currently mapped as read-only; live editing stays locked until field-level write and read-back checks pass."
-                                       TextWrapping="Wrap" FontSize="12" LineHeight="19" Foreground="{StaticResource Atlas.Muted}" Margin="0,9,12,18"/>
-                            <Border Background="#17110E" BorderBrush="#3A251A" BorderThickness="1" CornerRadius="7" Padding="12">
+                            <TextBlock Text="CURRENT CAREER" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,0,0,8"/>
+                            <TextBlock Text="{Binding ConnectionStatus}" FontFamily="Georgia" FontSize="24" Foreground="{StaticResource Atlas.Text}"/>
+                            <TextBlock Text="{Binding ConnectionDetail}" TextWrapping="Wrap" FontSize="11" LineHeight="18" Foreground="{StaticResource Atlas.Muted}" Margin="0,7,0,15"/>
+                            <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,13"/>
+                            <TextBlock Text="LIVE RECORD INDEX" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,10"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="NEXT CONNECTION CHECK" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
-                                    <TextBlock Text="{Binding ConnectionDetail}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Atlas.Text}" Margin="0,7,0,0"/>
+                                    <TextBlock Text="PLAYERS" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                    <TextBlock Text="{Binding LivePlayerCount}" FontFamily="Consolas" FontSize="22" Foreground="{StaticResource Atlas.Text}" Margin="0,5,0,0"/>
                                 </StackPanel>
-                            </Border>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="STAFF" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                    <TextBlock Text="{Binding LiveStaffCount}" FontFamily="Consolas" FontSize="22" Foreground="{StaticResource Atlas.Text}" Margin="0,5,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="CLUBS" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                    <TextBlock Text="{Binding LiveClubCount}" FontFamily="Consolas" FontSize="22" Foreground="{StaticResource Atlas.Text}" Margin="0,5,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Text="Double-click a result to open its profile in a new workspace tab. Search is limited to records currently imported into FM Atlas."
+                                       FontSize="9" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" Margin="0,14,0,0"/>
                         </StackPanel>
                     </Border>
 
                     <Border Grid.Column="1" Style="{StaticResource Atlas.Card}" MinHeight="245">
                         <StackPanel>
-                            <TextBlock Text="DEVELOPMENT STATUS" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,0,0,16"/>
-                            <StackPanel Margin="0,0,0,13">
-                                <TextBlock Text="01  ·  Application foundation" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                <TextBlock Text="In Progress" FontSize="10" Foreground="{StaticResource Atlas.Accent}" Margin="18,4,0,0"/>
-                            </StackPanel>
-                            <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,13"/>
-                            <StackPanel Margin="0,0,0,13">
-                                <TextBlock Text="02  ·  Game Pass live connection" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                <TextBlock Text="Exact-build read-only scanner implemented · first runtime verification outstanding" FontSize="10" TextWrapping="Wrap" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
-                            </StackPanel>
-                            <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,13"/>
-                            <StackPanel Margin="0,0,0,13">
-                                <TextBlock Text="03  ·  Player data, search and profile" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                <TextBlock Text="Typed live fields and search indexing implemented · editing still locked" FontSize="10" TextWrapping="Wrap" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
-                            </StackPanel>
-                            <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,13"/>
-                            <StackPanel>
-                                <TextBlock Text="04  ·  Staff, clubs and wider data" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                <TextBlock Text="Initial live record mapping implemented · remaining fields and validation continue" FontSize="10" TextWrapping="Wrap" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
-                            </StackPanel>
+                            <TextBlock Text="QUICK ACTIONS" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,0,0,13"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Button Grid.Row="0" Content="Players" Tag="Players" Click="NavigationButton_Click" Style="{StaticResource Atlas.ButtonBase}" HorizontalContentAlignment="Left" Margin="0,0,6,7"/>
+                                <Button Grid.Row="0" Grid.Column="1" Content="Staff" Tag="Staff" Click="NavigationButton_Click" Style="{StaticResource Atlas.ButtonBase}" HorizontalContentAlignment="Left" Margin="0,0,0,7"/>
+                                <Button Grid.Row="1" Content="Clubs" Tag="Clubs" Click="NavigationButton_Click" Style="{StaticResource Atlas.ButtonBase}" HorizontalContentAlignment="Left" Margin="0,0,6,7"/>
+                                <Button Grid.Row="1" Grid.Column="1" Content="Advanced Search" Click="AdvancedSearchButton_Click" Style="{StaticResource Atlas.ButtonBase}" HorizontalContentAlignment="Left" Margin="0,0,0,7"/>
+                                <Button Grid.Row="2" Content="Import Player CSV" Click="ImportPlayerExportButton_Click" Style="{StaticResource Atlas.ButtonBase}" HorizontalContentAlignment="Left" Margin="0,0,6,0"/>
+                                <Button Grid.Row="2" Grid.Column="1" Content="Load Game" Command="{Binding LoadGameCommand}" Style="{StaticResource Atlas.PrimaryButton}" HorizontalContentAlignment="Center"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,15,0,12"/>
+                            <TextBlock Text="DATA STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                            <TextBlock Text="Live Game Pass connection is read-only. CSV imports remain separate source datasets. Live save editing is blocked until field-level write and read-back verification passes."
+                                       FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
                         </StackPanel>
                     </Border>
                 </Grid>
