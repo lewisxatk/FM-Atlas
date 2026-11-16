@@ -500,3 +500,65 @@ None known. All code and research above are committed. Re-read the branch head a
 
 - All source and documentation changes are committed; no uncommitted changes are known.
 - Re-read this checkpoint, the master checklist and branch head after any interruption.
+
+
+---
+
+## Checkpoint 012 — record projection and Quick Search provider
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Head before this documentation update:** `e63dc6ee62063c2046ab5f7f28d13c905b9d1d81`  
+**Status:** Code committed. Latest Windows Actions push and pull-request runs again failed before runner allocation; no compile/test logs are available.
+
+### Work saved since checkpoint 011
+
+1. **Typed field projection**
+   - Added EntityFieldProjection and EntityRecordProjection.
+   - Added IEntityRecordProjector and EntityRecordProjector.
+   - Projects PlayerRecord, StaffRecord and ClubRecord into normalised field values.
+   - Player visible attributes, hidden attributes, personality, foot ratings, position ratings, preferred moves and season statistics are kept in distinct domain collections.
+   - Canonical field keys are normalised to trimmed lowercase identifiers.
+   - Missing values are omitted; values are not fabricated.
+   - Wrong entity-kind/record combinations are rejected.
+
+2. **Atomic snapshot + searchable projection**
+   - SqliteEntityRecordSnapshotStore now writes the typed JSON snapshot and replaces field_values inside the same SQLite transaction.
+   - Every indexed field stores value kind, source kind, evidence status, source version, target build fingerprint and observation timestamp.
+   - Snapshot deletion now removes the associated field projection when no snapshots remain, while leaving the entity identity row intact.
+   - Tests added for snapshot round-trip, provenance projection, hidden/personality/foot groups, stale projection cleanup and record type handling.
+
+3. **Quick Search provider**
+   - Added EntitySearchResult and IEntitySearchProvider.
+   - Added SqliteEntitySearchProvider over the local entities index.
+   - Searches Player, Staff/Coach and Club records.
+   - Supports entity-kind filtering, case-insensitive substring search and a bounded result limit (1–200).
+   - Escapes LIKE wildcard characters so search text is treated literally.
+   - Search provider is a read-only service; the WPF top-bar UI is not wired to it yet.
+   - Tests added for multiple entity types, entity filters, wildcard escaping, empty query and invalid limits.
+
+### Verification state
+
+- SQLite schema, foreign-key shape and LIKE escaping were smoke-checked independently with Python's SQLite engine. This does not compile or test the C# application.
+- GitHub Actions run [43830612763](https://github.com/lewisxatk/FM-Atlas/actions/runs/43830612763) and later run [43830474897](https://github.com/lewisxatk/FM-Atlas/actions/runs/43830474897) failed with a build job showing `steps=null` and `logs_url=null`. The runner did not reach checkout/restore/build.
+- Latest code therefore remains unverified by .NET/WPF compiler and xUnit.
+- Last verified Windows artifact remains from commit `fbe36400`, run [43788503042](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788503042). It predates all changes in checkpoints 010–012.
+
+### Current functionality boundaries
+
+- Snapshot persistence and field projection now exist.
+- Quick Search has a local query provider but the top-bar UI is not connected.
+- Advanced Search UI is schema-driven, but no executable Advanced Search query provider exists yet; controls remain disabled.
+- No real FM career data has been imported.
+- No actual installed graphics folder has been indexed.
+- No FM process memory has been read.
+- No live writes have been attempted or enabled.
+- Player profile still needs record, image and tab navigation binding.
+
+### Next exact actions
+
+1. Restore Windows runner allocation and run the full current solution/tests. Do not mark code verified until the job gets real steps and logs.
+2. Connect Quick Search UI to IEntitySearchProvider with entity type labels and profile navigation.
+3. Implement the Advanced Search SQLite query executor with a tested supported-field subset; keep all unsupported fields In Progress.
+4. Connect PlayerRecord loading to REF-004 profile tabs and graphics locator.
+5. Add read-only career/save import provider and verify records against the actual FM27 Game Pass build.
