@@ -1243,3 +1243,32 @@ Safety boundary: no live process writes and no modification of the user's career
 - [ ] Windows .NET 8 restore/build/test remains blocked by Actions runner failures before steps/logs; no executable artifact is verified.
 
 **Latest code commit for staff/player club links:** see branch head and `research/LIVE_GAME_CONNECTION_001.md`.
+
+
+## Checkpoint 023 — Club profile typed-section completeness
+
+**Date:** 2026-11-16 UTC
+**Branch:** `rebuild/fresh-foundation-001`
+**Code commit:** `069c335f3ef56dcf57bf8d42a945b4077abcc994`
+**Status:** Club profile presentation coverage expanded; Windows CI still fails before runner steps.
+
+### Work saved
+- Expanded the Club profile Youth Intake section to include typed text, integer, decimal, date and Boolean fields where the source key identifies youth/intake data.
+- Expanded Finances to display all canonical finance values and every additional typed decimal value not already represented in the canonical finance dictionary. This prevents generic balance/budget fields from being hidden solely because their key does not contain finance/debt/loan/sponsor.
+- Expanded Club Vision, Possible Signings, Player Clauses and Transfer Center to display relevant typed text, integer, decimal, date and Boolean fields.
+- Expanded Wage Contributions, Kits & Colours, Affiliations, Match Preparation and Stadium to surface their related typed values across the available types.
+- All values continue to use existing provenance labels. No fields or values are fabricated and no importer coverage is implied by this presentation change.
+- Updated `docs/UI_REVIEW_001.md` with the additional profile coverage audit.
+
+### Verification
+- Source change committed as `069c335f3ef56dcf57bf8d42a945b4077abcc994`.
+- Windows workflow run #790 / ID `43866210853` failed before creating runner steps. The job record reports `steps=null` and no log URL; no compiler/test result was produced.
+- Local environment still has no .NET SDK, MSBuild or Windows WPF runtime. Treat the C# change as committed but not build-verified.
+
+### Remaining priority gates
+1. Restore a functioning Windows CI runner and obtain a real .NET 8 Release build/test result.
+2. Run the application on Windows and visually compare the dashboard, Advanced Search, Player, Staff and Club profiles against REF-001 to REF-004 at normal scaling.
+3. Verify exact FM27 Game Pass 0.9.2435.0 live reads against a disposable career; current external layout mappings remain unverified on the user's installation.
+4. Expand actual club-related source imports (youth intake, board vision, clauses, transfers, wage contributions, kits, affiliations and match preparation) only after their entity structures and relationships are confirmed.
+5. Populate remaining Player/Staff tabs from real source records; current empty states are intentional where the provider does not yet supply those records.
+6. Keep Save Live Changes disabled until a separate writer passes per-field preflight, read-back, conflict and undo tests.
