@@ -26,6 +26,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isQuickSearchBusy;
     private bool _isBusy;
     private bool _includeWomenPlayers;
+    private string _lastImportCountText = "—";
+    private string _lastImportStatusText = "No player export imported";
 
     public MainWindowViewModel(
         IGameProcessProbe processProbe,
@@ -128,9 +130,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public string LastImportCountText
+    {
+        get => _lastImportCountText;
+        private set => SetField(ref _lastImportCountText, value);
+    }
+
+    public string LastImportStatusText
+    {
+        get => _lastImportStatusText;
+        private set => SetField(ref _lastImportStatusText, value);
+    }
+
     public void NotifyPlayerExportImported(int importedPlayers, string providerKey)
     {
         var dataset = providerKey.Length > 8 ? providerKey[^8..] : providerKey;
+        LastImportCountText = importedPlayers.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        LastImportStatusText = importedPlayers == 1
+            ? "Player imported in latest CSV"
+            : $"Players imported in latest CSV · {dataset}";
         LastAction = $"Imported {importedPlayers:N0} FM export player(s) · dataset {dataset}";
         ScheduleQuickSearch();
     }
