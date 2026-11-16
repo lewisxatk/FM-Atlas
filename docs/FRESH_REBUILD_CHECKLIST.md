@@ -5,7 +5,7 @@ This checklist is the live task tracker. Update it in the same commit as the che
 Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!] Blocked · [-] Deferred
 
 ## M0 — Protect and inventory
-- [x] M0.1 Confirm active branch and keep `main` untouched.
+- [x] M0.1 Confirm active branch and keep main untouched.
 - [x] M0.2 Locate the R7.2.0 recovery ZIP in Library metadata and verify the corresponding imported GitHub recovery branch contains 106 application files. Raw ZIP materialization was refused by the file service; GitHub source tree is the recovered working reference.
 - [x] M0.3 Preserve R7.1.0 and R7.0.2 historical records and comparison documentation in the recovery branch.
 - [x] M0.4 Record uploaded-package hashes and inspect ZIP manifests.
@@ -21,8 +21,8 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [~] M1.3 fm-editor build layout/entity/undo study (initial study done; field evidence review ongoing).
 - [~] M1.4 fmsave offline save parser coverage study (initial study done; schema/coverage validation still needed).
 - [x] M1.5 FM Player Analyzer parsing/graphics/profile architecture inspected.
-- [~] M1.6 FMRTE feature and workflow inventory (release asset names catalogued; full UI/feature audit still required).
-- [~] M1.7 FM27 canonical player field and attribute catalogue (52 player attributes documented; verify exact profile applicability/order).
+- [~] M1.6 FMRTE feature and workflow inventory (official feature audit 001 committed; full UI/feature audit still required).
+- [~] M1.7 FM27 canonical player field and attribute catalogue (52 unique non-foot attributes, 8 personality values, 15 position ratings documented; verify exact profile applicability/order).
 - [ ] M1.8 FM27 attribute display order verified against FM27 player profile and FMRTE.
 - [ ] M1.9 Staff and club field catalogue complete.
 - [ ] M1.10 User's Game Pass build/process fingerprint verified on Windows.
@@ -31,7 +31,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 
 ## M2 — Fresh application foundation
 - [x] M2.1 New clean solution and project boundaries created (Domain, Application, Infrastructure, Desktop, Tests).
-- [~] M2.2 Windows build pipeline and automated tests created; first CI run/build result not yet verified.
+- [x] M2.2 Windows GitHub Actions restore/build/test passed on Windows Server 2025 with .NET SDK 8.0.428; build 0 warnings/0 errors; 3 unit tests passed. See run 43787424965. Artifact upload workflow is pending separately.
 - [~] M2.3 Initial application shell created against REF-001 composition; visual comparison not yet performed.
 - [~] M2.4 Watched visual tokens (black/off-white/orange) added; font/spacing polish and screenshot comparison remain.
 - [x] M2.5 Compact left navigation has no Search item.
@@ -146,7 +146,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] Recovery branch/source inventory checked.
 - [x] Uploaded research package inventory and first research findings committed.
 - [x] Architecture decision documented.
-- [x] FMRTE 27 official player/staff/club/search/edit-history feature audit committed.
+- [x] FMRTE 27 feature audit and field coverage ledger committed.
 - [x] Clean WPF solution and initial shell source committed.
-- [x] Windows CI workflow and initial unit-test project committed.
-- [ ] Windows CI/build result and visual screenshot comparison still required.
+- [x] Windows CI build and three unit tests passed.
+- [~] Windows build artifact upload workflow running; desktop runtime and visual comparison still pending.
