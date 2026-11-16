@@ -118,11 +118,13 @@ public static class AdvancedSearchQueryValidator
         ICollection<SearchValidationIssue> issues)
     {
         if (field.MinimumAllowed is decimal lower &&
-            (minimum is decimal min && min < lower || maximum is decimal max && max < lower))
+            (minimum is decimal minimumBelow && minimumBelow < lower ||
+             maximum is decimal maximumBelow && maximumBelow < lower))
             issues.Add(new SearchValidationIssue(field.Key, $"Values cannot be below {lower}."));
 
         if (field.MaximumAllowed is decimal upper &&
-            (minimum is decimal min && min > upper || maximum is decimal max && max > upper))
+            (minimum is decimal minimumAbove && minimumAbove > upper ||
+             maximum is decimal maximumAbove && maximumAbove > upper))
             issues.Add(new SearchValidationIssue(field.Key, $"Values cannot be above {upper}."));
     }
 
