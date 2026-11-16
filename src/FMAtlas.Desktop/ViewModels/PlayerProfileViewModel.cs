@@ -22,6 +22,7 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     private string _sectionDescription = "Player information and the full supported FM attribute set.";
     private string _sectionEmptyText = string.Empty;
     private readonly string? _portraitImagePath;
+    private bool _isGoalkeepingAttributeMode;
 
     public PlayerProfileViewModel(PlayerRecord player, string? portraitImagePath = null)
     {
@@ -47,20 +48,12 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
             new("History", isSelected: "History" == "Information")
         };
 
-        // The public FMLibreEditor profile catalogue uses GK >= 15 to select
-        // the goalkeeper profile group. A small non-zero GK familiarity alone
-        // does not make a player a goalkeeper for profile presentation.
-        var isGoalkeeper = player.PositionRatings.TryGetValue("gk", out var goalkeeperRating) &&
-                           goalkeeperRating.Value >= 15;
-        AttributeGroups = new ObservableCollection<PlayerAttributeGroupViewModel>(
-            PlayerAttributeCatalog.GetProfileGroups(isGoalkeeper)
-                .Select(group => new PlayerAttributeGroupViewModel(
-                    group.DisplayName,
-                    group.Attributes.Select(attribute => new PlayerAttributeRowViewModel(
-                        attribute.Key,
-                        attribute.DisplayName,
-                        attribute.IsHidden,
-                        ResolveAttribute(player, group.Kind, attribute.Key))).ToArray())));
+        // The public FMLibreEditor profile catalogue uses GK >= 15 as the
+        // default presentation. Users can still switch to either attribute group.
+        _isGoalkeepingAttributeMode = player.PositionRatings.TryGetValue("gk", out var goalkeeperRating) &&
+                                      goalkeeperRating.Value >= 15;
+        AttributeGroups = [];
+        RebuildAttributeGroups();
 
         SeasonStatistics = new ObservableCollection<ProfileValueRowViewModel>(
             player.SeasonStatistics
@@ -85,6 +78,11 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         PreferredMoves = new ObservableCollection<string>(
             player.PreferredMoves.Select(move => move.Value));
 
+        SelectAttributeModeCommand = new ProfileSectionCommand(mode =>
+        {
+            if (mode is string name && name is "Technical" or "Goalkeeping")
+                IsGoalkeepingAttributeMode = name == "Goalkeeping";
+        });
         SelectSectionCommand = new ProfileSectionCommand(section =>
         {
             if (section is string name && Sections.Any(tab => tab.Name == name))
@@ -104,6 +102,22 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     public ObservableCollection<ProfileValueRowViewModel> PositionRatings { get; }
     public ObservableCollection<string> PreferredMoves { get; }
     public ICommand SelectSectionCommand { get; }
+    public ICommand SelectAttributeModeCommand { get; }
+    public bool IsGoalkeepingAttributeMode
+    {
+        get => _isGoalkeepingAttributeMode;
+        private set
+        {
+            if (_isGoalkeepingAttributeMode == value)
+                return;
+            _isGoalkeepingAttributeMode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsTechnicalAttributeMode));
+            RebuildAttributeGroups();
+        }
+    }
+    public bool IsTechnicalAttributeMode => !IsGoalkeepingAttributeMode;
+
 
     public string SelectedSection
     {
@@ -202,6 +216,23 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         }
     }
     public bool HasPlayer => true;
+
+    private void RebuildAttributeGroups()
+    {
+        AttributeGroups.Clear();
+        foreach (var group in PlayerAttributeCatalog.GetProfileGroups(IsGoalkeepingAttributeMode))
+        {
+            AttributeGroups.Add(new PlayerAttributeGroupViewModel(
+                group.DisplayName,
+                group.Attributes.Select(attribute => new PlayerAttributeRowViewModel(
+                    attribute.Key,
+                    attribute.DisplayName,
+                    attribute.IsHidden,
+                    ResolveAttribute(Player, group.Kind, attribute.Key))).ToArray()));
+        }
+        OnPropertyChanged(nameof(AttributeGroups));
+        OnPropertyChanged(nameof(DataEvidenceSummary));
+    }
 
     private void UpdateSelectedSectionRows()
     {
