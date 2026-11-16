@@ -222,6 +222,8 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
                 => "PLAYER ORIGIN / DEVELOPMENT",
             AdvancedSearchCategoryKind.General when key.StartsWith("role_preference_", StringComparison.OrdinalIgnoreCase)
                 => "STAFF ROLE PREFERENCES",
+            AdvancedSearchCategoryKind.General when key is "gender" or "game_uid"
+                => "IDENTITY / DATABASE",
             AdvancedSearchCategoryKind.General when key is "division" or "team" or "training_status_club" or "training_status_nation"
                 => "TEAM / DIVISION / TRAINING",
             AdvancedSearchCategoryKind.General when key.StartsWith("club_", StringComparison.OrdinalIgnoreCase)
