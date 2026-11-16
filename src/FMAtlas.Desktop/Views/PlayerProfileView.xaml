@@ -69,6 +69,8 @@
                         <TextBlock Text="{Binding AgeInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                         <TextBlock Text="{Binding DateOfBirthInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                         <TextBlock Text="{Binding NationalityInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding SecondNationalityInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding CityOfBirthInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                         <TextBlock Text="{Binding ClubInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                         <TextBlock Text="{Binding LeagueInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                         <TextBlock Text="{Binding PositionInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
@@ -80,6 +82,7 @@
                         <TextBlock Text="{Binding WageInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                         <TextBlock Text="{Binding ExpiryInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                         <TextBlock Text="{Binding TransferValueInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding AskingPriceInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
