@@ -332,9 +332,9 @@
                     </Border>
                     <Border Style="{StaticResource Atlas.Card}">
                         <StackPanel>
-                            <TextBlock Text="PENDING EDITS" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
-                            <TextBlock Text="0" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,9,0,3"/>
-                            <TextBlock Text="Nothing has been changed" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
+                            <TextBlock Text="LIVE WRITE STATUS" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
+                            <TextBlock Text="DISABLED" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,9,0,3"/>
+                            <TextBlock Text="Read-only until write/read-back checks pass" FontSize="10" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
                 </UniformGrid>
