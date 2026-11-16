@@ -1160,3 +1160,71 @@ These tests are committed but not executed. This environment does not have the .
 Detailed findings: `research/LIVE_GAME_CONNECTION_001.md`.  
 Checklist: `docs/FRESH_REBUILD_CHECKLIST.md`.  
 Safety boundary: no live process writes and no modification of the user's career file have been performed.
+
+
+---
+
+## Checkpoint 021 — FMRTE profile workspaces and design review
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Status:** UI/profile structure and design review committed. The Windows build and runtime verification remain outstanding.
+
+### Main workspace and dashboard
+
+- [x] Replace the previous single-screen-only profile flow with a closable in-app workspace TabControl.
+- [x] Keep Dashboard as a fixed first tab; open Player, Staff, Club and directory workspaces in additional tabs.
+- [x] Focus an already-open entity tab instead of opening duplicates.
+- [x] Add Players, Staff and Clubs directory workspaces with type-scoped search and profile double-click routing.
+- [x] Route Quick Search double-click results into the correct typed Player/Staff/Club profile.
+- [x] Add a five-item Recently Opened profile strip on Dashboard; reopening an item returns to its existing workspace tab.
+- [x] Replace the hard-coded “0 pending edits” metric with a truthful disabled live-write state.
+- [x] Replace the internal Development Status panel with current career summary, live entity counts and actual workspace quick actions.
+- [x] Keep the left navigation limited to product areas; no Search item was added.
+
+### Advanced Search
+
+- [x] Keep Advanced Search as a modal dialog in accordance with REF-002.
+- [x] Use OK / Search and Cancel actions; Escape invokes Cancel.
+- [x] Double-clicking a result opens the profile in the main workspace and closes Advanced Search.
+- [x] Retain the existing Player/Coach/Club, category, typed-filter and AND/OR query model. Dynamic field availability still depends on typed source data.
+
+### Player profile
+
+- [x] Implement functional FMRTE-audited section switching for Information, Contract, Stats, Unavailability, Transfer Proposals, Retire Date, Positions, Preferred Moves, Relationships, Languages, Scout Information, Staff, Clone Center, Personality/Hidden and History.
+- [x] Each section displays real mapped values and evidence labels, or a source-honest empty state.
+- [x] Add canonical position ordering.
+- [x] Add Technical / Goalkeeper attribute view toggle while retaining shared Mental, Physical, Hidden, Personality and Feet groups.
+- [x] Display second nationality, birthplace, asking price and existing identity/contract values where supplied.
+- [x] Add active orange state for selected profile tabs.
+
+### Staff and Club profiles
+
+- [x] Add Staff profile workspace and audited sections: Information, Contract, Career Plans, Promises, Swap Staff, Training Rating, Formations/Tendencies, Relationships, Knowledge, Retire Date and Languages.
+- [x] Add Club profile workspace and audited sections: Information, Squads, Youth Intake, Finances, Club Vision, Possible Signings, Player Clauses, Transfer Center, Staff, Wage Contributions, Kits & Colours, Affiliations, Match Preparation and Stadium.
+- [x] Keep unsupported sections visible with explicit empty states; do not invent club/player/staff data.
+- [ ] Populate the full club-to-player roster and all missing club-related entity families. The current live reader maps an initial ClubRecord only.
+
+### Graphics
+
+- [x] Connect the existing read-only FM graphics config indexer to profile creation.
+- [x] On startup, index the standard Documents/Sports Interactive/Football Manager 27/graphics folder when it exists.
+- [x] Resolve player portraits by game UID (including regens with the supported `r-` prefix) and club badges by numeric club ID.
+- [x] Keep neutral placeholders when no matching mapping exists; never modify the graphics folder.
+- [ ] Add a Settings option for custom/non-standard graphics folders.
+
+### Verification and remaining gates
+
+- [x] Static tag-stack check across MainWindow, Player/Staff/Club profiles, EntityBrowser, AdvancedSearch and App XAML: all elements balanced after fixing malformed Staff/Club tab button markup.
+- [ ] Run a real Windows .NET 8 Release build and full tests.
+- [ ] Compare the running desktop UI against REF-001 / REF-002 / REF-003 screenshots at normal Windows scaling.
+- [ ] Connect to the user's exact FM27 Game Pass installation and compare imported entities/fields against the in-game UI and an independent source.
+- [ ] Populate profile sections only as corresponding field/entity relationships are mapped and verified.
+- [ ] Implement a separate process-memory writer, field allow-list, pre-write identity/generation checks, old-value check, read-back, conflict handling and undo on a disposable career.
+- [ ] Keep Save Live Changes disabled until the writer and per-field tests have passed.
+
+**Latest observed Windows Actions:** run #737, ID `43863750491`, on commit `afa624850ec5c3f5634c3605fe1fe7eeefee2d7b`, completed as failure. Its job record has `steps=null`, no logs URL and its log download returned 404/BlobNotFound. It failed before Restore/Build/Test ran. This is not evidence of a successful compile or a source compilation failure. The local environment has no .NET SDK, C# compiler, MSBuild or PowerShell.
+
+**Design review:** `docs/UI_REVIEW_001.md`.  
+**Live connection safety:** `research/LIVE_GAME_CONNECTION_001.md` and `research/LIVE_EDIT_SAFETY_001.md`.  
+**Latest honest state:** profile/workspace structure substantially implemented; many source-specific tabs remain empty; live reader unverified; no writer enabled; no Windows build artifact produced.
