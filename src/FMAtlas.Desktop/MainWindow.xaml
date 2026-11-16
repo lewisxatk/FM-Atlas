@@ -397,6 +397,32 @@
                     </Border>
                 </Grid>
 
+                <Border Style="{StaticResource Atlas.Card}" Margin="0,14,0,0">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="RECENTLY OPENED" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
+                            <TextBlock Grid.Column="1" Text="LAST 5 RECORDS" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}"/>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding RecentlyOpenedProfiles}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Tag="{Binding}" Click="RecentProfile_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,8,6" Padding="11,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="10" Foreground="{StaticResource Atlas.Text}"/>
+                                            <TextBlock Text="{Binding EntityType}" FontSize="8" FontFamily="Consolas" Foreground="{StaticResource Atlas.Accent}" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="No profiles opened yet. Open a player, staff member or club from Quick Search or its directory."
+                                   Visibility="{Binding HasNoRecentlyOpenedProfiles, Converter={StaticResource Atlas.BooleanToVisibility}}"
+                                   FontSize="10" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
                 <TextBlock Text="{Binding LastAction}" FontSize="10" Foreground="{StaticResource Atlas.Subtle}" Margin="2,15,0,0"/>
             </StackPanel>
         </ScrollViewer>
