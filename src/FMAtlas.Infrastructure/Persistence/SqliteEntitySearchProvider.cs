@@ -62,7 +62,8 @@ public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
                         AND gender.field_key = 'gender'
                         AND LOWER(TRIM(gender.text_value)) IN ('female', 'woman', 'women', 'f')
                   )
-              )""";
+              )
+              """;
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
