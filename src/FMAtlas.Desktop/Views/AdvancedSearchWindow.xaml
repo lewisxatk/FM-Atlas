@@ -50,10 +50,11 @@
                     <TextBlock Text="{Binding DisplayName}" Style="{StaticResource FilterLabel}"/>
                     <TextBlock Text="{Binding ImplementationStatus}" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" Margin="0,2,0,0"/>
                 </StackPanel>
-                <StackPanel x:Name="RangeControls" Grid.Column="1" Orientation="Horizontal">
-                    <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum value"/>
-                    <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="5,0"/>
-                    <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum value"/>
+                <StackPanel x:Name="RangeControls" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="MIN" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum. Leave blank to set no lower limit."/>
+                    <TextBlock Text="MAX" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="9,0,4,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum. Leave blank to set no upper limit."/>
                 </StackPanel>
                 <ComboBox x:Name="BooleanControl" Grid.Column="1" Width="115" Height="25"
                           SelectedIndex="{Binding BooleanSelection, UpdateSourceTrigger=PropertyChanged}"
@@ -73,9 +74,10 @@
                 <TextBox x:Name="TextControl" Grid.Column="1" Style="{StaticResource FilterValue}" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed"/>
                 <StackPanel x:Name="PositionControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
                     <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" ToolTip="Position code, for example DR or ST"/>
-                    <TextBox Style="{StaticResource FilterValue}" Width="48" Margin="6,0,0,0" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum familiarity"/>
-                    <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="4,0"/>
-                    <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum familiarity"/>
+                    <TextBlock Text="MIN" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" Margin="6,0,3,0" VerticalAlignment="Center"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum familiarity. Leave blank for no lower limit."/>
+                    <TextBlock Text="MAX" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" Margin="6,0,3,0" VerticalAlignment="Center"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum familiarity. Leave blank for no upper limit."/>
                 </StackPanel>
                 <StackPanel x:Name="TraitControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
                     <CheckBox Content="Has trait" IsChecked="{Binding IncludeTrait}" IsEnabled="{Binding IsEnabled}" Foreground="{StaticResource Atlas.Muted}" FontSize="9" VerticalAlignment="Center" Margin="0,0,7,0"/>
@@ -332,7 +334,7 @@
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <TextBlock Text="{Binding StatusText}" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="2,0,2,6"/>
-                <ListBox Grid.Row="1" ItemsSource="{Binding Results}" Background="Transparent" BorderThickness="0" MaxHeight="92">
+                <ListBox Grid.Row="1" ItemsSource="{Binding Results}" Background="Transparent" BorderThickness="0" MaxHeight="160">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="2,2">
