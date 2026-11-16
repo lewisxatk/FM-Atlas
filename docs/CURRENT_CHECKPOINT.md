@@ -1061,3 +1061,12 @@ Re-opened FMLibreEditor 0.9.2435.0 recon, exact build profile, edit-field/write 
 - All monitor-driven cleanup uses a non-cancelled token.
 - Commit: `a6504c38bcb637f8c81b3dc9ee2e694c163e929d`.
 - Research note updated: `research/LIVE_EDIT_SAFETY_001.md` (commit `128dc52296775904882801af529245a56e062e20`).
+
+
+### Live reader source-integrity correction
+
+- A source inspection of the exact branch head found that `FM27GamePass0935Reader.ReadAllRecords` had been truncated in the latest reader edit: the staff loop stopped at an incomplete `if (staff is not null)` and the remaining staff/club loops and return statement were missing.
+- Restored the complete method body from the immediately preceding branch commit while preserving the newer `ReadPlayer` object-read length (`0x4C0`) needed for the player-coach shifted trailing fields.
+- Re-opened the raw branch file and verified the method now runs from its declaration through the player/staff/club loops and `return records;` before `ReadPlayer` begins.
+- Correction commit: `290408df77aa1b7f5d0bfe9239fc812aeadcf637`.
+- Windows Actions runs #586/#587 for that exact commit still fail before creating job steps (`steps=null`, no log URL). The source correction is not yet compiler-verified.
