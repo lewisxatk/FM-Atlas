@@ -5,37 +5,37 @@ This checklist is the live task tracker. Update it in the same commit as the che
 Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!] Blocked · [-] Deferred
 
 ## M0 — Protect and inventory
-- [ ] M0.1 Confirm active branch and protect `main`.
-- [ ] M0.2 Recover complete R7.2.0 source candidate.
-- [ ] M0.3 Preserve R7.1.0 and R7.0.2 archives and compare.
-- [ ] M0.4 Verify archive hashes/file manifests.
-- [ ] M0.5 Inspect user-supplied research programs and files.
-- [ ] M0.6 Record licence and reuse decision per source.
-- [ ] M0.7 Audit reusable domain code/data schemas/tests.
-- [ ] M0.8 Identify legacy UI/architecture to discard.
-- [ ] M0.9 Create clean rebuild checkpoint/tag.
+- [x] M0.1 Confirm active branch and keep `main` untouched.
+- [x] M0.2 Locate the R7.2.0 recovery ZIP in Library metadata and verify the corresponding imported GitHub recovery branch contains 106 application files. Raw ZIP materialization was refused by the file service; GitHub source tree is the recovered working reference.
+- [x] M0.3 Preserve R7.1.0 and R7.0.2 historical records and comparison documentation in the recovery branch.
+- [x] M0.4 Record uploaded-package hashes and inspect ZIP manifests.
+- [x] M0.5 Inspect user-supplied research packages and relevant public repositories.
+- [x] M0.6 Record licence and reuse decision per source.
+- [x] M0.7 Complete first-pass audit of reusable research, data schemas, graphics index and tests.
+- [x] M0.8 Decide legacy UI/architecture to discard; clean .NET 8 WPF architecture approved.
+- [x] M0.9 Create and commit a separate fresh-rebuild checkpoint branch.
 
 ## M1 — Research and blueprint
-- [ ] M1.1 FMLibreEditor Game Pass profile and live-edit safety study.
-- [ ] M1.2 FMSuperScout scanner/extraction/index study.
-- [ ] M1.3 fm-editor build layout/entity/undo study.
-- [ ] M1.4 fmsave offline save parser coverage study.
-- [ ] M1.5 FM Player Analyzer parsing/graphics study.
-- [ ] M1.6 FMRTE feature and workflow inventory.
-- [ ] M1.7 FM27 canonical player field and attribute catalogue.
-- [ ] M1.8 FM27 attribute display order verified.
-- [ ] M1.9 Staff and club field catalogue.
-- [ ] M1.10 Game Pass build/process fingerprint verified.
-- [ ] M1.11 Read/write coverage matrix established.
-- [ ] M1.12 Fresh architecture decision documented.
+- [~] M1.1 FMLibreEditor Game Pass profile and live-edit safety study (initial study done; continue field-by-field).
+- [~] M1.2 FMSuperScout scanner/extraction/index study (initial study done; inspect scanner implementation/tests further).
+- [~] M1.3 fm-editor build layout/entity/undo study (initial study done; field evidence review ongoing).
+- [~] M1.4 fmsave offline save parser coverage study (initial study done; schema/coverage validation still needed).
+- [x] M1.5 FM Player Analyzer parsing/graphics/profile architecture inspected.
+- [~] M1.6 FMRTE feature and workflow inventory (release asset names catalogued; full UI/feature audit still required).
+- [~] M1.7 FM27 canonical player field and attribute catalogue (52 player attributes documented; verify exact profile applicability/order).
+- [ ] M1.8 FM27 attribute display order verified against FM27 player profile and FMRTE.
+- [ ] M1.9 Staff and club field catalogue complete.
+- [ ] M1.10 User's Game Pass build/process fingerprint verified on Windows.
+- [ ] M1.11 Read/write coverage matrix established field-by-field.
+- [x] M1.12 Fresh architecture decision documented.
 
 ## M2 — Fresh application foundation
-- [ ] M2.1 New clean solution.
-- [ ] M2.2 Build pipeline and automated tests.
+- [ ] M2.1 New clean solution and project boundaries.
+- [ ] M2.2 Windows build pipeline and automated tests.
 - [ ] M2.3 Approved application shell and REF-001 layout.
 - [ ] M2.4 Watched visual language REF-003.
 - [ ] M2.5 Compact left navigation (no Search item).
-- [ ] M2.6 Top quick search.
+- [ ] M2.6 Top Quick Search.
 - [ ] M2.7 Top Advanced Search action.
 - [ ] M2.8 Prominent right-side Load Game action.
 - [ ] M2.9 Compact save actions.
@@ -60,7 +60,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M4.2 Left identity and information rail.
 - [ ] M4.3 Player graphics locator.
 - [ ] M4.4 Central attribute display.
-- [ ] M4.5 Verified FM attribute names/grouping/order.
+- [ ] [ ] M4.5 Verified FM attribute names/grouping/order.
 - [ ] M4.6 CA and PA display.
 - [ ] M4.7 Right-side grounded information panels.
 - [ ] M4.8 Compact player tabs.
@@ -116,15 +116,16 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M8.7 User acceptance sign-off.
 
 ## Deferred after basic editor
-- [ ] M9 Squad Studio.
-- [ ] M10 Tactical Studio and Tactical Effectiveness.
-- [ ] M11 Recruitment and Value Finder.
-- [ ] M12 Wyscout/StatsBomb-inspired Moneyball/per-90/percentile analytics.
+- [-] M9 Squad Studio.
+- [-] M10 Tactical Studio and Tactical Effectiveness.
+- [-] M11 Recruitment and Value Finder.
+- [-] M12 Wyscout/StatsBomb-inspired Moneyball/per-90/percentile analytics.
 
-## Current status at creation
-
-- [x] Approved design references REF-001 to REF-004 documented in the design branch.
-- [x] Fresh rebuild decision and scope documented in this branch.
+## Current status
+- [x] Approved design references REF-001 to REF-004 documented.
+- [x] Fresh rebuild product scope and milestones documented.
 - [x] Interruption-safe continuity procedure documented.
-- [ ] No new application code has been started.
-- [ ] Source archives still require recovery/import and integrity verification.
+- [x] Recovery branch/source inventory checked.
+- [x] Uploaded research package inventory and first research findings committed.
+- [x] Architecture decision documented.
+- [ ] New application source code has not yet been created.
