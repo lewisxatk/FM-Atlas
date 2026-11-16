@@ -34,11 +34,12 @@ public sealed record AdvancedSearchQuery(
     SearchEntityKind Entity,
     SearchFilterLogic Logic,
     IReadOnlyList<SearchFilterCondition> Conditions,
-    SearchFilterLogic PositionLogic = SearchFilterLogic.All)
+    SearchFilterLogic PositionLogic = SearchFilterLogic.All,
+    IReadOnlyList<AdvancedSearchFieldDefinition>? IndexedFields = null)
 {
     /// <summary>Indicates that every selected field has a query implementation.</summary>
     public bool CanExecute => Conditions.Count > 0 && Conditions.All(condition =>
-        AdvancedSearchQueryValidator.ResolveField(Entity, condition.FieldKey)?.CanExecute == true);
+        AdvancedSearchQueryValidator.ResolveField(Entity, condition.FieldKey, IndexedFields)?.CanExecute == true);
 }
 
 public sealed record SearchValidationIssue(string FieldKey, string Message);
@@ -64,7 +65,7 @@ public static class AdvancedSearchQueryValidator
 
         foreach (var condition in query.Conditions)
         {
-            var field = ResolveField(query.Entity, condition.FieldKey);
+            var field = ResolveField(query.Entity, condition.FieldKey, query.IndexedFields);
             if (field is null)
             {
                 issues.Add(new SearchValidationIssue(condition.FieldKey, "The field is not documented for this entity."));
@@ -85,8 +86,17 @@ public static class AdvancedSearchQueryValidator
         return new SearchValidationResult(issues.AsReadOnly());
     }
 
-    internal static AdvancedSearchFieldDefinition? ResolveField(SearchEntityKind entity, string fieldKey)
+    internal static AdvancedSearchFieldDefinition? ResolveField(
+        SearchEntityKind entity,
+        string fieldKey,
+        IReadOnlyList<AdvancedSearchFieldDefinition>? indexedFields = null)
     {
+        var indexed = indexedFields?.FirstOrDefault(field =>
+            field.SupportedEntities.Contains(entity) &&
+            string.Equals(field.Key, fieldKey, StringComparison.OrdinalIgnoreCase));
+        if (indexed is not null)
+            return indexed;
+
         var direct = AdvancedSearchCatalog.Fields.FirstOrDefault(field =>
             field.SupportedEntities.Contains(entity) &&
             string.Equals(field.Key, fieldKey, StringComparison.OrdinalIgnoreCase));

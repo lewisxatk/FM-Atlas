@@ -3,7 +3,7 @@ using FMAtlas.Domain.Players;
 namespace FMAtlas.Domain.Search;
 
 public enum SearchEntityKind { Player, Coach, Club }
-public enum AdvancedSearchCategoryKind { General, Contract, TechnicalGoalkeeping, MentalAttributes, PhysicalHidden, PreferredMoves, Relations }
+public enum AdvancedSearchCategoryKind { General, Contract, TechnicalGoalkeeping, MentalAttributes, PhysicalHidden, PreferredMoves, Relations, IndexedFields }
 public enum SearchFieldValueKind { Text, IntegerRange, DecimalRange, Boolean, DateRange, EntityLookup, Enum, PositionRating, TraitSelector }
 public enum SearchImplementationStatus { InProgress, Ready }
 
@@ -99,7 +99,8 @@ public static class AdvancedSearchCatalog
         new(AdvancedSearchCategoryKind.MentalAttributes, "Mental Attributes", 3),
         new(AdvancedSearchCategoryKind.PhysicalHidden, "Physical / Hidden", 4),
         new(AdvancedSearchCategoryKind.PreferredMoves, "Preferred Moves", 5),
-        new(AdvancedSearchCategoryKind.Relations, "Relations", 6)
+        new(AdvancedSearchCategoryKind.Relations, "Relations", 6),
+        new(AdvancedSearchCategoryKind.IndexedFields, "Indexed Data", 7)
     ];
 
     private static readonly IReadOnlyList<AdvancedSearchFieldDefinition> GeneralFields = BuildGeneralFields();
@@ -137,6 +138,15 @@ public static class AdvancedSearchCatalog
 
     public static IReadOnlyList<AdvancedSearchFieldDefinition> GetFields(SearchEntityKind entity, AdvancedSearchCategoryKind category) =>
         Fields.Where(field => field.Category == category && field.SupportedEntities.Contains(entity)).ToArray();
+
+    /// <summary>All documented core fields, including generated attribute catalogues.</summary>
+    public static IReadOnlyList<AdvancedSearchFieldDefinition> GetAllFields(SearchEntityKind entity) =>
+        Categories
+            .SelectMany(category => GetFields(entity, category.Kind)
+                .Concat(GetAttributeFields(entity, category.Kind)))
+            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToArray();
 
     public static IReadOnlyList<AdvancedSearchFieldDefinition> GetAttributeFields(SearchEntityKind entity, AdvancedSearchCategoryKind category)
     {
@@ -203,6 +213,7 @@ public static class AdvancedSearchCatalog
         {
             F("name", "Name", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Text, AllEntities),
             F("age", "Age", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, PlayersAndCoaches, 0, 100),
+            F("date_of_birth", "Date of Birth", AdvancedSearchCategoryKind.General, SearchFieldValueKind.DateRange, PlayersAndCoaches),
             F("nationality", "Nationality", AdvancedSearchCategoryKind.General, SearchFieldValueKind.EntityLookup, PlayersAndCoaches),
             F("gender", "Gender", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Enum, PlayersAndCoaches),
             F("game_uid", "Game UID", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Text, PlayersAndCoaches),
@@ -291,7 +302,7 @@ public static class AdvancedSearchCatalog
         decimal? maximumAllowed = null)
     {
         var ready =
-            key is "name" or "age" or "nationality" or "second_nationality" or "team" or
+            key is "name" or "age" or "date_of_birth" or "nationality" or "second_nationality" or "team" or
                 "height_cm" or "weight_kg" or "current_ability" or "potential_ability" or
                 "weekly_wage" or "transfer_value" or "contract_expiry" or
                 "position_familiarity" or "preferred_moves" or "club_reputation" or

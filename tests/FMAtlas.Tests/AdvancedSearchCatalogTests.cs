@@ -17,7 +17,8 @@ public sealed class AdvancedSearchCatalogTests
             AdvancedSearchCategoryKind.MentalAttributes,
             AdvancedSearchCategoryKind.PhysicalHidden,
             AdvancedSearchCategoryKind.PreferredMoves,
-            AdvancedSearchCategoryKind.Relations
+            AdvancedSearchCategoryKind.Relations,
+            AdvancedSearchCategoryKind.IndexedFields
         }, AdvancedSearchCatalog.Categories.OrderBy(x => x.Order).Select(x => x.Kind));
     }
 
@@ -26,6 +27,7 @@ public sealed class AdvancedSearchCatalogTests
     {
         Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "name" && x.CanExecute);
         Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "age" && x.CanExecute);
+        Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "date_of_birth" && x.CanExecute);
         Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "contract_expiry" && x.CanExecute);
         Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "wonderkid" && x.CanExecute);
         Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "is_newgen" && x.CanExecute);

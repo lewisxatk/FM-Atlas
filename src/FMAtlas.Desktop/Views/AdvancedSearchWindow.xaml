@@ -183,6 +183,7 @@
                 <Button x:Name="PhysicalHiddenCategoryButton" Content="Physical / Hidden" Tag="PhysicalHidden" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Button x:Name="PreferredMovesCategoryButton" Content="Preferred Moves" Tag="PreferredMoves" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Button x:Name="RelationsCategoryButton" Content="Relations" Tag="Relations" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="IndexedFieldsCategoryButton" Content="Indexed Data" Tag="IndexedFields" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Border Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="5" Padding="8" Margin="0,14,0,0">
                     <StackPanel>
                         <TextBlock Text="Only fields marked READY are active. Searches use records already imported into the local FM Atlas database. Live-career search is still IN PROGRESS." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>

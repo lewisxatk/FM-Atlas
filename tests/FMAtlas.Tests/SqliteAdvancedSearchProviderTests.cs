@@ -539,6 +539,54 @@ public sealed class SqliteAdvancedSearchProviderTests
         Assert.DoesNotContain(results, result => result.Identity.SourceId == "goalkeeper-only");
     }
 
+    [Fact]
+    public async Task IndexedSeasonStatisticsAreDiscoveredAndSearchable()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        var high = new EntityIdentity(EntityKind.Player, "high-stat", "test");
+        var low = new EntityIdentity(EntityKind.Player, "low-stat", "test");
+
+        await store.SaveSnapshotAsync(new PlayerRecord(high)
+        {
+            FullName = new SourcedValue<string>("High Statistic", Evidence),
+            SeasonStatistics = new Dictionary<string, SourcedValue<decimal>>
+            {
+                ["goals_per_90"] = new(0.82m, Evidence)
+            }
+        }, "High Statistic");
+
+        await store.SaveSnapshotAsync(new PlayerRecord(low)
+        {
+            FullName = new SourcedValue<string>("Low Statistic", Evidence),
+            SeasonStatistics = new Dictionary<string, SourcedValue<decimal>>
+            {
+                ["goals_per_90"] = new(0.21m, Evidence)
+            }
+        }, "Low Statistic");
+
+        var provider = new SqliteAdvancedSearchProvider(path);
+        var indexedFields = await provider.GetIndexedFieldsAsync(SearchEntityKind.Player);
+        var goalsPer90 = Assert.Single(indexedFields, field => field.Key == "stat_goals_per_90");
+
+        Assert.Equal(SearchFieldValueKind.DecimalRange, goalsPer90.ValueKind);
+        Assert.Equal(AdvancedSearchCategoryKind.IndexedFields, goalsPer90.Category);
+        Assert.Equal(FieldEvidenceStatus.Mapped, goalsPer90.EvidenceStatus);
+
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("stat_goals_per_90", SearchFilterOperator.Range, Minimum: 0.5m)],
+            IndexedFields: indexedFields);
+
+        var results = await provider.ExecuteAsync(query);
+
+        Assert.Equal("high-stat", Assert.Single(results).Identity.SourceId);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =

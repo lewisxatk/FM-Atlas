@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Data.Sqlite;
 using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Entities;
+using FMAtlas.Domain.Players;
 using FMAtlas.Domain.Search;
 
 namespace FMAtlas.Infrastructure.Persistence;
@@ -11,23 +12,153 @@ namespace FMAtlas.Infrastructure.Persistence;
 /// against field_values. Unknown or In Progress filters are rejected. This service
 /// is read-only and uses parameterised values for every user-supplied criterion.
 /// </summary>
-public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
+public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IIndexedAdvancedSearchFieldProvider
 {
     private readonly string _connectionString;
+    private readonly string _databasePath;
 
     public SqliteAdvancedSearchProvider(string databasePath)
     {
         if (string.IsNullOrWhiteSpace(databasePath))
             throw new ArgumentException("A database file path is required.", nameof(databasePath));
 
+        _databasePath = Path.GetFullPath(databasePath);
         var builder = new SqliteConnectionStringBuilder
         {
-            DataSource = Path.GetFullPath(databasePath),
+            DataSource = _databasePath,
             Mode = SqliteOpenMode.ReadOnly,
             Cache = SqliteCacheMode.Shared,
             Pooling = true
         };
         _connectionString = builder.ToString();
+    }
+
+    public async Task<IReadOnlyList<AdvancedSearchFieldDefinition>> GetIndexedFieldsAsync(
+        SearchEntityKind entity,
+        CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(_databasePath))
+            return Array.Empty<AdvancedSearchFieldDefinition>();
+
+        var entityKind = entity switch
+        {
+            SearchEntityKind.Player => EntityKind.Player,
+            SearchEntityKind.Coach => EntityKind.Staff,
+            SearchEntityKind.Club => EntityKind.Club,
+            _ => throw new ArgumentOutOfRangeException(nameof(entity))
+        };
+
+        var knownFields = AdvancedSearchCatalog.GetAllFields(entity)
+            .ToDictionary(field => field.Key, StringComparer.OrdinalIgnoreCase);
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT field_key, value_kind
+            FROM field_values
+            WHERE entity_kind = $entityKind
+            GROUP BY field_key, value_kind
+            ORDER BY field_key, value_kind;
+            """;
+        command.Parameters.AddWithValue("$entityKind", entityKind.ToString());
+
+        var discovered = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var key = reader.GetString(0);
+            var kind = reader.GetString(1);
+            if (!discovered.TryGetValue(key, out var kinds))
+            {
+                kinds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                discovered.Add(key, kinds);
+            }
+
+            kinds.Add(kind);
+        }
+
+        var results = new List<AdvancedSearchFieldDefinition>();
+        foreach (var (key, kinds) in discovered)
+        {
+            // Mixed value types are ambiguous; omit them rather than picking a
+            // storage column and risking false matches.
+            if (kinds.Count != 1 || !TryMapValueKind(kinds.Single(), out var valueKind))
+                continue;
+
+            if (knownFields.TryGetValue(key, out var known) && known.CanExecute)
+                continue;
+
+            if (knownFields.TryGetValue(key, out known))
+            {
+                results.Add(known with
+                {
+                    ValueKind = valueKind,
+                    EvidenceStatus = FieldEvidenceStatus.Mapped,
+                    ImplementationStatus = SearchImplementationStatus.Ready
+                });
+                continue;
+            }
+
+            var (minimum, maximum) = GetSuggestedBounds(key, valueKind);
+            results.Add(new AdvancedSearchFieldDefinition(
+                key,
+                HumaniseFieldKey(key),
+                AdvancedSearchCategoryKind.IndexedFields,
+                valueKind,
+                [entity],
+                FieldEvidenceStatus.Mapped,
+                SearchImplementationStatus.Ready,
+                minimum,
+                maximum));
+        }
+
+        return results
+            .OrderBy(field => field.Category)
+            .ThenBy(field => field.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static bool TryMapValueKind(string valueKind, out SearchFieldValueKind searchKind)
+    {
+        searchKind = valueKind switch
+        {
+            "Text" => SearchFieldValueKind.Text,
+            "Integer" => SearchFieldValueKind.IntegerRange,
+            "Decimal" => SearchFieldValueKind.DecimalRange,
+            "Date" => SearchFieldValueKind.DateRange,
+            "Boolean" => SearchFieldValueKind.Boolean,
+            _ => (SearchFieldValueKind)(-1)
+        };
+
+        return Enum.IsDefined(searchKind);
+    }
+
+    private static (decimal? Minimum, decimal? Maximum) GetSuggestedBounds(
+        string key,
+        SearchFieldValueKind valueKind)
+    {
+        if (valueKind is not (SearchFieldValueKind.IntegerRange or SearchFieldValueKind.DecimalRange))
+            return (null, null);
+
+        var normalised = key.ToLowerInvariant();
+        if (normalised.StartsWith("attribute_", StringComparison.Ordinal) ||
+            normalised.StartsWith("personality_", StringComparison.Ordinal) ||
+            normalised.StartsWith("position_", StringComparison.Ordinal) ||
+            normalised.StartsWith("knowledge_", StringComparison.Ordinal) ||
+            normalised.StartsWith("role_preference_", StringComparison.Ordinal) ||
+            normalised.StartsWith("facility_", StringComparison.Ordinal))
+            return (0, 20);
+
+        return (null, null);
+    }
+
+    private static string HumaniseFieldKey(string key)
+    {
+        var words = key.Replace('_', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
+            string.Join(' ', words));
     }
 
     public async Task<IReadOnlyList<EntitySearchResult>> ExecuteAsync(
@@ -72,7 +203,7 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
         {
             var condition = query.Conditions[index];
             builtPredicates.Add((
-                BuildCondition(query.Entity, condition, index, parameters, ref nextParameter),
+                BuildCondition(query.Entity, condition, index, parameters, ref nextParameter, query.IndexedFields),
                 IsPositionCondition(condition.FieldKey)));
         }
 
@@ -136,7 +267,8 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
         SearchFilterCondition condition,
         int conditionIndex,
         ICollection<(string Name, object Value)> parameters,
-        ref int nextParameter)
+        ref int nextParameter,
+        IReadOnlyList<AdvancedSearchFieldDefinition>? indexedFields = null)
     {
         if (condition.FieldKey.Equals("name", StringComparison.OrdinalIgnoreCase))
         {
@@ -185,10 +317,13 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
                 ref nextParameter);
         }
 
-        var field = ResolveField(entity, condition.FieldKey)
+        var field = ResolveField(entity, condition.FieldKey, indexedFields)
             ?? throw new NotSupportedException($"No stored field mapping exists for '{condition.FieldKey}'.");
 
         var keys = ResolveStoredFieldKeys(entity, condition.FieldKey);
+        if (keys.Count == 0 && indexedFields?.Any(indexed =>
+                string.Equals(indexed.Key, condition.FieldKey, StringComparison.OrdinalIgnoreCase)) == true)
+            keys = [condition.FieldKey];
         if (keys.Count == 0)
             throw new NotSupportedException($"No stored field mapping exists for '{condition.FieldKey}'.");
 
@@ -430,8 +565,17 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
         return name;
     }
 
-    private static AdvancedSearchFieldDefinition? ResolveField(SearchEntityKind entity, string key)
+    private static AdvancedSearchFieldDefinition? ResolveField(
+        SearchEntityKind entity,
+        string key,
+        IReadOnlyList<AdvancedSearchFieldDefinition>? indexedFields = null)
     {
+        var indexed = indexedFields?.FirstOrDefault(field =>
+            field.SupportedEntities.Contains(entity) &&
+            string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (indexed is not null)
+            return indexed;
+
         var direct = AdvancedSearchCatalog.Fields.FirstOrDefault(field =>
             field.SupportedEntities.Contains(entity) &&
             string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase));
@@ -479,6 +623,7 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
         return normalised switch
         {
             "age" => ["age"],
+            "date_of_birth" => ["date_of_birth"],
             "nationality" => ["nationality"],
             "second_nationality" => ["second_nationality"],
             "team" => entity == SearchEntityKind.Player

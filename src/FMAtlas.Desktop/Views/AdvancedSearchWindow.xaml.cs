@@ -24,9 +24,15 @@ public partial class AdvancedSearchWindow : Window
         GeneralPanel.Visibility = Visibility.Collapsed;
         DynamicCategoryPanels.Visibility = Visibility.Visible;
         RefreshSelection();
+        Loaded += AdvancedSearchWindow_Loaded;
     }
 
-    private void EntityButton_Click(object sender, RoutedEventArgs e)
+    private async void AdvancedSearchWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.RefreshIndexedFieldsAsync();
+    }
+
+    private async void EntityButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button ||
             !Enum.TryParse<SearchEntityKind>(button.Tag?.ToString(), true, out var entity))
@@ -34,6 +40,7 @@ public partial class AdvancedSearchWindow : Window
 
         _viewModel.SelectEntity(entity);
         RefreshSelection();
+        await _viewModel.RefreshIndexedFieldsAsync(entity);
     }
 
     private void CategoryButton_Click(object sender, RoutedEventArgs e)
@@ -124,7 +131,7 @@ public partial class AdvancedSearchWindow : Window
         }
     }
 
-    private void LoadPreset_Click(object sender, RoutedEventArgs e)
+    private async void LoadPreset_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -162,6 +169,7 @@ public partial class AdvancedSearchWindow : Window
                 return;
             }
 
+            await _viewModel.RefreshIndexedFieldsAsync(preset.Entity);
             _viewModel.ApplyPreset(preset);
             LogicComboBox.SelectedIndex = preset.Logic == SearchFilterLogic.Any ? 1 : 0;
             PositionLogicComboBox.SelectedIndex = preset.PositionLogic == SearchFilterLogic.Any ? 1 : 0;
@@ -202,6 +210,7 @@ public partial class AdvancedSearchWindow : Window
         SetSelected(PhysicalHiddenCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.PhysicalHidden);
         SetSelected(PreferredMovesCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.PreferredMoves);
         SetSelected(RelationsCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.Relations);
+        SetSelected(IndexedFieldsCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.IndexedFields);
     }
 
     private void SetSelected(Button button, bool selected)

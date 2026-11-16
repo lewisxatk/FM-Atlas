@@ -16,6 +16,8 @@ namespace FMAtlas.Desktop.ViewModels;
 public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
 {
     private readonly IAdvancedSearchProvider _searchProvider;
+    private readonly IIndexedAdvancedSearchFieldProvider? _indexedFieldProvider;
+    private readonly Dictionary<SearchEntityKind, IReadOnlyList<AdvancedSearchFieldDefinition>> _indexedFields = [];
     private readonly Dictionary<(SearchEntityKind Entity, string Key), AdvancedSearchFieldViewModel> _fieldState = [];
     private SearchEntityKind _selectedEntity = SearchEntityKind.Player;
     private AdvancedSearchCategoryKind _selectedCategory = AdvancedSearchCategoryKind.General;
@@ -28,6 +30,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     public AdvancedSearchWindowViewModel(IAdvancedSearchProvider searchProvider)
     {
         _searchProvider = searchProvider ?? throw new ArgumentNullException(nameof(searchProvider));
+        _indexedFieldProvider = searchProvider as IIndexedAdvancedSearchFieldProvider;
         Results = [];
         SelectEntity(SearchEntityKind.Player);
     }
@@ -103,6 +106,36 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         RebuildSections();
     }
 
+    public async Task RefreshIndexedFieldsAsync(
+        SearchEntityKind? entity = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_indexedFieldProvider is null)
+            return;
+
+        var targetEntity = entity ?? SelectedEntity;
+        try
+        {
+            var fields = await _indexedFieldProvider.GetIndexedFieldsAsync(targetEntity, cancellationToken);
+            _indexedFields[targetEntity] = fields;
+
+            if (targetEntity == SelectedEntity)
+                RebuildSections();
+
+            if (fields.Count > 0 && targetEntity == SelectedEntity)
+                StatusText = $"Discovered {fields.Count} additional/data-backed field(s) in the local index.";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            if (targetEntity == SelectedEntity)
+                StatusText = $"Indexed-field discovery unavailable: {ex.Message}";
+        }
+    }
+
     public void ClearFilters()
     {
         foreach (var field in _fieldState
@@ -154,7 +187,8 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
             return null;
         }
 
-        var query = new AdvancedSearchQuery(SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic);
+        var query = new AdvancedSearchQuery(
+            SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic, GetIndexedFieldsFor(SelectedEntity));
         var validation = AdvancedSearchQueryValidator.Validate(query);
         if (!validation.IsValid)
         {
@@ -190,7 +224,8 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         }
 
         var validation = AdvancedSearchQueryValidator.Validate(
-            new AdvancedSearchQuery(preset.Entity, preset.Logic, preset.Conditions, preset.PositionLogic));
+            new AdvancedSearchQuery(
+                preset.Entity, preset.Logic, preset.Conditions, preset.PositionLogic, GetIndexedFieldsFor(preset.Entity)));
         if (!validation.IsValid)
         {
             StatusText = $"The saved search is invalid: {string.Join("  ·  ", validation.Issues.Select(issue => issue.Message))}";
@@ -209,11 +244,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         SelectedLogic = preset.Logic;
         SelectedPositionLogic = preset.PositionLogic;
 
-        var definitions = AdvancedSearchCatalog.Categories
-            .SelectMany(category => AdvancedSearchCatalog.GetFields(SelectedEntity, category.Kind)
-                .Concat(AdvancedSearchCatalog.GetAttributeFields(SelectedEntity, category.Kind)))
-            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
+        var definitions = GetAllFieldDefinitions(SelectedEntity)
             .ToDictionary(field => field.Key, StringComparer.OrdinalIgnoreCase);
 
         var skipped = new List<string>();
@@ -266,6 +297,8 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         if (IsBusy)
             return;
 
+        await RefreshIndexedFieldsAsync(cancellationToken: cancellationToken);
+
         var conditions = new List<SearchFilterCondition>();
         var inputIssues = new List<string>();
 
@@ -293,7 +326,8 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        var query = new AdvancedSearchQuery(SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic);
+        var query = new AdvancedSearchQuery(
+            SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic, GetIndexedFieldsFor(SelectedEntity));
         var validation = AdvancedSearchQueryValidator.Validate(query);
         if (!validation.IsValid)
         {
@@ -337,13 +371,11 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     {
         Sections.Clear();
 
+        var allFields = GetAllFieldDefinitions(SelectedEntity);
         var isFieldSearch = !string.IsNullOrWhiteSpace(FieldSearchText);
         IEnumerable<AdvancedSearchFieldDefinition> fields = isFieldSearch
-            ? AdvancedSearchCatalog.Categories.SelectMany(category =>
-                AdvancedSearchCatalog.GetFields(SelectedEntity, category.Kind)
-                    .Concat(AdvancedSearchCatalog.GetAttributeFields(SelectedEntity, category.Kind)))
-            : AdvancedSearchCatalog.GetFields(SelectedEntity, SelectedCategory)
-                .Concat(AdvancedSearchCatalog.GetAttributeFields(SelectedEntity, SelectedCategory));
+            ? allFields
+            : allFields.Where(field => field.Category == SelectedCategory);
 
         var search = FieldSearchText.Trim();
         var filteredFields = (isFieldSearch
@@ -387,6 +419,25 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
             var fieldModels = group.Select(GetOrCreateFieldModel).ToArray();
             Sections.Add(new AdvancedSearchSectionViewModel(group.Key, string.Empty, fieldModels));
         }
+    }
+
+    private IReadOnlyList<AdvancedSearchFieldDefinition> GetIndexedFieldsFor(SearchEntityKind entity) =>
+        _indexedFields.TryGetValue(entity, out var fields)
+            ? fields
+            : Array.Empty<AdvancedSearchFieldDefinition>();
+
+    private IReadOnlyList<AdvancedSearchFieldDefinition> GetAllFieldDefinitions(SearchEntityKind entity)
+    {
+        var fields = AdvancedSearchCatalog.GetAllFields(entity)
+            .ToDictionary(field => field.Key, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var indexed in GetIndexedFieldsFor(entity))
+            fields[indexed.Key] = indexed;
+
+        return fields.Values
+            .OrderBy(field => field.Category)
+            .ThenBy(field => field.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private AdvancedSearchFieldViewModel GetOrCreateFieldModel(AdvancedSearchFieldDefinition definition)
@@ -733,12 +784,16 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
         Key = definition.Key;
         DisplayName = definition.DisplayName;
         EvidenceStatus = definition.EvidenceStatus.ToString();
-        ImplementationStatus = definition.ImplementationStatus == SearchImplementationStatus.Ready
-            ? "READY"
-            : "IN PROGRESS";
+        ImplementationStatus = definition.EvidenceStatus == FieldEvidenceStatus.Mapped
+            ? "INDEXED"
+            : definition.ImplementationStatus == SearchImplementationStatus.Ready
+                ? "READY"
+                : "IN PROGRESS";
         HelpText = definition.Key.Equals("is_newgen", StringComparison.OrdinalIgnoreCase)
             ? "Yes = the data source explicitly identifies this record as generated. No = the source explicitly confirms an original database person. Unknown = not classified. FM Atlas will not guess from age, PA, face or name."
-            : $"{definition.DisplayName} · {definition.ValueKind} · Evidence: {definition.EvidenceStatus} · Query: {ImplementationStatus}";
+            : definition.EvidenceStatus == FieldEvidenceStatus.Mapped
+                ? $"{definition.DisplayName} · discovered from values already in the local index · not proof of a live FM27 read."
+                : $"{definition.DisplayName} · {definition.ValueKind} · Evidence: {definition.EvidenceStatus} · Query: {ImplementationStatus}";
         if (definition.Key.Equals("is_newgen", StringComparison.OrdinalIgnoreCase))
         {
             BooleanTrueLabel = "Generated / newgen";
