@@ -328,3 +328,18 @@ Schema version 1 now defines:
 - migration history and search-oriented indexes.
 
 This is a schema migration only. Record repositories, imports, persistent graphics cache and executable advanced search remain outstanding. Windows CI is required before the migration and tests can be called verified.
+
+
+## 15. Typed field projection and Quick Search provider
+
+The fresh rebuild now contains:
+- EntityRecordProjector for PlayerRecord, StaffRecord and ClubRecord.
+- Distinct player collections for visible attributes, hidden attributes, personality, foot ratings, position ratings, preferred moves and season statistics.
+- Normalised field keys and per-field provenance projection into SQLite.
+- Snapshot and field projection writes in one SQLite transaction.
+- Snapshot deletion that clears stale field projections without deleting the entity row.
+- SqliteEntitySearchProvider for read-only name search over Player/Staff/Club entities.
+
+The Quick Search provider is not yet connected to the top-bar WPF control. Advanced Search query execution remains outstanding. No FM27 live records have been imported, and no live memory reads/writes have been performed.
+
+Latest code CI has repeatedly failed before runner allocation: jobs have no steps and no logs. This is an infrastructure/runner blocker, not evidence that the code compiles or fails to compile. Windows build verification remains required.
