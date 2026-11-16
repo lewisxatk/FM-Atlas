@@ -82,15 +82,15 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 
 ## M5 — Search
 - [ ] M5.1 Top Quick Search.
-- [ ] M5.2 REF-002 FMRTE-style Advanced Search dialog.
-- [ ] M5.3 Player / Coach / Club selectors.
-- [ ] M5.4 General filters.
-- [ ] M5.5 Contract filters.
-- [ ] M5.6 Technical/GK filters.
-- [ ] M5.7 Mental filters.
-- [ ] M5.8 Physical/Hidden filters.
-- [ ] M5.9 Preferred Moves filters.
-- [ ] M5.10 Relations filters.
+- [~] M5.2 REF-002 FMRTE-style Advanced Search dialog shell created; not connected to search execution.
+- [~] M5.3 Player / Coach / Club selectors displayed but disabled until entity providers are ready.
+- [~] M5.4 General filter layout shell and documented field schema added; query execution not connected.
+- [~] M5.5 Contract fields documented in search schema; filter controls/query not implemented.
+- [~] M5.6 Technical/GK attribute fields generated from the Domain catalogue; UI/query not implemented.
+- [~] M5.7 Mental attribute fields generated from the Domain catalogue; UI/query not implemented.
+- [~] M5.8 Physical/Hidden attribute fields generated from the Domain catalogue; UI/query not implemented.
+- [~] M5.9 Preferred Moves field documented in schema; UI/query not implemented.
+- [~] M5.10 Relations field documented in schema; UI/query not implemented.
 - [ ] M5.11 Position pitch and suitability.
 - [ ] M5.12 Min/max, boolean and lookup controls.
 - [ ] M5.13 Explicit AND/OR semantics.
@@ -150,6 +150,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] FMRTE 27 feature audit and field coverage ledger committed.
 - [x] Clean WPF solution and initial shell source committed.
 - [x] FM27 player attribute catalogue and domain tests committed; Windows CI run 43787875022 passed.
+- [~] REF-002 advanced-search dialog shell and documented search schema committed; latest CI verification pending.
 - [~] REF-004 player profile workspace shell committed; latest Windows CI runs 43788055915 and related runs pending at checkpoint time.
 - [x] Windows CI build and three unit tests passed.
 - [x] Windows shell build artifact uploaded and inspected.
