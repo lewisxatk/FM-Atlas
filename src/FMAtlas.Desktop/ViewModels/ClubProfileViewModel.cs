@@ -99,6 +99,9 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     public string AverageAttendanceText => Format(Club.AverageAttendance?.Value);
     public string MinimumAttendanceText => Format(Club.MinimumAttendance?.Value);
     public string MaximumAttendanceText => Format(Club.MaximumAttendance?.Value);
+    public string OwnershipInfoText => $"Ownership · {OwnershipText}";
+    public string ChairpersonInfoText => $"Chairperson · {ChairpersonText}";
+    public string AverageAttendanceInfoText => $"Average attendance · {AverageAttendanceText}";
 
     private void UpdateRows()
     {
