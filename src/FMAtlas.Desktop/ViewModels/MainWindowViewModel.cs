@@ -27,7 +27,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _connectionDetail = "Start FM27, load your career fully, then use Load Game to run the exact-build read-only connection check.";
     private string _lastAction = "Fresh application foundation";
     private string _quickSearchText = string.Empty;
-    private string _quickSearchMessage = "Search imported FM Atlas records.";
+    private string _quickSearchMessage = "Search the active FM27 snapshot or imported records.";
     private bool _isQuickSearchOpen;
     private bool _isQuickSearchBusy;
     private bool _isBusy;
@@ -269,7 +269,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 ConnectionDetail = status.Message;
                 LastAction = "Live career changed; stale live records invalidated";
                 QuickSearchResults.Clear();
-                QuickSearchMessage = "The live connection is currently paused. Import a player CSV to search records while the safety review is underway.";
+                QuickSearchMessage = "The live snapshot was invalidated because FM27 changed careers. Press Load Game to index the current career again, or import a player CSV.";
                 IsQuickSearchOpen = !string.IsNullOrWhiteSpace(QuickSearchText);
                 LivePlayerCount = 0;
                 LiveStaffCount = 0;
@@ -373,7 +373,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             IsQuickSearchBusy = false;
             IsQuickSearchOpen = !string.IsNullOrWhiteSpace(text);
             QuickSearchMessage = string.IsNullOrWhiteSpace(text)
-                ? "Search imported FM Atlas records."
+                ? "Search the active FM27 snapshot or imported records."
                 : "Type at least two characters.";
             return;
         }
@@ -391,7 +391,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var token = cancellation.Token;
         IsQuickSearchBusy = true;
         IsQuickSearchOpen = true;
-        QuickSearchMessage = "Searching imported records…";
+        QuickSearchMessage = "Searching the active FM Atlas index…";
 
         try
         {

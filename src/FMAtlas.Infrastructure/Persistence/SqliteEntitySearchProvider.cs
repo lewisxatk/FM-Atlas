@@ -86,6 +86,8 @@ public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
                               AND field.source_id = e.source_id
                               AND field.provider_key = e.provider_key
                               AND field.field_key IN ('full_name', 'name')
+                              AND field.text_value IS NOT NULL
+                              AND TRIM(field.text_value) <> ''
                             ORDER BY CASE field.field_key WHEN 'full_name' THEN 0 ELSE 1 END
                             LIMIT 1
                         ),
@@ -96,6 +98,8 @@ public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
                               AND field.source_id = e.source_id
                               AND field.provider_key = e.provider_key
                               AND field.field_key = 'game_uid'
+                              AND field.text_value IS NOT NULL
+                              AND TRIM(field.text_value) <> ''
                             LIMIT 1
                         )
                     ) AS display_name

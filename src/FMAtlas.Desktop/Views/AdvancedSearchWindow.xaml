@@ -231,7 +231,7 @@
                 <Button x:Name="IndexedFieldsCategoryButton" Content="Indexed Data" Tag="IndexedFields" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Border Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="5" Padding="8" Margin="0,14,0,0">
                     <StackPanel>
-                        <TextBlock Text="Only supported fields are searchable. Searches use records already imported into the local FM Atlas database. Live-career search is still in progress." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                        <TextBlock Text="Only supported fields are searchable. Search uses the active local index, including the loaded FM27 career snapshot and imported records. Fields without a verified query implementation remain marked In Progress." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
                         <TextBlock Text="MIN and MAX are independent. Leave either box blank to search using only the other boundary. For a minimum requirement such as FMRTE's At Least option, enter MIN 12 and leave MAX blank." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
                         <TextBlock Text="Newgen status is evidence-based: generated, original database, or unknown. Young age or high PA alone is not proof." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
                     </StackPanel>
@@ -467,7 +467,7 @@
             </Grid>
         </Border>
         <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
-            <TextBlock Text="READ-ONLY LOCAL INDEX · DOUBLE-CLICK PLAYER TO OPEN PROFILE · LIVE CAREER DATA IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
+            <TextBlock Text="ACTIVE LOCAL INDEX · LIVE FM27 SNAPSHOT WHEN CONNECTED · DOUBLE-CLICK TO OPEN PROFILE" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBox x:Name="PresetNameTextBox" Style="{StaticResource FilterValue}" Width="108" Height="29"
                          IsEnabled="True" Text="My search" ToolTip="Name this set of search criteria" Margin="0,0,6,0"/>

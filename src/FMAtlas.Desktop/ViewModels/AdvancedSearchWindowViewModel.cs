@@ -398,7 +398,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         }
 
         IsBusy = true;
-        StatusText = "Searching imported records…";
+        StatusText = "Searching the active FM Atlas index…";
         Results.Clear();
 
         try

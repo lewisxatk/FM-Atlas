@@ -708,6 +708,33 @@ public sealed class SqliteAdvancedSearchProviderTests
         Assert.Equal("high-stat", Assert.Single(results).Identity.SourceId);
     }
 
+    [Fact]
+    public async Task AdvancedSearchNameFilterFallsBackToProjectedFullNameWhenDisplayNameIsBlank()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+
+        var identity = new EntityIdentity(EntityKind.Player, "salah-advanced-fallback", "live-test");
+        var player = new PlayerRecord(identity)
+        {
+            SearchTextFields = new Dictionary<string, SourcedValue<string>>
+            {
+                ["full_name"] = new("Mohamed Salah", Evidence)
+            }
+        };
+        await new SqliteEntityRecordSnapshotStore(path).SaveSnapshotAsync(player, displayName: null);
+
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("name", SearchFilterOperator.Contains, TextValue: "Salah")]);
+
+        var result = Assert.Single(await new SqliteAdvancedSearchProvider(path).ExecuteAsync(query));
+        Assert.Equal(identity, result.Identity);
+        Assert.Equal("Mohamed Salah", result.DisplayName);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =

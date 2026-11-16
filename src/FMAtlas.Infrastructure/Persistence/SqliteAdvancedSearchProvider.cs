@@ -244,8 +244,41 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
             : string.Empty;
 
         var sql = $"""
+            WITH named_entities AS (
+                SELECT
+                    e.entity_kind,
+                    e.source_id,
+                    e.provider_key,
+                    COALESCE(
+                        NULLIF(TRIM(e.display_name), ''),
+                        (
+                            SELECT NULLIF(TRIM(field.text_value), '')
+                            FROM field_values AS field
+                            WHERE field.entity_kind = e.entity_kind
+                              AND field.source_id = e.source_id
+                              AND field.provider_key = e.provider_key
+                              AND field.field_key IN ('full_name', 'name')
+                              AND field.text_value IS NOT NULL
+                              AND TRIM(field.text_value) <> ''
+                            ORDER BY CASE field.field_key WHEN 'full_name' THEN 0 ELSE 1 END
+                            LIMIT 1
+                        ),
+                        (
+                            SELECT NULLIF(TRIM(field.text_value), '')
+                            FROM field_values AS field
+                            WHERE field.entity_kind = e.entity_kind
+                              AND field.source_id = e.source_id
+                              AND field.provider_key = e.provider_key
+                              AND field.field_key = 'game_uid'
+                              AND field.text_value IS NOT NULL
+                              AND TRIM(field.text_value) <> ''
+                            LIMIT 1
+                        )
+                    ) AS display_name
+                FROM entities AS e
+            )
             SELECT e.entity_kind, e.source_id, e.provider_key, e.display_name
-            FROM entities AS e
+            FROM named_entities AS e
             WHERE e.entity_kind = $entityKind
               AND ({criteriaPredicate})
               {womenFilter}
