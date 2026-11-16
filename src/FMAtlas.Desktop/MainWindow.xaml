@@ -43,13 +43,13 @@
                         <TextBlock Text="FM" Foreground="{StaticResource Atlas.Accent}" FontFamily="Georgia" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="FM ATLAS" FontSize="15" FontWeight="Bold" CharacterSpacing="90" Foreground="{StaticResource Atlas.Text}"/>
-                        <TextBlock Text="FOOTBALL MANAGER EDITOR" FontSize="8" CharacterSpacing="65" Foreground="{StaticResource Atlas.Muted}" Margin="0,3,0,0"/>
+                        <TextBlock Text="FM ATLAS" FontSize="15" FontWeight="Bold" Foreground="{StaticResource Atlas.Text}"/>
+                        <TextBlock Text="FOOTBALL MANAGER EDITOR" FontSize="8" Foreground="{StaticResource Atlas.Muted}" Margin="0,3,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2">
-                    <TextBlock Text="WORKSPACE" FontSize="9" CharacterSpacing="130" Foreground="{StaticResource Atlas.Subtle}" Margin="9,0,0,10"/>
+                    <TextBlock Text="WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" Margin="9,0,0,10"/>
                     <Button Style="{StaticResource Atlas.NavButton}" Background="#1B1511" BorderBrush="#352219" Margin="0,0,0,4">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Accent}" FontSize="14" Width="25"/>
@@ -60,7 +60,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
                             <TextBlock Text="Players" FontSize="12"/>
-                            <TextBlock Text="IN PROGRESS" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="auto,0,0,0"/>
+                            <TextBlock Text="IN PROGRESS" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="10,0,0,0"/>
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource Atlas.NavButton}" IsEnabled="False" Margin="0,0,0,4" ToolTip="In Progress — staff data provider not implemented.">
@@ -82,7 +82,7 @@
                         </StackPanel>
                     </Button>
 
-                    <TextBlock Text="TOOLS" FontSize="9" CharacterSpacing="130" Foreground="{StaticResource Atlas.Subtle}" Margin="9,22,0,10"/>
+                    <TextBlock Text="TOOLS" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" Margin="9,22,0,10"/>
                     <Button Style="{StaticResource Atlas.NavButton}" IsEnabled="False" ToolTip="In Progress — deferred until the basic editor works.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
@@ -105,7 +105,7 @@
                             <TextBlock Text="Settings" FontSize="12"/>
                         </StackPanel>
                     </Button>
-                    <TextBlock Text="FRESH FOUNDATION · 001" FontSize="8" CharacterSpacing="65" Foreground="{StaticResource Atlas.Subtle}" Margin="10,13,0,0"/>
+                    <TextBlock Text="FRESH FOUNDATION · 001" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="10,13,0,0"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -129,9 +129,9 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="WORKSPACE" FontSize="9" CharacterSpacing="100" Foreground="{StaticResource Atlas.Subtle}"/>
+                    <TextBlock Text="WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
                     <TextBlock Text="  /  " FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
-                    <TextBlock Text="DASHBOARD" FontSize="9" CharacterSpacing="80" Foreground="{StaticResource Atlas.Text}"/>
+                    <TextBlock Text="DASHBOARD" FontSize="9" Foreground="{StaticResource Atlas.Text}"/>
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Ellipse Width="6" Height="6" Fill="#8B6B4D" Margin="0,0,7,0"/>
@@ -185,35 +185,35 @@
                         <TextBlock Text="Your Football Manager workspace." FontSize="12" Foreground="{StaticResource Atlas.Muted}" Margin="1,5,0,0"/>
                     </StackPanel>
                     <Border Grid.Column="1" Background="#17110E" BorderBrush="#3D261B" BorderThickness="1" CornerRadius="6" Padding="10,7" VerticalAlignment="Center">
-                        <TextBlock Text="NEW FOUNDATION" FontSize="8" CharacterSpacing="110" Foreground="{StaticResource Atlas.Accent}"/>
+                        <TextBlock Text="NEW FOUNDATION" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
                     </Border>
                 </Grid>
 
                 <UniformGrid Columns="4" Margin="0,0,0,15">
                     <Border Style="{StaticResource Atlas.Card}" Margin="0,0,9,0">
                         <StackPanel>
-                            <TextBlock Text="GAME CONNECTION" FontSize="9" CharacterSpacing="95" Foreground="{StaticResource Atlas.Muted}"/>
+                            <TextBlock Text="GAME CONNECTION" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
                             <TextBlock Text="{Binding ConnectionStatus}" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,13,0,3"/>
                             <TextBlock Text="Windows process check only" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Atlas.Card}" Margin="0,0,9,0">
                         <StackPanel>
-                            <TextBlock Text="ACTIVE CAREER" FontSize="9" CharacterSpacing="95" Foreground="{StaticResource Atlas.Muted}"/>
+                            <TextBlock Text="ACTIVE CAREER" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
                             <TextBlock Text="No career loaded" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,13,0,3"/>
                             <TextBlock Text="Live data import · In Progress" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Atlas.Card}" Margin="0,0,9,0">
                         <StackPanel>
-                            <TextBlock Text="PLAYER RECORDS" FontSize="9" CharacterSpacing="95" Foreground="{StaticResource Atlas.Muted}"/>
+                            <TextBlock Text="PLAYER RECORDS" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
                             <TextBlock Text="—" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,9,0,3"/>
                             <TextBlock Text="No records imported" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Atlas.Card}">
                         <StackPanel>
-                            <TextBlock Text="PENDING EDITS" FontSize="9" CharacterSpacing="95" Foreground="{StaticResource Atlas.Muted}"/>
+                            <TextBlock Text="PENDING EDITS" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
                             <TextBlock Text="0" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,9,0,3"/>
                             <TextBlock Text="Nothing has been changed" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
                         </StackPanel>
@@ -229,7 +229,7 @@
                     <Border Grid.Column="0" Style="{StaticResource Atlas.Card}" Margin="0,0,10,0" MinHeight="245">
                         <StackPanel>
                             <Grid Margin="0,0,0,18">
-                                <TextBlock Text="YOUR WORKSPACE" FontSize="9" CharacterSpacing="120" Foreground="{StaticResource Atlas.Muted}"/>
+                                <TextBlock Text="YOUR WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
                                 <TextBlock Grid.Column="1" Text="01 / 04" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
                             </Grid>
                             <TextBlock Text="A clean start." FontFamily="Georgia" FontSize="25" Foreground="{StaticResource Atlas.Text}"/>
@@ -237,7 +237,7 @@
                                        TextWrapping="Wrap" FontSize="12" LineHeight="19" Foreground="{StaticResource Atlas.Muted}" Margin="0,9,12,18"/>
                             <Border Background="#17110E" BorderBrush="#3A251A" BorderThickness="1" CornerRadius="7" Padding="12">
                                 <StackPanel>
-                                    <TextBlock Text="NEXT CONNECTION CHECK" FontSize="8" CharacterSpacing="100" Foreground="{StaticResource Atlas.Accent}"/>
+                                    <TextBlock Text="NEXT CONNECTION CHECK" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
                                     <TextBlock Text="{Binding ConnectionDetail}" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Atlas.Text}" Margin="0,7,0,0"/>
                                 </StackPanel>
                             </Border>
@@ -246,7 +246,7 @@
 
                     <Border Grid.Column="1" Style="{StaticResource Atlas.Card}" MinHeight="245">
                         <StackPanel>
-                            <TextBlock Text="DEVELOPMENT STATUS" FontSize="9" CharacterSpacing="120" Foreground="{StaticResource Atlas.Muted}" Margin="0,0,0,16"/>
+                            <TextBlock Text="DEVELOPMENT STATUS" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,0,0,16"/>
                             <StackPanel Margin="0,0,0,13">
                                 <TextBlock Text="01  ·  Application foundation" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
                                 <TextBlock Text="In Progress" FontSize="10" Foreground="{StaticResource Atlas.Accent}" Margin="18,4,0,0"/>
