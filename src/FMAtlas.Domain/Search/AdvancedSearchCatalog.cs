@@ -183,6 +183,17 @@ public static class AdvancedSearchCatalog
                 Players))
             .ToList();
 
+        if (category == AdvancedSearchCategoryKind.MentalAttributes)
+        {
+            attributes.AddRange(PlayerAttributeCatalog.PersonalityAttributes
+                .Select(attribute => F(
+                    $"personality_{attribute.Key}",
+                    $"Personality: {attribute.DisplayName}",
+                    category,
+                    SearchFieldValueKind.IntegerRange,
+                    Players)));
+        }
+
         if (category == AdvancedSearchCategoryKind.TechnicalGoalkeeping)
         {
             attributes.AddRange(PlayerAttributeCatalog.GetProfileGroups(true)
