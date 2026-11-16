@@ -8,7 +8,7 @@ namespace FMAtlas.Domain.Players;
 /// Nullable sourced fields mean unavailable/not imported; no default FM values
 /// are fabricated. Attribute dictionary keys use PlayerAttributeCatalog keys.
 /// </summary>
-public sealed record PlayerRecord(EntityIdentity Identity)
+public sealed record PlayerRecord(EntityIdentity Identity) : IEntityRecord
 {
     public SourcedValue<string>? FullName { get; init; }
     public SourcedValue<DateOnly>? DateOfBirth { get; init; }

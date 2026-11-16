@@ -7,7 +7,7 @@ namespace FMAtlas.Domain.Clubs;
 /// Typed club record. Finance, facility and other field keys are provider-defined
 /// until their FM27 meanings and mappings have been individually verified.
 /// </summary>
-public sealed record ClubRecord(EntityIdentity Identity)
+public sealed record ClubRecord(EntityIdentity Identity) : IEntityRecord
 {
     public SourcedValue<string>? Name { get; init; }
     public SourcedValue<string>? ShortName { get; init; }

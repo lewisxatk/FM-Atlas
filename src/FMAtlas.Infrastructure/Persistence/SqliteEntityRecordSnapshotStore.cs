@@ -39,10 +39,11 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         string? displayName,
         TRecord record,
         CancellationToken cancellationToken = default)
-        where TRecord : class
+        where TRecord : class, IEntityRecord
     {
-        ValidateIdentity(identity);
         ArgumentNullException.ThrowIfNull(record);
+        var identity = record.Identity;
+        ValidateIdentity(identity);
 
         var recordType = GetRecordType<TRecord>();
         var payload = JsonSerializer.Serialize(record, JsonOptions);
@@ -104,7 +105,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
     public async Task<TRecord?> GetSnapshotAsync<TRecord>(
         EntityIdentity identity,
         CancellationToken cancellationToken = default)
-        where TRecord : class
+        where TRecord : class, IEntityRecord
     {
         ValidateIdentity(identity);
 

@@ -7,7 +7,7 @@ namespace FMAtlas.Domain.Staff;
 /// Typed staff record. Attribute and knowledge keys remain source-catalogue
 /// identifiers; absent fields stay absent until a provider supplies evidence.
 /// </summary>
-public sealed record StaffRecord(EntityIdentity Identity)
+public sealed record StaffRecord(EntityIdentity Identity) : IEntityRecord
 {
     public SourcedValue<string>? FullName { get; init; }
     public SourcedValue<DateOnly>? DateOfBirth { get; init; }

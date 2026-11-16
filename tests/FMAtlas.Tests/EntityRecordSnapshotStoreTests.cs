@@ -41,7 +41,7 @@ public sealed class EntityRecordSnapshotStoreTests
         };
 
         var store = new SqliteEntityRecordSnapshotStore(path);
-        await store.SaveSnapshotAsync(identity, "Example Player", original);
+        await store.SaveSnapshotAsync(original, "Example Player");
 
         var loaded = await store.GetSnapshotAsync<PlayerRecord>(identity);
 
@@ -76,8 +76,8 @@ public sealed class EntityRecordSnapshotStoreTests
             FullName = new SourcedValue<string>("Steam Player", provenance)
         };
 
-        await store.SaveSnapshotAsync(gamePassIdentity, "Game Pass Player", gamePass);
-        await store.SaveSnapshotAsync(steamIdentity, "Steam Player", steam);
+        await store.SaveSnapshotAsync(gamePass, "Game Pass Player");
+        await store.SaveSnapshotAsync(steam, "Steam Player");
 
         var loadedGamePass = await store.GetSnapshotAsync<PlayerRecord>(gamePassIdentity);
         var loadedSteam = await store.GetSnapshotAsync<PlayerRecord>(steamIdentity);
@@ -115,8 +115,8 @@ public sealed class EntityRecordSnapshotStoreTests
             }
         };
 
-        await store.SaveSnapshotAsync(staffIdentity, "Coach Example", staff);
-        await store.SaveSnapshotAsync(clubIdentity, "Club Example", club);
+        await store.SaveSnapshotAsync(staff, "Coach Example");
+        await store.SaveSnapshotAsync(club, "Club Example");
 
         Assert.Equal("Coach Example", (await store.GetSnapshotAsync<StaffRecord>(staffIdentity))!.FullName!.Value);
         Assert.Equal(18, (await store.GetSnapshotAsync<ClubRecord>(clubIdentity))!.Facilities["training"].Value);
@@ -132,7 +132,7 @@ public sealed class EntityRecordSnapshotStoreTests
         var identity = new EntityIdentity(EntityKind.Player, "9", "test");
         var record = new PlayerRecord(identity);
 
-        await store.SaveSnapshotAsync(identity, null, record);
+        await store.SaveSnapshotAsync(record, null);
         await store.DeleteSnapshotAsync<PlayerRecord>(identity);
 
         Assert.Null(await store.GetSnapshotAsync<PlayerRecord>(identity));
@@ -148,7 +148,7 @@ public sealed class EntityRecordSnapshotStoreTests
         var identity = new EntityIdentity(EntityKind.Unknown, "1", "test");
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            store.SaveSnapshotAsync(identity, "Invalid", new PlayerRecord(identity)));
+            store.SaveSnapshotAsync(new PlayerRecord(identity), "Invalid"));
     }
 
     private sealed class TemporaryDirectory : IDisposable
