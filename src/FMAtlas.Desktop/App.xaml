@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              >
     <Application.Resources>
+        <BooleanToVisibilityConverter x:Key="Atlas.BooleanToVisibility"/>
         <SolidColorBrush x:Key="Atlas.Canvas" Color="#080808"/>
         <SolidColorBrush x:Key="Atlas.Sidebar" Color="#090909"/>
         <SolidColorBrush x:Key="Atlas.Surface" Color="#111111"/>
