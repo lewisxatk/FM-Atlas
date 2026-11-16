@@ -46,6 +46,17 @@ public partial class AdvancedSearchWindow : Window
         await _viewModel.RefreshIndexedFieldsAsync(entity);
     }
 
+    private void PositionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || string.IsNullOrWhiteSpace(button.Tag?.ToString()))
+            return;
+
+        _viewModel.SelectCategory(AdvancedSearchCategoryKind.General);
+        _viewModel.FieldSearchText = button.Tag.ToString()!;
+        RefreshSelection();
+        _viewModel.SetStatus("Position selected. Set the familiarity MIN/MAX range, then run Search.");
+    }
+
     private void CategoryButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button ||
@@ -216,6 +227,10 @@ public partial class AdvancedSearchWindow : Window
         PositionLogicComboBox.IsEnabled = _viewModel.SelectedEntity == SearchEntityKind.Player;
 
         SetSelected(GeneralCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.General);
+        PositionPitchPanel.Visibility = _viewModel.SelectedEntity == SearchEntityKind.Player &&
+            _viewModel.SelectedCategory == AdvancedSearchCategoryKind.General &&
+            string.IsNullOrWhiteSpace(_viewModel.FieldSearchText)
+                ? Visibility.Visible : Visibility.Collapsed;
         SetSelected(ContractCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.Contract);
         SetSelected(TechnicalGoalkeepingCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.TechnicalGoalkeeping);
         SetSelected(GoalkeepingCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.Goalkeeping);
