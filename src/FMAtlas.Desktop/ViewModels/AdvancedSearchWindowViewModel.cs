@@ -493,10 +493,9 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
                 when key is "coaching_attributes" or "scouting_attributes" or "training_rating"
                 => "COACHING / SCOUTING",
             AdvancedSearchCategoryKind.TechnicalGoalkeeping
-                when IsGoalkeepingField(key)
-                => "GOALKEEPING ATTRIBUTES",
-            AdvancedSearchCategoryKind.TechnicalGoalkeeping
                 => "TECHNICAL ATTRIBUTES",
+            AdvancedSearchCategoryKind.Goalkeeping
+                => "GOALKEEPING ATTRIBUTES",
 
             AdvancedSearchCategoryKind.MentalAttributes when key.StartsWith("personality_", StringComparison.OrdinalIgnoreCase)
                 => "PERSONALITY",
