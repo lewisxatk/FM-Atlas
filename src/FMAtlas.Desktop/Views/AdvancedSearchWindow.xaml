@@ -377,8 +377,8 @@
                 <Button Content="Load preset" Click="LoadPreset_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,6,0"/>
                 <Button Content="Save preset" Click="SavePreset_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,8,0"/>
                 <Button Content="Clear" Click="ClearFilters_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,6,0"/>
-                <Button Content="Cancel" Click="Cancel_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,6,0"/>
-                <Button Content="Search" Click="Search_Click" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="78"/>
+                <Button Content="Cancel" Click="Cancel_Click" IsCancel="True" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,6,0"/>
+                <Button Content="OK / Search" Click="Search_Click" IsDefault="True" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="78"/>
             </StackPanel>
         </DockPanel>
     </Grid>
