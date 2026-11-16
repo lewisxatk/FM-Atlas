@@ -54,13 +54,25 @@ public sealed class EntityBrowserViewModel : INotifyPropertyChanged
             Results.Clear();
             foreach (var result in found)
                 Results.Add(result);
-            StatusText = found.Count == 0
-                ? term.Length == 0
-                    ? $"No {Title.ToLowerInvariant()} are indexed yet. Load an FM27 career or import supported data, then choose Browse All."
-                    : $"No {Title.ToLowerInvariant()} matched “{term}”."
-                : term.Length == 0
-                    ? $"Showing {found.Count:N0} indexed {Title.ToLowerInvariant()}. Double-click a record to open its profile."
-                    : $"{found.Count:N0} {Title.ToLowerInvariant()} found. Double-click a record to open its profile.";
+            if (found.Count == 0 && term.Length > 0)
+            {
+                // Distinguish an empty local index from a genuine no-match result.
+                // Probe with women enabled so the global visibility preference does
+                // not make a populated directory look like an unimported career.
+                var anyIndexed = await _provider.QuickSearchAsync(
+                    string.Empty, [_kind], limit: 1, includeWomenPlayers: true);
+                StatusText = anyIndexed.Count == 0
+                    ? $"No {Title.ToLowerInvariant()} are indexed yet. Use Load Game with a fully loaded supported FM27 career, or import supported data, then search again."
+                    : $"No {Title.ToLowerInvariant()} matched “{term}”. Indexed records are present; check the spelling and active search type.";
+            }
+            else
+            {
+                StatusText = found.Count == 0
+                    ? $"No {Title.ToLowerInvariant()} are indexed yet. Use Load Game with a fully loaded supported FM27 career, or import supported data, then choose Browse All."
+                    : term.Length == 0
+                        ? $"Showing {found.Count:N0} indexed {Title.ToLowerInvariant()}. Double-click a record to open its profile."
+                        : $"{found.Count:N0} {Title.ToLowerInvariant()} found. Double-click a record to open its profile.";
+            }
         }
         catch (Exception exception)
         {
