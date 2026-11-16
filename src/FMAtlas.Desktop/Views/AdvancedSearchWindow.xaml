@@ -1,0 +1,240 @@
+<Window x:Class="FMAtlas.Desktop.Views.AdvancedSearchWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FM Atlas — Advanced Search"
+        Width="850"
+        Height="650"
+        MinWidth="760"
+        MinHeight="570"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Atlas.Canvas}"
+        Foreground="{StaticResource Atlas.Text}"
+        FontFamily="Segoe UI"
+        ResizeMode="CanResizeWithGrip">
+    <Window.Resources>
+        <Style x:Key="FilterLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="{StaticResource Atlas.Muted}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="FilterValue" TargetType="TextBox">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="MinWidth" Value="66"/>
+            <Setter Property="Background" Value="#171717"/>
+            <Setter Property="Foreground" Value="{StaticResource Atlas.Muted}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="IsEnabled" Value="False"/>
+        </Style>
+        <Style x:Key="FilterPanel" TargetType="Border">
+            <Setter Property="Background" Value="#101010"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10"/>
+        </Style>
+        <Style x:Key="FilterCategoryButton" TargetType="Button" BasedOn="{StaticResource Atlas.NavButton}">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Padding" Value="9,8"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+            <Setter Property="IsEnabled" Value="False"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,13">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="ADVANCED SEARCH" FontFamily="Georgia" FontSize="23" Foreground="{StaticResource Atlas.Text}"/>
+                <TextBlock Text="FMRTE-style filter workspace · REF-002" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
+            </StackPanel>
+            <Border Grid.Column="1" Background="{StaticResource Atlas.AccentSoft}" BorderBrush="#59301E" BorderThickness="1" CornerRadius="5" Padding="9,5" VerticalAlignment="Center">
+                <TextBlock Text="IN PROGRESS · SEARCH PROVIDER NOT CONNECTED" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Player" Style="{StaticResource Atlas.ProfileTabButton}" IsEnabled="False" Margin="0,0,5,0"/>
+                <Button Content="Coach" Style="{StaticResource Atlas.ProfileTabButton}" IsEnabled="False" Margin="0,0,5,0"/>
+                <Button Content="Club" Style="{StaticResource Atlas.ProfileTabButton}" IsEnabled="False"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="142"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="FILTER OPTIONS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="8,0,0,9"/>
+                <Button Content="General" Style="{StaticResource FilterCategoryButton}" Background="#211711" BorderBrush="#4A2A1D" Foreground="{StaticResource Atlas.Text}"/>
+                <Button Content="Contract" Style="{StaticResource FilterCategoryButton}"/>
+                <Button Content="Technical / GK" Style="{StaticResource FilterCategoryButton}"/>
+                <Button Content="Mental Attributes" Style="{StaticResource FilterCategoryButton}"/>
+                <Button Content="Physical / Hidden" Style="{StaticResource FilterCategoryButton}"/>
+                <Button Content="Preferred Moves" Style="{StaticResource FilterCategoryButton}"/>
+                <Button Content="Relations" Style="{StaticResource FilterCategoryButton}"/>
+                <Border Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="5" Padding="8" Margin="0,14,0,0">
+                    <TextBlock Text="Categories and controls are shown for layout review. They will be enabled only when their field mappings and query handlers are verified." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                </Border>
+            </StackPanel>
+
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
+                            <StackPanel>
+                                <TextBlock Text="PERSONAL DETAILS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Name" Style="{StaticResource FilterLabel}"/>
+                                    <TextBox Grid.Column="1" Style="{StaticResource FilterValue}"/>
+                                    <TextBlock Grid.Row="1" Text="Age" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="2" Text="Nationality" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="3" Text="2nd nation" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="4" Text="Int. caps" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="5" Text="Int. goals" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="6" Text="Height (cm)" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="7" Text="Weight (kg)" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
+                            <StackPanel>
+                                <TextBlock Text="REPUTATION" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock Text="Home" Style="{StaticResource FilterLabel}"/>
+                                    <TextBlock Grid.Row="1" Text="Current" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="2" Text="World" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBox Style="{StaticResource FilterValue}"/>
+                                        <TextBox Grid.Row="1" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                        <TextBox Grid.Row="2" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource FilterPanel}">
+                            <StackPanel>
+                                <TextBlock Text="ABILITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock Text="CA" Style="{StaticResource FilterLabel}"/>
+                                    <TextBlock Grid.Row="1" Text="PA" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="2" Text="Difference" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="3" Text="RCA" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBox Style="{StaticResource FilterValue}"/>
+                                        <TextBox Grid.Row="1" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                        <TextBox Grid.Row="2" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                        <TextBox Grid.Row="3" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
+                            <StackPanel>
+                                <TextBlock Text="PLAYER POSITIONS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <Border Background="#121713" BorderBrush="#303A31" BorderThickness="1" CornerRadius="4" Height="206">
+                                    <Grid Margin="12">
+                                        <Rectangle Stroke="#536454" StrokeThickness="1" Margin="0"/>
+                                        <Line X1="0" Y1="103" X2="300" Y2="103" Stroke="#536454" StrokeThickness="1"/>
+                                        <Ellipse Width="46" Height="46" Stroke="#536454" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,52,0,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,52,0,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,52,12,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12,0,0,52"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,52"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,12,52"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,12"/>
+                                    </Grid>
+                                </Border>
+                                <TextBlock Text="Position selection is a visual placeholder; pitch hit-testing and familiarity ranges are In Progress." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
+                            <StackPanel>
+                                <TextBlock Text="TEAM / DIVISION" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Division" Style="{StaticResource FilterLabel}"/>
+                                <TextBox Style="{StaticResource FilterValue}" Margin="0,4,0,8"/>
+                                <TextBlock Text="Team / Club" Style="{StaticResource FilterLabel}"/>
+                                <TextBox Style="{StaticResource FilterValue}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterPanel}">
+                            <StackPanel>
+                                <TextBlock Text="TRAINING STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <TextBlock Text="At club" Style="{StaticResource FilterLabel}"/>
+                                <TextBox Style="{StaticResource FilterValue}" Margin="0,4,0,8"/>
+                                <TextBlock Text="At nation" Style="{StaticResource FilterLabel}"/>
+                                <TextBox Style="{StaticResource FilterValue}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+
+        <DockPanel Grid.Row="3" Margin="0,14,0,0" LastChildFill="False">
+            <TextBlock Text="FILTER DEFINITIONS DOCUMENTED · QUERY EXECUTION NOT CONNECTED" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Cancel" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0"/>
+                <Button Content="OK" Style="{StaticResource Atlas.PrimaryButton}" IsEnabled="False" MinWidth="78"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>
