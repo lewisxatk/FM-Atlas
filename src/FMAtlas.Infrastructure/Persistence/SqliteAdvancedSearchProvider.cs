@@ -612,7 +612,7 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
         return string.Join(" AND ", clauses);
     }
 
-    private static string? FormatDate(DateOnly date) =>
+    private static string FormatDate(DateOnly date) =>
         date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private static string BuildContainsPattern(string value)
