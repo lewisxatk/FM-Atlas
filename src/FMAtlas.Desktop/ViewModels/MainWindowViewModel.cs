@@ -398,6 +398,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private async Task LoadLiveGameAsync()
     {
         IsBusy = true;
+        LiveSessionActive = false;
+        LiveWritesEnabled = false;
+        LivePlayerCount = 0;
+        LiveStaffCount = 0;
+        LiveClubCount = 0;
+        LastImportCountText = "—";
+        LastImportStatusText = "Live session loading";
+        QuickSearchResults.Clear();
+        QuickSearchMessage = "Loading the active FM27 career. Search is paused until the snapshot is verified.";
+        IsQuickSearchOpen = !string.IsNullOrWhiteSpace(QuickSearchText);
         IsLiveLoadOverlayVisible = true;
         LiveLoadProgress = 0;
         LiveLoadStage = "CONNECTING TO FOOTBALL MANAGER";
@@ -434,6 +444,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         catch (OperationCanceledException)
         {
             LiveSessionActive = false;
+            LiveWritesEnabled = false;
+            LivePlayerCount = 0;
+            LiveStaffCount = 0;
+            LiveClubCount = 0;
+            LastImportCountText = "—";
+            LastImportStatusText = "No active live snapshot";
+            QuickSearchResults.Clear();
             ConnectionStatus = "Load cancelled";
             ConnectionDetail = "FM Atlas cancelled the live load. No partial live dataset was kept.";
             LastAction = "Live career load cancelled";
@@ -442,6 +459,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             LiveSessionActive = false;
             LiveWritesEnabled = false;
+            LivePlayerCount = 0;
+            LiveStaffCount = 0;
+            LiveClubCount = 0;
+            LastImportCountText = "—";
+            LastImportStatusText = "No active live snapshot";
+            QuickSearchResults.Clear();
             ConnectionStatus = "Not connected";
             ConnectionDetail = exception.Message;
             LastAction = "Live career load failed";
