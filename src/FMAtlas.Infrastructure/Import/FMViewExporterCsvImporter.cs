@@ -85,6 +85,13 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         var providerKey = $"fm27-view-export:{fileHash[..20]}";
         var warnings = new List<string>();
         var provenance = CreateCsvEvidence();
+        if (FindColumn(headerLookup, "Gender") < 0)
+        {
+            AddWarning(
+                warnings,
+                "No Gender column was found. Players from this export remain gender-unknown, so the Include women filter cannot exclude women from this dataset.");
+        }
+
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
         var imported = 0;
         var skipped = 0;
