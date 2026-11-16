@@ -16,7 +16,7 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         Sections =
         [
             "Overview", "Attributes", "Contract", "Positions", "Preferred Moves",
-            "Season Stats", "History", "Personality / Hidden", "Relations",
+            "Season Stats", "History", "Personality", "Hidden Attributes", "Relations",
             "Languages", "Unavailability", "Transfer Proposals", "Retire Date",
             "Scout Information"
         ];
