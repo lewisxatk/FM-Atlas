@@ -135,7 +135,7 @@ internal sealed class FM27GamePass0935Reader
         var staffPointers = ReadArray(StaffArrayRva, "staff");
         var clubPointers = ReadArray(ClubsArrayRva, "clubs");
         var inGameDate = ReadInGameDate();
-        var records = new List<IEntityRecord>(playerPointers.Count + staffPointers.Count + clubPointers.Count);
+        var records = new List<IEntityRecord>(playerPointers.Length + staffPointers.Length + clubPointers.Length);
 
         var evidence = new FieldProvenance(
             DataSourceKind.LiveGameMemory,
@@ -146,9 +146,9 @@ internal sealed class FM27GamePass0935Reader
             Description: "Read from the externally mapped FM27 Game Pass 0.9.2435.0 layout. FM Atlas has not yet independently verified edit/write behaviour.");
 
         var processed = 0;
-        var total = Math.Max(1, playerPointers.Count + staffPointers.Count + clubPointers.Count);
+        var total = Math.Max(1, playerPointers.Length + staffPointers.Length + clubPointers.Length);
 
-        progress?.Report(new LiveGameLoadProgress(18, "Reading players", $"Preparing {playerPointers.Count:N0} player records."));
+        progress?.Report(new LiveGameLoadProgress(18, "Reading players", $"Preparing {playerPointers.Length:N0} player records."));
         foreach (var address in playerPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -164,15 +164,15 @@ internal sealed class FM27GamePass0935Reader
             }
 
             processed++;
-            if (processed % 250 == 0 || processed == playerPointers.Count)
+            if (processed % 250 == 0 || processed == playerPointers.Length)
             {
                 var percent = 18 + (int)(48.0 * processed / total);
-                progress?.Report(new LiveGameLoadProgress(percent, "Reading players", $"Read {processed:N0} of {playerPointers.Count:N0} player entries."));
+                progress?.Report(new LiveGameLoadProgress(percent, "Reading players", $"Read {processed:N0} of {playerPointers.Length:N0} player entries."));
             }
         }
 
         var playerCount = records.Count;
-        progress?.Report(new LiveGameLoadProgress(67, "Reading staff", $"Preparing {staffPointers.Count:N0} staff records."));
+        progress?.Report(new LiveGameLoadProgress(67, "Reading staff", $"Preparing {staffPointers.Length:N0} staff records."));
         foreach (var address in staffPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -187,15 +187,15 @@ internal sealed class FM27GamePass0935Reader
             }
 
             processed++;
-            if (processed % 250 == 0 || processed == playerPointers.Count + staffPointers.Count)
+            if (processed % 250 == 0 || processed == playerPointers.Length + staffPointers.Length)
             {
-                var percent = 67 + (int)(16.0 * (processed - playerPointers.Count) / Math.Max(1, total - playerPointers.Count));
-                progress?.Report(new LiveGameLoadProgress(percent, "Reading staff", $"Read {processed - playerPointers.Count:N0} of {staffPointers.Count:N0} staff entries."));
+                var percent = 67 + (int)(16.0 * (processed - playerPointers.Length) / Math.Max(1, total - playerPointers.Length));
+                progress?.Report(new LiveGameLoadProgress(percent, "Reading staff", $"Read {processed - playerPointers.Length:N0} of {staffPointers.Length:N0} staff entries."));
             }
         }
 
         var staffCount = records.Count - playerCount;
-        progress?.Report(new LiveGameLoadProgress(84, "Reading clubs", $"Preparing {clubPointers.Count:N0} club records."));
+        progress?.Report(new LiveGameLoadProgress(84, "Reading clubs", $"Preparing {clubPointers.Length:N0} club records."));
         foreach (var address in clubPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -212,8 +212,8 @@ internal sealed class FM27GamePass0935Reader
             processed++;
             if (processed % 250 == 0 || processed == total)
             {
-                var percent = 84 + (int)(11.0 * (processed - playerPointers.Count - staffPointers.Count) / Math.Max(1, clubPointers.Count));
-                progress?.Report(new LiveGameLoadProgress(percent, "Reading clubs", $"Read {processed - playerPointers.Count - staffPointers.Count:N0} of {clubPointers.Count:N0} club entries."));
+                var percent = 84 + (int)(11.0 * (processed - playerPointers.Length - staffPointers.Length) / Math.Max(1, clubPointers.Length));
+                progress?.Report(new LiveGameLoadProgress(percent, "Reading clubs", $"Read {processed - playerPointers.Length - staffPointers.Length:N0} of {clubPointers.Length:N0} club entries."));
             }
         }
 
@@ -443,7 +443,7 @@ internal sealed class FM27GamePass0935Reader
         if (count == 0)
             return [];
         var bytes = _memory.ReadBytes(begin, checked((int)(count * 8)));
-        var pointers = new ulong[count];
+        var pointers = new ulong[checked((int)count)];
         for (var index = 0; index < pointers.Length; index++)
             pointers[index] = BitConverter.ToUInt64(bytes, index * 8);
         return pointers;
@@ -621,20 +621,21 @@ internal sealed class FM27GamePass0935Reader
         return Math.Max(0, age);
     }
 
-    private static void AddFacility(
+    private void AddFacility(
         IDictionary<string, SourcedValue<int>> fields,
         string key,
         ulong address,
         FieldProvenance evidence)
     {
-        // Facility ratings in this build are documented 1–20 u8 values.
-        // The caller validates memory before surfacing the field.
         try
         {
-            // Filled by the instance helper below; this static method remains intentionally unused.
+            var value = _memory.ReadByte(address);
+            if (value is >= 1 and <= 20)
+                fields[key] = new SourcedValue<int>(value, evidence);
         }
         catch
         {
+            // A missing club information block remains an unknown value, never zero.
         }
     }
 
