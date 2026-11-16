@@ -213,6 +213,7 @@
                     <StackPanel>
                         <TextBlock Text="POSITION SELECTOR" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,7"/>
                         <Border Background="#142019" BorderBrush="#385541" BorderThickness="1" CornerRadius="5" Padding="8">
+                            <Viewbox Height="132" MaxWidth="270" Stretch="Uniform" HorizontalAlignment="Center">
                             <Canvas x:Name="PositionButtonsCanvas" Width="320" Height="190" HorizontalAlignment="Center">
                                 <Rectangle Width="320" Height="184" Stroke="#52745A" StrokeThickness="1"/>
                                 <Line X1="0" Y1="92" X2="320" Y2="92" Stroke="#52745A" StrokeThickness="1"/>
@@ -235,6 +236,7 @@
                                 <Button Content="SW" Tag="position_sw" Click="PositionButton_Click" Width="42" Height="22" Canvas.Left="139" Canvas.Top="150" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="9"/>
                                 <Button Content="GK" Tag="position_gk" Click="PositionButton_Click" Width="42" Height="22" Canvas.Left="139" Canvas.Top="166" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="9"/>
                             </Canvas>
+                            </Viewbox>
                         </Border>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,7,0,0">
                             <TextBlock Text="FAMILIARITY MIN" FontSize="8" Foreground="#D9DDE3" VerticalAlignment="Center" Margin="0,0,5,0"/>
