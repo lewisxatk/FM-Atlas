@@ -70,6 +70,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         ? new Uri(_clubLogoImagePath, UriKind.Absolute)
         : null;
     public bool HasClubLogo => ClubLogoUri is not null;
+    public bool HasNoClubLogo => !HasClubLogo;
     public string Subtitle => $"{Club.NationName?.Value ?? "Nation not imported"} · {Club.CompetitionName?.Value ?? "Competition not imported"} · {Club.Identity.ProviderKey}";
     public string FoundedText => Format(Club.FoundedYear?.Value);
     public string ReputationText => Format(Club.Reputation?.Value);
