@@ -55,6 +55,17 @@ public sealed class AdvancedSearchCatalogTests
     }
 
     [Fact]
+    public void MentalSearchIncludesSeparatePersonalityFields()
+    {
+        var fields = AdvancedSearchCatalog.GetAttributeFields(
+            SearchEntityKind.Player, AdvancedSearchCategoryKind.MentalAttributes);
+
+        Assert.Contains(fields, x => x.Key == "attribute_work_rate");
+        Assert.Contains(fields, x => x.Key == "personality_professionalism");
+        Assert.Contains(fields, x => x.DisplayName == "Personality: Professionalism");
+    }
+
+    [Fact]
     public void PhysicalAndHiddenSearchFieldsRemainTogetherInTheirFmrteCategory()
     {
         var fields = AdvancedSearchCatalog.GetAttributeFields(
