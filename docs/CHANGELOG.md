@@ -56,3 +56,14 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Live FM27 import, live newgen classification, Relations traversal, Recommended CA and live-save writing remain outstanding; live-save actions stay disabled.
 - Implemented the Relations query path over the existing `entity_relationships` table, including incoming/outgoing links and search by relationship kind or related entity name; added a provenance-backed SQLite relationship store and tests. The FM27 importer still needs to populate relationship rows.
 - Added a normalized relationship store and bidirectional Relations search (relationship kind or related entity name); the search path is implemented, while FM27 relationship discovery/import remains pending.
+
+
+## 2026-11-16 — Indexed-field search and read-only player profile handoff
+
+- Added an Indexed Data category backed by read-only field discovery from the local SQLite `field_values` table. The query model carries the discovered typed field catalogue through validation and execution.
+- Added regression coverage for discovered season-stat fields and for independently grouped position All/Any matching; club/division aliases are mapped to canonical projection keys.
+- Advanced Search remains source-implemented but not Windows-build-verified; current GitHub Actions jobs terminate before exposing steps/logs.
+- Double-clicking a player search result now opens the matching read-only typed PlayerRecord snapshot in its own window; duplicate windows for the same identity are focused instead of duplicated.
+- Player profile now binds snapshot-backed identity, CA/PA with evidence tooltips, attributes, season statistics, position ratings, preferred moves and nullable newgen classification.
+- App startup now uses the dependency-injected OnStartup path only, initialises the local Atlas schema before search providers are used, and reports initialisation errors. The conflicting StartupUri was removed.
+- Coach/Club profile navigation, section-specific profile views, portrait loading, live career import, authoritative live newgen population and all live editing remain In Progress.
