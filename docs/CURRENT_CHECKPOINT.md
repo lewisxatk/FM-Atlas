@@ -1070,3 +1070,21 @@ Re-opened FMLibreEditor 0.9.2435.0 recon, exact build profile, edit-field/write 
 - Re-opened the raw branch file and verified the method now runs from its declaration through the player/staff/club loops and `return records;` before `ReadPlayer` begins.
 - Correction commit: `290408df77aa1b7f5d0bfe9239fc812aeadcf637`.
 - Windows Actions runs #586/#587 for that exact commit still fail before creating job steps (`steps=null`, no log URL). The source correction is not yet compiler-verified.
+
+
+### Live-save continuation — strict scan completeness and connector shutdown
+
+**Date:** 2026-11-16 UTC
+
+- [x] Audited the existing FM27 Game Pass 0.9.2435.0 reader and confirmed that it uses an external-reference-only profile and a ReadProcessMemory-only accessor.
+- [x] Changed the player, staff and club scan loops from silent best-effort skipping to fail-closed behaviour: every pointer must produce a typed record with a valid identity or the whole scan aborts with entity kind and address.
+- [x] Because persistence happens only after ReadAllRecords returns, an incomplete scan is not saved as a successful live snapshot.
+- [x] Fixed connector disposal so an in-flight load/check can safely finish its semaphore release after the app requests disconnect.
+- [x] Re-opened the independent FMLibreEditor 0.9.2435.0 recon and edit/session implementation. It confirms that a field offset alone is not enough: entity/class checks, pointer relationship checks, current-value plausibility, writable-region checks, optimistic concurrency, read-back and guarded undo are required.
+- [ ] Current branch still needs a successful Windows restore/build/test and a real disposable-career comparison.
+- [ ] No FM Atlas process-memory write API exists. Save Live Changes remains disabled; Save Atlas is local SQLite only.
+- [ ] Only players, staff and clubs are presently live-indexed. Everything requires additional world-data providers and field coverage.
+
+**Latest live-read hardening commits:** `895eda4955cefa522c15f77f2aeda6fef293991b`, `009407fc8d48a4135ee0590700b57aa54cbd1118`, and research update `c90f694702445b1bfc3e43bb3d71e06d07433f64`.
+
+**Next critical task:** build a disposable-save field verification harness for the current read mappings, then implement a separate Windows writer with immediate preflight, read-back and undo. Do not enable writes based only on external offsets.
