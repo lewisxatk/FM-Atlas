@@ -1223,7 +1223,7 @@ Safety boundary: no live process writes and no modification of the user's career
 - [ ] Implement a separate process-memory writer, field allow-list, pre-write identity/generation checks, old-value check, read-back, conflict handling and undo on a disposable career.
 - [ ] Keep Save Live Changes disabled until the writer and per-field tests have passed.
 
-**Latest observed Windows Actions:** run #737, ID `43863750491`, on commit `afa624850ec5c3f5634c3605fe1fe7eeefee2d7b`, completed as failure. Its job record has `steps=null`, no logs URL and its log download returned 404/BlobNotFound. It failed before Restore/Build/Test ran. This is not evidence of a successful compile or a source compilation failure. The local environment has no .NET SDK, C# compiler, MSBuild or PowerShell.
+**Latest observed Windows Actions:** run #821, ID `43866844802`, on commit `fa8ebd4d5199ddc82c03512d1e065c04ff8323d8`, completed as failure. Its job record has `steps=null` and no logs URL, so Restore/Build/Test did not run. A retry has been accepted and is queued as job `133298049321`; no build/test result is available yet. This is not evidence of a successful compile or a source compilation failure. The local environment has no .NET SDK, C# compiler, MSBuild or PowerShell.
 
 **Design review:** `docs/UI_REVIEW_001.md`.  
 **Live connection safety:** `research/LIVE_GAME_CONNECTION_001.md` and `research/LIVE_EDIT_SAFETY_001.md`.  
@@ -1300,3 +1300,23 @@ Safety boundary: no live process writes and no modification of the user's career
 3. Compare live records with the user's exact FM27 Game Pass build and a disposable career; promote only independently checked fields from Mapped to ReadVerified.
 4. Continue implementing source-backed club data families and Player/Staff profile history, stats, languages, clauses, vision, transfers and related tabs as their actual save structures are confirmed.
 5. Do not enable live editing until per-field writer, read-back, conflict and undo verification is complete.
+
+
+### Checkpoint 023 — final club relationship, staff rail and workspace polish
+
+- [x] Club Squads query uses player `club_uid` from the current team -> club pointer.
+- [x] Club Staff query uses staff `club_uid` from the contract -> team -> club pointer.
+- [x] Double-clicking a linked player or staff record opens its existing full profile workspace tab.
+- [x] Club profile displays all typed values already present in its ClubRecord maps across the audited sections; overlapping field prefixes are de-duplicated.
+- [x] Staff profile identity rail includes DOB, club, role, game UID and contract summary.
+- [x] Main-window header breadcrumb tracks the selected dashboard, directory or profile tab.
+- [x] Removed the stale “IN PROGRESS” label from Players navigation; deferred tools remain disabled.
+- [x] Final static XAML resource/event check: 7 XAML files balanced; 38 event handlers resolved; no missing static resources.
+- [ ] Windows .NET 8 restore/build/test and visual screenshot review remain outstanding.
+- [ ] Validate both player and staff club-UID offsets against the live FM27 Game Pass 0.9.2435.0 career. Current status is Mapped, not ReadVerified.
+- [ ] Populate remaining club data families (youth intake, vision, affiliations, kits, clauses, proposals, complete attendances, etc.) from verified source records.
+- [ ] Implement a verified live writer and read-back/undo before enabling Save Live Changes.
+
+**Latest design review:** `docs/UI_REVIEW_001.md`.  
+**Latest live technical notes:** `research/LIVE_GAME_CONNECTION_001.md`.  
+**Current source branch head at this checkpoint:** see `rebuild/fresh-foundation-001`; no installable package has passed Windows build and tests.
