@@ -162,3 +162,92 @@ Official source: [FMRTE 27 product overview](https://www.fmrte.com/) and [FMRTE 
 FMRTE places record sections in a collapsible left rail and uses main tabs for records. FM Atlas will **not** copy that exact navigation location because the user has specified compact player-specific buttons/tabs across the top of each full-screen player profile. The section names and functionality are the FMRTE reference; the placement follows the user's REF-004 instruction. Use small, consistent controls and an overflow treatment if the screen becomes too narrow.
 
 The left identity column and central attribute area from REF-004 remain the profile's controlling composition. Do not replace the user's design with a generic FMRTE clone.
+
+
+## 9. Uploaded FMRTE 27.0.1 build 12 package inspection
+
+The user's uploaded `FMRTE 27.0.1-build12.zip` was inspected as an archive without executing the program. Its `current/sq.version` identifies:
+- package ID: `FMRTE27`;
+- version: `27.0.1-build12`;
+- channel: stable;
+- Windows x64 package;
+- release note compatibility target: Football Manager update `27.0.1 2503222`.
+
+The package includes UI reference images under `current/Assets/whatsnew/`. The following were opened and inspected:
+
+### Edit History image
+
+`edit-history.png` shows:
+- a search field for changes;
+- changes grouped by player and time/page-save batch;
+- per-field old and new values;
+- an Undo action for an individual change;
+- Undo all for a grouped batch;
+- Clear history.
+
+FM Atlas should provide this as a dedicated Changes / Edit History workspace, with per-field and grouped rollback only when the current game value still matches the recorded write.
+
+### Potential Attributes image
+
+`potential-attributes.png` shows:
+- Technical / Goal Keeper switching;
+- separate Mental, Physical and Hidden panels;
+- current / potential mode;
+- role selection;
+- Key for role, Preferable and Lower is better flags;
+- custom role-attribute weight values;
+- Make Wonderkid;
+- player presets.
+
+FM Atlas should distinguish actual player attributes from role-weighting metadata and any calculated potential/role recommendations. The latter must not be presented as raw game attributes.
+
+### Assistant review image
+
+`assistant-review.png` shows a review-before-apply workflow:
+- proposed operations grouped by player;
+- selectable checkboxes for each proposed change;
+- field name;
+- current value and proposed value;
+- expandable reasons.
+
+This is a useful later design pattern for bulk edit previews. It is not required for the first simple editor release.
+
+### Mass-edit preset image
+
+`mass-edit-preset.png` shows a named preset workflow with duplicate-name detection and Replace. Presets are scoped to entity types (the image notes an existing Players preset being replaced/moved to Clubs). FM Atlas should keep preset namespaces separate for Players, Staff and Clubs and confirm replacement.
+
+### Career Plans image
+
+`career-plans.png` shows a staff/player career-plan style set of fields including future Job, Outlook and an in-game narrative. Staff Career Plans remains part of the staff profile audit.
+
+### Tactical Understanding images
+
+`tactical-understanding.png` shows:
+- selectable tactical presets;
+- Match Exposure;
+- In Possession: Passing Style, Build Up, Chance Creation;
+- Out of Possession: Line of Engagement, Pressing Intensity, Pressing Trap;
+- Shapes: Position/Role;
+- Team Cohesion.
+
+`national-tactical-understanding.png` shows the national-team variant with men's/women's football and age-group team tabs, plus Match Exposure and Training Contribution for the same tactical dimensions and Team Cohesion.
+
+FM Atlas must keep observed game values separate from any inferred score or explanation. Tactical Understanding is a later research milestone; no formula or memory mapping is assumed from these images.
+
+### Build 12 release notes
+
+The package's `sq.version` release notes state:
+- support for FM update 27.0.1 build 2503222;
+- loan-to-buy fee optional / mandatory / after a number of matches;
+- future loan-to-buy fees and clauses;
+- unused wage;
+- future transfer fee and clause editing;
+- revised loan-contract layout and unsaved-edit markers;
+- future transfer details and filters;
+- a fix for contract start date changing after transfer-date edits.
+
+These are additional feature-discovery items for the later transfer/loan editing roadmap. They are not initial simple-editor blockers.
+
+### Handling and reuse
+
+The FMRTE package was not executed, decompiled or copied into FM Atlas. Its version metadata, release notes and bundled UI screenshots were used as feature/interaction evidence only. FMRTE remains a commercial/proprietary product; do not copy its code or assets into FM Atlas.
