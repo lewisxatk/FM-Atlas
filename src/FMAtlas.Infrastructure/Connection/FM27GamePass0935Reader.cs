@@ -293,7 +293,7 @@ internal sealed class FM27GamePass0935Reader
             fullName ?? $"UID {uid}";
 
         var dateOfBirth = MakeFmDate(U16(0x310, offset), U16(0x312, offset));
-        var age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
+        int? age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
         var nationality = ReadNationName(U64(0x2F0, offset));
         var (secondNationality, relationSearchText) = ReadPlayerRelations(U64(0x300, offset), evidence);
         var cityOfBirth = ReadCityName(U64(0x308, offset));
@@ -496,7 +496,7 @@ internal sealed class FM27GamePass0935Reader
             fullName ?? $"UID {uid}";
 
         var dateOfBirth = MakeFmDate(U16(0x188, offset), U16(0x18A, offset));
-        var age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
+        int? age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
         var genderFlags = B(0x119, offset);
         var nationality = ReadNationName(U64(0x168, offset));
 
