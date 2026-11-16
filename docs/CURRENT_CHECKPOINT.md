@@ -562,3 +562,40 @@ None known. All code and research above are committed. Re-read the branch head a
 3. Implement the Advanced Search SQLite query executor with a tested supported-field subset; keep all unsupported fields In Progress.
 4. Connect PlayerRecord loading to REF-004 profile tabs and graphics locator.
 5. Add read-only career/save import provider and verify records against the actual FM27 Game Pass build.
+
+
+---
+
+## Checkpoint 013 — local Atlas save and live-save action placeholders
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Code commit:** `8b614737ce59ee9b1d834f0c478d32217942b81f`
+
+### Work saved
+
+- The desktop app now constructs the local SQLite database under the current user's LocalApplicationData `FM Atlas/atlas.db` folder.
+- Added a working **Save Atlas** command. It creates/initialises the local database, verifies the schema version and reports the resulting local path.
+- Separated process detection from live-career loading in the header: the active process check is labelled **Detect Game**.
+- Added visible **Load Live Save** and **Save Live Save** actions, intentionally disabled and labelled In Progress until career identity, read mapping and guarded write verification exist.
+- The existing local database save is distinct from saving the user's FM career. Save Atlas does not modify the live save.
+
+### Verification
+
+- Desktop composition references the existing Infrastructure project, which contains AtlasDatabase.
+- The UI and view-model changes are committed.
+- Latest Windows Actions run for the UI commit: [43830820075](https://github.com/lewisxatk/FM-Atlas/actions/runs/43830820075). It was queued at the time of this checkpoint; no successful build/test result is claimed.
+- Latest successful Windows build remains the earlier fallback artifact from `fbe36400`; it predates the fresh-foundation code.
+
+### Next actions
+
+1. Verify the queued Windows build and fix any real compile/XAML/test errors.
+2. Implement the read-only FM27 Game Pass career/save identity provider.
+3. Enable Load Live Save only after a real save can be identified and imported without modifying it.
+4. Connect the imported PlayerRecord to the profile, including CA, PA, all visible attributes, hidden/personality groups and portrait lookup.
+5. Implement Save Live Save only after the write adapter has build-specific field mappings, preflight checks, read-back and rollback tests.
+6. Wire Quick Search to the new SQLite provider; keep Advanced Search controls In Progress until validated query execution exists.
+
+### Explicit safety boundary
+
+No live career file has been changed. No process memory has been read or written. The only new save operation here is the local Atlas database initialisation.
