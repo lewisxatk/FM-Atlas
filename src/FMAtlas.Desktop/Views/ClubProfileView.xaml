@@ -30,8 +30,7 @@
                     <ItemsControl.ItemTemplate><DataTemplate>
                         <Button Content="{Binding Name}"
                                 Command="{Binding DataContext.SelectSectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding Name}"
-                                Style="{StaticResource Atlas.ProfileTabButton}">
+                                CommandParameter="{Binding Name}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
                                         <Style.Triggers>
