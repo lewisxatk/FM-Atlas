@@ -139,5 +139,52 @@
             <Setter Property="CornerRadius" Value="9"/>
             <Setter Property="Padding" Value="17"/>
         </Style>
+
+        <Style x:Key="Atlas.ProfilePanel" TargetType="Border">
+            <Setter Property="Background" Value="#101010"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+
+        <Style x:Key="Atlas.ProfileInfoText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="{StaticResource Atlas.Muted}"/>
+            <Setter Property="Margin" Value="0,0,0,7"/>
+        </Style>
+
+        <Style x:Key="Atlas.ProfileTabButton" TargetType="Button" BasedOn="{StaticResource Atlas.ButtonBase}">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource Atlas.Muted}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TabBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="#1A1714"/>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#4A2A1D"/>
+                                <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="TabBorder" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Application.Resources>
 </Application>
