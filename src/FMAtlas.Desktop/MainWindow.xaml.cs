@@ -175,6 +175,23 @@ public partial class MainWindow : Window
         searchWindow.ShowDialog();
     }
 
+    private void WorkspaceTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, WorkspaceTabControl) ||
+            WorkspaceTabControl.SelectedItem is not TabItem selected)
+            return;
+
+        var title = selected.Header switch
+        {
+            string text => text,
+            DockPanel panel => panel.Children.OfType<TextBlock>().FirstOrDefault()?.Text,
+            _ => null
+        };
+        CurrentWorkspaceBreadcrumb.Text = string.IsNullOrWhiteSpace(title)
+            ? "WORKSPACE"
+            : title.ToUpperInvariant();
+    }
+
     private void NavigationButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string destination })
