@@ -184,12 +184,15 @@ internal sealed class FM27GamePass0935Reader
             try
             {
                 var player = ReadPlayer(address, evidence, inGameDate);
-                if (player is not null)
-                    records.Add(player);
+                if (player is null)
+                    throw new InvalidDataException("The player object did not contain a verifiable FM player identity.");
+                records.Add(player);
             }
             catch (Exception ex) when (IsRecoverableEntityReadException(ex))
             {
-                // A single malformed/deleted object does not abort an otherwise valid scan.
+                throw new InvalidDataException(
+                    $"FM Atlas could not fully read player object 0x{address:X}. The live scan has been stopped; no partial career snapshot will be indexed.",
+                    ex);
             }
 
             processed++;
@@ -208,11 +211,15 @@ internal sealed class FM27GamePass0935Reader
             try
             {
                 var staff = ReadStaff(address, evidence, inGameDate);
-                if (staff is not null)
-                    records.Add(staff);
+                if (staff is null)
+                    throw new InvalidDataException("The staff object did not contain a verifiable FM staff identity.");
+                records.Add(staff);
             }
             catch (Exception ex) when (IsRecoverableEntityReadException(ex))
             {
+                throw new InvalidDataException(
+                    $"FM Atlas could not fully read staff object 0x{address:X}. The live scan has been stopped; no partial career snapshot will be indexed.",
+                    ex);
             }
 
             processed++;
@@ -231,11 +238,15 @@ internal sealed class FM27GamePass0935Reader
             try
             {
                 var club = ReadClub(address, evidence);
-                if (club is not null)
-                    records.Add(club);
+                if (club is null)
+                    throw new InvalidDataException("The club object did not contain a verifiable FM club identity.");
+                records.Add(club);
             }
             catch (Exception ex) when (IsRecoverableEntityReadException(ex))
             {
+                throw new InvalidDataException(
+                    $"FM Atlas could not fully read club object 0x{address:X}. The live scan has been stopped; no partial career snapshot will be indexed.",
+                    ex);
             }
 
             processed++;
