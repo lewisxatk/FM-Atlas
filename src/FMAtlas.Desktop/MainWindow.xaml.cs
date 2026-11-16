@@ -29,6 +29,18 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         _mainWindowViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+        _mainWindowViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainWindowViewModel.IsLiveLoadOverlayVisible) &&
+                _mainWindowViewModel.IsLiveLoadOverlayVisible)
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    Keyboard.ClearFocus();
+                    LiveLoadOverlay.Focus();
+                }, DispatcherPriority.Input);
+            }
+        };
         _advancedSearchProvider = advancedSearchProvider ?? throw new ArgumentNullException(nameof(advancedSearchProvider));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _playerExportImporter = playerExportImporter ?? throw new ArgumentNullException(nameof(playerExportImporter));
