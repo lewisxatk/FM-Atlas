@@ -38,6 +38,16 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         _mainWindowViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+        _mainWindowViewModel.LiveDataInvalidated += (_, _) =>
+        {
+            var staleKeys = _openWorkspaceTabs.Keys
+                .Where(key => key.StartsWith("directory|", StringComparison.Ordinal) ||
+                              key.Contains("|live-fm27-gamepass-", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            foreach (var key in staleKeys)
+                CloseWorkspaceTab(key);
+        };
+
         _mainWindowViewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName != nameof(MainWindowViewModel.IsLiveLoadOverlayVisible))
