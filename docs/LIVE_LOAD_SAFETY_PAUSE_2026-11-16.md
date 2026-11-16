@@ -1,60 +1,46 @@
-# FM27 live-load safety pause
+# FM27 live-load incident and mitigations
 
-**Date:** 16 November 2026  
+**Date opened:** 16 November 2026  
 **Branch:** `rebuild/fresh-foundation-001`  
-**Status:** Live process scanning disabled in the desktop application pending investigation.
+**Current state:** Guarded exact-build, read-only live connection re-enabled for first-user validation. The original cause remains unknown.
 
-## Reported incident
+## User report
 
-The user reported that pressing **Load Game** in FM Atlas caused Football Manager to close without a warning. The exact time within the scan, Windows error details, crash dump and game build fingerprint from that session have not been supplied. The root cause is therefore **unknown**.
+The user observed Football Manager closing after pressing FM Atlas **Load Game**. There was no warning or crash dialog reported. The user later noted the timing may have been coincidental. No Windows Application event log, crash dump or exact incident-time module fingerprint has been supplied. Do not infer causation either way.
 
-Treat this as a serious data-safety incident. Do not ask the user to reproduce it on a valuable career.
+## Source inspection
 
-## What source inspection establishes
+The inspected scanner:
+- enumerates the `fm` process and `game_plugin.dll`;
+- checks the module PE timestamp, image size and machine against the external Game Pass 0.9.2435.0 reference;
+- requests `PROCESS_VM_READ | PROCESS_QUERY_INFORMATION` only;
+- reads using `ReadProcessMemory`;
+- exposes no process terminate, memory write or process kill API.
 
-The experimental live connector:
-- Locates the `fm` process and enumerates its `game_plugin.dll` module.
-- Checks a PE fingerprint against a reference profile for FM27 Game Pass 0.9.2435.0.
-- Opens the process with `PROCESS_VM_READ | PROCESS_QUERY_INFORMATION`.
-- Reads external process memory using `ReadProcessMemory`.
-- Holds a process object and read handle while it monitors the save-generation value.
+This establishes the access requested by the code, not that the scan cannot race the game or cause unexpected instability. The exact offsets remain externally sourced until compared with the user's active FM27 career.
 
-The inspected `WindowsProcessMemoryAccessor` exposes no write method. The inspected connector has no explicit call to `Process.Kill`, `Process.CloseMainWindow` or `TerminateProcess`; its cleanup disposes the managed `Process` object and closes its read handle.
+## Mitigations now implemented
 
-This source inspection does **not** prove that the scanner is harmless. It uses externally mapped addresses and pointer relationships that have not been validated against the user's live career. A package fingerprint match alone is not enough to establish that every memory read is valid, safe or correct. No confirmed explanation for the game closure is available yet.
+1. Load Game now requires explicit user confirmation before connecting. Declining the prompt makes no connector call.
+2. The exact Game Pass fingerprint gate remains. Unknown or different builds are rejected before process-memory reads.
+3. `WindowsProcessMemoryAccessor` checks each requested range using `VirtualQueryEx`; it rejects uncommitted, guarded or non-readable memory, bounds pointer/range arithmetic and read length, and requests no write/termination rights.
+4. The connector writes a local diagnostic log to `%LOCALAPPDATA%\FM Atlas\Logs\live-connection.log`, recording stage, process/module fingerprint, read counts, validator result and errors without player names, UIDs or raw career data.
+5. Before database import, a layout validator checks all three entity families, provider-scoped unique IDs, names, CA coverage, position ratings, natural-position ratings and player-to-club UID links. Failed checks discard the scan.
+6. Save-generation checks before and after scanning/import remain in place. Field evidence stays `Mapped`, not `ReadVerified`, until values are compared with the user's in-game values.
+7. Signed negative PA values documented as random-potential range markers are preserved and explained in the player profile.
+8. `Save Live Changes` remains disabled. No live writer is enabled.
 
-## Immediate fail-closed changes
+## Automated verification
 
-- `LiveLoadSafetyGateEnabled` is set to `false` in the desktop view model.
-- The command cannot execute while that constant is false.
-- `LoadLiveGameAsync` returns before changing UI state or calling the connector if the gate is false.
-- Both visible Load Game controls are disabled and labelled **Live Load Paused**.
-- The dashboard explains the pause.
-- CSV import, local database operations, Quick Search, Advanced Search and local profile views remain usable.
-- Save Live Changes remains disabled; no writer is implemented.
+Windows Actions run [#933](https://github.com/lewisxatk/FM-Atlas/actions/runs/43909923853), commit `50948ad51fa217e860dc3d482167bf08418877ae`, passed:
+- 111 automated tests;
+- self-contained x64 publish and ZIP packaging;
+- an eight-second WPF process-start smoke test.
 
-The experimental scanner source is retained for controlled investigation, but the UI must not call it while the gate remains false.
+That run reported two compiler warnings. Both have been corrected and tests for signed PA range handling have been added. A fresh Windows Actions run is the acceptance gate for the clean package.
 
-## Previous build evidence and its limit
+CI does not run Football Manager and cannot validate external addresses or game stability. The user's actual Windows 10 / FM27 session remains required.
 
-Windows build #903 passed restore, Release compilation, 107 automated tests, self-contained x64 publish and an eight-second WPF process-start smoke test on a Windows Server 2025 runner. Football Manager was not running during that smoke test. It did not exercise live process access and is not evidence that the connector is safe. The new safety-paused source requires a fresh Windows build before distribution.
+## First-user acceptance
 
-## Re-enable requirements
-
-Do not change the safety gate to true until all of the following have been addressed:
-
-1. Review Windows Application event logs and any Football Manager/Game Pass crash records available from the affected session.
-2. Review the exact installed FM executable and `game_plugin.dll` fingerprint, process architecture, file versions and the reader's module-relative and heap-relative address assumptions.
-3. Audit every pointer chain, count, stride and collection traversal against authoritative evidence for the exact installed package. A fingerprint match is not enough.
-4. Add bounded reads, conservative scan limits, cancellation and explicit checks for every pointer/region before reading. Avoid assumptions that an in-game array remains stable while it is being traversed.
-5. Prove the connector cannot invoke process termination or write APIs, and add diagnostic logging that captures scan stage and last validated object without dumping private career data.
-6. Run in a disposable/offline career and compare a small initial sample with the in-game UI. Expand only after the first sample passes without game instability.
-7. Keep a manual-save/backup recovery path and stop immediately on any crash, close or mismatch.
-
-The user's own Windows 10/FM27 environment must be part of final acceptance. A hosted CI startup smoke test cannot replace it.
-
-## User safety guidance
-
-Until a safety-paused build is supplied, keep the current FM Atlas build away from the **Load Game** action. If Football Manager has closed, reopen it and check whether the game offers a crash-recovery or auto-save version; compare the save timestamps and preserve the last known-good manual save rather than overwriting it.
-
-No career-save file has been requested or needed for this investigation.
+Use a manually saved disposable/offline career or a copy. Confirm the warning, start the guarded scan, compare a small sample of names, UIDs, CA/PA, attributes, staff and clubs against FM27's UI, and check that the connection diagnostic log shows all validation stages. Stop at the first unexpected closure, hang or mismatch. Preserve the log and last known-good manual save. Do not enable live editing based on read-only test success.
