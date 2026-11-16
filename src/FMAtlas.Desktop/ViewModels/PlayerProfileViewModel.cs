@@ -14,7 +14,10 @@ namespace FMAtlas.Desktop.ViewModels;
 /// </summary>
 public sealed class PlayerProfileViewModel : INotifyPropertyChanged
 {
-    private string _selectedSection = "Overview";
+    private string _selectedSection = "Information";
+    private readonly ObservableCollection<ProfileValueRowViewModel> _selectedSectionRows = [];
+    private string _sectionDescription = "Player information and the full supported FM attribute set.";
+    private string _sectionEmptyText = string.Empty;
 
     public PlayerProfileViewModel(PlayerRecord player)
     {
@@ -22,10 +25,9 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         OpenPlayers = [];
         Sections =
         [
-            "Overview", "Attributes", "Contract", "Positions", "Preferred Moves",
-            "Season Stats", "History", "Personality", "Hidden Attributes", "Relations",
-            "Staff", "Clone Center", "Role Attributes", "Languages", "Unavailability",
-            "Transfer Proposals", "Retire Date", "Scout Information"
+            "Information", "Contract", "Stats", "Unavailability", "Transfer Proposals",
+            "Retire Date", "Positions", "Preferred Moves", "Relationships", "Languages",
+            "Scout Information", "Staff", "Clone Center", "Personality / Hidden", "History"
         ];
 
         // The public FMLibreEditor profile catalogue uses GK >= 15 to select
@@ -67,6 +69,7 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
             if (section is string name && Sections.Contains(name))
                 SelectedSection = name;
         });
+        UpdateSelectedSectionRows();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -90,8 +93,23 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
                 return;
             _selectedSection = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsInformationSection));
+            UpdateSelectedSectionRows();
         }
     }
+
+    public ObservableCollection<ProfileValueRowViewModel> SelectedSectionRows => _selectedSectionRows;
+    public string SectionDescription
+    {
+        get => _sectionDescription;
+        private set { _sectionDescription = value; OnPropertyChanged(); }
+    }
+    public string SectionEmptyText
+    {
+        get => _sectionEmptyText;
+        private set { _sectionEmptyText = value; OnPropertyChanged(); }
+    }
+    public bool IsInformationSection => SelectedSection == "Information";
 
     public string PlayerTitle => Player.FullName?.Value ?? "Unnamed player record";
     public string PlayerSubtitle => $"{Player.Identity.ProviderKey} · Source ID {Player.Identity.SourceId}";
@@ -147,6 +165,147 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         }
     }
     public bool HasPlayer => true;
+
+    private void UpdateSelectedSectionRows()
+    {
+        _selectedSectionRows.Clear();
+        var rows = new List<ProfileValueRowViewModel>();
+        void Add(string name, string? value, FieldProvenance? provenance = null)
+        {
+            if (string.IsNullOrWhiteSpace(value) || value == "Not imported")
+                return;
+            rows.Add(new ProfileValueRowViewModel(name, value, provenance is null ? "Mapped value" : Evidence(provenance)));
+        }
+        void AddMap<T>(string prefix, IReadOnlyDictionary<string, SourcedValue<T>> map)
+        {
+            foreach (var pair in map.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+                if (pair.Key.Contains(prefix, StringComparison.OrdinalIgnoreCase))
+                    Add(Humanise(pair.Key), FormatObject(pair.Value.Value), pair.Value.Provenance);
+        }
+
+        switch (SelectedSection)
+        {
+            case "Information":
+                SectionDescription = "Player identity, CA/PA, personal information and the complete supported FM attribute catalogue.";
+                break;
+            case "Contract":
+                SectionDescription = "Current contract, value and wage fields supplied by the loaded save.";
+                Add("Wage", Format(Player.Wage?.Value), Player.Wage?.Provenance);
+                Add("Contract expiry", Format(Player.ContractExpires?.Value), Player.ContractExpires?.Provenance);
+                Add("Transfer value", Format(Player.TransferValue?.Value), Player.TransferValue?.Provenance);
+                AddMap("contract", Player.SearchDateFields);
+                AddMap("contract", Player.SearchIntegerFields);
+                AddMap("contract", Player.SearchTextFields);
+                AddMap("contract", Player.SearchDecimalFields);
+                break;
+            case "Stats":
+                SectionDescription = "Season statistics from the loaded save. This area is read-only until verified stat records are available.";
+                rows.AddRange(SeasonStatistics);
+                break;
+            case "Unavailability":
+                SectionDescription = "Bans and availability restrictions from the loaded career.";
+                AddMap("ban", Player.SearchTextFields);
+                AddMap("unavail", Player.SearchTextFields);
+                AddMap("ban", Player.SearchDateFields);
+                AddMap("unavail", Player.SearchDateFields);
+                AddMap("ban", Player.SearchIntegerFields);
+                break;
+            case "Transfer Proposals":
+                SectionDescription = "Existing offers and transfer proposals involving this player.";
+                AddMap("offer", Player.SearchTextFields);
+                AddMap("transfer_proposal", Player.SearchTextFields);
+                AddMap("offer", Player.SearchDecimalFields);
+                break;
+            case "Retire Date":
+                SectionDescription = "Scheduled retirement information, if the loaded career exposes it.";
+                AddMap("retire", Player.SearchDateFields);
+                AddMap("retire", Player.SearchTextFields);
+                break;
+            case "Positions":
+                SectionDescription = "FM position familiarity, in the canonical position catalogue order.";
+                rows.AddRange(PositionRatings);
+                break;
+            case "Preferred Moves":
+                SectionDescription = "Preferred moves / player traits recorded in the loaded save.";
+                foreach (var move in Player.PreferredMoves)
+                    Add("Preferred move", move.Value, move.Provenance);
+                break;
+            case "Relationships":
+                SectionDescription = "Second nationality, training history and supported person, club and nation relationships.";
+                Add("Second nationality", Player.SecondNationality?.Value, Player.SecondNationality?.Provenance);
+                AddMap("", Player.SearchTextFields.Where(x => x.Key.Contains("trained", StringComparison.OrdinalIgnoreCase) ||
+                    x.Key.Contains("relation", StringComparison.OrdinalIgnoreCase) ||
+                    x.Key.Contains("work_permit", StringComparison.OrdinalIgnoreCase))
+                    .ToDictionary(x => x.Key, x => x.Value));
+                break;
+            case "Languages":
+                SectionDescription = "Spoken languages and proficiency, when the loaded save exposes them.";
+                AddMap("language", Player.SearchTextFields);
+                AddMap("language", Player.SearchIntegerFields);
+                break;
+            case "Scout Information":
+                SectionDescription = "Scout, positional and role ratings only when the source supplies the actual values.";
+                AddMap("scout", Player.SearchIntegerFields);
+                AddMap("role", Player.SearchIntegerFields);
+                AddMap("scout", Player.SearchDecimalFields);
+                break;
+            case "Staff":
+                SectionDescription = "Staff-side information for player-coaches. This player snapshot does not currently contain a linked staff record.";
+                AddMap("staff", Player.SearchTextFields);
+                AddMap("staff", Player.SearchIntegerFields);
+                break;
+            case "Clone Center":
+                SectionDescription = "Clone Center is conditional and will only copy supported fields to existing target players after safe editing is verified.";
+                break;
+            case "Personality / Hidden":
+                SectionDescription = "Hidden and personality fields are shown separately from ordinary visible attributes.";
+                foreach (var pair in Player.HiddenAttributes.OrderBy(x => x.Key))
+                    Add(Humanise(pair.Key), FormatObject(pair.Value.Value), pair.Value.Provenance);
+                foreach (var pair in Player.Personality.OrderBy(x => x.Key))
+                    Add(Humanise(pair.Key), FormatObject(pair.Value.Value), pair.Value.Provenance);
+                break;
+            case "History":
+                SectionDescription = "Career and transfer history from the loaded save.";
+                AddMap("history", Player.SearchTextFields);
+                AddMap("history", Player.SearchDateFields);
+                break;
+        }
+
+        foreach (var row in rows)
+            _selectedSectionRows.Add(row);
+
+        SectionEmptyText = rows.Count == 0
+            ? SelectedSection switch
+            {
+                "Information" => string.Empty,
+                "Stats" => "No season statistics were imported. This section will populate when the live provider exposes season/competition stat records.",
+                "Unavailability" => "No ban or unavailability records were supplied by the loaded source.",
+                "Transfer Proposals" => "No transfer proposal data is available in this live snapshot.",
+                "Retire Date" => "No scheduled retirement date was supplied by the loaded source.",
+                "Positions" => "No position familiarity values were imported.",
+                "Preferred Moves" => "No preferred moves were imported.",
+                "Relationships" => "No relationship records were supplied beyond the supported identity/training fields.",
+                "Languages" => "Language information is not currently mapped for this player.",
+                "Scout Information" => "No verified scout or role-rating calculations are available in this snapshot.",
+                "Staff" => "No linked staff record is available for this player.",
+                "Clone Center" => "This conditional operation is not implemented. No player creation or copy action is offered.",
+                "Personality / Hidden" => "No hidden or personality values were imported.",
+                "History" => "Career history records are not currently mapped by the live provider.",
+                _ => "No data is available for this section."
+            }
+            : string.Empty;
+
+        OnPropertyChanged(nameof(SelectedSectionRows));
+    }
+
+    private static string FormatObject<T>(T value) => value switch
+    {
+        DateOnly date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        decimal amount => amount.ToString("0.##", CultureInfo.InvariantCulture),
+        bool flag => flag ? "Yes" : "No",
+        null => "Not imported",
+        _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "Not imported"
+    };
 
     private static SourcedValue<int>? ResolveAttribute(
         PlayerRecord player,
