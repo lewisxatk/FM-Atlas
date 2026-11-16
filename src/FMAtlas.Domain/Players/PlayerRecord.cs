@@ -28,10 +28,20 @@ public sealed record PlayerRecord(EntityIdentity Identity) : IEntityRecord
     public SourcedValue<decimal>? Wage { get; init; }
     public SourcedValue<decimal>? TransferValue { get; init; }
 
+    /// <summary>Visible technical, mental, physical and goalkeeper ratings.</summary>
     public IReadOnlyDictionary<string, SourcedValue<int>> Attributes { get; init; } =
         new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The five hidden ratings are kept separate from visible attributes.</summary>
+    public IReadOnlyDictionary<string, SourcedValue<int>> HiddenAttributes { get; init; } =
+        new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The eight personality values are kept separate from hidden ratings.</summary>
     public IReadOnlyDictionary<string, SourcedValue<int>> Personality { get; init; } =
+        new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Left/right foot ratings, distinct from preferred-foot text.</summary>
+    public IReadOnlyDictionary<string, SourcedValue<int>> FootRatings { get; init; } =
         new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlyDictionary<string, SourcedValue<int>> PositionRatings { get; init; } =
