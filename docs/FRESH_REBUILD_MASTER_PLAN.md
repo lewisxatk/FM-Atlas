@@ -81,28 +81,36 @@ See `REFERENCE_LIBRARY.md` and `DESIGN_SPECIFICATION.md` for exact requirements.
 - Correct FM/FMRTE attribute names, grouping and canonical order for the exact supported version.
 
 ### 4.4 Player profile tabs
-At minimum:
-- Overview
-- Attributes
-- Contract
-- Positions
-- Preferred Moves / Traits
-- Season Stats
-- History
-- Personality / Hidden
-- Relations
-- Other verified FMRTE-style player sections found during feature audit.
+Use the FMRTE 27 feature audit in `research/FMRTE_FEATURE_AUDIT_001.md` as the functional reference. The user's REF-004 instruction controls placement: compact buttons/tabs across the top of the full-screen player workspace, not FMRTE's left collapsible section rail.
 
-Tabs are compact controls at the top of the profile. The profile uses a left identity/information rail, central attribute/editor workspace and right column for grounded information. Unsupported or unavailable data is not fabricated.
+Required sections, when applicable:
+- Information (attributes, ability, personal details, fitness, morale).
+- Contract.
+- Stats (read-only initially; only actual save statistics and verified comparisons).
+- Unavailability.
+- Transfer Proposals.
+- Retire Date.
+- Positions.
+- Preferred Moves.
+- Relationships.
+- Languages.
+- Scout Information (only verified ratings/calculations).
+- Staff (conditional for player-coaches).
+- Clone Center (later/conditional; copies to existing players only if verified).
+- History and Personality/Hidden where the source exposes them.
+
+Compact player header should expose portrait, name, club, CA/PA and Asking Price where supported, plus contract wage/expiry and current/potential rating summaries. Use the REF-004 left identity rail, central FM attribute/editor area and right grounded information panels. Tabs remain small and legible, with an overflow treatment for narrow widths. Unsupported or unavailable data is never fabricated.
 
 ### 4.5 Staff
 - Staff search and profiles.
 - Managers, coaches, scouts, medical and other supported staff types.
+- FMRTE-style sections: Information, Contract, Career Plans, Promises, Swap Staff, Training Rating, Formations/Tendencies, Relationships, Knowledge, Retire Date and Languages where applicable.
 - Applicable attributes, CA/PA where meaningful, contract, nationality, reputation and supported fields.
 - Advanced search and guarded editing only where mappings are verified.
 
 ### 4.6 Clubs
 - Club search and profiles.
+- FMRTE-style sections: Information, Squads, Youth Intake, Finances, Club Vision, Possible Signings, Player Clauses, Transfer Center, Staff, Wage Contributions, Kits and Colours, Affiliations, Match Preparation and Stadium information where applicable.
 - Identity, nation, competition, reputation, finances, facilities, stadium, colours, badge and relations where supported.
 - Advanced search and guarded editing only where mappings are verified.
 
@@ -199,3 +207,15 @@ The selected foundation is .NET 8 WPF with Domain, Application, Infrastructure, 
 The fresh solution has been created in `FMAtlas.sln` with Domain, Application, Infrastructure, Desktop and Tests projects. The initial WPF shell has the compact no-Search sidebar, top Quick Search placeholder, Advanced Search action, compact Save Atlas/Save Changes controls and prominent Load Game button. Load Game currently performs process/module presence detection only; it does not read memory or import a career. All unimplemented controls are disabled and labelled In Progress through tooltips.
 
 The Windows GitHub Actions build/test workflow is committed. The current execution environment has no .NET SDK, so no local compile has been claimed. Windows CI and a user-side build/screenshot review remain required. See `CURRENT_CHECKPOINT.md` and `FRESH_REBUILD_CHECKLIST.md`.
+
+
+## 9. FMRTE 27 parity reference
+
+The official FMRTE 27 player, staff, club, search, edit-history and interface documentation has been audited. The detailed tab/feature inventory is in `research/FMRTE_FEATURE_AUDIT_001.md`.
+
+The goal is broad FMRTE-style feature coverage, but each feature is staged:
+- Basic editor first: player information/attributes, CA/PA, contract, positions, preferred moves, save/load, safe edit history, player/staff/club search.
+- Next: player stats, unavailability, transfer proposals, staff/club profile sections, languages, relationships, finances, facilities and graphics.
+- Later: mass edit, presets, freezer, clone center, team selection, transfers/loans/rules, tactical sections, AI assistant and automation.
+
+FMRTE's documented Edit History behaviour is a safety reference: it records current-session Atlas edits, marks pending/saved fields, checks the live value before undo, and marks operations without a safe inverse as non-undoable. FM Atlas must not promise a universal rollback or Redo where the underlying game operation cannot support it.
