@@ -150,8 +150,36 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] FMRTE 27 feature audit and field coverage ledger committed.
 - [x] Clean WPF solution and initial shell source committed.
 - [x] FM27 player attribute catalogue and domain tests committed; Windows CI run 43787875022 passed.
-- [~] REF-002 advanced-search dialog shell, documented field schema and typed filter model committed; latest code after personality/build-profile additions still needs Windows CI.
-- [~] REF-004 player profile workspace shell committed; latest Windows CI runs 43788055915 and related runs pending at checkpoint time.
+- [~] REF-002 advanced-search dialog and typed filter model committed; category/entity navigation now switches schema-driven panels; actual query provider and Windows CI verification remain.
+- [~] REF-004 player profile workspace shell committed; typed player record and graphics locator groundwork added, but profile data/photo binding remains.
 - [x] Windows CI build and three unit tests passed.
 - [x] Windows shell build artifact uploaded and inspected.
+- [~] Typed provenance-aware player/staff/club record models committed; provider/import integration pending.
+- [~] Read-only graphics config indexer and synthetic tests committed; Windows CI and real folder verification pending.
+- [~] SQLite schema v1 migration and tests committed; repository persistence pending.
+- [~] Advanced Search category/entity switching and schema-generated panels committed; fields/query still disabled pending verified provider.
 - [~] User-side launch and visual comparison still pending.
+
+
+## Update — checkpoint 010 (2026-11-16)
+
+- [~] M2.11 Local SQLite schema v1 and migration runner added; Windows CI and repository integration still pending.
+- [~] M3.7 Typed PlayerRecord, StaffRecord, ClubRecord and provider-scoped EntityIdentity added; no provider/importer connected.
+- [~] M3.8 Per-field source/evidence provenance model added; values not yet imported.
+- [~] M4.3 Read-only graphics locator implemented with synthetic tests; real FM graphics folder, CI, image decoding and WPF integration pending.
+- [~] M5.2 Advanced Search dialog now switches between schema-driven categories.
+- [~] M5.3 Player / Coach / Club selection now changes the schema context; filter fields remain disabled.
+- [~] M5.5–M5.10 All documented category panels now render schema-driven fields; no executable query provider.
+- [ ] M3.6a Player/staff/club repositories and transaction-based persistence.
+- [ ] M4.3a Persistent graphics index cache and profile photo binding.
+- [ ] M5.11 Position pitch interaction and positional familiarity ranges.
+- [ ] M5.12 Actual min/max, boolean, lookup and date input binding.
+- [ ] M5.13 Execute validated AND/OR filters against a verified data provider.
+
+### Verification state
+
+- New tests added for provenance, graphics index and SQLite schema migration.
+- They remain unverified until Windows CI completes because the current environment has no .NET SDK.
+- Latest code head: `d762f24e5e50e45240c476fe6b8c63b7d8dfe0d9`.
+- Latest Windows workflow: [43829628775](https://github.com/lewisxatk/FM-Atlas/actions/runs/43829628775), queued at checkpoint time.
+- Do not mark this code as compiled/tested until the runner actually executes.
