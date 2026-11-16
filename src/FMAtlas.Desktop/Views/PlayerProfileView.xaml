@@ -213,7 +213,7 @@
         </Grid>
         <Border Grid.Row="2"
                 Margin="0,14,0,0"
-                Background="{StaticResource Atlas.Panel}"
+                Background="{StaticResource Atlas.Surface}"
                 BorderBrush="{StaticResource Atlas.Border}"
                 BorderThickness="1"
                 CornerRadius="8"
@@ -253,7 +253,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <TextBlock Text="{Binding SectionEmptyText}"
-                               Visibility="{Binding SectionEmptyText, Converter={StaticResource Atlas.StringToVisibility}}"
+                               Visibility="{Binding HasSectionEmptyText, Converter={StaticResource Atlas.BooleanToVisibility}}"
                                FontSize="12"
                                Foreground="{StaticResource Atlas.Muted}"
                                TextWrapping="Wrap"
