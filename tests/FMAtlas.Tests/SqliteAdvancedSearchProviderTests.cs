@@ -228,7 +228,7 @@ public sealed class SqliteAdvancedSearchProviderTests
         var unsupported = new AdvancedSearchQuery(
             SearchEntityKind.Player,
             SearchFilterLogic.All,
-            [new SearchFilterCondition("relations", SearchFilterOperator.Contains, TextValue: "teammate")]);
+            [new SearchFilterCondition("field_that_does_not_exist", SearchFilterOperator.Contains, TextValue: "teammate")]);
 
         Assert.False(unsupported.CanExecute);
         await Assert.ThrowsAsync<ArgumentException>(() =>
