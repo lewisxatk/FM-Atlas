@@ -3,7 +3,7 @@ using FMAtlas.Domain.Players;
 namespace FMAtlas.Domain.Search;
 
 public enum SearchEntityKind { Player, Coach, Club }
-public enum AdvancedSearchCategoryKind { General, Contract, TechnicalGoalkeeping, MentalAttributes, PhysicalHidden, PreferredMoves, Relations, IndexedFields }
+public enum AdvancedSearchCategoryKind { General, Contract, TechnicalGoalkeeping, Goalkeeping, MentalAttributes, PhysicalHidden, PreferredMoves, Relations, IndexedFields }
 public enum SearchFieldValueKind { Text, IntegerRange, DecimalRange, Boolean, DateRange, EntityLookup, Enum, PositionRating, TraitSelector }
 public enum SearchImplementationStatus { InProgress, Ready }
 
@@ -95,12 +95,13 @@ public static class AdvancedSearchCatalog
     [
         new(AdvancedSearchCategoryKind.General, "General", 0),
         new(AdvancedSearchCategoryKind.Contract, "Contract", 1),
-        new(AdvancedSearchCategoryKind.TechnicalGoalkeeping, "Technical / GK", 2),
-        new(AdvancedSearchCategoryKind.MentalAttributes, "Mental Attributes", 3),
-        new(AdvancedSearchCategoryKind.PhysicalHidden, "Physical / Hidden", 4),
-        new(AdvancedSearchCategoryKind.PreferredMoves, "Preferred Moves", 5),
-        new(AdvancedSearchCategoryKind.Relations, "Relations", 6),
-        new(AdvancedSearchCategoryKind.IndexedFields, "Indexed Data", 7)
+        new(AdvancedSearchCategoryKind.TechnicalGoalkeeping, "Technical", 2),
+        new(AdvancedSearchCategoryKind.Goalkeeping, "Goalkeeping", 3),
+        new(AdvancedSearchCategoryKind.MentalAttributes, "Mental Attributes", 4),
+        new(AdvancedSearchCategoryKind.PhysicalHidden, "Physical / Hidden", 5),
+        new(AdvancedSearchCategoryKind.PreferredMoves, "Preferred Moves", 6),
+        new(AdvancedSearchCategoryKind.Relations, "Relations", 7),
+        new(AdvancedSearchCategoryKind.IndexedFields, "Indexed Data", 8)
     ];
 
     private static readonly IReadOnlyList<AdvancedSearchFieldDefinition> GeneralFields = BuildGeneralFields();
