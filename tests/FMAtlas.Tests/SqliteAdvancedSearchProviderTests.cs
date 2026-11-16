@@ -94,6 +94,45 @@ public sealed class SqliteAdvancedSearchProviderTests
     }
 
     [Fact]
+    public async Task AdvancedSearchExcludesExplicitlyFemalePlayersUnlessPreferenceIsEnabled()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        foreach (var (id, gender) in new[]
+        {
+            ("male", "Male"),
+            ("female", "Female"),
+            ("unknown", (string?)null)
+        })
+        {
+            var player = new PlayerRecord(new EntityIdentity(EntityKind.Player, id, "test"))
+            {
+                FullName = new SourcedValue<string>($"{id} Player", Evidence),
+                Gender = gender is null ? null : new SourcedValue<string>(gender, Evidence)
+            };
+            await store.SaveSnapshotAsync(player, $"{id} Player");
+        }
+
+        var provider = new SqliteAdvancedSearchProvider(path);
+        var defaultQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("name", SearchFilterOperator.Contains, TextValue: "Player")]);
+        var inclusiveQuery = defaultQuery with { IncludeWomenPlayers = true };
+
+        var defaultResults = await provider.ExecuteAsync(defaultQuery);
+        var inclusiveResults = await provider.ExecuteAsync(inclusiveQuery);
+
+        Assert.Equal(2, defaultResults.Count);
+        Assert.DoesNotContain(defaultResults, result => result.Identity.SourceId == "female");
+        Assert.Equal(3, inclusiveResults.Count);
+        Assert.Contains(inclusiveResults, result => result.Identity.SourceId == "female");
+    }
+
+    [Fact]
     public async Task PreferredMoveFilterFindsPlayerWithTrait()
     {
         using var temp = new TemporaryDirectory();
