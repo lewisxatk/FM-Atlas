@@ -51,6 +51,16 @@ public partial class AdvancedSearchWindow : Window
             : SearchFilterLogic.All;
     }
 
+    private void PositionLogicComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_viewModel is null)
+            return;
+
+        _viewModel.SelectedPositionLogic = PositionLogicComboBox.SelectedIndex == 1
+            ? SearchFilterLogic.Any
+            : SearchFilterLogic.All;
+    }
+
     private async void Search_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.RunSearchAsync();
@@ -61,6 +71,7 @@ public partial class AdvancedSearchWindow : Window
     private void ClearFilters_Click(object sender, RoutedEventArgs e)
     {
         LogicComboBox.SelectedIndex = 0;
+        PositionLogicComboBox.SelectedIndex = 0;
         _viewModel.ClearFilters();
     }
 
