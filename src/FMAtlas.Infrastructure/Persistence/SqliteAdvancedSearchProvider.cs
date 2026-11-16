@@ -167,6 +167,9 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
         if (keys.Count == 0)
             throw new NotSupportedException($"No stored field mapping exists for '{condition.FieldKey}'.");
 
+        if (condition.Operator == SearchFilterOperator.IsUnknown)
+            return BuildMissingFieldPredicate(conditionIndex, keys, parameters, ref nextParameter);
+
         return BuildValueExists(
             conditionIndex,
             keys,
@@ -193,10 +196,12 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
         {
             SearchFieldValueKind.IntegerRange or SearchFieldValueKind.DecimalRange =>
                 BuildNumericPredicate(alias, valueKind, condition, parameters, ref nextParameter),
-            SearchFieldValueKind.Text or SearchFieldValueKind.EntityLookup =>
+            SearchFieldValueKind.Text or SearchFieldValueKind.EntityLookup or SearchFieldValueKind.Enum =>
                 BuildTextPredicate(alias, condition, parameters, ref nextParameter),
             SearchFieldValueKind.DateRange =>
                 BuildDatePredicate(alias, condition, parameters, ref nextParameter),
+            SearchFieldValueKind.Boolean =>
+                BuildBooleanPredicate(alias, condition, parameters, ref nextParameter),
             _ => throw new NotSupportedException(
                 $"Value kind {valueKind} is not supported by the SQLite query provider.")
         };
@@ -210,6 +215,39 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
                   AND {alias}.provider_key = e.provider_key
                   AND {alias}.field_key IN ({string.Join(", ", keyParameters)})
                   AND {predicate}
+            )
+            """;
+    }
+
+    private static string BuildBooleanPredicate(
+        string alias,
+        SearchFilterCondition condition,
+        ICollection<(string Name, object Value)> parameters,
+        ref int nextParameter)
+    {
+        var expected = condition.Operator == SearchFilterOperator.IsTrue ? 1L : 0L;
+        var parameter = AddParameter(parameters, ref nextParameter, expected);
+        return $"{alias}.integer_value = {parameter}";
+    }
+
+    private static string BuildMissingFieldPredicate(
+        int conditionIndex,
+        IReadOnlyList<string> fieldKeys,
+        ICollection<(string Name, object Value)> parameters,
+        ref int nextParameter)
+    {
+        var alias = $"missing{conditionIndex}";
+        var keyParameters = fieldKeys.Select(key =>
+            AddParameter(parameters, ref nextParameter, key)).ToArray();
+
+        return $"""
+            NOT EXISTS (
+                SELECT 1
+                FROM field_values AS {alias}
+                WHERE {alias}.entity_kind = e.entity_kind
+                  AND {alias}.source_id = e.source_id
+                  AND {alias}.provider_key = e.provider_key
+                  AND {alias}.field_key IN ({string.Join(", ", keyParameters)})
             )
             """;
     }
@@ -353,11 +391,27 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
 
     private static IReadOnlyList<string> ResolveStoredFieldKeys(SearchEntityKind entity, string key)
     {
-        if (key.StartsWith("attribute_", StringComparison.OrdinalIgnoreCase) ||
-            key.StartsWith("personality_", StringComparison.OrdinalIgnoreCase))
-            return [key.ToLowerInvariant()];
+        var normalised = key.ToLowerInvariant();
+        if (normalised.StartsWith("attribute_", StringComparison.OrdinalIgnoreCase) ||
+            normalised.StartsWith("personality_", StringComparison.OrdinalIgnoreCase) ||
+            normalised.StartsWith("position_", StringComparison.OrdinalIgnoreCase) ||
+            normalised.StartsWith("knowledge_", StringComparison.OrdinalIgnoreCase) ||
+            normalised.StartsWith("facility_", StringComparison.OrdinalIgnoreCase) ||
+            normalised.StartsWith("finance_", StringComparison.OrdinalIgnoreCase) ||
+            normalised is "is_newgen" or "wonderkid" or "eu_nationality" or
+                "left_foot" or "right_foot" or "preferred_foot" or
+                "international_caps" or "international_goals" or "continent" or
+                "region" or "city_of_birth" or "ethnicity" or "division" or
+                "training_status_club" or "training_status_nation" or
+                "primary_role" or "training_rating" or "club_founded_year" or
+                "club_stadium_name" or "club_stadium_capacity" or "club_average_attendance" or
+                "reputation_home" or "reputation_current" or "reputation_world" or
+                "ability_difference" or "recommended_ca" or "contract_status" or
+                "release_clause" or "club_balance" or "club_debt" or "club_transfer_budget" or
+                "club_wage_budget" or "club_loans" or "club_sponsorship")
+            return [normalised];
 
-        return key.ToLowerInvariant() switch
+        return normalised switch
         {
             "age" => ["age"],
             "nationality" => ["nationality"],
@@ -373,6 +427,17 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             "transfer_value" => ["transfer_value"],
             "contract_expiry" => ["contract_expires"],
             "club_reputation" => ["reputation"],
+            "club_founded_year" => ["founded_year"],
+            "club_stadium_name" => ["stadium_name"],
+            "club_stadium_capacity" => ["stadium_capacity"],
+            "club_average_attendance" => ["average_attendance"],
+            "club_balance" => ["finance_balance"],
+            "club_debt" => ["finance_debt"],
+            "club_transfer_budget" => ["finance_transfer_budget"],
+            "club_wage_budget" => ["finance_wage_budget"],
+            "club_loans" => ["finance_loans"],
+            "club_sponsorship" => ["finance_sponsorship"],
+            "primary_role" => ["primary_role"],
             _ => Array.Empty<string>()
         };
     }
