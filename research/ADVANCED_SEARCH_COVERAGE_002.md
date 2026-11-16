@@ -97,7 +97,10 @@ A regression test now iterates the catalogue and runs the query builder for each
 - Implement the evidence-backed Recommended CA formula/mapping before enabling that field.
 - Validate every field against real FM27 records and the exact target game build.
 - Complete Windows restore/build/test and then perform a real-world search test in the user's game.
-- Add player-result navigation into the full player profile/editor after the search result identity handoff is wired.
+- Player-result navigation is now wired: double-clicking a Player result requests its provider-scoped identity, retrieves the typed local PlayerRecord snapshot and opens a separate read-only profile window. Coach and Club profile handoffs remain In Progress.
+- The profile binds snapshot-backed identity, CA/PA, attribute groups, positions, preferred moves and season statistics with explicit evidence labels. It is not a live editor, and section-specific content/navigation remains incomplete.
+- An additional Indexed Data category discovers typed keys already present in local `field_values`. It can expose consistent integer, decimal, text, date and Boolean stored types; ambiguous fields with more than one stored type are omitted. This extends search to imported stats without inventing catalogue fields.
+- Search results and profile windows still depend on the local index/typed snapshot being populated by a future verified importer.
 
 ## 7. Safety and data-integrity rules
 
