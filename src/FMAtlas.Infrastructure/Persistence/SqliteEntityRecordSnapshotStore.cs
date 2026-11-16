@@ -63,7 +63,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
             VALUES ($kind, $sourceId, $provider, $displayName, $savedAt)
             ON CONFLICT(entity_kind, provider_key, source_id)
             DO UPDATE SET
-                display_name = excluded.display_name,
+                display_name = COALESCE(excluded.display_name, entities.display_name),
                 imported_at_utc = excluded.imported_at_utc;
             """,
             cancellationToken,
