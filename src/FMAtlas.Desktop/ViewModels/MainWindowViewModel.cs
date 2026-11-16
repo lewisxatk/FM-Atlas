@@ -30,6 +30,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _includeWomenPlayers;
     private string _lastImportCountText = "—";
     private string _lastImportStatusText = "No player export imported";
+    private readonly ObservableCollection<RecentProfileViewModel> _recentlyOpenedProfiles = [];
     private bool _isLiveLoadOverlayVisible;
     private int _liveLoadProgress;
     private string _liveLoadStage = "CONNECTING TO FOOTBALL MANAGER";
@@ -154,6 +155,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         get => _lastImportStatusText;
         private set => SetField(ref _lastImportStatusText, value);
+    }
+
+    public ObservableCollection<RecentProfileViewModel> RecentlyOpenedProfiles => _recentlyOpenedProfiles;
+    public bool HasNoRecentlyOpenedProfiles => _recentlyOpenedProfiles.Count == 0;
+
+    public void NotifyProfileOpened(EntitySearchResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var key = $"{result.Identity.Kind}|{result.Identity.ProviderKey}|{result.Identity.SourceId}";
+        var existing = _recentlyOpenedProfiles.FirstOrDefault(item =>
+            $"{item.Result.Identity.Kind}|{item.Result.Identity.ProviderKey}|{item.Result.Identity.SourceId}" == key);
+        if (existing is not null)
+            _recentlyOpenedProfiles.Remove(existing);
+
+        _recentlyOpenedProfiles.Insert(0, new RecentProfileViewModel(result));
+        while (_recentlyOpenedProfiles.Count > 5)
+            _recentlyOpenedProfiles.RemoveAt(_recentlyOpenedProfiles.Count - 1);
+
+        OnPropertyChanged(nameof(HasNoRecentlyOpenedProfiles));
     }
 
     public bool IsLiveLoadOverlayVisible
@@ -600,4 +620,16 @@ public sealed class QuickSearchResultViewModel
     public string SourceId { get; }
     public string ProviderKey { get; }
     public bool IsPlayer { get; }
+}
+
+public sealed record RecentProfileViewModel(FMAtlas.Domain.Entities.EntitySearchResult Result)
+{
+    public string DisplayName => Result.DisplayName;
+    public string EntityType => Result.Identity.Kind switch
+    {
+        FMAtlas.Domain.Entities.EntityKind.Player => "PLAYER",
+        FMAtlas.Domain.Entities.EntityKind.Staff => "STAFF",
+        FMAtlas.Domain.Entities.EntityKind.Club => "CLUB",
+        _ => Result.Identity.Kind.ToString().ToUpperInvariant()
+    };
 }
