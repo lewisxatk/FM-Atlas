@@ -325,9 +325,6 @@ public static class AdvancedSearchCatalog
             key.StartsWith("role_preference_", StringComparison.OrdinalIgnoreCase) ||
             key is "left_foot" or "right_foot";
 
-        if (key == "relations")
-            ready = false;
-
         return new AdvancedSearchFieldDefinition(
             key, label, category, valueKind, entities, FieldEvidenceStatus.Documented,
             ready ? SearchImplementationStatus.Ready : SearchImplementationStatus.InProgress,
