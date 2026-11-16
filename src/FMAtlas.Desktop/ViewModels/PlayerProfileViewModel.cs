@@ -468,7 +468,7 @@ public sealed class ProfileSectionCommand : ICommand
 {
     private readonly Action<object?> _execute;
     public ProfileSectionCommand(Action<object?> execute) => _execute = execute;
-    public event EventHandler? CanExecuteChanged;
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
     public bool CanExecute(object? parameter) => true;
     public void Execute(object? parameter) => _execute(parameter);
 }
