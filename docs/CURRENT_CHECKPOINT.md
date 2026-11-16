@@ -831,3 +831,75 @@ No live career file has been changed. No process memory has been read or written
 
 **Uncommitted work:** None known.  
 **Next single action:** Resolve the GitHub Actions runner/budget block and obtain a real Windows restore/build/test result for the current branch head.
+
+
+---
+
+## Checkpoint 017 — FM27 player CSV import path for first hands-on testing
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Code update:** FM View Exporter-compatible CSV import, additional typed field indexing and desktop **Import CSV** action.  
+**Latest code commit before checkpoint sync:** `0a14502e9fab338306c554bfe6cb754d0b349d93`.  
+**Documentation/checklist updates:** `172a5fa824f6d10aaaa9aad4fd913819eb95a98b`, `3a2cc82006d3b915a7954b24e1e1fe347f3e9a61`, and current checklist sync `037384ab96e94c2aca3c337deed00157724a9af2`.  
+**Status:** Source changes and regression tests are committed. Windows build/test and the actual WPF launch remain unverified.
+
+### What was added
+
+1. `IPlayerExportImporter` application contract and `PlayerExportImportResult` report model.
+2. Independent `FMViewExporterCsvImporter` implementation in Infrastructure.
+3. Main header **Import CSV** button and file picker, startup registration and progress/result dialog.
+4. ViewModel refresh notification so Quick Search notices the imported records.
+5. Local SQLite typed snapshot and field projection reuse; no schema migration was needed for the generic typed extra-field dictionaries.
+6. Dynamic additional export columns are retained as `export_*` typed fields and exposed to Advanced Search through the existing Indexed Fields discovery.
+7. CSV import tests for fixed mappings, attribute groups, duplicate `Nation` headers, typed dynamic fields, Advanced Search execution, semicolon/German decimal-comma format, duplicate UIDs, reimport idempotence and malformed/missing identity input.
+8. `research/CSV_IMPORT_001.md` and README first-test instructions.
+
+### Import format and rules
+
+- UTF-8 CSV required.
+- Must have player `Player` or `Name` header and stable `Unique ID` header.
+- Accepts comma or semicolon delimiter; semicolon mode prefers decimal-comma parsing.
+- File limit 64 MB; up to 100,000 player rows and 512 columns.
+- Uses Unique ID + SHA-256-derived source-file namespace. Exact same file reimport updates existing snapshots in that namespace. A changed file has a separate namespace, preventing silent overwrite of the earlier snapshot.
+- Duplicate UIDs inside one file are skipped and reported.
+- Maps explicit identity, personal, club, CA/PA, international, position/foot and attribute values when matching columns exist.
+- Maps player attribute fields only when values are valid 0–20 whole numbers. Missing values stay missing.
+- CA/PA are mapped only from explicit `CA`/`Current Ability` and `PA`/`Potential Ability` headers. Scout-star `Ability`/`Potential` values are not substituted for CA/PA.
+- The two repeated `Nation` headers in the export reference are handled by selecting the final Nation column as the full nationality name; repeated headers are not collapsed into the same dynamic key.
+- Extra columns are classified only when all populated values fit one type: Boolean, Integer, Decimal, Date. Mixed/ambiguous columns stay text.
+- Each imported field is tagged `GameExport / Mapped`. This does not prove live-memory reads or field verification.
+- No FM process memory is read or written and no career file is modified.
+
+### External compatibility caveat
+
+The public FM View Exporter documentation and source notes describe FM27 on Steam for Windows as the current supported target. They do not establish Game Pass/Microsoft Store plugin compatibility. FM Atlas imports a compatible CSV file regardless of the export route, but this importer does not make the exporter itself Game Pass compatible.
+
+### Tests / verification
+
+- Added `tests/FMAtlas.Tests/FMViewExporterCsvImporterTests.cs`.
+- Tests are source-committed but not yet executed. The local environment has no .NET SDK.
+- Latest Windows Actions run observed after the code update: run #425, ID `43852668416`, on the README/documented branch head. It failed with a job that has `steps=null`, no log URL and no downloadable log object. A failed-job retry was accepted but remained queued with no steps/logs at the latest check. There is no compiler/test output to diagnose, so this is not a known source-code failure and is not a passing build.
+- No new Windows artifact was produced by these failed/no-step runs.
+
+### Current test route for user
+
+Once a compatible CSV is available:
+1. Start FM Atlas on Windows.
+2. Select **Import CSV** in the header.
+3. Choose the FM27 player-list CSV.
+4. Search for a player in Quick Search or Advanced Search.
+5. In Advanced Search, use Indexed Fields to find additional export columns; double-click a player result to open the local read-only Player profile.
+
+The actual output will depend on the columns included in the selected export. No demo or fabricated FM player records are shipped.
+
+### Still outstanding
+
+1. Get a functioning Windows GitHub Actions runner and verify Restore / Build / Test against this exact branch head.
+2. Fix any actual compiler/XAML/test failure the runner reveals.
+3. Build and inspect a fresh Windows x64 artifact before asking the user to install this update.
+4. User tests their own CSV to expose any localized header naming we have not yet mapped.
+5. Continue Game Pass-specific read-only process/session identification and live player-data importing as a separate milestone.
+6. Keep `Load Live Save` and `Save Live Save` disabled until build-specific read/write, save-generation, read-back and disposable-career verification gates pass.
+
+**Preservation:** The work remains on `rebuild/fresh-foundation-001`. No changes to `main` or the historical R7.2.0 recovery branch.
