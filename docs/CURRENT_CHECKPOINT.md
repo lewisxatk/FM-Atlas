@@ -615,3 +615,90 @@ No live career file has been changed. No process memory has been read or written
 - Local machine/tool environment has no .NET SDK, so the correction is committed but not yet compiled or executed.
 
 **Next:** regain a functioning Windows runner, then execute restore/build/test on the full latest branch. Do not package the unverified code as a tested build.
+
+---
+
+## Checkpoint 015 — FMRTE-style Advanced Search expansion and newgen evidence
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Code head before this checkpoint:** `3f4723a83480cc17a70c64583b6b5b8ec82a8f9f`  
+**Status:** Search features and tests committed in source. Windows build/test still unverified because GitHub Actions jobs terminate before runner allocation and provide no steps or logs.
+
+### Work saved
+
+1. **Advanced Search query model**
+   - Expanded the domain catalogue for Player, Coach and Club entities.
+   - Independent numeric MIN and MAX boundaries; either may be blank.
+   - Attribute and personality fields have declared 0–20 search bounds; CA/PA use 0–200; reputation has its own 0–10,000 scale.
+   - Position search has individual ratings for the 15 documented position codes and a separate All chosen / Any chosen rule, independent of the overall All / Any criteria.
+   - Boolean criteria support Yes, No and Unknown.
+   - Text, enum, entity lookup, date range, preferred-move and derived PA-minus-CA criteria have distinct query handling.
+   - Unknown or In Progress fields are rejected by validation.
+
+2. **Cross-category field finder**
+   - Added a live field finder above the criteria panel.
+   - It searches display names and domain keys across all categories for the currently selected entity.
+   - Results are grouped by category; field values remain in the search model while the user moves between categories.
+   - Selecting a category exits field-finder mode so category navigation remains predictable.
+
+3. **Newgen / original-database classification**
+   - Added nullable `IsNewgen` values to player and staff records and indexed query support.
+   - Explicit states: generated/newgen (`true`), source-confirmed original database record (`false`), and unknown/unclassified (no evidence).
+   - Boolean search exposes all three states; contextual text explains the distinction.
+   - No classification is inferred from age, PA, name or face/portrait.
+   - The current live importer does not yet populate this field. It will remain Unknown until an authoritative FM field or a correctly baselined, complete-snapshot method is implemented and verified.
+
+4. **Typed record and field projection**
+   - Expanded player/staff/club records with typed fields and typed extension dictionaries for integer, decimal, Boolean, date and text values.
+   - Projector preserves per-field provenance and normalises keys.
+   - SQLite snapshot storage persists typed field values and stores Boolean values as integer 0/1.
+   - Newgen, UID, gender, geography, staff role preferences and club facility/finance criteria have projection slots.
+
+5. **Reusable search presets**
+   - Added versioned `AdvancedSearchPreset` domain model.
+   - Save/Load Preset serialises named criteria to JSON under the user's LocalApplicationData `FM Atlas/Search Presets` directory.
+   - Presets include entity, global All/Any logic, position All/Any logic and typed criteria.
+   - Loading validates the preset against the current supported catalogue before applying it.
+   - Tests added for JSON round-tripping.
+
+6. **Research record**
+   - Added `research/ADVANCED_SEARCH_COVERAGE_002.md` with the current field coverage, FMRTE behaviour, scale distinctions, newgen evidence requirements and explicit gaps.
+
+### Tests added but not yet executed
+
+- Catalogue tests for all 15 positions, 0–20 player attribute/foot bounds, staff attributes/role preferences and expanded club criteria.
+- Query validation tests for one-sided min/max, out-of-range values, Boolean Unknown and saved preset roundtrip.
+- SQLite provider tests for newgen true/false/unknown, max-only attribute filters, position familiarity, club facilities, staff role preferences, PA-minus-CA and independent position matching.
+- A provider audit test iterates every field marked READY and executes a representative query against the SQLite provider. This tests the executable SQL path, but cannot establish that a real FM27 importer supplies the value.
+
+### Verification gate and current blocker
+
+- Latest observed workflow for this branch: [43840213199](https://github.com/lewisxatk/FM-Atlas/actions/runs/43840213199), commit `0f031ed838c77f5410ab41fdd9ea6d4936457003`.
+- The job reports `conclusion=failure`, `runner_id=0`, `steps=[]`, and `logs_url=null`. Downloading logs returns 404 because no log object was created.
+- This is not evidence of a C# or XAML compiler error; it is also not a passing build. No current build artifact is available.
+- A final XAML audit caught and corrected a WPF Border that had two direct visual children; the contents are now wrapped in a StackPanel.
+- No .NET compiler or SDK is available in this tool environment. Source tests are committed, not executed.
+
+### Current functionality boundaries
+
+- Advanced Search is wired to a read-only SQLite provider and can query already-imported Atlas records for supported fields.
+- Quick Search also queries the local imported-record index.
+- No live FM27 career/world data has yet been imported by the fresh shell; therefore search cannot yet find the actual save's players until an importer populates the local database.
+- Newgen filter semantics and query execution exist, but live newgen status is not yet populated.
+- Relations and Recommended CA remain In Progress.
+- Result rows still show basic record identity; a full player-profile handoff is not finished.
+- Load Live Save and Save Live Save remain disabled. Detect Game remains a process/module probe, not a career reader.
+- No process memory has been read or written; no live career has been modified.
+
+### Next actions
+
+1. Restore a functioning Windows Actions runner and run restore/build/test on this exact source head.
+2. Resolve any compile, XAML or test failures exposed by a real runner.
+3. Complete the read-only FM27/Game Pass importer and populate the typed fields with field-level provenance.
+4. Verify newgen detection against an authoritative FM field or a complete-baseline snapshot delta; keep unknown states explicit.
+5. Connect result selection to the full player profile and editor tabs.
+6. Expand the original FM Atlas visual system after the search and import foundations are running.
+7. Only after a real save has been read and field mappings verified, enable live-save actions. Save Live Save remains a separate, gated write operation.
+
+**Preservation:** Historical recovery source remains untouched. All work in this checkpoint belongs to the fresh rebuild branch.
