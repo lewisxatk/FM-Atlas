@@ -296,3 +296,24 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 - [!] Retry job `133251606257` also failed with `steps=[]`, no log URL, and 404/BlobNotFound on log download.
 - [ ] Current branch head must still pass Windows restore/build/test before an application ZIP is considered test-ready.
 - [~] Local fallback script `scripts/Build-Test-Package.ps1` committed to run the exact checks and package only on a clean pass.
+
+
+## Live save priority update — 2026-11-16
+
+- [~] L1 Exact Game Pass 0.9.2435.0 read-only connector: externally mapped, still awaiting user-machine field verification.
+- [~] L2 Player/staff/club batch import into SQLite and Quick/Advanced Search.
+- [x] L3 Clear the live provider before every load attempt so stale career data is not left searchable after a failed reload.
+- [x] L4 Delete candidate live snapshots after post-import failure/cancellation using a non-cancelled cleanup token.
+- [x] L5 Clear visible live counts and Quick Search results while loading and after failed/cancelled loads.
+- [x] L6 Lock every owned search/profile window while the animated live-load overlay is visible.
+- [x] L7 Add pure fail-closed write preflight for process/build/save/identity/field evidence/old-value/range/memory-region checks.
+- [x] L8 Add regression tests for all write-preflight rejection conditions.
+- [x] L9 Document the external write-safety research and no-copy GPL boundary in `research/LIVE_EDIT_SAFETY_001.md`.
+- [ ] L10 Get a successful Windows build and full test run for the latest branch head.
+- [ ] L11 Verify current live reader against a disposable FM27 Game Pass career field-by-field.
+- [ ] L12 Add strict scan completeness diagnostics and reject partial career snapshots.
+- [ ] L13 Implement a separate safe memory writer only after read verification.
+- [ ] L14 Implement first scalar edits with preflight, read-back, conflict handling and undo on a disposable career.
+- [ ] L15 Expand beyond player/staff/club to all required FM data families.
+
+**Non-negotiable:** no field is editable until its own write evidence is `WriteVerified` for the exact active build. The current connector remains read-only. The overlay blocks both the main window and owned workspaces while the read/index/validation transaction runs.
