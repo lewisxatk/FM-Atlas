@@ -80,6 +80,12 @@
                             <TextBlock Text="My Career" FontSize="12"/>
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource Atlas.NavButton}" Margin="0,0,0,4" Tag="My Career" Click="NavigationButton_Click" ToolTip="Open your human-manager, current club and career nation summary.">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
+                            <TextBlock Text="My Career" FontSize="12"/>
+                        </StackPanel>
+                    </Button>
                     <Button Style="{StaticResource Atlas.NavButton}" Margin="0,0,0,4" Tag="Save Manager" Click="NavigationButton_Click" ToolTip="Open the local save/data workspace.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
