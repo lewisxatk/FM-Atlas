@@ -203,6 +203,160 @@ public sealed class SqliteAdvancedSearchProviderTests
         Assert.False(AdvancedSearchQueryValidator.Validate(invalidInteger).IsValid);
     }
 
+    [Fact]
+    public async Task BooleanNewgenSearchSeparatesGeneratedOriginalAndUnknownRecords()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        var generated = new EntityIdentity(EntityKind.Player, "generated", "test");
+        var original = new EntityIdentity(EntityKind.Player, "original", "test");
+        var unknown = new EntityIdentity(EntityKind.Player, "unknown", "test");
+
+        await store.SaveSnapshotAsync(new PlayerRecord(generated)
+        {
+            FullName = new SourcedValue<string>("Generated Player", Evidence),
+            IsNewgen = new SourcedValue<bool>(true, Evidence)
+        }, "Generated Player");
+        await store.SaveSnapshotAsync(new PlayerRecord(original)
+        {
+            FullName = new SourcedValue<string>("Original Player", Evidence),
+            IsNewgen = new SourcedValue<bool>(false, Evidence)
+        }, "Original Player");
+        await store.SaveSnapshotAsync(new PlayerRecord(unknown)
+        {
+            FullName = new SourcedValue<string>("Unclassified Player", Evidence)
+        }, "Unclassified Player");
+
+        var provider = new SqliteAdvancedSearchProvider(path);
+        var generatedQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("is_newgen", SearchFilterOperator.IsTrue)]);
+        var originalQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("is_newgen", SearchFilterOperator.IsFalse)]);
+        var unknownQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("is_newgen", SearchFilterOperator.IsUnknown)]);
+
+        Assert.Equal("generated", Assert.Single(await provider.ExecuteAsync(generatedQuery)).Identity.SourceId);
+        Assert.Equal("original", Assert.Single(await provider.ExecuteAsync(originalQuery)).Identity.SourceId);
+        Assert.Equal("unknown", Assert.Single(await provider.ExecuteAsync(unknownQuery)).Identity.SourceId);
+    }
+
+    [Fact]
+    public async Task AttributeSearchSupportsMaximumOnlyBoundary()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        foreach (var (id, pace) in new[] { ("slow", 8), ("limit", 12), ("fast", 17) })
+        {
+            var identity = new EntityIdentity(EntityKind.Player, id, "test");
+            await store.SaveSnapshotAsync(new PlayerRecord(identity)
+            {
+                FullName = new SourcedValue<string>($"{id} player", Evidence),
+                Attributes = new Dictionary<string, SourcedValue<int>>
+                {
+                    ["dribbling"] = new(pace, Evidence)
+                }
+            }, $"{id} player");
+        }
+
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("attribute_dribbling", SearchFilterOperator.Range, Maximum: 12)]);
+
+        var results = await new SqliteAdvancedSearchProvider(path).ExecuteAsync(query);
+
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, x => x.Identity.SourceId == "slow");
+        Assert.Contains(results, x => x.Identity.SourceId == "limit");
+        Assert.DoesNotContain(results, x => x.Identity.SourceId == "fast");
+    }
+
+    [Fact]
+    public async Task PositionAndClubFacilitySearchUseIndividualIndexedFields()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        var playerId = new EntityIdentity(EntityKind.Player, "right-back", "test");
+        await store.SaveSnapshotAsync(new PlayerRecord(playerId)
+        {
+            FullName = new SourcedValue<string>("Right Back", Evidence),
+            PositionRatings = new Dictionary<string, SourcedValue<int>>
+            {
+                ["dr"] = new(18, Evidence)
+            }
+        }, "Right Back");
+
+        var clubId = new EntityIdentity(EntityKind.Club, "club", "test");
+        await store.SaveSnapshotAsync(new FMAtlas.Domain.Clubs.ClubRecord(clubId)
+        {
+            Name = new SourcedValue<string>("Facilities FC", Evidence),
+            Facilities = new Dictionary<string, SourcedValue<int>>
+            {
+                ["training"] = new(17, Evidence),
+                ["youth"] = new(11, Evidence)
+            }
+        }, "Facilities FC");
+
+        var provider = new SqliteAdvancedSearchProvider(path);
+        var positionQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("position_dr", SearchFilterOperator.Range, Minimum: 18)]);
+        var clubQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Club,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("club_training_facilities", SearchFilterOperator.Range, Minimum: 16)]);
+
+        Assert.Equal("right-back", Assert.Single(await provider.ExecuteAsync(positionQuery)).Identity.SourceId);
+        Assert.Equal("club", Assert.Single(await provider.ExecuteAsync(clubQuery)).Identity.SourceId);
+    }
+
+    [Fact]
+    public async Task AbilityDifferenceSearchCalculatesPotentialMinusCurrentAbility()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        var highGap = new EntityIdentity(EntityKind.Player, "high-gap", "test");
+        var lowGap = new EntityIdentity(EntityKind.Player, "low-gap", "test");
+        await store.SaveSnapshotAsync(new PlayerRecord(highGap)
+        {
+            FullName = new SourcedValue<string>("High Gap", Evidence),
+            CurrentAbility = new SourcedValue<int>(120, Evidence),
+            PotentialAbility = new SourcedValue<int>(160, Evidence)
+        }, "High Gap");
+        await store.SaveSnapshotAsync(new PlayerRecord(lowGap)
+        {
+            FullName = new SourcedValue<string>("Low Gap", Evidence),
+            CurrentAbility = new SourcedValue<int>(140, Evidence),
+            PotentialAbility = new SourcedValue<int>(155, Evidence)
+        }, "Low Gap");
+
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("ability_difference", SearchFilterOperator.Range, Minimum: 30)]);
+
+        Assert.Equal("high-gap", Assert.Single(await new SqliteAdvancedSearchProvider(path).ExecuteAsync(query)).Identity.SourceId);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =
