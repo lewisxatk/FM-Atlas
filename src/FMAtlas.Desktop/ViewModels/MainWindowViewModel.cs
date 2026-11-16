@@ -13,6 +13,9 @@ namespace FMAtlas.Desktop.ViewModels;
 
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
+    // Fail-closed production switch. Live reading is suspended until the reported
+    // FM27 process exit has been reproduced and independently explained.
+    private const bool LiveLoadSafetyGateEnabled = false;
     private readonly IGameProcessProbe _processProbe;
     private readonly IAtlasDatabase _atlasDatabase;
     private readonly IEntitySearchProvider _entitySearchProvider;
@@ -20,9 +23,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly string _databasePath;
     private readonly string _searchPreferencesPath;
     private CancellationTokenSource? _quickSearchCancellation;
-    private string _connectionStatus = "Not connected";
+    private string _connectionStatus = "Live load paused";
     private string _connectionDetail = "Detect Game checks for the FM process and game module only. Loading a career is still In Progress.";
-    private string _lastAction = "Fresh application foundation";
+    private string _lastAction = "Live FM27 connection paused for safety investigation";
     private string _quickSearchText = string.Empty;
     private string _quickSearchMessage = "Search imported FM Atlas records.";
     private bool _isQuickSearchOpen;
@@ -62,7 +65,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             "FM Atlas", "Settings", "include-women-players.txt");
         _includeWomenPlayers = LoadIncludeWomenPlayersPreference();
 
-        LoadGameCommand = new AsyncRelayCommand(LoadLiveGameAsync, () => !IsBusy);
+        LoadGameCommand = new AsyncRelayCommand(LoadLiveGameAsync, () => LiveLoadSafetyGateEnabled && !IsBusy);
         SaveAtlasCommand = new AsyncRelayCommand(SaveAtlasAsync, () => !IsBusy);
     }
 
@@ -438,6 +441,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private async Task LoadLiveGameAsync()
     {
+        if (!LiveLoadSafetyGateEnabled)
+        {
+            ConnectionStatus = "Live load paused";
+            ConnectionDetail = "FM Atlas has temporarily disabled live FM27 loading while we investigate an unexpected Football Manager process closure. No connection or memory read will be attempted. CSV import and local search are still available.";
+            LastAction = "Live FM27 connection blocked by the safety gate";
+            return;
+        }
+
         var refreshSearchAfterLoad = false;
         if (LiveSessionActive)
             NotifyLiveDataInvalidated();
