@@ -1,0 +1,185 @@
+<UserControl x:Class="FMAtlas.Desktop.Views.PlayerProfileView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Atlas.Canvas}"
+             Foreground="{StaticResource Atlas.Text}"
+             FontFamily="Segoe UI"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True">
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Open-player tabs are distinct from the selected player's own sections. -->
+        <Border Grid.Row="0" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,9">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Left" Text="OPEN PLAYERS" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <TextBlock Text="No player profiles open" FontSize="11" Foreground="{StaticResource Atlas.Muted}" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Compact FMRTE-style section tabs, placed at the top as requested. -->
+        <Border Grid.Row="1" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="0,10,0,10">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Sections}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding}"
+                                    Command="{Binding DataContext.SelectSectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Style="{StaticResource Atlas.ProfileTabButton}"
+                                    Margin="0,0,5,0"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="226"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="258"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left identity rail: real graphics lookup will populate the portrait. -->
+            <StackPanel Grid.Column="0">
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15">
+                    <StackPanel>
+                        <Border Height="194" Background="#151515" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="7">
+                            <Grid>
+                                <TextBlock Text="PLAYER PHOTO" Foreground="{StaticResource Atlas.Subtle}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock Text="{Binding PlayerTitle}" FontFamily="Georgia" FontSize="21" Foreground="{StaticResource Atlas.Text}" Margin="0,14,0,4"/>
+                        <TextBlock Text="{Binding PlayerSubtitle}" TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource Atlas.Muted}"/>
+                        <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,13,0,10"/>
+                        <TextBlock Text="PLAYER INFORMATION" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,9"/>
+                        <TextBlock Text="Age  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Date of birth  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Nationality  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Club / Team  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="League  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Position  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Preferred foot  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Height / Weight  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Unique ID  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,9,0,9"/>
+                        <TextBlock Text="CONTRACT SUMMARY" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                        <TextBlock Text="Wage  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Expiry  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="Transfer value  ·  —" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Centre attribute editor. The source catalogue supplies the order; values remain empty until read. -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <Grid Margin="0,0,0,11">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="PLAYER ATTRIBUTES" FontSize="10" Foreground="{StaticResource Atlas.Accent}"/>
+                            <TextBlock Text="Football Manager profile order · source-documented, visual verification pending" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                            <TextBlock Text="CA" FontSize="9" Foreground="{StaticResource Atlas.Muted}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="—" FontFamily="Consolas" FontSize="18" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                            <TextBlock Text="PA" FontSize="9" Foreground="{StaticResource Atlas.Muted}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="—" FontFamily="Consolas" FontSize="18" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding AttributeGroups}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource Atlas.ProfilePanel}" Width="330" Margin="0,0,10,10" Padding="13">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                        <ItemsControl ItemsSource="{Binding Attributes}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="44"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding DisplayName}" FontSize="11" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
+                                                        <Border Grid.Column="1" Background="#1B1B1B" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="4" Padding="5,2">
+                                                            <TextBlock Text="{Binding ValueText}" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource Atlas.Muted}" TextAlignment="Center"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Right-side information panels. No fabricated metrics or sample analytics. -->
+            <StackPanel Grid.Column="4">
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="ABILITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="CURRENT" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                <TextBlock Text="—" FontFamily="Georgia" FontSize="30" Foreground="{StaticResource Atlas.Text}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="POTENTIAL" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                <TextBlock Text="—" FontFamily="Georgia" FontSize="30" Foreground="{StaticResource Atlas.Text}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Values appear after a verified player record is loaded." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="SEASON STATISTICS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <TextBlock Text="No season data loaded" FontSize="11" Foreground="{StaticResource Atlas.Muted}" Margin="0,12,0,0"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="POSITIONS &amp; SUITABILITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <TextBlock Text="Position ratings will be shown from the loaded save." FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="DATA STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <TextBlock Text="{Binding DataState}" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,10,0,0"/>
+                        <TextBlock Text="No values are editable until a field mapping is verified for the active FM build." FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
