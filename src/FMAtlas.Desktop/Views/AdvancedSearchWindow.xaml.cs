@@ -19,10 +19,10 @@ public partial class AdvancedSearchWindow : Window
 
     public event Action<EntitySearchResult>? ResultOpenRequested;
 
-    public AdvancedSearchWindow(IAdvancedSearchProvider searchProvider)
+    public AdvancedSearchWindow(IAdvancedSearchProvider searchProvider, Func<bool>? includeWomenPlayers = null)
     {
         InitializeComponent();
-        _viewModel = new AdvancedSearchWindowViewModel(searchProvider);
+        _viewModel = new AdvancedSearchWindowViewModel(searchProvider, includeWomenPlayers);
         DataContext = _viewModel;
         GeneralPanel.Visibility = Visibility.Collapsed;
         DynamicCategoryPanels.Visibility = Visibility.Visible;
