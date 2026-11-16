@@ -4,6 +4,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+    throw "Run this package script on Windows 10/11."
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $solution = Join-Path $repoRoot "FMAtlas.sln"
 $desktopProject = Join-Path $repoRoot "src/FMAtlas.Desktop/FMAtlas.Desktop.csproj"
