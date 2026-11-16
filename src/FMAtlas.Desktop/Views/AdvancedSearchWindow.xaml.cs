@@ -1,6 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Win32;
 using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Search;
 using FMAtlas.Desktop.ViewModels;
@@ -73,6 +78,114 @@ public partial class AdvancedSearchWindow : Window
         LogicComboBox.SelectedIndex = 0;
         PositionLogicComboBox.SelectedIndex = 0;
         _viewModel.ClearFilters();
+    }
+
+    private void SavePreset_Click(object sender, RoutedEventArgs e)
+    {
+        var preset = _viewModel.CreatePreset(PresetNameTextBox.Text);
+        if (preset is null)
+            return;
+
+        try
+        {
+            var directory = GetPresetDirectory();
+            Directory.CreateDirectory(directory);
+
+            var safeName = string.Concat(preset.Name.Select(character =>
+                Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
+            if (string.IsNullOrWhiteSpace(safeName))
+                safeName = "Advanced Search";
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Save FM Atlas search criteria",
+                InitialDirectory = directory,
+                FileName = safeName + ".json",
+                DefaultExt = ".json",
+                AddExtension = true,
+                Filter = "FM Atlas search preset (*.json)|*.json",
+                OverwritePrompt = true
+            };
+
+            if (dialog.ShowDialog(this) != true)
+            {
+                _viewModel.SetStatus("Save preset cancelled.");
+                return;
+            }
+
+            var json = JsonSerializer.Serialize(preset, PresetJsonOptions());
+            File.WriteAllText(dialog.FileName, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            _viewModel.SetStatus($"Saved “{preset.Name}” to {dialog.FileName}.");
+            PresetNameTextBox.Text = preset.Name;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+        {
+            _viewModel.SetStatus($"Could not save the search preset: {exception.Message}");
+        }
+    }
+
+    private void LoadPreset_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var directory = GetPresetDirectory();
+            Directory.CreateDirectory(directory);
+
+            var dialog = new OpenFileDialog
+            {
+                Title = "Load FM Atlas search criteria",
+                InitialDirectory = directory,
+                DefaultExt = ".json",
+                CheckFileExists = true,
+                Multiselect = false,
+                Filter = "FM Atlas search preset (*.json)|*.json|All files (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog(this) != true)
+            {
+                _viewModel.SetStatus("Load preset cancelled.");
+                return;
+            }
+
+            var file = new FileInfo(dialog.FileName);
+            if (file.Length > 1_000_000)
+            {
+                _viewModel.SetStatus("That preset is too large to load (maximum 1 MB).");
+                return;
+            }
+
+            var json = File.ReadAllText(dialog.FileName, Encoding.UTF8);
+            var preset = JsonSerializer.Deserialize<AdvancedSearchPreset>(json, PresetJsonOptions());
+            if (preset is null || string.IsNullOrWhiteSpace(preset.Name) || preset.Conditions is null)
+            {
+                _viewModel.SetStatus("The selected file is not a valid FM Atlas search preset.");
+                return;
+            }
+
+            _viewModel.ApplyPreset(preset);
+            LogicComboBox.SelectedIndex = preset.Logic == SearchFilterLogic.Any ? 1 : 0;
+            PositionLogicComboBox.SelectedIndex = preset.PositionLogic == SearchFilterLogic.Any ? 1 : 0;
+            PresetNameTextBox.Text = preset.Name;
+            RefreshSelection();
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            _viewModel.SetStatus($"Could not load the search preset: {exception.Message}");
+        }
+    }
+
+    private static string GetPresetDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FM Atlas",
+            "Search Presets");
+
+    private static JsonSerializerOptions PresetJsonOptions()
+    {
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        options.Converters.Add(new JsonStringEnumConverter());
+        return options;
     }
 
     private void RefreshSelection()
