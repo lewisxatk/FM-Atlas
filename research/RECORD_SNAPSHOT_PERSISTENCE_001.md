@@ -42,3 +42,12 @@ Windows CI is required before this code is marked build/test verified.
 PlayerRecord, StaffRecord and ClubRecord now implement IEntityRecord. SaveSnapshotAsync accepts the typed record and reads its EntityIdentity directly rather than accepting a second independent identity parameter. This removes a caller-side mismatch risk. Query/load/delete still require the requested provider-scoped identity and record type.
 
 The store preserves a non-null display name when a later partial snapshot does not provide one. The entity and snapshot writes are transactional. No normalised searchable field projection is produced yet.
+
+
+## Searchable field projection
+
+The snapshot store now projects supported scalar fields to field_values inside the same transaction as the typed JSON record snapshot. This ensures the stored snapshot and searchable projection cannot be committed separately.
+
+Snapshot replacement deletes the previous field projection before inserting the fields from the new typed record. Snapshot deletion removes the field projection when the entity has no remaining snapshots, but preserves the entity row.
+
+A new read-only SqliteEntitySearchProvider queries indexed entity display names. It supports Player/Staff/Club filtering, literal substring matching with escaped LIKE metacharacters and result limits. The WPF Quick Search bar is not connected yet. Advanced Search execution remains a separate development task.
