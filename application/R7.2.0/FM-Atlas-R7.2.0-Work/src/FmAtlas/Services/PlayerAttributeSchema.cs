@@ -3,11 +3,11 @@ namespace FmAtlas.Services;
 internal sealed record PlayerAttributeField(string Key, string Label, string Category, int Offset);
 internal static class PlayerAttributeSchema
 {
-    // Source: FMLibreEditor profiles/fm27/layout.toml [player.attributes], cross-checked with
-    // crates/fmlibre-core/src/details.rs ATTRIBUTE_GROUPS and the independently registered FM27
-    // Game Pass profile fingerprint. The 47 standard plus five hidden fields (52 total) map to
-    // this FM27 player layout. Live writes still require exact-build, UID/name, raw-byte preflight,
-    // explicit session opt-in, read-back verification and rollback. Feet are mapped separately.
+    // Source: FMLibreEditor profiles/fm27/layout.toml [player.attributes], crates/fmlibre-core/src/details.rs
+    // ATTRIBUTE_GROUPS, and Jackhamerp24/Football-Manager-27-Editor FM27 Game Pass +2493426 offsets.
+    // FMLibreEditor confirms Game Pass 0.9.2435.0 kept the 0.9.2409.0 object layout unchanged field-by-field.
+    // The 47 standard plus five hidden fields (52 total) map to this FM27 player layout. Live writes
+    // still require exact-build, UID/name, raw-byte preflight, explicit opt-in, read-back and rollback.
     internal static readonly PlayerAttributeField[] Fields = new PlayerAttributeField[] {
         new("crossing", "Crossing", "Technical", 0x15F),
         new("dribbling", "Dribbling", "Technical", 0x160),
