@@ -8,8 +8,9 @@ public enum GameBuildEvidenceStatus
 }
 
 /// <summary>
-/// A known external build fingerprint. ExternalReferenceOnly profiles identify a
-/// candidate build but do not authorize process-memory reads or writes.
+/// A known external build fingerprint. ExternalReferenceOnly allows a narrowly
+/// scoped read-only probe where FM Atlas has an exact-layout scanner; it does not
+/// mean that imported values are Atlas-verified and never authorizes writes.
 /// </summary>
 public sealed record GameBuildProfile(
     string Id,
@@ -21,6 +22,12 @@ public sealed record GameBuildProfile(
     GameBuildEvidenceStatus EvidenceStatus,
     string EvidenceSource)
 {
+    /// <summary>Whether a scanner may attempt an explicitly read-only probe for this exact build.</summary>
+    public bool CanAttemptReadOnlyScan => EvidenceStatus is GameBuildEvidenceStatus.ExternalReferenceOnly
+        or GameBuildEvidenceStatus.AtlasReadVerified
+        or GameBuildEvidenceStatus.AtlasWriteVerified;
+
+    /// <summary>True only after FM Atlas has independently verified the read mapping on this build.</summary>
     public bool CanReadLiveData => EvidenceStatus is GameBuildEvidenceStatus.AtlasReadVerified
         or GameBuildEvidenceStatus.AtlasWriteVerified;
 
