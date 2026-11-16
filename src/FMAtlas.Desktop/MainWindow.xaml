@@ -48,7 +48,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Row="2">
+                <StackPanel x:Name="WorkspaceNavigationPanel" Grid.Row="2">
                     <TextBlock Text="WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" Margin="9,0,0,10"/>
                     <Button Style="{StaticResource Atlas.NavButton}" Background="#1B1511" BorderBrush="#352219" Margin="0,0,0,4" Tag="Dashboard" Click="NavigationButton_Click">
                         <StackPanel Orientation="Horizontal">
@@ -98,7 +98,7 @@
 
                 <StackPanel Grid.Row="4">
                     <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,12"/>
-                    <Button Style="{StaticResource Atlas.NavButton}" Tag="Settings" Click="NavigationButton_Click" ToolTip="Open FM Atlas settings and data preferences.">
+                    <Button x:Name="SettingsNavigationButton" Style="{StaticResource Atlas.NavButton}" Tag="Settings" Click="NavigationButton_Click" ToolTip="Open FM Atlas settings and data preferences.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
                             <TextBlock Text="Settings" FontSize="12"/>
