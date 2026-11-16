@@ -6,6 +6,7 @@ using System.Windows.Input;
 using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Clubs;
 using FMAtlas.Domain.Data;
+using FMAtlas.Domain.Entities;
 using FMAtlas.Domain.Search;
 
 namespace FMAtlas.Desktop.ViewModels;
@@ -57,6 +58,8 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     private ClubRecord Club { get; }
     public ObservableCollection<ProfileSectionTabViewModel> Sections { get; }
     public ObservableCollection<ProfileValueRowViewModel> SectionRows { get; } = [];
+    public ObservableCollection<EntitySearchResult> SquadPlayers { get; } = [];
+    public bool IsSquadsSection => SelectedSection == "Squads";
     public ICommand SelectSectionCommand { get; }
     public string SelectedSection
     {
@@ -68,6 +71,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
             foreach (var tab in Sections)
                 tab.IsSelected = tab.Name == value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsSquadsSection));
             UpdateRows();
         }
     }
@@ -95,6 +99,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         var isAsyncSection = false;
 
         SectionRows.Clear();
+        SquadPlayers.Clear();
         var rows = new List<ProfileValueRowViewModel>();
         void Add(string name, string? value, FieldProvenance? evidence = null)
         {
@@ -286,15 +291,11 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
                 sectionLoadVersion != _sectionLoadVersion)
                 return;
 
-            SectionRows.Clear();
+            SquadPlayers.Clear();
             foreach (var player in players.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
-            {
-                SectionRows.Add(new ProfileValueRowViewModel(
-                    player.DisplayName,
-                    player.Identity.SourceId,
-                    $"Player · {player.Identity.ProviderKey}"));
-            }
+                SquadPlayers.Add(player);
 
+            OnPropertyChanged(nameof(SquadPlayers));
             SectionEmptyText = players.Count == 0
                 ? "No players in the indexed snapshot are linked to this club ID. The active source may not have supplied their current-team relationship."
                 : string.Empty;
