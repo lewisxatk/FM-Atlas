@@ -1,5 +1,6 @@
 using System.Windows.Controls;
 using FMAtlas.Domain.Entities;
+using FMAtlas.Desktop.ViewModels;
 
 namespace FMAtlas.Desktop.Views;
 

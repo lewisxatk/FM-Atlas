@@ -71,7 +71,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? LiveDataInvalidated;
-    public event EventHandler? LiveDataLoaded;
 
     public ICommand LoadGameCommand { get; }
     public ICommand SaveAtlasCommand { get; }
@@ -497,7 +496,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             QuickSearchResults.Clear();
             QuickSearchMessage = "Live FM27 career loaded. Search players, staff and clubs.";
             refreshSearchAfterLoad = QuickSearchText.Trim().Length >= 2;
-            LiveDataLoaded?.Invoke(this, EventArgs.Empty);
         }
         catch (OperationCanceledException)
         {
