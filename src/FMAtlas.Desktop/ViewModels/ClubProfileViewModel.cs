@@ -107,6 +107,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         SquadPlayers.Clear();
         ClubStaff.Clear();
         var rows = new List<ProfileValueRowViewModel>();
+        var seenFieldKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Add(string name, string? value, FieldProvenance? evidence = null)
         {
             if (!string.IsNullOrWhiteSpace(value) && value != "Not imported")
@@ -115,7 +116,8 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         void AddMap<T>(string prefix, IReadOnlyDictionary<string, SourcedValue<T>> map)
         {
             foreach (var pair in map.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
-                if (prefix.Length == 0 || pair.Key.Contains(prefix, StringComparison.OrdinalIgnoreCase))
+                if ((prefix.Length == 0 || pair.Key.Contains(prefix, StringComparison.OrdinalIgnoreCase)) &&
+                    seenFieldKeys.Add(pair.Key))
                     Add(Humanise(pair.Key), FormatObject(pair.Value.Value), pair.Value.Provenance);
         }
 
@@ -244,7 +246,7 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
 
         foreach (var row in rows) SectionRows.Add(row);
         SectionEmptyText = isAsyncSection
-            ? "Loading players linked to this club…"
+            ? SelectedSection == "Staff" ? "Loading staff linked to this club…" : "Loading players linked to this club…"
             : rows.Count > 0 ? string.Empty : SelectedSection switch
         {
             "Squads" => "No squad/player membership records are currently imported.",
