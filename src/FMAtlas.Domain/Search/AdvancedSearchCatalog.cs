@@ -172,6 +172,13 @@ public static class AdvancedSearchCatalog
         if (entity != SearchEntityKind.Player)
             return Array.Empty<AdvancedSearchFieldDefinition>();
 
+        if (category == AdvancedSearchCategoryKind.Goalkeeping)
+            return PlayerAttributeCatalog.GetProfileGroups(true)
+                .Where(x => x.Kind == PlayerAttributeGroupKind.Goalkeeping)
+                .SelectMany(x => x.Attributes)
+                .Select(attribute => F($"attribute_{attribute.Key}", attribute.DisplayName, category, SearchFieldValueKind.IntegerRange, Players, 0, 20))
+                .ToArray();
+
         var group = category switch
         {
             AdvancedSearchCategoryKind.TechnicalGoalkeeping => PlayerAttributeGroupKind.Technical,
@@ -191,12 +198,6 @@ public static class AdvancedSearchCatalog
         if (category == AdvancedSearchCategoryKind.MentalAttributes)
             attributes.AddRange(PlayerAttributeCatalog.PersonalityAttributes.Select(attribute =>
                 F($"personality_{attribute.Key}", $"Personality: {attribute.DisplayName}", category, SearchFieldValueKind.IntegerRange, Players, 0, 20)));
-
-        if (category == AdvancedSearchCategoryKind.TechnicalGoalkeeping)
-            attributes.AddRange(PlayerAttributeCatalog.GetProfileGroups(true)
-                .Where(x => x.Kind == PlayerAttributeGroupKind.Goalkeeping)
-                .SelectMany(x => x.Attributes)
-                .Select(attribute => F($"attribute_{attribute.Key}", attribute.DisplayName, category, SearchFieldValueKind.IntegerRange, Players, 0, 20)));
 
         if (category == AdvancedSearchCategoryKind.PhysicalHidden)
             attributes.AddRange(PlayerAttributeCatalog.GetProfileGroups(false)
