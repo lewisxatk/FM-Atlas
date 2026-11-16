@@ -315,3 +315,41 @@ The feature audit now records the controls and behaviour visible in those build 
 ### Uncommitted changes
 
 None known. All listed changes are committed. Re-read this checkpoint and branch head before further work.
+
+
+---
+
+## Checkpoint 009 — verified artifact and CI runner state
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Current head:** `cc7a0240ee41b04efc9fcdc572940bfbbb20be31`
+
+### Last verified Windows build artifact
+
+The last successful Windows build is from commit `fbe36400b4894c28acd50afe22e651fe692e9796`:
+- Workflow run: [43788503042](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788503042)
+- Result: success (restore, build, tests and artifact upload).
+- Artifact: `fm-atlas-fresh-shell-win-x64`
+- Artifact ID: `14191452135`
+- Size: 13,190,770 bytes
+- Expires: 2026-11-30.
+
+This artifact includes the fresh WPF shell, REF-004 profile view shell, REF-002 advanced-search shell, search domain model and static PE fingerprint reader. It predates the later eight-personality-field and reference-only build-profile registry additions, so it is a fallback verified build, not the latest source state.
+
+### Latest CI runner issue
+
+The code commits after `fbe36400` triggered GitHub Actions runs that ended within seconds with:
+- job `runner_id=0`;
+- empty `steps`;
+- no build/test log available.
+
+A failed-job rerun was attempted and produced the same pre-runner failure. This is not evidence of a C# or XAML compile failure; the job never reached checkout/restore/build. Do not mark the latest code as verified until a Windows runner actually executes the workflow.
+
+### Current safe continuation point
+
+- All code and docs are committed; no uncommitted changes are known.
+- Last fully verified build is commit `fbe36400`.
+- Latest source head is `cc7a0240`.
+- Latest unverified additions: separate Personality group and search filters, reference-only GameBuildProfileCatalog, MainWindow reference-match diagnostic, FMRTE REF-005–REF-010 documentation.
+- Next step is to get a Windows Actions runner to execute the latest source, then fix any actual compile/test errors if they appear.
