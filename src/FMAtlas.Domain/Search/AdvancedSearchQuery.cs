@@ -36,7 +36,7 @@ public sealed record AdvancedSearchQuery(
     /// True only when every field has a ready implementation. The current catalogue
     /// deliberately returns false until real providers and query execution are tested.
     /// </summary>
-    public bool CanExecute => Conditions.All(condition =>
+    public bool CanExecute => Conditions.Count > 0 && Conditions.All(condition =>
         AdvancedSearchQueryValidator.ResolveField(Entity, condition.FieldKey)?.CanExecute == true);
 }
 
