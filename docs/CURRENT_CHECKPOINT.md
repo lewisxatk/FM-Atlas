@@ -686,7 +686,8 @@ No live career file has been changed. No process memory has been read or written
 - Quick Search also queries the local imported-record index.
 - No live FM27 career/world data has yet been imported by the fresh shell; therefore search cannot yet find the actual save's players until an importer populates the local database.
 - Newgen filter semantics and query execution exist, but live newgen status is not yet populated.
-- Relations and Recommended CA remain In Progress.
+- Relations now has a read-only query path through the normalized `entity_relationships` table and a provenance-backed SQLite relationship store. It can match relationship type or related entity name in either direction; the live FM27 importer still needs to populate it.
+- Recommended CA remains In Progress until the actual FMRTE-compatible ability-weight calculation is reverse-engineered and verified.
 - Result rows still show basic record identity; a full player-profile handoff is not finished.
 - Load Live Save and Save Live Save remain disabled. Detect Game remains a process/module probe, not a career reader.
 - No process memory has been read or written; no live career has been modified.
