@@ -309,6 +309,34 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
                 return true;
             }
 
+            case SearchFieldValueKind.Boolean:
+            {
+                var op = field.BooleanSelection switch
+                {
+                    1 => SearchFilterOperator.IsTrue,
+                    2 => SearchFilterOperator.IsFalse,
+                    3 => SearchFilterOperator.IsUnknown,
+                    _ => (SearchFilterOperator?)null
+                };
+                if (op is null)
+                    return true;
+
+                condition = new SearchFilterCondition(field.Key, op.Value);
+                return true;
+            }
+
+            case SearchFieldValueKind.Enum:
+            {
+                if (string.IsNullOrWhiteSpace(field.TextValue))
+                    return true;
+
+                condition = new SearchFilterCondition(
+                    field.Key,
+                    SearchFilterOperator.Equals,
+                    TextValue: field.TextValue.Trim());
+                return true;
+            }
+
             case SearchFieldValueKind.Text:
             case SearchFieldValueKind.EntityLookup:
             {
@@ -446,6 +474,7 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
     private string _dateMinimumText = string.Empty;
     private string _dateMaximumText = string.Empty;
     private bool _includeTrait = true;
+    private int _booleanSelection;
     private bool _isEnabled;
 
     public AdvancedSearchFieldViewModel(AdvancedSearchFieldDefinition definition) =>
@@ -466,6 +495,8 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
     public string DateMinimumText { get => _dateMinimumText; set => SetField(ref _dateMinimumText, value); }
     public string DateMaximumText { get => _dateMaximumText; set => SetField(ref _dateMaximumText, value); }
     public bool IncludeTrait { get => _includeTrait; set => SetField(ref _includeTrait, value); }
+    /// <summary>0 = any, 1 = true, 2 = false, 3 = unknown/unavailable.</summary>
+    public int BooleanSelection { get => _booleanSelection; set => SetField(ref _booleanSelection, value); }
 
     public bool IsEnabled
     {
@@ -481,6 +512,7 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
         DateMinimumText = string.Empty;
         DateMaximumText = string.Empty;
         IncludeTrait = true;
+        BooleanSelection = 0;
     }
 
     public void RefreshDefinition(AdvancedSearchFieldDefinition definition)
@@ -499,6 +531,7 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
             SearchFieldValueKind.PositionRating => "Position",
             SearchFieldValueKind.Boolean => "Boolean",
             SearchFieldValueKind.DateRange => "Date",
+            SearchFieldValueKind.Enum => "Enum",
             SearchFieldValueKind.TraitSelector => "Trait",
             _ => "Text"
         };
@@ -509,6 +542,7 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ImplementationStatus));
         OnPropertyChanged(nameof(ValueKind));
         OnPropertyChanged(nameof(ControlKind));
+        OnPropertyChanged(nameof(BooleanSelection));
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
