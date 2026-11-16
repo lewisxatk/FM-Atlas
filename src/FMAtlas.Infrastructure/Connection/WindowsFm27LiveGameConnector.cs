@@ -412,6 +412,8 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             return;
         Disconnect();
         _disposed = true;
-        _gate.Dispose();
+        // Do not dispose the semaphore while an in-flight load/check may still
+        // execute its finally { _gate.Release(); }. Disconnect marks an active
+        // operation for teardown; the short-lived semaphore is left for GC.
     }
 }
