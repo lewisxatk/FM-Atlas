@@ -40,5 +40,7 @@ GitHub Actions runs the same restore/build/test sequence on Windows.
 - `docs/ARCHITECTURE_DECISION.md` — clean application architecture.
 - `research/UPLOADED_RESEARCH_INVENTORY.md` — uploaded package hashes and contents.
 - `research/RESEARCH_FINDINGS_001.md` — initial technical research evidence.
+- `research/FMRTE_FEATURE_AUDIT_001.md` — official FMRTE 27 player/staff/club tab and tool coverage.
+- `research/FIELD_COVERAGE_LEDGER.md` — attribute groups, field counts and verification status.
 
 The historical R7.2.0 source is preserved separately in `recovery/r7.2.0-source-import` and is not the new application's code foundation.
