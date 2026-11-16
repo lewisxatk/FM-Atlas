@@ -243,7 +243,7 @@ internal sealed class FM27GamePass0935Reader
         var nationality = ReadNationName(U64(0x2F0, offset));
         var (secondNationality, relationSearchText) = ReadPlayerRelations(U64(0x300, offset), evidence);
         var cityOfBirth = ReadCityName(U64(0x308, offset));
-        var club = ReadPlayerClubName(U64(0x130));
+        var teamInfo = ReadPlayerTeam(U64(0x130), evidence);
         var genderFlags = B(0x2A1, offset);
         var madeByGameFlags = B(0x2A0, offset);
 
@@ -368,6 +368,8 @@ internal sealed class FM27GamePass0935Reader
         }
 
         var searchText = new Dictionary<string, SourcedValue<string>>(relationSearchText, StringComparer.OrdinalIgnoreCase);
+        if (teamInfo.TeamKind is not null)
+            searchText["team_kind"] = new SourcedValue<string>(teamInfo.TeamKind, evidence);
         if (contractSigned is DateOnly signed)
             searchDates["contract_signed"] = new SourcedValue<DateOnly>(signed, evidence);
         if (contractJoined is DateOnly joined)
@@ -383,7 +385,9 @@ internal sealed class FM27GamePass0935Reader
             SecondNationality = secondNationality is not null ? new SourcedValue<string>(secondNationality, evidence) : null,
             CityOfBirth = cityOfBirth is not null ? new SourcedValue<string>(cityOfBirth, evidence) : null,
             Gender = new SourcedValue<string>((genderFlags & 0x10) != 0 ? "Female" : "Male", evidence),
-            ClubName = club is not null ? new SourcedValue<string>(club, evidence) : null,
+            ClubName = teamInfo.ClubName is not null ? new SourcedValue<string>(teamInfo.ClubName, evidence) : null,
+            TeamName = teamInfo.TeamKind is not null ? new SourcedValue<string>(teamInfo.TeamKind, evidence) : null,
+            LeagueName = teamInfo.LeagueName is not null ? new SourcedValue<string>(teamInfo.LeagueName, evidence) : null,
             PrimaryPosition = positionName is not null ? new SourcedValue<string>(positionName, evidence) : null,
             HeightCentimetres = height is > 0 and < 300 ? new SourcedValue<decimal>(height, evidence) : null,
             CurrentAbility = currentAbility is > 0 and <= 200 ? new SourcedValue<int>(currentAbility, evidence) : null,
@@ -881,6 +885,30 @@ internal sealed class FM27GamePass0935Reader
         if (!WindowsProcessMemoryAccessor.IsUserPointer(city))
             return null;
         return ReadFmString(SafeReadPointer(city + 0x18));
+    }
+
+    private (string? ClubName, string? LeagueName, string? TeamKind) ReadPlayerTeam(
+        ulong team,
+        FieldProvenance evidence)
+    {
+        if (!WindowsProcessMemoryAccessor.IsUserPointer(team))
+            return (null, null, null);
+
+        var club = ReadPlayerClubName(team);
+        var competition = SafeReadPointer(team + 0x50);
+        var leagueName = competition == 0 ? null : ReadFmString(SafeReadPointer(competition + 0x40));
+
+        var kind = TryReadByte(team + 0x28);
+        var ageLimit = TryReadByte(team + 0x2C);
+        var teamKind = kind switch
+        {
+            0 => "First Team",
+            10 => "Under 21s",
+            12 => "Under 18s",
+            _ => null
+        };
+
+        return (club, leagueName, teamKind);
     }
 
     private string? ReadPlayerClubName(ulong team)
