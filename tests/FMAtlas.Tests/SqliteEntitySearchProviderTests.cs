@@ -177,6 +177,32 @@ public sealed class SqliteEntitySearchProviderTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => provider.QuickSearchAsync("player", limit: 201));
     }
 
+    [Fact]
+    public async Task ImportedMohamedSalahRecordIsFoundByPlayerDirectorySearch()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+
+        // This mirrors the exact snapshot-store -> entities index -> directory search
+        // path used after a live read or supported player CSV import.
+        var identity = new EntityIdentity(EntityKind.Player, "salah-1", "live-test");
+        var store = new SqliteEntityRecordSnapshotStore(path);
+        await store.SaveSnapshotAsync(
+            new PlayerRecord(identity)
+            {
+                FullName = new SourcedValue<string>("Mohamed Salah", Evidence)
+            },
+            "Mohamed Salah");
+
+        var results = await new SqliteEntitySearchProvider(path).QuickSearchAsync(
+            "Salah", [EntityKind.Player], limit: 200);
+
+        var result = Assert.Single(results);
+        Assert.Equal(identity, result.Identity);
+        Assert.Equal("Mohamed Salah", result.DisplayName);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =
