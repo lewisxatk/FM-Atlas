@@ -353,3 +353,82 @@ A failed-job rerun was attempted and produced the same pre-runner failure. This 
 - Latest source head is `cc7a0240`.
 - Latest unverified additions: separate Personality group and search filters, reference-only GameBuildProfileCatalog, MainWindow reference-match diagnostic, FMRTE REF-005–REF-010 documentation.
 - Next step is to get a Windows Actions runner to execute the latest source, then fix any actual compile/test errors if they appear.
+
+
+---
+
+## Checkpoint 010 — typed data, graphics index, Advanced Search panels and SQLite schema
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Head:** `d762f24e5e50e45240c476fe6b8c63b7d8dfe0d9`  
+**Status:** New source and schema work committed. Latest Windows Actions run was queued when this checkpoint was recorded; compile/test result is not yet available.
+
+### Work saved since checkpoint 009
+
+1. **Typed, provenance-aware domain records** (commit `f3094878`):
+   - Data source kinds and field provenance.
+   - Player, staff and club record types with sourced nullable fields.
+   - Provider-scoped entity identity.
+   - Attribute/personality/position/statistic and finance/facility dictionaries.
+   - Write-verification metadata requires live-memory origin, write-verified status and a target build fingerprint; it is not a write command.
+
+2. **Independent read-only graphics locator** (commit `f3094878`):
+   - Recursively indexes config.xml mappings below a user-selected graphics root.
+   - Resolves person portraits, club logos and nation logos.
+   - Accepts numeric and r- Newgen player IDs.
+   - Ignores non-profile assets such as person icons.
+   - Resolves relative paths and rejects absolute paths, wildcard paths and traversal outside the graphics root.
+   - Deterministic duplicate precedence.
+   - No image files are moved, renamed or modified.
+   - Synthetic tests added for asset mapping, Newgen UIDs, duplicate mappings, path traversal, missing folders and clearing the index.
+   - Research evidence and limitations recorded in `research/GRAPHICS_REVERSE_ENGINEERING_001.md`.
+   - Not yet tested against the user's actual graphics folders. Image decoding, WPF binding and persistent cache are not implemented.
+
+3. **Schema-driven Advanced Search category navigation** (commit `8f67e909`):
+   - Player/Coach/Club selectors now switch the entity context.
+   - All seven FMRTE categories switch the visible field panels.
+   - General player panel retains the dedicated REF-002 two-column layout.
+   - Other categories are rendered from the Domain field catalogue.
+   - Field controls remain disabled and clearly state query handlers are In Progress; there is no real search provider yet.
+   - Cancel works. OK remains disabled until a verified query executor exists.
+   - This is a structural/data-bound UI shell, not executable Advanced Search.
+
+4. **Local SQLite schema migration 1** (commit `d762f24e`):
+   - Added IAtlasDatabase abstraction and AtlasDatabase initializer.
+   - Transactional, idempotent schema version 1.
+   - Tables for migrations, data sources, provider-scoped entities, field values with source/evidence/build provenance, entity relationships and graphics mappings.
+   - Foreign keys and indexes for entity name, field keys, numeric values and relationship targets.
+   - Tests added for initialisation, schema tables, idempotence and foreign-key enforcement.
+   - Typed record repositories, import transactions and indexed query execution are not implemented yet.
+
+### CI / verification
+
+- Latest run for head `d762f24e`: [43829628775](https://github.com/lewisxatk/FM-Atlas/actions/runs/43829628775). It was queued at checkpoint time.
+- Recent workflow runs for commits `f3094878` and `8f67e909` failed with a build job that had `steps=null`, no logs and no runner allocation. These failures did not reach checkout/restore/build; they are not compiler diagnostics.
+- Local execution environment has no .NET SDK, so no local WPF/SQLite compile or test has been claimed.
+- Last verified Windows build remains commit `fbe36400`, run [43788503042](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788503042). It predates the new code above and is not the latest package.
+
+### Current limitations
+
+- No FM27 process memory has been read.
+- No career save has been imported into the new application.
+- No player/staff/club record has been supplied by a provider.
+- No live writes have been attempted or enabled.
+- Graphics index has only synthetic tests pending Windows CI and a real user folder check.
+- SQLite schema exists, but persistence repositories and migration/restore UI do not.
+- Advanced Search panels switch and render definitions, but filtering does not execute.
+- Player profile remains a shell; it is not yet connected to the record models or graphics locator.
+
+### Next exact actions
+
+1. Check Windows Actions run 43829628775; if no runner was allocated, retry once and record the exact job state. Do not label code build-verified without a completed runner.
+2. Fix actual compile/test failures if logs are produced.
+3. Add repositories and transaction-based persistence for PlayerRecord, StaffRecord and ClubRecord, preserving field provenance.
+4. Add graphics index cache and connect the locator to the left player identity rail through a real player record.
+5. Continue offline save/import research and build a read-only record provider before any live-memory read is enabled.
+6. Keep live write service disabled until exact Game Pass build and field mappings are verified on a disposable career.
+
+### Uncommitted changes
+
+None known. All code and research above are committed. Re-read the branch head and this checkpoint before the next work unit.
