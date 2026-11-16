@@ -233,7 +233,7 @@
                     <Button Grid.Column="1" Style="{StaticResource Atlas.ButtonBase}" Click="AdvancedSearchButton_Click" Margin="0,0,8,0" Height="37" ToolTip="Open the FMRTE-style filter workspace. Only implemented fields can be queried.">
                         <TextBlock Text="Advanced Search"/>
                     </Button>
-                    <Button Grid.Column="2" Style="{StaticResource Atlas.ButtonBase}" Click="ImportPlayerExportButton_Click" Margin="0,0,8,0" Height="37" ToolTip="Import a real FM27 player-list CSV from FM View Exporter (F9). This reads the export file only; it does not load or modify the live career.">
+                    <Button Grid.Column="2" Style="{StaticResource Atlas.ButtonBase}" Click="ImportPlayerExportButton_Click" Margin="0,0,8,0" Height="37" ToolTip="Import a compatible FM27 player-list CSV. It must include Player or Name and Unique ID columns. This reads the export file only; it does not load or modify the live career.">
                         <TextBlock Text="Import CSV"/>
                     </Button>
                     <Button Grid.Column="3" Style="{StaticResource Atlas.ButtonBase}" Command="{Binding SaveAtlasCommand}" Margin="0,0,8,0" Height="37" ToolTip="Creates or verifies the local FM Atlas database.">
@@ -289,9 +289,9 @@
                     </Border>
                     <Border Style="{StaticResource Atlas.Card}" Margin="0,0,9,0">
                         <StackPanel>
-                            <TextBlock Text="PLAYER RECORDS" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
-                            <TextBlock Text="—" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,9,0,3"/>
-                            <TextBlock Text="No records imported" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
+                            <TextBlock Text="LATEST PLAYER IMPORT" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
+                            <TextBlock Text="{Binding LastImportCountText}" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,9,0,3"/>
+                            <TextBlock Text="{Binding LastImportStatusText}" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Atlas.Card}">
