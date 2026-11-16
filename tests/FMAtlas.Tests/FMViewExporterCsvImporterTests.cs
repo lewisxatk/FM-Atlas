@@ -141,8 +141,8 @@ public sealed class FMViewExporterCsvImporterTests
         var store = new SqliteEntityRecordSnapshotStore(databasePath);
         var csvPath = Path.Combine(temp.Root, "german-style.csv");
         await File.WriteAllTextAsync(csvPath,
-            "Player;Unique ID;Age;Height\n" +
-            "\"Müller, Jana\";700;22;181,5 cm\n");
+            "Player;Unique ID;Age;Height;Weight\n" +
+            "\"Müller, Jana\";700;22;181,5 cm;72.5\n");
 
         var result = await new FMViewExporterCsvImporter(store).ImportAsync(csvPath);
         var player = await store.GetSnapshotAsync<PlayerRecord>(
@@ -150,6 +150,7 @@ public sealed class FMViewExporterCsvImporterTests
 
         Assert.Equal(1, result.ImportedPlayers);
         Assert.Equal(181.5m, player?.HeightCentimetres?.Value);
+        Assert.Equal(72.5m, player?.WeightKilograms?.Value);
         Assert.Equal("Müller, Jana", player?.FullName?.Value);
     }
 
