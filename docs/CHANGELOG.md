@@ -43,3 +43,14 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Added Tactical Intelligence Studio research gate for FM27 Tactical Effectiveness and Tactical Understanding, with no promise to reproduce hidden FM formulas.
 - Confirmed no BepInEx/injector dependency in the current roadmap; standalone app focus retained.
 - Added backup/import safety steps to Next Steps.
+
+## 2026-11-16 — Advanced Search expansion and newgen evidence
+
+- Expanded the FMRTE-inspired Player / Coach / Club search catalogue with typed fields, independent MIN/MAX boundaries, position All/Any logic, and Boolean Yes/No/Unknown states.
+- Added a cross-category field finder, contextual newgen/original/unknown labels, and local JSON Save/Load presets.
+- Expanded typed player, staff and club record projections for identity, attributes, staff role preferences, club facilities, attendance and financial fields.
+- Added PA-minus-CA derived search and regression tests for one-sided ranges, newgen states, position logic, staff role preferences, club fields, preset roundtrip and every READY query mapping.
+- Added research/ADVANCED_SEARCH_COVERAGE_002.md and Checkpoint 015.
+- Corrected an invalid WPF Border child structure found during final XAML source audit.
+- Build status remains unverified: the latest Windows Actions run failed before runner allocation (runner_id=0, no steps and no job logs). No current Windows artifact was produced. This is not a diagnosed compilation error and must not be reported as a successful build.
+- Live FM27 import, live newgen classification, Relations traversal, Recommended CA and live-save writing remain outstanding; live-save actions stay disabled.
