@@ -50,9 +50,9 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M3.3 Career loaded detection.
 - [ ] M3.4 Read-only live data acquisition.
 - [ ] M3.5 Offline save import.
-- [~] M3.6 SQLite schema v2, migration runner and typed JSON entity snapshot store implemented; searchable field projection and import transactions remain.
-- [~] M3.7 Typed PlayerRecord/StaffRecord/ClubRecord models and provider-scoped identities implemented; real provider mappings/import still pending.
-- [~] M3.8 Per-field source/evidence/build provenance model implemented and preserved in snapshots; populated from real providers still pending.
+- [~] M3.6 SQLite schema v2, migration runner, typed snapshots and normalised field_values projection implemented; real save import and source-provider integration remain.
+- [~] M3.7 Typed PlayerRecord/StaffRecord/ClubRecord models, provider-scoped identities and field projector implemented; real provider mappings/import still pending.
+- [~] M3.8 Per-field source/evidence/build provenance model is preserved in snapshots and indexed field_values; populated from real providers still pending.
 - [ ] M3.9 Career switch/reload invalidation.
 - [ ] M3.10 Data accuracy comparison against FM.
 
@@ -81,7 +81,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M4.10 Unsaved change protection.
 
 ## M5 — Search
-- [ ] M5.1 Top Quick Search.
+- [~] M5.1 Top Quick Search UI shell exists and a SQLite Quick Search provider is implemented; UI/provider wiring and profile navigation remain.
 - [~] M5.2 REF-002 FMRTE-style Advanced Search dialog shell created; not connected to search execution.
 - [~] M5.3 Player / Coach / Club selectors now switch the schema context; filter controls stay disabled until entity/query providers are verified.
 - [~] M5.4 General player panel retains the REF-002 layout; other categories are rendered from the schema; query execution is not connected.
@@ -95,7 +95,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M5.12 Min/max, boolean and lookup controls.
 - [ ] M5.13 Explicit AND/OR semantics.
 - [ ] M5.14 Saved searches and result sorting/columns.
-- [ ] M5.15 Search correctness/performance tests.
+- [~] M5.15 Quick Search provider tests cover entity filters, literal wildcard handling and limits; Advanced Search executor tests remain.
 
 ## M6 — Live editing
 - [ ] M6.1 Separate guarded write adapter.
@@ -199,3 +199,18 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 
 **Latest code before this documentation update:** `aae269ec2cb6dc96a645183684ec8d8d3ffb3fc9`.  
 **Latest successful Windows build remains:** `fbe36400`. New code is not build-verified while Actions jobs fail before runner allocation.
+
+
+## Update — checkpoint 012 (2026-11-16)
+
+- [~] M3.11 EntityRecordProjector maps Player/Staff/Club records into normalised field_values, preserving field provenance in the same transaction as snapshots.
+- [~] M3.12 SqliteEntitySearchProvider supports read-only Quick Search over provider-scoped entity records; repository query coverage and UI wiring remain.
+- [~] M3.13 Player hidden attributes, personality and foot ratings are persisted as separate field groups.
+- [~] M5.1 Top Quick Search provider is implemented; top-bar UI connection remains.
+- [~] M5.15 Quick Search tests added; Windows CI runner allocation prevents .NET verification.
+- [ ] M5.16 Wire Quick Search results to player/staff/club profile workspaces.
+- [ ] M5.17 Implement validated Advanced Search SQL execution for a supported field subset.
+- [ ] M5.18 Add Advanced Search result correctness and query-combination tests.
+
+**Latest code before this documentation update:** `e63dc6ee62063c2046ab5f7f28d13c905b9d1d81`.  
+**Latest code is not build-verified:** GitHub Actions jobs terminate before runner allocation; the local environment has no .NET SDK.
