@@ -35,9 +35,8 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
     }
 
     public async Task SaveSnapshotAsync<TRecord>(
-        EntityIdentity identity,
-        string? displayName,
         TRecord record,
+        string? displayName,
         CancellationToken cancellationToken = default)
         where TRecord : class, IEntityRecord
     {
@@ -142,7 +141,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
     public async Task DeleteSnapshotAsync<TRecord>(
         EntityIdentity identity,
         CancellationToken cancellationToken = default)
-        where TRecord : class
+        where TRecord : class, IEntityRecord
     {
         ValidateIdentity(identity);
 
