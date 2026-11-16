@@ -11,4 +11,8 @@ public interface IEntityRecordBatchSnapshotStore
     Task SaveSnapshotsAsync(
         IReadOnlyCollection<IEntityRecord> records,
         CancellationToken cancellationToken = default);
+
+    Task DeleteProviderAsync(
+        string providerKey,
+        CancellationToken cancellationToken = default);
 }
