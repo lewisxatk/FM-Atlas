@@ -80,6 +80,7 @@ public partial class AdvancedSearchWindow : Window
         SetSelected(PlayerEntityButton, _viewModel.SelectedEntity == SearchEntityKind.Player);
         SetSelected(CoachEntityButton, _viewModel.SelectedEntity == SearchEntityKind.Coach);
         SetSelected(ClubEntityButton, _viewModel.SelectedEntity == SearchEntityKind.Club);
+        PositionLogicComboBox.IsEnabled = _viewModel.SelectedEntity == SearchEntityKind.Player;
 
         SetSelected(GeneralCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.General);
         SetSelected(ContractCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.Contract);
