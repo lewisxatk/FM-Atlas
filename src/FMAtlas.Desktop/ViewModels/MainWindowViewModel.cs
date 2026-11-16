@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using FMAtlas.Application.Abstractions;
+using FMAtlas.Application.Models;
 using FMAtlas.Domain.Connection;
 using FMAtlas.Domain.Entities;
 using FMAtlas.Desktop.Commands;
@@ -14,6 +15,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly IGameProcessProbe _processProbe;
     private readonly IAtlasDatabase _atlasDatabase;
     private readonly IEntitySearchProvider _entitySearchProvider;
+    private readonly ILiveGameConnector _liveGameConnector;
     private readonly string _databasePath;
     private readonly string _searchPreferencesPath;
     private CancellationTokenSource? _quickSearchCancellation;
@@ -28,16 +30,28 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _includeWomenPlayers;
     private string _lastImportCountText = "—";
     private string _lastImportStatusText = "No player export imported";
+    private bool _isLiveLoadOverlayVisible;
+    private int _liveLoadProgress;
+    private string _liveLoadStage = "CONNECTING TO FOOTBALL MANAGER";
+    private string _liveLoadDetail = "Checking the running game and active career.";
+    private bool _liveSessionActive;
+    private bool _sessionCheckRunning;
+    private int _livePlayerCount;
+    private int _liveStaffCount;
+    private int _liveClubCount;
+    private bool _liveWritesEnabled;
 
     public MainWindowViewModel(
         IGameProcessProbe processProbe,
         IAtlasDatabase atlasDatabase,
         IEntitySearchProvider entitySearchProvider,
+        ILiveGameConnector liveGameConnector,
         string databasePath)
     {
         _processProbe = processProbe ?? throw new ArgumentNullException(nameof(processProbe));
         _atlasDatabase = atlasDatabase ?? throw new ArgumentNullException(nameof(atlasDatabase));
         _entitySearchProvider = entitySearchProvider ?? throw new ArgumentNullException(nameof(entitySearchProvider));
+        _liveGameConnector = liveGameConnector ?? throw new ArgumentNullException(nameof(liveGameConnector));
         _databasePath = string.IsNullOrWhiteSpace(databasePath)
             ? throw new ArgumentException("A local database path is required.", nameof(databasePath))
             : Path.GetFullPath(databasePath);
@@ -46,7 +60,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             "FM Atlas", "Settings", "include-women-players.txt");
         _includeWomenPlayers = LoadIncludeWomenPlayersPreference();
 
-        LoadGameCommand = new AsyncRelayCommand(ProbeGameAsync, () => !IsBusy);
+        LoadGameCommand = new AsyncRelayCommand(LoadLiveGameAsync, () => !IsBusy);
         SaveAtlasCommand = new AsyncRelayCommand(SaveAtlasAsync, () => !IsBusy);
     }
 
@@ -140,6 +154,110 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         get => _lastImportStatusText;
         private set => SetField(ref _lastImportStatusText, value);
+    }
+
+    public bool IsLiveLoadOverlayVisible
+    {
+        get => _isLiveLoadOverlayVisible;
+        private set => SetField(ref _isLiveLoadOverlayVisible, value);
+    }
+
+    public int LiveLoadProgress
+    {
+        get => _liveLoadProgress;
+        private set => SetField(ref _liveLoadProgress, Math.Clamp(value, 0, 100));
+    }
+
+    public string LiveLoadStage
+    {
+        get => _liveLoadStage;
+        private set => SetField(ref _liveLoadStage, value);
+    }
+
+    public string LiveLoadDetail
+    {
+        get => _liveLoadDetail;
+        private set => SetField(ref _liveLoadDetail, value);
+    }
+
+    public bool LiveSessionActive
+    {
+        get => _liveSessionActive;
+        private set => SetField(ref _liveSessionActive, value);
+    }
+
+    public int LivePlayerCount
+    {
+        get => _livePlayerCount;
+        private set => SetField(ref _livePlayerCount, value);
+    }
+
+    public int LiveStaffCount
+    {
+        get => _liveStaffCount;
+        private set => SetField(ref _liveStaffCount, value);
+    }
+
+    public int LiveClubCount
+    {
+        get => _liveClubCount;
+        private set => SetField(ref _liveClubCount, value);
+    }
+
+    public bool LiveWritesEnabled
+    {
+        get => _liveWritesEnabled;
+        private set => SetField(ref _liveWritesEnabled, value);
+    }
+
+    public async Task CheckLiveSessionAsync(CancellationToken cancellationToken = default)
+    {
+        if (!LiveSessionActive || _sessionCheckRunning || IsBusy)
+            return;
+
+        _sessionCheckRunning = true;
+        try
+        {
+            var status = await _liveGameConnector.CheckSessionAsync(cancellationToken);
+            if (!status.IsConnected)
+            {
+                LiveSessionActive = false;
+                LiveWritesEnabled = false;
+                ConnectionStatus = "Career changed — reload";
+                ConnectionDetail = status.Message;
+                LastAction = "Live career changed; stale live records invalidated";
+                QuickSearchResults.Clear();
+                QuickSearchMessage = "The active career changed. Press Load Game to read the new save before searching live data.";
+                IsQuickSearchOpen = !string.IsNullOrWhiteSpace(QuickSearchText);
+                LivePlayerCount = 0;
+                LiveStaffCount = 0;
+                LiveClubCount = 0;
+                LastImportCountText = "—";
+                LastImportStatusText = "Live session needs reloading";
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            LiveSessionActive = false;
+            LiveWritesEnabled = false;
+            ConnectionStatus = "Live session unavailable";
+            ConnectionDetail = exception.Message;
+            LastAction = "Live session monitor stopped";
+        }
+        finally
+        {
+            _sessionCheckRunning = false;
+        }
+    }
+
+    public void DisconnectLiveSession()
+    {
+        _liveGameConnector.Disconnect();
+        LiveSessionActive = false;
+        LiveWritesEnabled = false;
     }
 
     public void NotifyPlayerExportImported(int importedPlayers, string providerKey)
@@ -274,6 +392,66 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 Interlocked.CompareExchange(ref _quickSearchCancellation, null, cancellation);
                 cancellation.Dispose();
             }
+        }
+    }
+
+    private async Task LoadLiveGameAsync()
+    {
+        IsBusy = true;
+        IsLiveLoadOverlayVisible = true;
+        LiveLoadProgress = 0;
+        LiveLoadStage = "CONNECTING TO FOOTBALL MANAGER";
+        LiveLoadDetail = "Finding FM27 and checking its exact game package.";
+        ConnectionStatus = "Connecting to FM27";
+        ConnectionDetail = "FM Atlas is opening a read-only connection and checking the active career.";
+        LastAction = "Loading the active Football Manager career…";
+
+        var progress = new Progress<LiveGameLoadProgress>(update =>
+        {
+            LiveLoadProgress = update.Percent;
+            LiveLoadStage = update.Stage.ToUpperInvariant();
+            LiveLoadDetail = update.Detail;
+        });
+
+        try
+        {
+            var result = await _liveGameConnector.ConnectAndImportAsync(progress);
+            LiveSessionActive = true;
+            LiveWritesEnabled = result.LiveWritesEnabled;
+            LivePlayerCount = result.PlayersImported;
+            LiveStaffCount = result.StaffImported;
+            LiveClubCount = result.ClubsImported;
+            ConnectionStatus = $"FM27 connected · PID {result.ProcessId}";
+            ConnectionDetail = $"{result.BuildName}. {result.PlayersImported:N0} players, {result.StaffImported:N0} staff and {result.ClubsImported:N0} clubs loaded from the active career. Live writing remains disabled pending FM Atlas verification.";
+            LastAction = $"Loaded {result.PlayersImported:N0} players, {result.StaffImported:N0} staff and {result.ClubsImported:N0} clubs from FM27.";
+            LastImportCountText = result.PlayersImported.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+            LastImportStatusText = "Live FM27 player records loaded";
+            QuickSearchResults.Clear();
+            QuickSearchMessage = "Live FM27 career loaded. Search players, staff and clubs.";
+            if (QuickSearchText.Trim().Length >= 2)
+                ScheduleQuickSearch();
+        }
+        catch (OperationCanceledException)
+        {
+            LiveSessionActive = false;
+            ConnectionStatus = "Load cancelled";
+            ConnectionDetail = "FM Atlas cancelled the live load. No partial live dataset was kept.";
+            LastAction = "Live career load cancelled";
+        }
+        catch (Exception exception)
+        {
+            LiveSessionActive = false;
+            LiveWritesEnabled = false;
+            ConnectionStatus = "Not connected";
+            ConnectionDetail = exception.Message;
+            LastAction = "Live career load failed";
+            QuickSearchResults.Clear();
+            QuickSearchMessage = "Live connection failed. Check the FM27 version and active career, then try Load Game again.";
+        }
+        finally
+        {
+            IsLiveLoadOverlayVisible = false;
+            IsBusy = false;
         }
     }
 
