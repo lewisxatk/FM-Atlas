@@ -8,6 +8,8 @@ using FMAtlas.Domain.Clubs;
 using FMAtlas.Domain.Data;
 using FMAtlas.Domain.Entities;
 using FMAtlas.Domain.Search;
+using FMAtlas.Domain.Players;
+using FMAtlas.Domain.Staff;
 
 namespace FMAtlas.Desktop.ViewModels;
 
@@ -18,17 +20,20 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     private string _sectionEmptyText = string.Empty;
     private readonly string? _clubLogoImagePath;
     private readonly IAdvancedSearchProvider? _advancedSearchProvider;
+    private readonly IEntityRecordSnapshotStore? _snapshotStore;
     private CancellationTokenSource? _sectionLoadCancellation;
     private int _sectionLoadVersion;
 
     public ClubProfileViewModel(
         ClubRecord club,
         string? clubLogoImagePath = null,
-        IAdvancedSearchProvider? advancedSearchProvider = null)
+        IAdvancedSearchProvider? advancedSearchProvider = null,
+        IEntityRecordSnapshotStore? snapshotStore = null)
     {
         Club = club ?? throw new ArgumentNullException(nameof(club));
         _clubLogoImagePath = clubLogoImagePath;
         _advancedSearchProvider = advancedSearchProvider;
+        _snapshotStore = snapshotStore;
         Sections = new ObservableCollection<ProfileSectionTabViewModel>
         {
             new("Information", isSelected: "Information" == "Information"),
@@ -58,8 +63,8 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     private ClubRecord Club { get; }
     public ObservableCollection<ProfileSectionTabViewModel> Sections { get; }
     public ObservableCollection<ProfileValueRowViewModel> SectionRows { get; } = [];
-    public ObservableCollection<EntitySearchResult> SquadPlayers { get; } = [];
-    public ObservableCollection<EntitySearchResult> ClubStaff { get; } = [];
+    public ObservableCollection<ClubProfileLinkViewModel> SquadPlayers { get; } = [];
+    public ObservableCollection<ClubProfileLinkViewModel> ClubStaff { get; } = [];
     public bool IsSquadsSection => SelectedSection == "Squads";
     public bool IsStaffSection => SelectedSection == "Staff";
     public bool IsOtherProfileSection => !IsSquadsSection && !IsStaffSection;
@@ -360,15 +365,49 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
             if (entityKind == SearchEntityKind.Coach)
             {
                 ClubStaff.Clear();
-                foreach (var staff in linkedRecords.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
-                    ClubStaff.Add(staff);
+                foreach (var staffResult in linkedRecords.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    var staff = _snapshotStore is null
+                        ? null
+                        : await _snapshotStore.GetSnapshotAsync<StaffRecord>(staffResult.Identity, cancellation.Token).ConfigureAwait(true);
+                    ClubStaff.Add(new ClubProfileLinkViewModel(
+                        staffResult,
+                        staff?.FullName?.Value ?? staffResult.DisplayName,
+                        staff is null
+                            ? "Staff snapshot not imported"
+                            : JoinDetails(
+                                staff.PrimaryRole?.Value is string role ? $"Role {role}" : null,
+                                staff.Age?.Value is int age ? $"Age {age}" : null,
+                                staff.Nationality?.Value),
+                        staff is null
+                            ? "CA / PA not imported"
+                            : $"CA {Format(staff.CurrentAbility?.Value)}  /  PA {Format(staff.PotentialAbility?.Value)}"));
+                }
                 OnPropertyChanged(nameof(ClubStaff));
             }
             else
             {
                 SquadPlayers.Clear();
-                foreach (var player in linkedRecords.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
-                    SquadPlayers.Add(player);
+                foreach (var playerResult in linkedRecords.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    var player = _snapshotStore is null
+                        ? null
+                        : await _snapshotStore.GetSnapshotAsync<PlayerRecord>(playerResult.Identity, cancellation.Token).ConfigureAwait(true);
+                    SquadPlayers.Add(new ClubProfileLinkViewModel(
+                        playerResult,
+                        player?.FullName?.Value ?? playerResult.DisplayName,
+                        player is null
+                            ? "Player snapshot not imported"
+                            : JoinDetails(
+                                player.PrimaryPosition?.Value is string position ? $"Position {position}" : null,
+                                player.Age?.Value is int age ? $"Age {age}" : null,
+                                player.TeamName?.Value),
+                        player is null
+                            ? "CA / PA not imported"
+                            : $"CA {Format(player.CurrentAbility?.Value)}  /  PA {Format(player.PotentialAbility?.Value)}"));
+                }
                 OnPropertyChanged(nameof(SquadPlayers));
             }
 
@@ -396,6 +435,9 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         }
     }
 
+    private static string JoinDetails(params string?[] values) =>
+        string.Join("  ·  ", values.Where(value => !string.IsNullOrWhiteSpace(value)));
+
     private static string Humanise(string key) => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
     private static string Evidence(FieldProvenance p) => $"{p.Source} · {p.EvidenceStatus}";
     private static string Format(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "Not imported";
@@ -411,3 +453,9 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
+
+public sealed record ClubProfileLinkViewModel(
+    EntitySearchResult Result,
+    string DisplayName,
+    string DetailText,
+    string RatingsText);
