@@ -31,7 +31,7 @@ public sealed class AdvancedSearchCatalogTests
         Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "contract_expiry" && x.CanExecute);
         Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "wonderkid" && x.CanExecute);
         Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "is_newgen" && x.CanExecute);
-        Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "relations" && !x.CanExecute);
+        Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "relations" && x.CanExecute);
     }
 
     [Fact]
