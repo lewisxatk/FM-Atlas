@@ -15,6 +15,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly IAtlasDatabase _atlasDatabase;
     private readonly IEntitySearchProvider _entitySearchProvider;
     private readonly string _databasePath;
+    private readonly string _searchPreferencesPath;
     private CancellationTokenSource? _quickSearchCancellation;
     private string _connectionStatus = "Not connected";
     private string _connectionDetail = "Detect Game checks for the FM process and game module only. Loading a career is still In Progress.";
@@ -24,6 +25,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isQuickSearchOpen;
     private bool _isQuickSearchBusy;
     private bool _isBusy;
+    private bool _includeWomenPlayers;
 
     public MainWindowViewModel(
         IGameProcessProbe processProbe,
@@ -37,6 +39,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _databasePath = string.IsNullOrWhiteSpace(databasePath)
             ? throw new ArgumentException("A local database path is required.", nameof(databasePath))
             : Path.GetFullPath(databasePath);
+        _searchPreferencesPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FM Atlas", "Settings", "include-women-players.txt");
+        _includeWomenPlayers = LoadIncludeWomenPlayersPreference();
 
         LoadGameCommand = new AsyncRelayCommand(ProbeGameAsync, () => !IsBusy);
         SaveAtlasCommand = new AsyncRelayCommand(SaveAtlasAsync, () => !IsBusy);
@@ -48,6 +54,23 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ICommand SaveAtlasCommand { get; }
 
     public ObservableCollection<QuickSearchResultViewModel> QuickSearchResults { get; } = [];
+
+    /// <summary>
+    /// Global player-search preference. Off excludes records explicitly identified
+    /// as female; records with unknown gender remain visible until their source is verified.
+    /// </summary>
+    public bool IncludeWomenPlayers
+    {
+        get => _includeWomenPlayers;
+        set
+        {
+            if (!SetField(ref _includeWomenPlayers, value))
+                return;
+
+            SaveIncludeWomenPlayersPreference();
+            ScheduleQuickSearch();
+        }
+    }
 
     public string QuickSearchText
     {
@@ -110,6 +133,42 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         IsQuickSearchOpen = false;
     }
 
+    private bool LoadIncludeWomenPlayersPreference()
+    {
+        try
+        {
+            return File.Exists(_searchPreferencesPath) &&
+                   bool.TryParse(File.ReadAllText(_searchPreferencesPath).Trim(), out var enabled) &&
+                   enabled;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private void SaveIncludeWomenPlayersPreference()
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(_searchPreferencesPath)!;
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(_searchPreferencesPath, IncludeWomenPlayers ? "true" : "false");
+        }
+        catch (IOException)
+        {
+            // Search remains usable for this session if preferences cannot be saved.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Search remains usable for this session if preferences cannot be saved.
+        }
+    }
+
     private void ScheduleQuickSearch()
     {
         var cancellation = new CancellationTokenSource();
@@ -148,7 +207,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 searchText,
                 entityKinds: null,
                 limit: 30,
-                cancellationToken: token);
+                cancellationToken: token,
+                includeWomenPlayers: IncludeWomenPlayers);
 
             token.ThrowIfCancellationRequested();
 
