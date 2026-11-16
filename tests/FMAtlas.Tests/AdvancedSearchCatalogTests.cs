@@ -96,7 +96,7 @@ public sealed class AdvancedSearchCatalogTests
     public void PositionAndFootFieldsExposeIndependentZeroToTwentyRanges()
     {
         var general = AdvancedSearchCatalog.GetFields(SearchEntityKind.Player, AdvancedSearchCategoryKind.General);
-        var positions = general.Where(x => x.Key.StartsWith("position_", StringComparison.Ordinal)).ToArray();
+        var positions = general.Where(x => x.Key.StartsWith("position_", StringComparison.Ordinal) && x.Key != "position_familiarity").ToArray();
 
         Assert.Equal(15, positions.Length);
         Assert.All(positions, field =>
