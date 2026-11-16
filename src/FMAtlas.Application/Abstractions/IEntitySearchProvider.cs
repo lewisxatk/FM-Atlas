@@ -9,5 +9,6 @@ public interface IEntitySearchProvider
         string searchText,
         IReadOnlyCollection<EntityKind>? entityKinds = null,
         int limit = 50,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool includeWomenPlayers = false);
 }
