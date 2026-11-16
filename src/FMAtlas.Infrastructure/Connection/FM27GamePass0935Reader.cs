@@ -488,47 +488,57 @@ internal sealed class FM27GamePass0935Reader
         return new DateOnly(year, 1, 1).AddDays(day - 1);
     }
 
-    private ulong? FindPlayerPersonShift(ulong address)
+    private ulong? FindPlayerPersonShift(ulong address, byte[] data)
     {
         ulong? bestShift = null;
         var bestScore = 0;
         foreach (var shift in new ulong[] { 0, 0xF8 })
         {
-            var uid = TryReadUInt32(address + 0x294 + shift);
-            if (uid is null or 0)
+            var uid = BitConverter.ToUInt32(data, checked((int)(0x294 + shift)));
+            if (uid == 0)
                 continue;
+
             var score = 1;
-            if (ReadFmString(SafeReadPointer(address + 0x2C8 + shift)) is not null) score += 2;
-            if (ReadNameEntry(SafeReadPointer(address + 0x2D8 + shift)) is not null) score++;
-            if (ReadNameEntry(SafeReadPointer(address + 0x2E0 + shift)) is not null) score++;
+            var fullName = BitConverter.ToUInt64(data, checked((int)(0x2C8 + shift)));
+            var firstName = BitConverter.ToUInt64(data, checked((int)(0x2D8 + shift)));
+            var lastName = BitConverter.ToUInt64(data, checked((int)(0x2E0 + shift)));
+            if (ReadFmString(fullName) is not null) score += 2;
+            if (ReadNameEntry(firstName) is not null) score++;
+            if (ReadNameEntry(lastName) is not null) score++;
             if (score > bestScore)
             {
                 bestScore = score;
                 bestShift = shift;
             }
         }
+
         return bestScore >= 2 ? bestShift : null;
     }
 
-    private ulong? FindStaffPersonShift(ulong address)
+    private ulong? FindStaffPersonShift(ulong address, byte[] data)
     {
         ulong? bestShift = null;
         var bestScore = 0;
         foreach (var shift in new ulong[] { 0, 0x340 })
         {
-            var uid = TryReadUInt32(address + 0x10C + shift);
-            if (uid is null or 0)
+            var uid = BitConverter.ToUInt32(data, checked((int)(0x10C + shift)));
+            if (uid == 0)
                 continue;
+
             var score = 1;
-            if (ReadFmString(SafeReadPointer(address + 0x140 + shift)) is not null) score += 2;
-            if (ReadNameEntry(SafeReadPointer(address + 0x150 + shift)) is not null) score++;
-            if (ReadNameEntry(SafeReadPointer(address + 0x158 + shift)) is not null) score++;
+            var fullName = BitConverter.ToUInt64(data, checked((int)(0x140 + shift)));
+            var firstName = BitConverter.ToUInt64(data, checked((int)(0x150 + shift)));
+            var lastName = BitConverter.ToUInt64(data, checked((int)(0x158 + shift)));
+            if (ReadFmString(fullName) is not null) score += 2;
+            if (ReadNameEntry(firstName) is not null) score++;
+            if (ReadNameEntry(lastName) is not null) score++;
             if (score > bestScore)
             {
                 bestScore = score;
                 bestShift = shift;
             }
         }
+
         return bestScore >= 2 ? bestShift : null;
     }
 
@@ -626,6 +636,13 @@ internal sealed class FM27GamePass0935Reader
     {
         try { return _memory.ReadUInt16(address); }
         catch { return null; }
+    }
+
+    private static DateOnly? MakeFmDate(ushort day, ushort year)
+    {
+        if (year is < 1900 or > 2200 || day is < 1 or > 366)
+            return null;
+        return new DateOnly(year, 1, 1).AddDays(day - 1);
     }
 
     private DateOnly? ReadFmDateSafe(ulong address)
