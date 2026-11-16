@@ -221,3 +221,20 @@ The goal is broad FMRTE-style feature coverage, but each feature is staged:
 - Later: mass edit, presets, freezer, clone center, team selection, transfers/loans/rules, tactical sections, AI assistant and automation.
 
 FMRTE's documented Edit History behaviour is a safety reference: it records current-session Atlas edits, marks pending/saved fields, checks the live value before undo, and marks operations without a safe inverse as non-undoable. FM Atlas must not promise a universal rollback or Redo where the underlying game operation cannot support it.
+
+
+## 10. First-test data path — player-list CSV exports
+
+A read-only FM player-list CSV import is now implemented as an interim way to test the new search, local record store and player-profile handoff before the Game Pass live reader is complete.
+
+- Main-window **Import CSV** action uses `IPlayerExportImporter`.
+- The initial implementation accepts UTF-8 CSV with a player name and stable `Unique ID`.
+- It maps supported typed PlayerRecord fields and stores additional consistently typed or text columns in the local field index.
+- Provenance is `GameExport / Mapped`, not live-memory verified.
+- CSV import does not read/write process memory or modify the original career file.
+- This is an export ingestion route, not an offline `.fm` save parser and not a replacement for the live reader.
+- The public FM View Exporter documentation currently lists FM27 Steam/Windows support; it does not establish Game Pass compatibility. FM Atlas only requires a compatible CSV file with the expected identity headers, regardless of which export tool produced it.
+
+Detailed input contract and test coverage: `research/CSV_IMPORT_001.md`.
+
+The CSV importer tests are committed but remain unexecuted until Windows CI or a Windows .NET 8 environment can run them. A successful compile/test and a fresh artifact are required before calling the update test-ready.
