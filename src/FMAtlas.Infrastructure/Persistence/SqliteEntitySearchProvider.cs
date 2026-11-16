@@ -38,16 +38,18 @@ public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
         if (limit is < 1 or > 200)
             throw new ArgumentOutOfRangeException(nameof(limit), "Quick search limit must be between 1 and 200.");
 
-        if (string.IsNullOrWhiteSpace(searchText))
-            return Array.Empty<EntitySearchResult>();
-
+        var hasSearchText = !string.IsNullOrWhiteSpace(searchText);
         var kinds = entityKinds?.Distinct().ToArray();
+        // A blank global search remains empty; a blank entity-scoped search browses that directory.
+        if (!hasSearchText && kinds is null)
+            return Array.Empty<EntitySearchResult>();
         if (kinds is { Length: 0 })
             return Array.Empty<EntitySearchResult>();
 
         var kindFilter = kinds is null
             ? string.Empty
             : $" AND e.entity_kind IN ({string.Join(", ", kinds.Select((_, index) => $"$kind{index}"))})";
+        var nameFilter = hasSearchText ? " AND e.display_name LIKE $pattern ESCAPE '\\'" : string.Empty;
         var womenFilter = includeWomenPlayers
             ? string.Empty
             : """
@@ -73,14 +75,15 @@ public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
             SELECT e.entity_kind, e.source_id, e.provider_key, e.display_name
             FROM entities AS e
             WHERE e.display_name IS NOT NULL
-              AND e.display_name LIKE $pattern ESCAPE '\'
+              {nameFilter} ESCAPE '\'
               {kindFilter}
               {womenFilter}
             ORDER BY e.display_name COLLATE NOCASE, e.entity_kind, e.provider_key, e.source_id
             LIMIT $limit;
             """;
 
-        command.Parameters.AddWithValue("$pattern", BuildLiteralContainsPattern(searchText.Trim()));
+        if (hasSearchText)
+            command.Parameters.AddWithValue("$pattern", BuildLiteralContainsPattern(searchText.Trim()));
         command.Parameters.AddWithValue("$limit", limit);
 
         if (kinds is not null)
