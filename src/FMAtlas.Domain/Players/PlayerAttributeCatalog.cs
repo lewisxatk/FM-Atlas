@@ -12,6 +12,7 @@ public enum PlayerAttributeGroupKind
     Mental,
     Physical,
     Hidden,
+    Personality,
     Feet
 }
 
@@ -124,6 +125,18 @@ public static class PlayerAttributeCatalog
         H("versatility", "Versatility", 4)
     ];
 
+    private static readonly IReadOnlyList<PlayerAttributeDefinition> Personality =
+    [
+        P("adaptability", "Adaptability", 0),
+        P("ambition", "Ambition", 1),
+        P("loyalty", "Loyalty", 2),
+        P("pressure", "Pressure", 3),
+        P("professionalism", "Professionalism", 4),
+        P("sportsmanship", "Sportsmanship", 5),
+        P("temperament", "Temperament", 6),
+        P("controversy", "Controversy", 7)
+    ];
+
     private static readonly IReadOnlyList<PlayerAttributeDefinition> Feet =
     [
         A("left_foot", "Left Foot", PlayerAttributeGroupKind.Feet, 0),
@@ -136,6 +149,7 @@ public static class PlayerAttributeCatalog
         G(PlayerAttributeGroupKind.Mental, "Mental", Mental),
         G(PlayerAttributeGroupKind.Physical, "Physical", Physical),
         G(PlayerAttributeGroupKind.Hidden, "Hidden", Hidden),
+        G(PlayerAttributeGroupKind.Personality, "Personality", Personality),
         G(PlayerAttributeGroupKind.Feet, "Feet", Feet)
     ];
 
@@ -145,12 +159,16 @@ public static class PlayerAttributeCatalog
         G(PlayerAttributeGroupKind.Mental, "Mental", Mental),
         G(PlayerAttributeGroupKind.Physical, "Physical", Physical),
         G(PlayerAttributeGroupKind.Hidden, "Hidden", Hidden),
+        G(PlayerAttributeGroupKind.Personality, "Personality", Personality),
         G(PlayerAttributeGroupKind.Feet, "Feet", Feet)
     ];
 
     /// <summary>Unique non-foot fields across all player profile groups (52).</summary>
     public static IReadOnlyList<PlayerAttributeDefinition> AllUniqueNonFootAttributes { get; } =
         BuildUnique(Technical, Goalkeeping, Mental, Physical, Hidden);
+
+    /// <summary>Eight personality ratings, separate from the 52 standard/hidden attributes.</summary>
+    public static IReadOnlyList<PlayerAttributeDefinition> PersonalityAttributes => Personality;
 
     /// <summary>Left and right foot strength are separate from the 52 attributes.</summary>
     public static IReadOnlyList<PlayerAttributeDefinition> FootAttributes => Feet;
@@ -168,6 +186,10 @@ public static class PlayerAttributeCatalog
             x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));
 
         if (attribute is null)
+            attribute = Personality.FirstOrDefault(
+                x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));
+
+        if (attribute is null)
             attribute = Feet.FirstOrDefault(
                 x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));
 
@@ -180,6 +202,9 @@ public static class PlayerAttributeCatalog
 
     private static PlayerAttributeDefinition H(string key, string name, int order) =>
         new(key, name, PlayerAttributeGroupKind.Hidden, order, FieldEvidenceStatus.Documented, true);
+
+    private static PlayerAttributeDefinition P(string key, string name, int order) =>
+        new(key, name, PlayerAttributeGroupKind.Personality, order);
 
     private static PlayerAttributeGroupDefinition G(
         PlayerAttributeGroupKind kind,
