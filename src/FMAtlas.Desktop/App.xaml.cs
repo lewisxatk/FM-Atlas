@@ -18,8 +18,13 @@ public partial class App : System.Windows.Application
             "FM Atlas");
         var databasePath = Path.Combine(dataDirectory, "atlas.db");
         var atlasDatabase = new AtlasDatabase(databasePath);
+        var entitySearchProvider = new SqliteEntitySearchProvider(databasePath);
 
-        var viewModel = new MainWindowViewModel(processProbe, atlasDatabase, databasePath);
+        var viewModel = new MainWindowViewModel(
+            processProbe,
+            atlasDatabase,
+            entitySearchProvider,
+            databasePath);
         var window = new MainWindow(viewModel);
         MainWindow = window;
         window.Show();

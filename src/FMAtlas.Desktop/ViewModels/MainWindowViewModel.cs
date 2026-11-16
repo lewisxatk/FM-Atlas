@@ -1,8 +1,10 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Connection;
+using FMAtlas.Domain.Entities;
 using FMAtlas.Desktop.Commands;
 
 namespace FMAtlas.Desktop.ViewModels;
@@ -11,19 +13,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly IGameProcessProbe _processProbe;
     private readonly IAtlasDatabase _atlasDatabase;
+    private readonly IEntitySearchProvider _entitySearchProvider;
     private readonly string _databasePath;
+    private CancellationTokenSource? _quickSearchCancellation;
     private string _connectionStatus = "Not connected";
     private string _connectionDetail = "Detect Game checks for the FM process and game module only. Loading a career is still In Progress.";
     private string _lastAction = "Fresh application foundation";
+    private string _quickSearchText = string.Empty;
+    private string _quickSearchMessage = "Search imported FM Atlas records.";
+    private bool _isQuickSearchOpen;
+    private bool _isQuickSearchBusy;
     private bool _isBusy;
 
     public MainWindowViewModel(
         IGameProcessProbe processProbe,
         IAtlasDatabase atlasDatabase,
+        IEntitySearchProvider entitySearchProvider,
         string databasePath)
     {
         _processProbe = processProbe ?? throw new ArgumentNullException(nameof(processProbe));
         _atlasDatabase = atlasDatabase ?? throw new ArgumentNullException(nameof(atlasDatabase));
+        _entitySearchProvider = entitySearchProvider ?? throw new ArgumentNullException(nameof(entitySearchProvider));
         _databasePath = string.IsNullOrWhiteSpace(databasePath)
             ? throw new ArgumentException("A local database path is required.", nameof(databasePath))
             : Path.GetFullPath(databasePath);
@@ -36,6 +46,36 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public ICommand LoadGameCommand { get; }
     public ICommand SaveAtlasCommand { get; }
+
+    public ObservableCollection<QuickSearchResultViewModel> QuickSearchResults { get; } = [];
+
+    public string QuickSearchText
+    {
+        get => _quickSearchText;
+        set
+        {
+            if (SetField(ref _quickSearchText, value))
+                ScheduleQuickSearch();
+        }
+    }
+
+    public string QuickSearchMessage
+    {
+        get => _quickSearchMessage;
+        private set => SetField(ref _quickSearchMessage, value);
+    }
+
+    public bool IsQuickSearchOpen
+    {
+        get => _isQuickSearchOpen;
+        private set => SetField(ref _isQuickSearchOpen, value);
+    }
+
+    public bool IsQuickSearchBusy
+    {
+        get => _isQuickSearchBusy;
+        private set => SetField(ref _isQuickSearchBusy, value);
+    }
 
     public string ConnectionStatus
     {
@@ -62,6 +102,86 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetField(ref _isBusy, value))
                 CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    public void CloseQuickSearch()
+    {
+        IsQuickSearchOpen = false;
+    }
+
+    private void ScheduleQuickSearch()
+    {
+        var cancellation = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _quickSearchCancellation, cancellation);
+        previous?.Cancel();
+        previous?.Dispose();
+
+        var text = QuickSearchText.Trim();
+        if (text.Length < 2)
+        {
+            QuickSearchResults.Clear();
+            IsQuickSearchBusy = false;
+            IsQuickSearchOpen = !string.IsNullOrWhiteSpace(text);
+            QuickSearchMessage = string.IsNullOrWhiteSpace(text)
+                ? "Search imported FM Atlas records."
+                : "Type at least two characters.";
+            return;
+        }
+
+        _ = RunDebouncedQuickSearchAsync(text, cancellation);
+    }
+
+    private async Task RunDebouncedQuickSearchAsync(string searchText, CancellationTokenSource cancellation)
+    {
+        var token = cancellation.Token;
+        IsQuickSearchBusy = true;
+        IsQuickSearchOpen = true;
+        QuickSearchMessage = "Searching imported records…";
+
+        try
+        {
+            await Task.Delay(250, token);
+            await _atlasDatabase.InitializeAsync(token);
+
+            var results = await _entitySearchProvider.QuickSearchAsync(
+                searchText,
+                entityKinds: null,
+                limit: 30,
+                cancellationToken: token);
+
+            token.ThrowIfCancellationRequested();
+
+            QuickSearchResults.Clear();
+            foreach (var result in results)
+                QuickSearchResults.Add(new QuickSearchResultViewModel(result));
+
+            QuickSearchMessage = results.Count switch
+            {
+                0 => "No matching imported records. Load or import a career before searching.",
+                1 => "1 matching imported record.",
+                _ => $"{results.Count} matching imported records."
+            };
+            IsQuickSearchOpen = true;
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // A newer keystroke superseded this search.
+        }
+        catch (Exception ex)
+        {
+            QuickSearchResults.Clear();
+            QuickSearchMessage = $"Quick Search could not run: {ex.Message}";
+            IsQuickSearchOpen = true;
+        }
+        finally
+        {
+            if (ReferenceEquals(Volatile.Read(ref _quickSearchCancellation), cancellation))
+            {
+                IsQuickSearchBusy = false;
+                Interlocked.CompareExchange(ref _quickSearchCancellation, null, cancellation);
+                cancellation.Dispose();
+            }
         }
     }
 
@@ -156,4 +276,31 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         return true;
     }
+}
+
+public sealed class QuickSearchResultViewModel
+{
+    public QuickSearchResultViewModel(EntitySearchResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        DisplayName = result.DisplayName;
+        EntityType = result.Identity.Kind switch
+        {
+            EntityKind.Player => "PLAYER",
+            EntityKind.Staff => "COACH",
+            EntityKind.Club => "CLUB",
+            EntityKind.Nation => "NATION",
+            EntityKind.Competition => "COMPETITION",
+            _ => "RECORD"
+        };
+        SourceId = result.Identity.SourceId;
+        ProviderKey = result.Identity.ProviderKey;
+        IsPlayer = result.Identity.Kind == EntityKind.Player;
+    }
+
+    public string DisplayName { get; }
+    public string EntityType { get; }
+    public string SourceId { get; }
+    public string ProviderKey { get; }
+    public bool IsPlayer { get; }
 }
