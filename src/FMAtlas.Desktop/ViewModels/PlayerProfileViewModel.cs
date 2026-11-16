@@ -107,6 +107,12 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     public string TransferValueInfoText => $"Transfer value  ·  {Format(Player.TransferValue?.Value)}";
     public string CurrentAbilityText => Format(Player.CurrentAbility?.Value);
     public string PotentialAbilityText => Format(Player.PotentialAbility?.Value);
+    public string CurrentAbilityEvidenceText => Player.CurrentAbility is { } current
+        ? Evidence(current.Provenance)
+        : "No CA value imported.";
+    public string PotentialAbilityEvidenceText => Player.PotentialAbility is { } potential
+        ? Evidence(potential.Provenance)
+        : "No PA value imported.";
     public string NewgenStatusText => Player.IsNewgen?.Value switch
     {
         true => "GENERATED / NEWGEN",
