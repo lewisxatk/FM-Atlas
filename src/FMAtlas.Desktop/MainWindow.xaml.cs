@@ -311,6 +311,7 @@ public partial class MainWindow : Window
         if (_openWorkspaceTabs.TryGetValue(key, out var openTab))
         {
             WorkspaceTabControl.SelectedItem = openTab;
+            _mainWindowViewModel.NotifyProfileOpened(result);
             return;
         }
 
@@ -337,6 +338,7 @@ public partial class MainWindow : Window
 
             var title = result.DisplayName;
             AddWorkspaceTab(title, key, profile);
+            _mainWindowViewModel.NotifyProfileOpened(result);
         }
         catch (Exception exception)
         {
@@ -347,6 +349,12 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
+    }
+
+    private void RecentProfile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: RecentProfileViewModel recent })
+            OpenSearchResult(recent.Result);
     }
 
     private async Task<PlayerProfileView?> LoadPlayerProfileAsync(EntityIdentity identity)
