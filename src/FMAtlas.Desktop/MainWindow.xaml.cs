@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Entities;
@@ -17,6 +18,7 @@ public partial class MainWindow : Window
     private readonly MainWindowViewModel _mainWindowViewModel;
     private readonly Dictionary<string, Window> _openPlayerProfiles = new(StringComparer.Ordinal);
     private AdvancedSearchWindow? _advancedSearchWindow;
+    private readonly DispatcherTimer _liveSessionMonitorTimer;
 
     public MainWindow(
         MainWindowViewModel viewModel,
@@ -30,6 +32,17 @@ public partial class MainWindow : Window
         _advancedSearchProvider = advancedSearchProvider ?? throw new ArgumentNullException(nameof(advancedSearchProvider));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _playerExportImporter = playerExportImporter ?? throw new ArgumentNullException(nameof(playerExportImporter));
+
+        _liveSessionMonitorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _liveSessionMonitorTimer.Tick += async (_, _) =>
+            await _mainWindowViewModel.CheckLiveSessionAsync();
+        _liveSessionMonitorTimer.Start();
+
+        Closed += (_, _) =>
+        {
+            _liveSessionMonitorTimer.Stop();
+            _mainWindowViewModel.DisconnectLiveSession();
+        };
     }
 
     private async void ImportPlayerExportButton_Click(object sender, RoutedEventArgs e)
