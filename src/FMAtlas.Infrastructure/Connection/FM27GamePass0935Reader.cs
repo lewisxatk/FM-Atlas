@@ -818,7 +818,10 @@ internal sealed class FM27GamePass0935Reader
     {
         ulong? bestShift = null;
         var bestScore = 0;
-        foreach (var shift in new ulong[] { 0, 0x340 })
+        // The dedicated human-manager person block is stored at +0x340.
+        // Check it first so an equal-confidence match does not hide the manager
+        // behind the generic staff block at +0.
+        foreach (var shift in new ulong[] { 0x340, 0 })
         {
             var uid = BitConverter.ToUInt32(data, checked((int)(0x10C + shift)));
             if (uid == 0)
