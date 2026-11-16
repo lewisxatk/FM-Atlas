@@ -776,3 +776,58 @@ No live career file has been changed. No process memory has been read or written
 - Windows workflow [43843064600](https://github.com/lewisxatk/FM-Atlas/actions/runs/43843064600) on that head completed with failure. Job `133216289077` returned `steps=null`, no log URL, and the job-log download returned 404 (`BlobNotFound`).
 - This repeats the earlier runner-start failure pattern; it does not identify a compile error and does not verify a successful build.
 - No current Windows artifact was created.
+
+
+---
+
+## Update — global women-player search visibility and CI runner triage (2026-11-16 10:05 UTC)
+
+**Branch:** `rebuild/fresh-foundation-001`  
+**Latest committed head:** `46ffc47057336684ae1c2c32bffbf00ae6002587`  
+**Status:** Global women-player visibility has been wired through Quick Search and Advanced Search, with SQLite regression tests committed. Windows CI remains unverified because GitHub-hosted jobs fail before any runner step or log is created.
+
+### Implemented and committed
+
+- Added a global **Include women** checkbox to the main application header.
+- Preference defaults OFF and is persisted locally at `%LOCALAPPDATA%\FM Atlas\Settings\include-women-players.txt`.
+- Quick Search receives the shared preference and excludes records explicitly identified as female when OFF.
+- Advanced Search receives the same live preference through the main view-model callback; the setting therefore applies across all Advanced Search categories and entities without adding a second conflicting toggle.
+- Both SQLite query paths exclude explicit female gender text values (`female`, `woman`, `women`, `f`) for Player records when OFF.
+- Unknown/missing gender is retained rather than guessed or silently classified.
+- The existing typed `PlayerRecord.Gender` value is already projected into the normalised `field_values.gender` index; no new unverified data field was invented.
+- Added regression tests for Quick Search and Advanced Search with male, female and unknown-gender records, including the OFF/ON behaviour.
+
+### Advanced Search requirements rechecked
+
+- The field finder searches the documented field catalogue across categories.
+- Player attribute catalogue includes 52 unique non-foot standard/hidden attributes, eight separate personality ratings, two separate foot ratings and 15 position ratings.
+- Numeric conditions support minimum-only and maximum-only boundaries. Existing integration test `AttributeSearchSupportsMaximumOnlyBoundary` verifies the maximum-only case.
+- Newgen/original database classification already uses `is_newgen` with True / False / Unknown semantics and existing integration coverage.
+- These are local-index search capabilities. A field still needs an imported, correctly typed value to produce results; no live FM importer has been claimed.
+- Wyscout/StatsBomb analytics remain deferred. Unimplemented UI actions remain disabled or labelled In Progress.
+
+### Windows CI failure — not yet a source-code failure
+
+- Workflow: **FM Atlas Windows Build**, run #383, ID `43845648971`, commit `46ffc47057336684ae1c2c32bffbf00ae6002587`.
+- Job: `build`; latest rerun job ID `133225118714`.
+- Conclusion: failure; zero steps; no runner log URL. The earlier run #177 showed the same pattern.
+- A failed-job rerun was requested successfully, but the rerun again produced no steps/logs. There is no compiler or test output to diagnose, so this cannot honestly be reported as a C# or XAML build failure.
+- The workflow file still targets `windows-latest` and runs .NET 8 restore, Release build, tests and artifact upload. The current symptom points to job creation/hosted-runner provisioning or an account-level Actions usage/budget restriction, not a demonstrated workflow command failure.
+- Next verification: inspect the repository owner's GitHub Actions usage and hard budgets, plus repository Actions permissions; then rerun Windows CI and review actual Restore / Build / Test steps. Do not mark the new code verified until this completes.
+
+### Files changed in this update
+
+- `src/FMAtlas.Application/Abstractions/IEntitySearchProvider.cs`
+- `src/FMAtlas.Infrastructure/Persistence/SqliteEntitySearchProvider.cs`
+- `src/FMAtlas.Desktop/ViewModels/MainWindowViewModel.cs`
+- `src/FMAtlas.Desktop/MainWindow.xaml`
+- `src/FMAtlas.Desktop/MainWindow.xaml.cs`
+- `src/FMAtlas.Desktop/Views/AdvancedSearchWindow.xaml.cs`
+- `src/FMAtlas.Desktop/ViewModels/AdvancedSearchWindowViewModel.cs`
+- `src/FMAtlas.Domain/Search/AdvancedSearchQuery.cs`
+- `src/FMAtlas.Infrastructure/Persistence/SqliteAdvancedSearchProvider.cs`
+- `tests/FMAtlas.Tests/SqliteEntitySearchProviderTests.cs`
+- `tests/FMAtlas.Tests/SqliteAdvancedSearchProviderTests.cs`
+
+**Uncommitted work:** None known.  
+**Next single action:** Resolve the GitHub Actions runner/budget block and obtain a real Windows restore/build/test result for the current branch head.
