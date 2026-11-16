@@ -60,7 +60,6 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
                             <TextBlock Text="Players" FontSize="12"/>
-                            <TextBlock Text="IN PROGRESS" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="10,0,0,0"/>
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource Atlas.NavButton}" Margin="0,0,0,4" Tag="Staff" Click="NavigationButton_Click" ToolTip="Browse staff and coach records.">
