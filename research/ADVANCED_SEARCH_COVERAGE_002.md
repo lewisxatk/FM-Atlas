@@ -93,7 +93,7 @@ A regression test now iterates the catalogue and runs the query builder for each
 
 - Implement and verify the FM27 live-save/world-data importer that populates the typed fields.
 - Implement the authoritative newgen flag or a complete-baseline snapshot-delta detector.
-- Implement relationship traversal for the Relations category.
+- The Relations category now has a read-only query path over the existing normalized `entity_relationships` table. `SqliteEntityRelationshipStore` can persist source-backed links and the query matches relation kinds or related entity names in either direction. The FM27 importer still needs to populate this table from actual save data.
 - Implement the evidence-backed Recommended CA formula/mapping before enabling that field.
 - Validate every field against real FM27 records and the exact target game build.
 - Complete Windows restore/build/test and then perform a real-world search test in the user's game.
