@@ -17,7 +17,7 @@
         <Border Grid.Row="0" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,9">
             <DockPanel LastChildFill="True">
                 <TextBlock DockPanel.Dock="Left" Text="OPEN PLAYERS" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                <TextBlock Text="No player profiles open" FontSize="11" Foreground="{StaticResource Atlas.Muted}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding PlayerTitle}" FontSize="11" Foreground="{StaticResource Atlas.Muted}" VerticalAlignment="Center"/>
             </DockPanel>
         </Border>
 
