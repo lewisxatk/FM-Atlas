@@ -5,7 +5,7 @@ namespace FMAtlas.Infrastructure.Persistence;
 
 public sealed class AtlasDatabase : IAtlasDatabase
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     private const string MigrationOneSql = """
         CREATE TABLE atlas_schema_migrations
@@ -92,8 +92,7 @@ public sealed class AtlasDatabase : IAtlasDatabase
                 REFERENCES entities(entity_kind, provider_key, source_id) ON DELETE CASCADE
         );
 
-        CREATE INDEX idx_relationships_target
-            ON entity_relationships(to_entity_kind, to_provider_key, to_source_id);
+        CREATE INDEX idx_relationships_target ON entity_relationships(to_entity_kind, to_provider_key, to_source_id);
 
         CREATE TABLE graphics_mappings
         (
@@ -108,6 +107,25 @@ public sealed class AtlasDatabase : IAtlasDatabase
 
         INSERT INTO atlas_schema_migrations(version, applied_at_utc, description)
         VALUES (1, $appliedAt, 'Initial provenance-aware entity and graphics schema');
+        """;
+
+    private const string MigrationTwoSql = """
+        CREATE TABLE entity_record_snapshots
+        (
+            entity_kind             TEXT NOT NULL,
+            source_id               TEXT NOT NULL,
+            provider_key            TEXT NOT NULL,
+            record_type             TEXT NOT NULL,
+            snapshot_schema_version INTEGER NOT NULL,
+            payload_json            TEXT NOT NULL,
+            saved_at_utc            TEXT NOT NULL,
+            PRIMARY KEY (entity_kind, provider_key, source_id, record_type),
+            FOREIGN KEY (entity_kind, provider_key, source_id)
+                REFERENCES entities(entity_kind, provider_key, source_id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX idx_record_snapshots_saved
+            ON entity_record_snapshots(saved_at_utc);
         """;
 
     private readonly string _databasePath;
@@ -153,15 +171,33 @@ public sealed class AtlasDatabase : IAtlasDatabase
             throw new InvalidOperationException(
                 $"The Atlas database schema version {version} is newer than this application supports ({CurrentSchemaVersion}).");
 
-        if (version == 0)
+        if (version < 1)
         {
             await ExecuteAsync(
                 connection, transaction, MigrationOneSql, cancellationToken,
                 ("$appliedAt", DateTimeOffset.UtcNow.ToString("O")))
                 .ConfigureAwait(false);
 
+            await ExecuteAsync(connection, transaction, "PRAGMA user_version = 1;", cancellationToken)
+                .ConfigureAwait(false);
+            version = 1;
+        }
+
+        if (version < 2)
+        {
+            await ExecuteAsync(connection, transaction, MigrationTwoSql, cancellationToken)
+                .ConfigureAwait(false);
+
             await ExecuteAsync(
-                connection, transaction, $"PRAGMA user_version = {SchemaVersion};", cancellationToken)
+                connection,
+                transaction,
+                "INSERT INTO atlas_schema_migrations(version, applied_at_utc, description) VALUES (2, $appliedAt, $description);",
+                cancellationToken,
+                ("$appliedAt", DateTimeOffset.UtcNow.ToString("O")),
+                ("$description", "Versioned JSON entity record snapshots"))
+                .ConfigureAwait(false);
+
+            await ExecuteAsync(connection, transaction, "PRAGMA user_version = 2;", cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -174,6 +210,8 @@ public sealed class AtlasDatabase : IAtlasDatabase
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
         return await ReadUserVersionAsync(connection, null, cancellationToken).ConfigureAwait(false);
     }
+
+    internal string ConnectionString => _connectionString;
 
     private static async Task<int> ReadUserVersionAsync(
         SqliteConnection connection,
