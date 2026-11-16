@@ -3,8 +3,10 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Clubs;
 using FMAtlas.Domain.Data;
+using FMAtlas.Domain.Search;
 
 namespace FMAtlas.Desktop.ViewModels;
 
@@ -14,11 +16,18 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     private string _sectionDescription = string.Empty;
     private string _sectionEmptyText = string.Empty;
     private readonly string? _clubLogoImagePath;
+    private readonly IAdvancedSearchProvider? _advancedSearchProvider;
+    private CancellationTokenSource? _sectionLoadCancellation;
+    private int _sectionLoadVersion;
 
-    public ClubProfileViewModel(ClubRecord club, string? clubLogoImagePath = null)
+    public ClubProfileViewModel(
+        ClubRecord club,
+        string? clubLogoImagePath = null,
+        IAdvancedSearchProvider? advancedSearchProvider = null)
     {
         Club = club ?? throw new ArgumentNullException(nameof(club));
         _clubLogoImagePath = clubLogoImagePath;
+        _advancedSearchProvider = advancedSearchProvider;
         Sections = new ObservableCollection<ProfileSectionTabViewModel>
         {
             new("Information", isSelected: "Information" == "Information"),
@@ -79,6 +88,12 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
 
     private void UpdateRows()
     {
+        _sectionLoadCancellation?.Cancel();
+        _sectionLoadCancellation?.Dispose();
+        _sectionLoadCancellation = null;
+        var sectionLoadVersion = ++_sectionLoadVersion;
+        var isAsyncSection = false;
+
         SectionRows.Clear();
         var rows = new List<ProfileValueRowViewModel>();
         void Add(string name, string? value, FieldProvenance? evidence = null)
@@ -111,10 +126,8 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
                 AddMap("", Club.Facilities);
                 break;
             case "Squads":
-                SectionDescription = "Players and team registrations belonging to this club.";
-                AddMap("squad", Club.SearchTextFields);
-                AddMap("team", Club.SearchTextFields);
-                AddMap("squad", Club.SearchIntegerFields);
+                SectionDescription = "Players linked to this club by the current team’s numeric club ID in the loaded career.";
+                isAsyncSection = true;
                 break;
             case "Youth Intake":
                 SectionDescription = "Youth intake candidates and attributes when present in the loaded career.";
@@ -185,7 +198,9 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         }
 
         foreach (var row in rows) SectionRows.Add(row);
-        SectionEmptyText = rows.Count > 0 ? string.Empty : SelectedSection switch
+        SectionEmptyText = isAsyncSection
+            ? "Loading players linked to this club…"
+            : rows.Count > 0 ? string.Empty : SelectedSection switch
         {
             "Squads" => "No squad/player membership records are currently imported.",
             "Youth Intake" => "No youth intake records have been imported for this club.",
@@ -204,6 +219,102 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         };
         OnPropertyChanged(nameof(SectionRows));
         OnPropertyChanged(nameof(HasSectionEmptyText));
+
+        if (isAsyncSection)
+            _ = LoadSquadPlayersAsync(sectionLoadVersion);
+    }
+
+    private async Task LoadSquadPlayersAsync(int sectionLoadVersion)
+    {
+        if (SelectedSection != "Squads" || sectionLoadVersion != _sectionLoadVersion)
+            return;
+
+        if (!uint.TryParse(Club.Identity.SourceId, NumberStyles.None, CultureInfo.InvariantCulture, out var clubId) ||
+            clubId == 0)
+        {
+            SectionEmptyText = "This club record does not have a numeric game ID, so its player links cannot be resolved safely.";
+            return;
+        }
+
+        if (_advancedSearchProvider is not IIndexedAdvancedSearchFieldProvider indexedProvider)
+        {
+            SectionEmptyText = "The indexed Advanced Search provider is not available for this workspace.";
+            return;
+        }
+
+        var cancellation = new CancellationTokenSource();
+        _sectionLoadCancellation = cancellation;
+        try
+        {
+            var fields = await indexedProvider.GetIndexedFieldsAsync(
+                SearchEntityKind.Player,
+                cancellation.Token).ConfigureAwait(true);
+            if (cancellation.IsCancellationRequested ||
+                SelectedSection != "Squads" ||
+                sectionLoadVersion != _sectionLoadVersion)
+                return;
+
+            var clubIdField = fields.FirstOrDefault(field =>
+                string.Equals(field.Key, "club_uid", StringComparison.OrdinalIgnoreCase) &&
+                field.ValueKind == SearchFieldValueKind.IntegerRange &&
+                field.CanExecute);
+            if (clubIdField is null)
+            {
+                SectionEmptyText = "The current player index does not contain a queryable club ID. Reload the live career after the club-link field is available.";
+                return;
+            }
+
+            var query = new AdvancedSearchQuery(
+                SearchEntityKind.Player,
+                SearchFilterLogic.All,
+                [
+                    new SearchFilterCondition(
+                        "club_uid",
+                        SearchFilterOperator.Range,
+                        Minimum: clubId,
+                        Maximum: clubId)
+                ],
+                IndexedFields: fields);
+
+            var players = await _advancedSearchProvider.ExecuteAsync(
+                query,
+                limit: 200,
+                cancellationToken: cancellation.Token).ConfigureAwait(true);
+
+            if (cancellation.IsCancellationRequested ||
+                SelectedSection != "Squads" ||
+                sectionLoadVersion != _sectionLoadVersion)
+                return;
+
+            SectionRows.Clear();
+            foreach (var player in players.OrderBy(result => result.DisplayName, StringComparer.OrdinalIgnoreCase))
+            {
+                SectionRows.Add(new ProfileValueRowViewModel(
+                    player.DisplayName,
+                    player.Identity.SourceId,
+                    $"Player · {player.Identity.ProviderKey}"));
+            }
+
+            SectionEmptyText = players.Count == 0
+                ? "No players in the indexed snapshot are linked to this club ID. The active source may not have supplied their current-team relationship."
+                : string.Empty;
+            OnPropertyChanged(nameof(SectionRows));
+            OnPropertyChanged(nameof(HasSectionEmptyText));
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            if (SelectedSection == "Squads" && sectionLoadVersion == _sectionLoadVersion)
+                SectionEmptyText = $"The club squad could not be loaded: {exception.Message}";
+        }
+        finally
+        {
+            if (ReferenceEquals(_sectionLoadCancellation, cancellation))
+                _sectionLoadCancellation = null;
+            cancellation.Dispose();
+        }
     }
 
     private static string Humanise(string key) => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
