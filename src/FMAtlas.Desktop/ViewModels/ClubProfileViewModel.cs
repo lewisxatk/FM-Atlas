@@ -245,25 +245,36 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
         }
 
         foreach (var row in rows) SectionRows.Add(row);
-        SectionEmptyText = isAsyncSection
-            ? SelectedSection == "Staff" ? "Loading staff linked to this club…" : "Loading players linked to this club…"
-            : rows.Count > 0 ? string.Empty : SelectedSection switch
+        if (isAsyncSection)
         {
-            "Squads" => "No squad/player membership records are currently imported.",
-            "Youth Intake" => "No youth intake records have been imported for this club.",
-            "Finances" => "No finance record or supported finance values are available in this snapshot.",
-            "Club Vision" => "No board vision or club culture records are available.",
-            "Possible Signings" => "No possible-signing data was supplied.",
-            "Player Clauses" => "No player clause data was supplied.",
-            "Transfer Center" => "No transfer proposal records are available.",
-            "Staff" => "No linked staff list is available for this club.",
-            "Wage Contributions" => "No wage contribution records are available.",
-            "Kits & Colours" => "Kit and club colour records are not imported yet.",
-            "Affiliations" => "No affiliation records are available.",
-            "Match Preparation" => "No match-preparation or tactical familiarity data is available.",
-            "Stadium" => "No stadium details were imported for this club.",
-            _ => "No values are available for this section in the current snapshot."
-        };
+            SectionEmptyText = SelectedSection == "Staff"
+                ? "Loading staff linked to this club…"
+                : "Loading players linked to this club…";
+        }
+        else if (rows.Count > 0)
+        {
+            SectionEmptyText = string.Empty;
+        }
+        else
+        {
+            SectionEmptyText = SelectedSection switch
+            {
+                "Squads" => "No squad/player membership records are currently imported.",
+                "Youth Intake" => "No youth intake records have been imported for this club.",
+                "Finances" => "No finance record or supported finance values are available in this snapshot.",
+                "Club Vision" => "No board vision or club culture records are available.",
+                "Possible Signings" => "No possible-signing data was supplied.",
+                "Player Clauses" => "No player clause data was supplied.",
+                "Transfer Center" => "No transfer proposal records are available.",
+                "Staff" => "No linked staff list is available for this club.",
+                "Wage Contributions" => "No wage contribution records are available.",
+                "Kits & Colours" => "Kit and club colour records are not imported yet.",
+                "Affiliations" => "No affiliation records are available.",
+                "Match Preparation" => "No match-preparation or tactical familiarity data is available.",
+                "Stadium" => "No stadium details were imported for this club.",
+                _ => "No values are available for this section in the current snapshot."
+            };
+        }
         OnPropertyChanged(nameof(SectionRows));
         OnPropertyChanged(nameof(HasSectionEmptyText));
 
