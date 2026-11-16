@@ -15,6 +15,11 @@ public sealed record PlayerRecord(EntityIdentity Identity) : IEntityRecord
     public SourcedValue<int>? Age { get; init; }
     public SourcedValue<string>? Nationality { get; init; }
     public SourcedValue<string>? SecondNationality { get; init; }
+    public SourcedValue<string>? Gender { get; init; }
+    public SourcedValue<string>? Continent { get; init; }
+    public SourcedValue<string>? Region { get; init; }
+    public SourcedValue<string>? CityOfBirth { get; init; }
+    public SourcedValue<string>? Ethnicity { get; init; }
     public SourcedValue<string>? ClubName { get; init; }
     public SourcedValue<string>? TeamName { get; init; }
     public SourcedValue<string>? LeagueName { get; init; }
@@ -24,6 +29,10 @@ public sealed record PlayerRecord(EntityIdentity Identity) : IEntityRecord
     public SourcedValue<decimal>? WeightKilograms { get; init; }
     public SourcedValue<int>? CurrentAbility { get; init; }
     public SourcedValue<int>? PotentialAbility { get; init; }
+    public SourcedValue<int>? InternationalCaps { get; init; }
+    public SourcedValue<int>? InternationalGoals { get; init; }
+    public SourcedValue<bool>? IsEuNationality { get; init; }
+    public SourcedValue<bool>? IsWonderkid { get; init; }
     public SourcedValue<DateOnly>? ContractExpires { get; init; }
     public SourcedValue<decimal>? Wage { get; init; }
     public SourcedValue<decimal>? TransferValue { get; init; }
