@@ -113,6 +113,136 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         StatusText = "Filters cleared for the selected entity.";
     }
 
+    public void SetStatus(string message) => StatusText = message;
+
+    public AdvancedSearchPreset? CreatePreset(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            StatusText = "Enter a name for this saved search.";
+            return null;
+        }
+
+        var conditions = new List<SearchFilterCondition>();
+        var inputIssues = new List<string>();
+        foreach (var field in _fieldState
+                     .Where(pair => pair.Key.Entity == SelectedEntity)
+                     .Select(pair => pair.Value))
+        {
+            if (!field.IsEnabled)
+                continue;
+
+            if (!TryBuildCondition(field, out var condition, out var issue))
+            {
+                if (!string.IsNullOrWhiteSpace(issue))
+                    inputIssues.Add($"{field.DisplayName}: {issue}");
+                continue;
+            }
+
+            if (condition is not null)
+                conditions.Add(condition);
+        }
+
+        if (inputIssues.Count > 0)
+        {
+            StatusText = string.Join("  ·  ", inputIssues);
+            return null;
+        }
+
+        var query = new AdvancedSearchQuery(SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic);
+        var validation = AdvancedSearchQueryValidator.Validate(query);
+        if (!validation.IsValid)
+        {
+            StatusText = string.Join("  ·  ", validation.Issues.Select(issue => issue.Message));
+            return null;
+        }
+
+        StatusText = $"Saved search “{name.Trim()}” is ready to write.";
+        return new AdvancedSearchPreset(
+            Version: 1,
+            Name: name.Trim(),
+            Entity: SelectedEntity,
+            Logic: SelectedLogic,
+            PositionLogic: SelectedPositionLogic,
+            Conditions: conditions);
+    }
+
+    public bool ApplyPreset(AdvancedSearchPreset preset)
+    {
+        ArgumentNullException.ThrowIfNull(preset);
+        if (preset.Version != 1)
+        {
+            StatusText = $"Preset version {preset.Version} is not supported.";
+            return false;
+        }
+
+        if (!Enum.IsDefined(preset.Entity) ||
+            !Enum.IsDefined(preset.Logic) ||
+            !Enum.IsDefined(preset.PositionLogic))
+        {
+            StatusText = "The saved search contains an unknown entity or matching mode.";
+            return false;
+        }
+
+        SelectEntity(preset.Entity);
+        foreach (var field in _fieldState
+                     .Where(pair => pair.Key.Entity == SelectedEntity)
+                     .Select(pair => pair.Value))
+        {
+            field.Clear();
+        }
+
+        SelectedLogic = preset.Logic;
+        SelectedPositionLogic = preset.PositionLogic;
+
+        var definitions = AdvancedSearchCatalog.Categories
+            .SelectMany(category => AdvancedSearchCatalog.GetFields(SelectedEntity, category.Kind)
+                .Concat(AdvancedSearchCatalog.GetAttributeFields(SelectedEntity, category.Kind)))
+            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToDictionary(field => field.Key, StringComparer.OrdinalIgnoreCase);
+
+        var skipped = new List<string>();
+        foreach (var condition in preset.Conditions)
+        {
+            if (!definitions.TryGetValue(condition.FieldKey, out var definition) || !definition.CanExecute)
+            {
+                skipped.Add(condition.FieldKey);
+                continue;
+            }
+
+            var field = GetOrCreateFieldModel(definition);
+            field.Clear();
+            field.MinimumText = condition.Minimum?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            field.MaximumText = condition.Maximum?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            field.TextValue = condition.TextValue ?? string.Empty;
+            field.DateMinimumText = condition.DateMinimum?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty;
+            field.DateMaximumText = condition.DateMaximum?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty;
+
+            if (definition.ValueKind == SearchFieldValueKind.Boolean)
+            {
+                field.BooleanSelection = condition.Operator switch
+                {
+                    SearchFilterOperator.IsTrue => 1,
+                    SearchFilterOperator.IsFalse => 2,
+                    SearchFilterOperator.IsUnknown => 3,
+                    _ => 0
+                };
+            }
+            else if (definition.ValueKind == SearchFieldValueKind.TraitSelector)
+            {
+                field.IncludeTrait = condition.Operator == SearchFilterOperator.HasTrait;
+            }
+        }
+
+        RebuildSections();
+        Results.Clear();
+        StatusText = skipped.Count == 0
+            ? $"Loaded saved search “{preset.Name}”. Review the filters, then run Search."
+            : $"Loaded “{preset.Name}”; skipped unsupported fields: {string.Join(", ", skipped)}.";
+        return skipped.Count == 0;
+    }
+
     public async Task RunSearchAsync(CancellationToken cancellationToken = default)
     {
         if (IsBusy)
@@ -521,6 +651,14 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         return true;
     }
 }
+
+public sealed record AdvancedSearchPreset(
+    int Version,
+    string Name,
+    SearchEntityKind Entity,
+    SearchFilterLogic Logic,
+    SearchFilterLogic PositionLogic,
+    IReadOnlyList<SearchFilterCondition> Conditions);
 
 public sealed record AdvancedSearchSectionViewModel(
     string Title,
