@@ -211,6 +211,18 @@ public partial class MainWindow : Window
                 if (workspace is "Settings" or "Save Manager")
                     SetActiveNavigation(workspace);
             }
+            else if (workspaceKey.StartsWith("Player|", StringComparison.Ordinal))
+            {
+                SetActiveNavigation("Players");
+            }
+            else if (workspaceKey.StartsWith("Staff|", StringComparison.Ordinal))
+            {
+                SetActiveNavigation("Staff");
+            }
+            else if (workspaceKey.StartsWith("Club|", StringComparison.Ordinal))
+            {
+                SetActiveNavigation("Clubs");
+            }
         }
         else if (string.Equals(title, "Dashboard", StringComparison.OrdinalIgnoreCase))
         {
