@@ -28,10 +28,22 @@
                 <ItemsControl ItemsSource="{Binding Sections}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate><DataTemplate>
-                        <Button Content="{Binding}"
+                        <Button Content="{Binding Name}"
                                 Command="{Binding DataContext.SelectSectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}"
-                                Style="{StaticResource Atlas.ProfileTabButton}"
+                                CommandParameter="{Binding Name}"
+                                Style="{StaticResource Atlas.ProfileTabButton}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource Atlas.AccentSoft}"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
                                 Margin="0,0,5,0"/>
                     </DataTemplate></ItemsControl.ItemTemplate>
                 </ItemsControl>
