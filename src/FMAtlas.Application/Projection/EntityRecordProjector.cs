@@ -34,6 +34,7 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         var fields = new List<EntityFieldProjection>();
 
         Add(fields, "full_name", player.FullName);
+        Add(fields, "game_uid", player.GameUid);
         Add(fields, "date_of_birth", player.DateOfBirth);
         Add(fields, "age", player.Age);
         Add(fields, "nationality", player.Nationality);
@@ -89,6 +90,8 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         var fields = new List<EntityFieldProjection>();
 
         Add(fields, "full_name", staff.FullName);
+        Add(fields, "game_uid", staff.GameUid);
+        Add(fields, "gender", staff.Gender);
         Add(fields, "date_of_birth", staff.DateOfBirth);
         Add(fields, "age", staff.Age);
         Add(fields, "nationality", staff.Nationality);
