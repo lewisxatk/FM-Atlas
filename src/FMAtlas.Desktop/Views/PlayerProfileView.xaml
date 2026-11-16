@@ -71,7 +71,9 @@
                     <StackPanel>
                         <Border Height="194" Background="#151515" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="7">
                             <Grid>
-                                <TextBlock Text="PLAYER PHOTO" Foreground="{StaticResource Atlas.Subtle}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Image Source="{Binding PortraitUri}" Stretch="UniformToFill"/>
+                                <TextBlock Text="PLAYER PHOTO" Foreground="{StaticResource Atlas.Subtle}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding HasPortrait, Converter={StaticResource Atlas.BooleanToVisibility}}"/>
                             </Grid>
                         </Border>
                         <TextBlock Text="{Binding PlayerTitle}" FontFamily="Georgia" FontSize="21" Foreground="{StaticResource Atlas.Text}" Margin="0,14,0,4"/>
