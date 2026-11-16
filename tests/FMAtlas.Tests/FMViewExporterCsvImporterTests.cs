@@ -29,6 +29,7 @@ public sealed class FMViewExporterCsvImporterTests
         Assert.Equal(1, result.ImportedPlayers);
         Assert.Equal(0, result.SkippedRows);
         Assert.Equal(2, result.DynamicFieldsIndexed);
+        Assert.Contains(result.Warnings, warning => warning.Contains("No Gender column", StringComparison.Ordinal));
 
         var identity = new EntityIdentity(EntityKind.Player, "101", result.ProviderKey);
         var player = await store.GetSnapshotAsync<PlayerRecord>(identity);
@@ -121,6 +122,7 @@ public sealed class FMViewExporterCsvImporterTests
 
         var import = await new FMViewExporterCsvImporter(store).ImportAsync(csvPath);
         Assert.Equal(2, import.ImportedPlayers);
+        Assert.DoesNotContain(import.Warnings, warning => warning.Contains("No Gender column", StringComparison.Ordinal));
 
         var search = new SqliteEntitySearchProvider(databasePath);
         var hidden = await search.QuickSearchAsync("Player");
