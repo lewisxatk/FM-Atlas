@@ -39,6 +39,25 @@ public partial class App : System.Windows.Application
         var advancedSearchProvider = new SqliteAdvancedSearchProvider(databasePath);
 
         var snapshotStore = new SqliteEntityRecordSnapshotStore(databasePath);
+        // Live-session providers are transient: a previous app session may have ended without
+        // observing FM closing. Remove the known live import before exposing search at startup.
+        try
+        {
+            ((FMAtlas.Application.Abstractions.IEntityRecordBatchSnapshotStore)snapshotStore)
+                .DeleteProviderAsync(WindowsFm27LiveGameConnector.LiveProviderKey)
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                $"FM Atlas could not clear a stale live-session index: {exception.Message}",
+                "FM Atlas startup error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(-1);
+            return;
+        }
+
         var playerExportImporter = new FMViewExporterCsvImporter(snapshotStore);
         var liveGameConnector = new WindowsFm27LiveGameConnector(snapshotStore);
 
