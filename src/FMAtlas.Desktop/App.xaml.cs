@@ -18,6 +18,9 @@ public partial class App : System.Windows.Application
             "FM Atlas");
         var databasePath = Path.Combine(dataDirectory, "atlas.db");
         var atlasDatabase = new AtlasDatabase(databasePath);
+        // Create/migrate the local search database before Advanced Search opens.
+        // The query provider is intentionally read-only and expects this schema to exist.
+        atlasDatabase.InitializeAsync().GetAwaiter().GetResult();
         var entitySearchProvider = new SqliteEntitySearchProvider(databasePath);
         var advancedSearchProvider = new SqliteAdvancedSearchProvider(databasePath);
 
