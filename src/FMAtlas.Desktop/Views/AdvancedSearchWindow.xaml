@@ -192,7 +192,7 @@
             <DockPanel Grid.Column="2" LastChildFill="True">
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,9">
                     <TextBlock Text="FIND A FIELD" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,0,0,4"/>
-                    <TextBox Style="{StaticResource FilterValue}" Height="30" FontSize="11"
+                    <TextBox Style="{StaticResource FilterValue}" Height="30" FontSize="11" IsEnabled="True"
                              Text="{Binding FieldSearchText, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="Search every category for an attribute, statistic, position, contract field or other criterion. The selected entity stays in scope."/>
                 </StackPanel>
