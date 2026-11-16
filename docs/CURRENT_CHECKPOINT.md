@@ -160,3 +160,63 @@ M4 — Player workspace shell started, after M1 catalogue foundation.
 ### Uncommitted work
 
 None known. All code and documentation changes above were committed through GitHub. Verify latest branch head before continuing.
+
+
+---
+
+## Checkpoint 007 — Advanced Search continuation
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Head:** `596c3200b3907c2780d4b83bc6d33ecbcffea923`  
+**Status:** REF-002 Advanced Search visual shell and documented search schema committed. Windows CI for the newest commits is pending.
+
+### Work saved
+
+1. Added `src/FMAtlas.Domain/Search/AdvancedSearchCatalog.cs`:
+   - seven approved FMRTE-style categories in the required order;
+   - Player / Coach / Club entity types;
+   - typed field kinds (text, ranges, boolean, date, lookup, enum, position, trait);
+   - source-documented general, contract, coach and club search fields;
+   - attribute search fields generated from the canonical player attribute catalogue;
+   - explicit distinction between documented field existence and executable query support;
+   - all fields remain `InProgress`, so the UI cannot imply they are already searchable.
+2. Added `tests/FMAtlas.Tests/AdvancedSearchCatalogTests.cs` for category order, evidence/execution status, entity-specific fields, attribute coverage and player-only field restrictions.
+3. Added `src/FMAtlas.Desktop/Views/AdvancedSearchWindow.xaml` and code-behind:
+   - REF-002 style dialog composition;
+   - Player / Coach / Club selectors;
+   - left-side category list;
+   - grouped General filter panels;
+   - position pitch placeholder;
+   - OK / Cancel actions;
+   - explicit In Progress messaging;
+   - filter controls and actions are disabled because no verified query/index provider is connected yet.
+4. Previous checkpoint's REF-004 player-profile shell remains committed, with section buttons disabled until a real player is selected.
+
+### CI status
+
+- Attribute catalogue run [43787875022](https://github.com/lewisxatk/FM-Atlas/actions/runs/43787875022) passed.
+- Profile view/style run [43788055915](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788055915) passed.
+- Search dialog and domain-schema runs [43788205408](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788205408), [43788210267](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788210267), [43788255439](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788255439) and [43788258789](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788258789) were queued/in progress at checkpoint time. Check the newest run before claiming the search shell builds.
+
+### Current limitations
+
+- The Advanced Search dialog is a visual/structural shell; controls are intentionally disabled.
+- Search field definitions are documented, not read-verified or query-executable.
+- General filter layout is shown. Other categories still need their full grouped UI panels.
+- Quick Search remains a disabled placeholder.
+- No player records, statistics or search results are fabricated.
+- No live game memory has been read or written.
+- No original recovery ZIP bytes were needed for this step; the historical source branch remains available and untouched.
+
+### Next exact actions
+
+1. Check Windows CI on the latest head and correct any XAML/C# errors.
+2. Expand Advanced Search panels for Contract, Technical/GK, Mental, Physical/Hidden, Preferred Moves and Relations from the field schema.
+3. Add a SearchFilter query model and tests for min/max validation and AND/OR semantics before connecting a data provider.
+4. Connect the full-screen player profile to a typed player record; add the graphics lookup provider as a separate service.
+5. Continue exact Game Pass build identification and read-only probe research. No writes until the target build and field-level mappings are verified.
+
+### Uncommitted changes
+
+None known. All changes above were committed through GitHub. Re-read the branch head and checkpoint before the next work unit.
