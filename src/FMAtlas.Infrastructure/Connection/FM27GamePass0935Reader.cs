@@ -113,12 +113,14 @@ internal sealed class FM27GamePass0935Reader
         return (players.Count, staff.Count, clubs.Count, checked((long)generation), date);
     }
 
-    public long ReadSaveGeneration()
+    public long ReadSaveGeneration() => ReadSaveGeneration(_memory, _moduleBase);
+
+    public static long ReadSaveGeneration(WindowsProcessMemoryAccessor memory, ulong moduleBase)
     {
-        var gameUiStatic = checked(_moduleBase + GameUiRva);
-        var gameUiObject = _memory.ReadUInt64(gameUiStatic);
+        var gameUiStatic = checked(moduleBase + GameUiRva);
+        var gameUiObject = memory.ReadUInt64(gameUiStatic);
         WindowsProcessMemoryAccessor.ValidateUserPointer(gameUiObject, "GAME_UI object");
-        return checked((long)_memory.ReadUInt64(gameUiObject + GameLoadsOffset));
+        return checked((long)memory.ReadUInt64(gameUiObject + GameLoadsOffset));
     }
 
     public bool IsPlayerArrayEmpty()
