@@ -22,7 +22,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [~] M1.4 fmsave offline save parser coverage study (initial study done; schema/coverage validation still needed).
 - [x] M1.5 FM Player Analyzer parsing/graphics/profile architecture inspected.
 - [~] M1.6 FMRTE feature and workflow inventory (official feature audit 001 committed; full UI/feature audit still required).
-- [~] M1.7 FM27 canonical player field and attribute catalogue (52 unique non-foot attributes, 8 personality values, 15 position ratings documented; verify exact profile applicability/order).
+- [x] M1.7 FM27 canonical player attribute catalogue implemented in Domain (52 unique non-foot fields; source order documented; final visual order still provisional).
 - [ ] M1.8 FM27 attribute display order verified against FM27 player profile and FMRTE.
 - [ ] M1.9 Staff and club field catalogue complete.
 - [ ] M1.10 User's Game Pass build/process fingerprint verified on Windows.
@@ -40,7 +40,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [~] M2.7 Top Advanced Search action placed; intentionally disabled until query service/dialog exists.
 - [~] M2.8 Prominent right-side Load Game button added; currently performs process/module presence check only, not career loading.
 - [~] M2.9 Compact Save Atlas / Save Changes controls placed; intentionally disabled until persistence/live writer exist.
-- [ ] M2.10 Workspace/player tabs.
+- [~] M2.10 Player-profile workspace shell created with an open-player tab row; multi-player tab management is not wired.
 - [ ] M2.11 Settings, logs, diagnostics and local persistence.
 - [ ] M2.12 Windows desktop resize/accessibility tests.
 
@@ -57,14 +57,14 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M3.10 Data accuracy comparison against FM.
 
 ## M4 — Player workspace
-- [ ] M4.1 Full-screen REF-004 profile layout.
-- [ ] M4.2 Left identity and information rail.
+- [x] M4.1 Full-screen REF-004 profile layout shell created; actual screenshot comparison and live-data integration remain.
+- [x] M4.2 Left identity/information rail and portrait placeholder created; graphics lookup remains.
 - [ ] M4.3 Player graphics locator.
-- [ ] M4.4 Central attribute display.
-- [ ] M4.5 Verified FM attribute names/grouping/order.
+- [~] M4.4 Central attribute groups are rendered from the Domain catalogue with empty/unavailable values; real player values and editing remain.
+- [~] M4.5 Names/grouping/source order documented and coded; final FM27/FMRTE visual order verification remains.
 - [ ] M4.6 CA and PA display.
 - [ ] M4.7 Right-side grounded information panels.
-- [ ] M4.8 Compact top-of-profile FMRTE-style tabs.
+- [~] M4.8 Compact top-of-profile FMRTE-style section tabs added; they remain disabled until a real player record is loaded and section navigation is connected.
 - [ ] M4.8a Information and complete attribute view.
 - [ ] M4.8b Contract.
 - [ ] M4.8c Stats (read-only, real save data).
@@ -149,6 +149,8 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] Architecture decision documented.
 - [x] FMRTE 27 feature audit and field coverage ledger committed.
 - [x] Clean WPF solution and initial shell source committed.
+- [x] FM27 player attribute catalogue and domain tests committed; Windows CI run 43787875022 passed.
+- [~] REF-004 player profile workspace shell committed; latest Windows CI runs 43788055915 and related runs pending at checkpoint time.
 - [x] Windows CI build and three unit tests passed.
 - [x] Windows shell build artifact uploaded and inspected.
 - [~] User-side launch and visual comparison still pending.
