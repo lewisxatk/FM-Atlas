@@ -190,12 +190,65 @@ public partial class MainWindow : Window
         CurrentWorkspaceBreadcrumb.Text = string.IsNullOrWhiteSpace(title)
             ? "WORKSPACE"
             : title.ToUpperInvariant();
+
+        if (selected.Tag is string workspaceKey)
+        {
+            if (workspaceKey.StartsWith("directory|", StringComparison.Ordinal))
+            {
+                var kindText = workspaceKey["directory|".Length..];
+                var nav = kindText switch
+                {
+                    nameof(EntityKind.Player) => "Players",
+                    nameof(EntityKind.Staff) => "Staff",
+                    nameof(EntityKind.Club) => "Clubs",
+                    _ => "Dashboard"
+                };
+                SetActiveNavigation(nav);
+            }
+            else if (workspaceKey.StartsWith("workspace|", StringComparison.Ordinal))
+            {
+                var workspace = workspaceKey["workspace|".Length..];
+                if (workspace is "Settings" or "Save Manager")
+                    SetActiveNavigation(workspace);
+            }
+        }
+        else if (string.Equals(title, "Dashboard", StringComparison.OrdinalIgnoreCase))
+        {
+            SetActiveNavigation("Dashboard");
+        }
+    }
+
+    private void SetActiveNavigation(string destination)
+    {
+        var accent = (System.Windows.Media.Brush)FindResource("Atlas.Accent");
+        var accentSoft = (System.Windows.Media.Brush)FindResource("Atlas.AccentSoft");
+
+        foreach (var button in WorkspaceNavigationPanel.Children.OfType<Button>())
+            Apply(button);
+        Apply(SettingsNavigationButton);
+
+        void Apply(Button button)
+        {
+            var selected = string.Equals(button.Tag as string, destination, StringComparison.OrdinalIgnoreCase);
+            if (selected)
+            {
+                button.Background = accentSoft;
+                button.BorderBrush = accent;
+            }
+            else
+            {
+                button.ClearValue(BackgroundProperty);
+                button.ClearValue(BorderBrushProperty);
+            }
+        }
     }
 
     private void NavigationButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string destination })
             return;
+
+        SetActiveNavigation(destination);
 
         if (destination == "Dashboard")
         {
