@@ -492,8 +492,6 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             "club_maximum_attendance" => ["maximum_attendance"],
             "club_ownership_type" => ["ownership_type"],
             "club_chairperson_title" => ["chairperson_title"],
-            "club_minimum_attendance" => ["minimum_attendance"],
-            "club_maximum_attendance" => ["maximum_attendance"],
             "club_first_team_reputation" => ["first_team_reputation"],
             "club_reserve_team_reputation" => ["reserve_team_reputation"],
             "club_youth_team_reputation" => ["youth_team_reputation"],
