@@ -108,6 +108,39 @@ public sealed class AdvancedSearchQueryValidatorTests
     }
 
     [Fact]
+    public void AttributeRangesAcceptOneSidedBoundsButRejectValuesOutsideZeroToTwenty()
+    {
+        var minimumOnly = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("attribute_dribbling", SearchFilterOperator.Range, Minimum: 12)]);
+        var maximumOnly = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("attribute_dribbling", SearchFilterOperator.Range, Maximum: 8)]);
+        var outOfRange = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("attribute_dribbling", SearchFilterOperator.Range, Minimum: 21)]);
+
+        Assert.True(AdvancedSearchQueryValidator.Validate(minimumOnly).IsValid);
+        Assert.True(AdvancedSearchQueryValidator.Validate(maximumOnly).IsValid);
+        Assert.False(AdvancedSearchQueryValidator.Validate(outOfRange).IsValid);
+    }
+
+    [Fact]
+    public void BooleanFieldsAcceptUnknownAsASeparateState()
+    {
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("is_newgen", SearchFilterOperator.IsUnknown)]);
+
+        Assert.True(AdvancedSearchQueryValidator.Validate(query).IsValid);
+        Assert.True(query.CanExecute);
+    }
+
+    [Fact]
     public void DateRangeRequiresValidOrderedBounds()
     {
         var valid = new AdvancedSearchQuery(
