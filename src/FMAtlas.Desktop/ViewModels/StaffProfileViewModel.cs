@@ -55,6 +55,8 @@ public sealed class StaffProfileViewModel : INotifyPropertyChanged
     public string AgeText => Format(Staff.Age?.Value);
     public string GenderText => Format(Staff.Gender?.Value);
     public string NationalityText => Format(Staff.Nationality?.Value);
+    public string GenderInfoText => $"Gender · {GenderText}";
+    public string NationalityInfoText => $"Nationality · {NationalityText}";
     public string CaText => Format(Staff.CurrentAbility?.Value);
     public string PaText => Format(Staff.PotentialAbility?.Value);
 
@@ -165,6 +167,7 @@ public sealed class StaffProfileViewModel : INotifyPropertyChanged
     private static string Format(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "Not imported";
     private static string Format(decimal? value) => value?.ToString("0.##", CultureInfo.InvariantCulture) ?? "Not imported";
     private static string Format(DateOnly? value) => value?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "Not imported";
+    private static string Format(string? value) => string.IsNullOrWhiteSpace(value) ? "Not imported" : value;
     private static string FormatObject<T>(T value) => value switch
     {
         DateOnly date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
