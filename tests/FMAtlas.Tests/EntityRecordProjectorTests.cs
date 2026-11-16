@@ -53,8 +53,8 @@ public sealed class EntityRecordProjectorTests
         Assert.Contains(result.Fields, x => x.Key == "attribute_pace" && x.IntegerValue == 16);
         Assert.Contains(result.Fields, x => x.Key == "attribute_consistency" && x.IntegerValue == 17);
         Assert.Contains(result.Fields, x => x.Key == "personality_professionalism" && x.IntegerValue == 18);
-        Assert.Contains(result.Fields, x => x.Key == "foot_left_foot" && x.IntegerValue == 20);
-        Assert.Contains(result.Fields, x => x.Key == "foot_right_foot" && x.IntegerValue == 8);
+        Assert.Contains(result.Fields, x => x.Key == "left_foot" && x.IntegerValue == 20);
+        Assert.Contains(result.Fields, x => x.Key == "right_foot" && x.IntegerValue == 8);
         Assert.Contains(result.Fields, x => x.Key == "stat_goals_per_90" && x.DecimalValue == 0.75m);
         Assert.All(result.Fields, x => Assert.True(x.HasValidValueShape()));
         Assert.All(result.Fields, x => Assert.Equal(FieldEvidenceStatus.ReadVerified, x.Provenance.EvidenceStatus));
