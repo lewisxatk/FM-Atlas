@@ -65,6 +65,9 @@
                     <TextBlock Text="STADIUM" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
                     <TextBlock Text="{Binding StadiumText}" FontSize="11" Foreground="{StaticResource Atlas.Text}" Margin="0,6,0,2"/>
                     <TextBlock Text="{Binding CapacityText}" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource Atlas.Muted}"/>
+                    <TextBlock Text="{Binding OwnershipText, StringFormat=Ownership · {0}}" Style="{StaticResource Atlas.ProfileInfoText}" Margin="0,7,0,0"/>
+                    <TextBlock Text="{Binding AverageAttendanceText, StringFormat=Average attendance · {0}}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    <TextBlock Text="{Binding ChairpersonText, StringFormat=Chairperson · {0}}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                     <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,13,0,11"/>
                     <TextBlock Text="DATA STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
                     <TextBlock Text="LIVE SNAPSHOT · READ-ONLY" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,7,0,0"/>
