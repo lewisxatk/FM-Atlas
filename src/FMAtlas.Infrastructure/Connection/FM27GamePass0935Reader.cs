@@ -730,11 +730,15 @@ internal sealed class FM27GamePass0935Reader
             AddFinanceField(finances, "transfer_budget", TryReadInt32(finance + 0x7C4), evidence, 0, 100_000_000_000m);
             AddFinanceField(finances, "total_wage_budget", TryReadInt32(finance + 0x808), evidence, 0, 10_000_000_000m);
             AddFinanceField(finances, "wage_budget", TryReadInt32(finance + 0x814), evidence, 0, 10_000_000_000m);
+            var ticketPrice = TryReadSingle(finance + 0x864);
+            if (ticketPrice is float price && float.IsFinite(price) && price is >= 0 and <= 100_000)
+                finances["ticket_price"] = new SourcedValue<decimal>(Convert.ToDecimal(price), evidence);
 
             CopyFinanceToSearch(finances, "balance", "club_balance", indexedDecimals);
             CopyFinanceToSearch(finances, "transfer_budget", "club_transfer_budget", indexedDecimals);
             CopyFinanceToSearch(finances, "total_wage_budget", "club_total_wage_budget", indexedDecimals);
             CopyFinanceToSearch(finances, "wage_budget", "club_wage_budget", indexedDecimals);
+            CopyFinanceToSearch(finances, "ticket_price", "club_ticket_price", indexedDecimals);
 
             var corporate = TryReadByte(finance + 0x8A9);
             if (corporate is byte rating and >= 1 and <= 20)
@@ -1085,6 +1089,12 @@ internal sealed class FM27GamePass0935Reader
     private uint? TryReadUInt32(ulong address)
     {
         try { return _memory.ReadUInt32(address); }
+        catch { return null; }
+    }
+
+    private float? TryReadSingle(ulong address)
+    {
+        try { return BitConverter.Int32BitsToSingle(_memory.ReadInt32(address)); }
         catch { return null; }
     }
 
