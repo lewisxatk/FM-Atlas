@@ -94,6 +94,11 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
     public string ReputationText => Format(Club.Reputation?.Value);
     public string StadiumText => Club.StadiumName?.Value ?? "Not imported";
     public string CapacityText => Format(Club.StadiumCapacity?.Value);
+    public string OwnershipText => Club.OwnershipType?.Value ?? "Not imported";
+    public string ChairpersonText => Club.ChairpersonTitle?.Value ?? "Not imported";
+    public string AverageAttendanceText => Format(Club.AverageAttendance?.Value);
+    public string MinimumAttendanceText => Format(Club.MinimumAttendance?.Value);
+    public string MaximumAttendanceText => Format(Club.MaximumAttendance?.Value);
 
     private void UpdateRows()
     {
