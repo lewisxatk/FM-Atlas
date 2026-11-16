@@ -357,6 +357,41 @@ public sealed class SqliteAdvancedSearchProviderTests
         Assert.Equal("high-gap", Assert.Single(await new SqliteAdvancedSearchProvider(path).ExecuteAsync(query)).Identity.SourceId);
     }
 
+    [Fact]
+    public async Task StaffRolePreferencesCanBeSearchedWithMinimumOnly()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        var scoutId = new EntityIdentity(EntityKind.Staff, "scout", "test");
+        var physioId = new EntityIdentity(EntityKind.Staff, "physio", "test");
+        await store.SaveSnapshotAsync(new FMAtlas.Domain.Staff.StaffRecord(scoutId)
+        {
+            FullName = new SourcedValue<string>("Scout", Evidence),
+            RolePreferences = new Dictionary<string, SourcedValue<int>>
+            {
+                ["scout"] = new(17, Evidence)
+            }
+        }, "Scout");
+        await store.SaveSnapshotAsync(new FMAtlas.Domain.Staff.StaffRecord(physioId)
+        {
+            FullName = new SourcedValue<string>("Physio", Evidence),
+            RolePreferences = new Dictionary<string, SourcedValue<int>>
+            {
+                ["physio"] = new(11, Evidence)
+            }
+        }, "Physio");
+
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Coach,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("role_preference_scout", SearchFilterOperator.Range, Minimum: 12)]);
+
+        Assert.Equal("scout", Assert.Single(await new SqliteAdvancedSearchProvider(path).ExecuteAsync(query)).Identity.SourceId);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =
