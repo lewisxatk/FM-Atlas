@@ -1,6 +1,6 @@
 # FM Atlas — Record Snapshot Persistence 001
 
-**Status:** Implemented and awaiting Windows CI verification.
+**Status:** Implemented on schema v2; Windows CI verification pending.
 
 ## What it stores
 
@@ -35,3 +35,10 @@ It preserves the typed source record, including per-field SourcedValue provenanc
 - Invalid identity rejection.
 
 Windows CI is required before this code is marked build/test verified.
+
+
+## Identity contract refinement
+
+PlayerRecord, StaffRecord and ClubRecord now implement IEntityRecord. SaveSnapshotAsync accepts the typed record and reads its EntityIdentity directly rather than accepting a second independent identity parameter. This removes a caller-side mismatch risk. Query/load/delete still require the requested provider-scoped identity and record type.
+
+The store preserves a non-null display name when a later partial snapshot does not provide one. The entity and snapshot writes are transactional. No normalised searchable field projection is produced yet.
