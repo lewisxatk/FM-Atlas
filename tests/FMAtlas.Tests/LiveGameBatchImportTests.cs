@@ -92,6 +92,11 @@ public sealed class LiveGameBatchImportTests
             {
                 FullName = new SourcedValue<string>("Trait Player", LiveEvidence),
                 PreferredMoves = [new SourcedValue<string>("Tries tricks", LiveEvidence)],
+                SecondNationality = new SourcedValue<string>("Spain", LiveEvidence),
+                SearchTextFields = new Dictionary<string, SourcedValue<string>>
+                {
+                    ["trained_in_nation_1"] = new("England", LiveEvidence)
+                },
                 SearchIntegerFields = new Dictionary<string, SourcedValue<int>>
                 {
                     ["condition"] = new(8_500, LiveEvidence),
@@ -109,6 +114,10 @@ public sealed class LiveGameBatchImportTests
                 SearchBooleanFields = new Dictionary<string, SourcedValue<bool>>
                 {
                     ["club_is_women"] = new(false, LiveEvidence)
+                },
+                SearchDecimalFields = new Dictionary<string, SourcedValue<decimal>>
+                {
+                    ["club_ticket_price"] = new(42.5m, LiveEvidence)
                 }
             }
         ];
@@ -122,10 +131,16 @@ public sealed class LiveGameBatchImportTests
             [new SearchFilterCondition("preferred_moves", SearchFilterOperator.HasTrait, TextValue: "Tries tricks")]);
         var players = await advanced.ExecuteAsync(playerQuery);
         Assert.Equal("player-traits", Assert.Single(players).Identity.SourceId);
+        var playerSnapshot = await store.GetSnapshotAsync<PlayerRecord>(
+            new EntityIdentity(EntityKind.Player, "player-traits", providerKey));
+        Assert.Equal("Spain", playerSnapshot?.SecondNationality?.Value);
+        Assert.Equal("England", playerSnapshot?.SearchTextFields["trained_in_nation_1"].Value);
 
         var clubFields = await advanced.GetIndexedFieldsAsync(SearchEntityKind.Club);
         Assert.Contains(clubFields, field => field.Key == "club_training_facilities" && field.CanExecute);
         Assert.Contains(clubFields, field => field.Key == "stadium_capacity" && field.CanExecute);
+        Assert.Contains(clubFields, field => field.Key == "club_is_women" && field.ValueKind == SearchFieldValueKind.Boolean);
+        Assert.Contains(clubFields, field => field.Key == "club_ticket_price" && field.ValueKind == SearchFieldValueKind.DecimalRange);
 
         var clubQuery = new AdvancedSearchQuery(
             SearchEntityKind.Club,
