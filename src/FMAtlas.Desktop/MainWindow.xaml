@@ -400,6 +400,7 @@
                 <Border Style="{StaticResource Atlas.Card}" Margin="0,14,0,0">
                     <StackPanel>
                         <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Text="RECENTLY OPENED" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
                             <TextBlock Grid.Column="1" Text="LAST 5 RECORDS" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}"/>
                         </Grid>
