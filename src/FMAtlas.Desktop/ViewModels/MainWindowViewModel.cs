@@ -178,14 +178,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void ScheduleQuickSearch()
     {
-        var cancellation = new CancellationTokenSource();
-        var previous = Interlocked.Exchange(ref _quickSearchCancellation, cancellation);
-        previous?.Cancel();
-        previous?.Dispose();
-
         var text = QuickSearchText.Trim();
         if (text.Length < 2)
         {
+            var pending = Interlocked.Exchange(ref _quickSearchCancellation, null);
+            pending?.Cancel();
+            pending?.Dispose();
+
             QuickSearchResults.Clear();
             IsQuickSearchBusy = false;
             IsQuickSearchOpen = !string.IsNullOrWhiteSpace(text);
@@ -194,6 +193,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 : "Type at least two characters.";
             return;
         }
+
+        var cancellation = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _quickSearchCancellation, cancellation);
+        previous?.Cancel();
+        previous?.Dispose();
 
         _ = RunDebouncedQuickSearchAsync(text, cancellation);
     }
