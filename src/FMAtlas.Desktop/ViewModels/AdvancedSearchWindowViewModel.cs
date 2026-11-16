@@ -94,6 +94,11 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
 
     public void SelectCategory(AdvancedSearchCategoryKind category)
     {
+        // A category click exits cross-category field-finder mode so the left
+        // navigation always has an immediate, predictable effect.
+        if (!string.IsNullOrWhiteSpace(FieldSearchText))
+            FieldSearchText = string.Empty;
+
         SelectedCategory = category;
         RebuildSections();
     }
