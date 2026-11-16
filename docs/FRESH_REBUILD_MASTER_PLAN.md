@@ -206,10 +206,15 @@ The selected foundation is .NET 8 WPF with Domain, Application, Infrastructure, 
 
 ## 8. Current implementation status
 
-The fresh solution has been created in `FMAtlas.sln` with Domain, Application, Infrastructure, Desktop and Tests projects. The initial WPF shell has the compact no-Search sidebar, top Quick Search placeholder, Advanced Search action, compact Save Atlas/Save Changes controls and prominent Load Game button. Load Game currently performs process/module presence detection only; it does not read memory or import a career. All unimplemented controls are disabled and labelled In Progress through tooltips.
+The fresh solution has a .NET 8 WPF shell, Domain, Application, Infrastructure and Tests projects. The UI has the compact no-Search left navigation, top Quick Search, modal Advanced Search and prominent Load Game action. The dashboard now shows career connection state, imported/live entity counts, write status, quick actions and recently opened Player/Staff/Club profiles.
 
-The Windows GitHub Actions build/test workflow is committed. The current execution environment has no .NET SDK, so no local compile has been claimed. Windows CI and a user-side build/screenshot review remain required. See `CURRENT_CHECKPOINT.md` and `FRESH_REBUILD_CHECKLIST.md`.
+The main workspace supports closable in-app tabs. Player, Staff and Club directory results open their typed profile in a workspace tab; duplicate tabs are focused instead of duplicated. Player profiles contain the FMRTE-audited section structure and a Technical/Goalkeeper attribute switch. Staff and Club profiles have their own FMRTE-audited section structures. The standard FM27 graphics folder is indexed through config.xml when present, and profile pictures/club badges are resolved by game ID; otherwise neutral placeholders remain.
 
+Load Game is connected to a read-only scanner for the exact FM27 Game Pass 0.9.2435.0 x64 fingerprint. It imports typed Player/Staff/Club snapshots into SQLite and the existing Quick Search/Advanced Search index, and the animated overlay blocks the main workspace and owned windows while the load/import/validation transaction runs. Only these three entity families are currently indexed.
+
+The current branch has not passed a Windows build/test or first in-game comparison. The available Windows Actions jobs have failed before any runner steps/logs were created. This execution environment has no .NET SDK/C# compiler/MSBuild/PowerShell. Consequently, neither the live reader nor the new WPF profile/navigation changes are build-verified. No downloadable application artifact is available.
+
+**Still gated:** live editing and saving are not enabled. The process-memory accessor has read methods only, no live field is WriteVerified and Save Live Changes remains disabled. The current read profile is ExternalReferenceOnly/Mapped, not AtlasReadVerified. Full staff/club relationships, many club records and many FMRTE profile sections remain empty until their underlying save data is mapped and verified. See `docs/UI_REVIEW_001.md`, `docs/CURRENT_CHECKPOINT.md`, and `research/LIVE_GAME_CONNECTION_001.md`.
 
 ## 9. FMRTE 27 parity reference
 
