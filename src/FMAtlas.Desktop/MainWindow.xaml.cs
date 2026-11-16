@@ -479,7 +479,7 @@ public partial class MainWindow : Window
             : null;
         var view = new ClubProfileView
         {
-            DataContext = new ClubProfileViewModel(club, logoPath, _advancedSearchProvider)
+            DataContext = new ClubProfileViewModel(club, logoPath, _advancedSearchProvider, _snapshotStore)
         };
         view.SquadPlayerOpenRequested += (_, result) => OpenSearchResult(result);
         view.ClubStaffOpenRequested += (_, result) => OpenSearchResult(result);
