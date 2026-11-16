@@ -277,3 +277,14 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 **Compatibility note:** FM View Exporter's public current documentation lists FM27 Steam on Windows as its supported target; it does not establish Game Pass plugin compatibility. FM Atlas can ingest a compatible CSV from another route if it supplies the required headers. This does not replace or claim completion of the Game Pass live-save reader.
 **Safety boundary:** CSV import reads the selected export and writes only the local Atlas database. It does not read or write FM process memory or modify an FM career file. Imported fields are Game Export / Mapped, not live-memory verified.
 **Current code head:** `3a2cc82006d3b915a7954b24e1e1fe347f3e9a61`. Windows Actions run #425 / `43852668416` failed before runner steps/logs; failed-job retry `133249765674` is still queued at the latest check. Do not mark compile/tests as passing.
+
+
+### Follow-up — build handoff and imported gender verification
+
+- [~] M5.25 Added an import integration test proving explicit CSV `Gender` data feeds the global Include women Quick Search filter.
+- [~] M3.5g Field provenance timestamp is generated once per import execution and shared by that import's field values.
+- [~] M8.5 Added `scripts/Build-Test-Package.ps1` so the user can run restore, Release build, the full solution tests and Windows x64 publish on their own Windows 10/11 PC. The script stops on any failure and creates no ZIP unless all checks pass.
+- [ ] M8.6 Run the local PowerShell build script against the latest branch head and attach the resulting test log / ZIP after passing.
+- [!] Hosted Windows CI still has no actionable steps/logs. Latest observed failed run #425 is still the only retrievable run snapshot; its retry ended with zero steps and no log object. The current source is not yet build-verified.
+
+**Latest source hardening commits:** `ba27e090390f429a92f8e34d810114a57031d900`, `82853b019ad393bb0d1920266738064aeafbc41a`, `3109bcc2f3f94cec6a00821d8ae3264718997ef6`, `1e74762531c2d74ad7b576c466b0ead754a3e25c`.
