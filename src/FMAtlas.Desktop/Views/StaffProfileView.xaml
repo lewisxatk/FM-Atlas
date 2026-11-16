@@ -55,6 +55,14 @@
                     <TextBlock Text="STAFF INFORMATION" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,10"/>
                     <TextBlock Text="{Binding GenderInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                     <TextBlock Text="{Binding NationalityInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    <TextBlock Text="{Binding DateOfBirthInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    <TextBlock Text="{Binding ClubInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    <TextBlock Text="{Binding RoleInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    <TextBlock Text="{Binding UniqueIdInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,12,0,10"/>
+                    <TextBlock Text="CONTRACT SUMMARY" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                    <TextBlock Text="{Binding WageInfoText}" Style="{StaticResource Atlas.ProfileInfoText}" Margin="0,8,0,0"/>
+                    <TextBlock Text="{Binding ContractExpiryInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                     <TextBlock Text="{Binding SectionEmptyText}" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" Margin="0,15,0,0"/>
                     <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,15,0,12"/>
                     <TextBlock Text="DATA STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
