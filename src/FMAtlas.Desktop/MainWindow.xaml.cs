@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Input;
+using Microsoft.Win32;
 using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Entities;
 using FMAtlas.Domain.Players;
@@ -11,6 +13,7 @@ public partial class MainWindow : Window
 {
     private readonly IAdvancedSearchProvider _advancedSearchProvider;
     private readonly IEntityRecordSnapshotStore _snapshotStore;
+    private readonly IPlayerExportImporter _playerExportImporter;
     private readonly MainWindowViewModel _mainWindowViewModel;
     private readonly Dictionary<string, Window> _openPlayerProfiles = new(StringComparer.Ordinal);
     private AdvancedSearchWindow? _advancedSearchWindow;
@@ -18,13 +21,71 @@ public partial class MainWindow : Window
     public MainWindow(
         MainWindowViewModel viewModel,
         IAdvancedSearchProvider advancedSearchProvider,
-        IEntityRecordSnapshotStore snapshotStore)
+        IEntityRecordSnapshotStore snapshotStore,
+        IPlayerExportImporter playerExportImporter)
     {
         InitializeComponent();
         DataContext = viewModel;
         _mainWindowViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _advancedSearchProvider = advancedSearchProvider ?? throw new ArgumentNullException(nameof(advancedSearchProvider));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
+        _playerExportImporter = playerExportImporter ?? throw new ArgumentNullException(nameof(playerExportImporter));
+    }
+
+    private async void ImportPlayerExportButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Import a Football Manager player export",
+            Filter = "FM View Exporter CSV (*.csv)|*.csv|CSV files (*.csv)|*.csv",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            Cursor = Cursors.Wait;
+            var result = await _playerExportImporter.ImportAsync(dialog.FileName);
+            _mainWindowViewModel.NotifyPlayerExportImported(result.ImportedPlayers, result.ProviderKey);
+
+            var message = $"""
+                Imported players: {result.ImportedPlayers:N0}
+                Rows read: {result.RowsRead:N0}
+                Rows skipped: {result.SkippedRows:N0}
+                Duplicate IDs: {result.DuplicateIds:N0}
+                Additional columns indexed: {result.DynamicFieldsIndexed:N0}
+
+                The imported records are stored locally and can now be found in Quick Search and Advanced Search.
+                They are marked as Game Export / Mapped, not live-memory verified. No Football Manager process or career file was changed.
+                """;
+
+            if (result.Warnings.Count > 0)
+            {
+                message += Environment.NewLine + Environment.NewLine +
+                    "Import notes:" + Environment.NewLine +
+                    string.Join(Environment.NewLine, result.Warnings.Take(6));
+                if (result.Warnings.Count > 6)
+                    message += Environment.NewLine + $"…and {result.Warnings.Count - 6} more note(s).";
+            }
+
+            MessageBox.Show(this, message, "FM Atlas — Import complete",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this,
+                $"The player export could not be imported: {exception.Message}",
+                "FM Atlas — Import failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            Cursor = Cursors.Arrow;
+        }
     }
 
     private void AdvancedSearchButton_Click(object sender, RoutedEventArgs e)
