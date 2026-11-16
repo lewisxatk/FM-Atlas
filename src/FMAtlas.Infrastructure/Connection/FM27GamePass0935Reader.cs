@@ -230,36 +230,45 @@ internal sealed class FM27GamePass0935Reader
     private PlayerRecord? ReadPlayer(ulong address, FieldProvenance evidence, DateOnly inGameDate)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "player object");
-        var shift = FindPlayerPersonShift(address);
+        // One contiguous object read supplies the identity, attributes, ability, contract
+        // pointer and all person-block fields, including the player-coach +0xF8 variant.
+        var data = _memory.ReadBytes(address, 0x4B8);
+        var shift = FindPlayerPersonShift(address, data);
         if (shift is null)
             return null;
-
         var offset = shift.Value;
-        var uid = _memory.ReadUInt32(address + 0x294 + offset);
+
+        byte B(ulong field, ulong personShift = 0) => data[checked((int)(field + personShift))];
+        ushort U16(ulong field, ulong personShift = 0) => BitConverter.ToUInt16(data, checked((int)(field + personShift)));
+        short I16(ulong field, ulong personShift = 0) => BitConverter.ToInt16(data, checked((int)(field + personShift)));
+        uint U32(ulong field, ulong personShift = 0) => BitConverter.ToUInt32(data, checked((int)(field + personShift)));
+        ulong U64(ulong field, ulong personShift = 0) => BitConverter.ToUInt64(data, checked((int)(field + personShift)));
+
+        var uid = U32(0x294, offset);
         if (uid == 0)
             return null;
 
-        var fullName = ReadFmString(SafeReadPointer(address + 0x2C8 + offset));
-        var firstName = ReadNameEntry(SafeReadPointer(address + 0x2D8 + offset));
-        var lastName = ReadNameEntry(SafeReadPointer(address + 0x2E0 + offset));
-        var commonName = ReadNameEntry(SafeReadPointer(address + 0x2E8 + offset));
+        var fullName = ReadFmString(U64(0x2C8, offset));
+        var firstName = ReadNameEntry(U64(0x2D8, offset));
+        var lastName = ReadNameEntry(U64(0x2E0, offset));
+        var commonName = ReadNameEntry(U64(0x2E8, offset));
         var displayName = commonName ??
             (firstName is not null && lastName is not null ? $"{firstName} {lastName}" : firstName ?? lastName) ??
             fullName ?? $"UID {uid}";
 
-        var dateOfBirth = ReadFmDate(address + 0x310 + offset);
+        var dateOfBirth = MakeFmDate(U16(0x310, offset), U16(0x312, offset));
         var age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
-        var nationality = ReadNationName(SafeReadPointer(address + 0x2F0 + offset));
-        var club = ReadPlayerClubName(SafeReadPointer(address + 0x130));
-        var genderFlags = _memory.ReadByte(address + 0x2A1 + offset);
-        var madeByGameFlags = _memory.ReadByte(address + 0x2A0 + offset);
+        var nationality = ReadNationName(U64(0x2F0, offset));
+        var club = ReadPlayerClubName(U64(0x130));
+        var genderFlags = B(0x2A1, offset);
+        var madeByGameFlags = B(0x2A0, offset);
 
         var attributes = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         var hidden = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         var feet = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, fieldOffset) in PlayerAttributeOffsets)
         {
-            var raw = _memory.ReadByte(address + fieldOffset);
+            var raw = B(fieldOffset);
             if (raw > 100)
                 continue;
             var value = (raw + 2) / 5;
@@ -273,30 +282,30 @@ internal sealed class FM27GamePass0935Reader
         }
 
         var positions = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
-        var positionBytes = _memory.ReadBytes(address + 0x150, PositionKeys.Length);
         for (var index = 0; index < PositionKeys.Length; index++)
         {
-            if (positionBytes[index] <= 20)
-                positions[PositionKeys[index]] = new SourcedValue<int>(positionBytes[index], evidence);
+            var rating = B(0x150 + (ulong)index);
+            if (rating <= 20)
+                positions[PositionKeys[index]] = new SourcedValue<int>(rating, evidence);
         }
 
         var personality = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
-        var personalityBytes = _memory.ReadBytes(address + 0x2F8 + offset, PersonalityKeys.Length);
         for (var index = 0; index < PersonalityKeys.Length; index++)
         {
-            if (personalityBytes[index] is >= 1 and <= 20)
-                personality[PersonalityKeys[index]] = new SourcedValue<int>(personalityBytes[index], evidence);
+            var rating = B(0x2F8 + (ulong)index, offset);
+            if (rating is >= 1 and <= 20)
+                personality[PersonalityKeys[index]] = new SourcedValue<int>(rating, evidence);
         }
 
-        var contract = SafeReadPointer(address + 0x330 + offset);
-        var wage = contract == 0 ? null : TryReadInt32(contract + 0x20);
-        var contractExpiry = contract == 0 ? null : ReadFmDateSafe(contract + 0x48);
-        var height = _memory.ReadUInt16(address + 0x22E);
-        var currentAbility = _memory.ReadUInt16(address + 0x264);
-        var rawPotential = _memory.ReadInt16(address + 0x266);
-        var transferValue = _memory.ReadInt32(address + 0x234);
-        var caps = _memory.ReadUInt16(address + 0x3BC + offset);
-        var goals = _memory.ReadUInt16(address + 0x3BE + offset);
+        var contract = U64(0x330, offset);
+        var wage = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? TryReadInt32(contract + 0x20) : null;
+        var contractExpiry = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadFmDateSafe(contract + 0x48) : null;
+        var height = U16(0x22E);
+        var currentAbility = U16(0x264);
+        var rawPotential = I16(0x266);
+        var transferValue = BitConverter.ToInt32(data, 0x234);
+        var caps = U16(0x3BC, offset);
+        var goals = U16(0x3BE, offset);
         var primaryPosition = positions.OrderByDescending(pair => pair.Value.Value).FirstOrDefault();
         var positionName = primaryPosition.Key is null ? null : primaryPosition.Key.ToUpperInvariant();
 
@@ -330,32 +339,40 @@ internal sealed class FM27GamePass0935Reader
     private StaffRecord? ReadStaff(ulong address, FieldProvenance evidence, DateOnly inGameDate)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "staff object");
-        var shift = FindStaffPersonShift(address);
+        // A single object read also covers the human-manager person-block shift (+0x340).
+        var data = _memory.ReadBytes(address, 0x4F0);
+        var shift = FindStaffPersonShift(address, data);
         if (shift is null)
             return null;
         var offset = shift.Value;
-        var uid = _memory.ReadUInt32(address + 0x10C + offset);
+
+        byte B(ulong field, ulong personShift = 0) => data[checked((int)(field + personShift))];
+        ushort U16(ulong field, ulong personShift = 0) => BitConverter.ToUInt16(data, checked((int)(field + personShift)));
+        uint U32(ulong field, ulong personShift = 0) => BitConverter.ToUInt32(data, checked((int)(field + personShift)));
+        ulong U64(ulong field, ulong personShift = 0) => BitConverter.ToUInt64(data, checked((int)(field + personShift)));
+
+        var uid = U32(0x10C, offset);
         if (uid == 0)
             return null;
 
-        var fullName = ReadFmString(SafeReadPointer(address + 0x140 + offset));
-        var firstName = ReadNameEntry(SafeReadPointer(address + 0x150 + offset));
-        var lastName = ReadNameEntry(SafeReadPointer(address + 0x158 + offset));
-        var commonName = ReadNameEntry(SafeReadPointer(address + 0x160 + offset));
+        var fullName = ReadFmString(U64(0x140, offset));
+        var firstName = ReadNameEntry(U64(0x150, offset));
+        var lastName = ReadNameEntry(U64(0x158, offset));
+        var commonName = ReadNameEntry(U64(0x160, offset));
         var displayName = commonName ??
             (firstName is not null && lastName is not null ? $"{firstName} {lastName}" : firstName ?? lastName) ??
             fullName ?? $"UID {uid}";
 
-        var dateOfBirth = ReadFmDate(address + 0x188 + offset);
+        var dateOfBirth = MakeFmDate(U16(0x188, offset), U16(0x18A, offset));
         var age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
-        var genderFlags = _memory.ReadByte(address + 0x119 + offset);
-        var nationality = ReadNationName(SafeReadPointer(address + 0x168 + offset));
+        var genderFlags = B(0x119, offset);
+        var nationality = ReadNationName(U64(0x168, offset));
 
         var attributes = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         var knowledge = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, fieldOffset) in StaffAttributeOffsets)
         {
-            var raw = _memory.ReadByte(address + fieldOffset);
+            var raw = B(fieldOffset);
             if (raw > 100)
                 continue;
             var value = (raw + 2) / 5;
@@ -365,20 +382,20 @@ internal sealed class FM27GamePass0935Reader
         }
 
         var personality = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
-        var personalityBytes = _memory.ReadBytes(address + 0x170 + offset, PersonalityKeys.Length);
         for (var index = 0; index < PersonalityKeys.Length; index++)
         {
-            if (personalityBytes[index] is >= 1 and <= 20)
-                personality[PersonalityKeys[index]] = new SourcedValue<int>(personalityBytes[index], evidence);
+            var rating = B(0x170 + (ulong)index, offset);
+            if (rating is >= 1 and <= 20)
+                personality[PersonalityKeys[index]] = new SourcedValue<int>(rating, evidence);
         }
 
-        var contract = SafeReadPointer(address + 0x1A8 + offset);
-        var wage = contract == 0 ? null : TryReadInt32(contract + 0x20);
-        var contractExpiry = contract == 0 ? null : ReadFmDateSafe(contract + 0x48);
-        var club = contract == 0 ? null : ReadContractClubName(contract);
+        var contract = U64(0x1A8, offset);
+        var wage = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? TryReadInt32(contract + 0x20) : null;
+        var contractExpiry = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadFmDateSafe(contract + 0x48) : null;
+        var club = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadContractClubName(contract) : null;
 
-        var currentAbility = _memory.ReadUInt16(address + 0xDA);
-        var potentialAbility = _memory.ReadUInt16(address + 0xDC);
+        var currentAbility = U16(0xDA);
+        var potentialAbility = U16(0xDC);
         return new StaffRecord(new EntityIdentity(EntityKind.Staff, uid.ToString(CultureInfo.InvariantCulture), _providerKey))
         {
             FullName = new SourcedValue<string>(displayName, evidence),
@@ -401,23 +418,31 @@ internal sealed class FM27GamePass0935Reader
     private ClubRecord? ReadClub(ulong address, FieldProvenance evidence)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "club object");
-        var uid = _memory.ReadUInt32(address + 0x0C);
+        var data = _memory.ReadBytes(address, 0xF0);
+        var uid = BitConverter.ToUInt32(data, 0x0C);
         if (uid == 0)
             return null;
-        var name = ReadFmString(SafeReadPointer(address + 0xC0));
+        var name = ReadFmString(BitConverter.ToUInt64(data, 0xC0));
         if (string.IsNullOrWhiteSpace(name))
             return null;
-        var shortName = ReadFmString(SafeReadPointer(address + 0xC8));
-        var nation = ReadNationName(SafeReadPointer(address + 0xE8));
-        var info = SafeReadPointer(address + 0x100);
+        var shortName = ReadFmString(BitConverter.ToUInt64(data, 0xC8));
+        var nation = ReadNationName(BitConverter.ToUInt64(data, 0xE8));
+        var info = SafeReadPointer(checked(address + 0x100));
         var founded = info == 0 ? null : TryReadUInt16(info + 0xD8);
+
         var facilities = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+        var indexedFields = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         if (info != 0)
         {
             AddFacility(facilities, "training_facilities", info + 0x120, evidence);
             AddFacility(facilities, "youth_facilities", info + 0x12B, evidence);
             AddFacility(facilities, "youth_coaching", info + 0x12C, evidence);
             AddFacility(facilities, "youth_recruitment", info + 0x12D, evidence);
+
+            AddFacility(indexedFields, "club_training_facilities", info + 0x120, evidence);
+            AddFacility(indexedFields, "club_youth_facilities", info + 0x12B, evidence);
+            AddFacility(indexedFields, "club_youth_coaching", info + 0x12C, evidence);
+            AddFacility(indexedFields, "club_youth_recruitment", info + 0x12D, evidence);
         }
 
         return new ClubRecord(new EntityIdentity(EntityKind.Club, uid.ToString(CultureInfo.InvariantCulture), _providerKey))
@@ -426,7 +451,8 @@ internal sealed class FM27GamePass0935Reader
             ShortName = shortName is not null ? new SourcedValue<string>(shortName, evidence) : null,
             NationName = nation is not null ? new SourcedValue<string>(nation, evidence) : null,
             FoundedYear = founded is ushort year and >= 1800 and <= 2100 ? new SourcedValue<int>(year, evidence) : null,
-            Facilities = facilities
+            Facilities = facilities,
+            SearchIntegerFields = indexedFields
         };
     }
 
