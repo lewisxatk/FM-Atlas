@@ -108,6 +108,37 @@ public sealed class AdvancedSearchCatalogTests
     }
 
     [Fact]
+    public void StaffRoleAndPersonalityCataloguesAreSearchableAtOneToTwenty()
+    {
+        var general = AdvancedSearchCatalog.GetFields(SearchEntityKind.Coach, AdvancedSearchCategoryKind.General);
+        var mental = AdvancedSearchCatalog.GetAttributeFields(SearchEntityKind.Coach, AdvancedSearchCategoryKind.MentalAttributes);
+
+        Assert.Contains(general, x => x.Key == "role_preference_scout" && x.CanExecute);
+        Assert.Contains(general, x => x.Key == "role_preference_manager" && x.CanExecute);
+        Assert.Contains(mental, x => x.Key == "personality_professionalism" && x.CanExecute);
+        Assert.Contains(mental, x => x.Key == "knowledge_judging_ability" && x.CanExecute);
+        Assert.All(general.Where(x => x.Key.StartsWith("role_preference_", StringComparison.Ordinal)), field =>
+        {
+            Assert.Equal(0m, field.MinimumAllowed);
+            Assert.Equal(20m, field.MaximumAllowed);
+        });
+    }
+
+    [Fact]
+    public void ClubSearchContainsTheFmrteFacilitiesAttendanceAndFinanceFields()
+    {
+        var general = AdvancedSearchCatalog.GetFields(SearchEntityKind.Club, AdvancedSearchCategoryKind.General);
+        var contract = AdvancedSearchCatalog.GetFields(SearchEntityKind.Club, AdvancedSearchCategoryKind.Contract);
+
+        Assert.Contains(general, x => x.Key == "club_corporate_facilities" && x.CanExecute);
+        Assert.Contains(general, x => x.Key == "club_youth_importance" && x.CanExecute);
+        Assert.Contains(general, x => x.Key == "club_minimum_attendance" && x.CanExecute);
+        Assert.Contains(general, x => x.Key == "club_maximum_attendance" && x.CanExecute);
+        Assert.Contains(contract, x => x.Key == "club_total_debt" && x.CanExecute);
+        Assert.Contains(contract, x => x.Key == "club_monthly_debt_repayments" && x.CanExecute);
+    }
+
+    [Fact]
     public void AllPlayerAttributesAndPersonalityRangesAreBoundedToZeroThroughTwenty()
     {
         var categories = new[]
