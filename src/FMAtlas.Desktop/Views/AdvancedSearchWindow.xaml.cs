@@ -19,6 +19,8 @@ public partial class AdvancedSearchWindow : Window
 
     public event Action<EntitySearchResult>? ResultOpenRequested;
 
+    public event Action<EntitySearchResult>? ResultOpenRequested;
+
     public AdvancedSearchWindow(IAdvancedSearchProvider searchProvider)
     {
         InitializeComponent();
@@ -79,6 +81,14 @@ public partial class AdvancedSearchWindow : Window
     private async void Search_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.RunSearchAsync();
+    }
+
+    private void ResultsListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (ResultsListBox.SelectedItem is not AdvancedSearchResultViewModel selected)
+            return;
+
+        ResultOpenRequested?.Invoke(selected.Result);
     }
 
     private void ResultsListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
