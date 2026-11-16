@@ -1,3 +1,4 @@
+using System.IO;
 using System.ComponentModel;
 using System.Diagnostics;
 using FMAtlas.Application.Abstractions;
@@ -147,7 +148,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 work.Staff,
                 work.Clubs,
                 LiveWritesEnabled: false,
-                Message: "Live FM27 data has been read and indexed. The current build is read-only in FM Atlas until our own field-by-field write verification is complete.");
+                Message: "Live FM27 data was read and passed pre-import identity, ability, position and club-link checks. The fields remain marked Mapped, not AtlasReadVerified, until values are compared with your in-game career. No live writes are enabled.");
         }
         catch (Exception loadException)
         {
