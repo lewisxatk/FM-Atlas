@@ -9,6 +9,7 @@ on:
       - feature/fm27-fmrte-parity-editor
       - feature/fm27-live-editor-write-parity
       - feature/fm27-live-editor-activation
+      - rebuild/fmrte-watched-search-priority
     paths:
       - "application/R7.2.0/FM-Atlas-R7.2.0-Work/**"
       - ".github/workflows/fm-atlas-v8-windows.yml"
