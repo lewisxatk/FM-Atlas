@@ -1,14 +1,17 @@
 # FM Atlas — Fresh Rebuild Master Plan
 
-**Revision:** 001  
+**Revision:** 002  
 **Date:** 2026-11-16  
 **Working branch:** `rebuild/fresh-foundation-001`  
 **Design authority:** [Reference Library](./REFERENCE_LIBRARY.md) and [Design Specification](./DESIGN_SPECIFICATION.md)  
+**Architecture:** [Architecture Decision](./ARCHITECTURE_DECISION.md)  
+**Research inventory:** [Uploaded Research Inventory](../research/UPLOADED_RESEARCH_INVENTORY.md)  
+**Research findings:** [Research Findings 001](../research/RESEARCH_FINDINGS_001.md)  
 **Continuity authority:** [Session Continuity](./SESSION_CONTINUITY.md)
 
 ## 1. Product decision
 
-Build a genuinely fresh FM Atlas desktop application from a clean solution and architecture. The previous application is a research/reference source only. Do not spend time preserving weak UI, tangled architecture or features that cannot be verified.
+Build a genuinely fresh FM Atlas desktop application from a clean .NET 8 WPF solution and modular architecture. The previous application is a research/reference source only. Do not spend time preserving weak UI, tangled architecture or features that cannot be verified.
 
 Retain only useful, independently audited material:
 - verified domain knowledge and field catalogues;
@@ -174,124 +177,23 @@ Investigate and compare:
 
 Check current licences before reusing any code. GPL projects are research-only unless an explicit compatible licensing decision is made. MIT projects still require licence and notice review. Never copy binaries or offsets without provenance and verification.
 
-## 6. Fresh architecture decision gate
+## 6. Fresh architecture decision
 
-Do not select the final UI framework or blindly inherit the legacy architecture based only on historical notes. First:
-1. Confirm the user's target Windows environment and installed SDK.
-2. Inspect the supplied R7.2.0 candidate only to extract useful domain logic and dependencies.
-3. Build a tiny technical proof of concept for desktop UI, process detection, offline import and testability.
-4. Compare maintainability, accessibility, packaging and Game Pass integration.
-5. Record the decision and rationale in `docs/ARCHITECTURE_DECISION.md`.
-6. Create a clean new solution with no legacy UI copied across.
+The selected foundation is .NET 8 WPF with Domain, Application, Infrastructure, Desktop and Tests projects. The old WPF interface/code-behind is discarded. See `ARCHITECTURE_DECISION.md` for dependency direction, data-provider boundaries, SQLite persistence, write-safety and proof-of-concept acceptance.
 
-The previously reported stack was C# / WPF / .NET 8, but this is a candidate to verify, not an unquestioned constraint.
+## 7. Development sequence
 
-## 7. Milestones and completion gates
+1. Protect/recover source and complete research inventory.
+2. Build the new WPF solution and Windows CI.
+3. Implement approved application shell and core navigation.
+4. Implement Quick Search and FMRTE-style Advanced Search.
+5. Implement read-only live connection and data import.
+6. Implement full-screen player profiles and data tabs.
+7. Implement guarded editing after field-level verification.
+8. Expand staff/club data and editing.
+9. Release and test.
+10. Only then resume deferred tactical/scouting analytics.
 
-### M0 — Protect and inventory
-- [ ] Verify current GitHub branches and preserve the main branch.
-- [ ] Recover the complete R7.2.0 candidate and R7.1.0/R7.0.2 comparison archives.
-- [ ] Verify archive hashes and source inventories.
-- [ ] Inspect all user-supplied research assets and record provenance/licences.
-- [ ] Identify reusable code versus reference-only code.
-- [ ] Save a clean project checkpoint.
+## 8. Current status
 
-### M1 — Research and technical blueprint
-- [ ] Inspect relevant source repositories and bundled documentation.
-- [ ] Compare live-memory approaches and Game Pass profiles.
-- [ ] Audit offline save parser coverage.
-- [ ] Establish canonical player/staff/club field catalogue.
-- [ ] Establish FM27 visible attribute names/order from verified sources.
-- [ ] Define provenance and read/write status.
-- [ ] Complete fresh architecture decision.
-- [ ] Approve technical blueprint.
-
-### M2 — New application foundation
-- [ ] Create new clean solution and project layout.
-- [ ] Implement approved REF-001/REF-003 application shell.
-- [ ] Implement global quick search and Advanced Search entry.
-- [ ] Implement prominent Load Game and compact save actions.
-- [ ] Implement navigation, workspace tabs, settings, diagnostics and logging.
-- [ ] Build reproducibly and package a first shell for visual review.
-
-### M3 — Data acquisition and Save Manager
-- [ ] Implement supported process/build detection.
-- [ ] Implement read-only live data acquisition.
-- [ ] Implement offline save import where verified.
-- [ ] Implement typed database, indexing and provenance.
-- [ ] Implement career switch/reload handling.
-- [ ] Validate representative player/staff/club data against FM.
-
-### M4 — Player workspace
-- [ ] Implement REF-004 full-screen player profile.
-- [ ] Implement multi-player tabs.
-- [ ] Implement graphics locator.
-- [ ] Implement complete versioned attribute catalogue and ordering.
-- [ ] Implement profile sub-tabs and supported data.
-- [ ] Verify CA/PA and all applicable attributes.
-
-### M5 — Search
-- [ ] Implement Quick Search.
-- [ ] Implement REF-002 FMRTE-style Advanced Search layout.
-- [ ] Implement every verified category and field.
-- [ ] Implement explicit AND/OR query semantics.
-- [ ] Implement saved filters, sorting and result columns.
-- [ ] Verify filters against actual imported save records.
-
-### M6 — Live editing
-- [ ] Complete build-specific Game Pass profile.
-- [ ] Implement guarded write adapter.
-- [ ] Verify player identity and save-generation checks.
-- [ ] Implement staged changes, preflight, apply and read-back.
-- [ ] Implement safe undo/rollback.
-- [ ] Test visible attributes and CA/PA on disposable offline copy.
-- [ ] Expand field coverage only after each field is independently verified.
-- [ ] Verify in-game persistence after continue/reload.
-
-### M7 — Staff and club editors
-- [ ] Staff profiles, search and verified editing.
-- [ ] Club profiles, search and verified editing.
-- [ ] Contracts, relations and other supported categories.
-
-### M8 — Stabilisation and release
-- [ ] Regression and data accuracy tests.
-- [ ] Windows build and startup tests.
-- [ ] Game Pass compatibility tests.
-- [ ] Backup/recovery tests.
-- [ ] Installer and release notes.
-- [ ] User acceptance test and release sign-off.
-
-### M9+ — Deferred expansion
-- [ ] Squad Studio.
-- [ ] Tactical Studio and Tactical Effectiveness.
-- [ ] Recruitment/Value Finder.
-- [ ] Advanced Moneyball/per-90/percentile analytics.
-
-## 8. Release acceptance
-
-The initial usable release is not complete until:
-- the new application is demonstrably a fresh solution;
-- approved shell and player/search references are implemented;
-- the user's FM27 Game Pass build is detected correctly;
-- a real career can be loaded/read;
-- CA/PA and the complete supported player attribute set display accurately;
-- advanced search works against real records;
-- supported player changes apply, read back and persist in the game;
-- undo/rollback and career-switch protections pass;
-- no fake data or inert controls are presented as complete;
-- the build, logs, tests and release artifact are preserved.
-
-## 9. Status vocabulary
-
-Use only:
-- **Not started**
-- **Researching**
-- **Documented**
-- **Implemented — untested**
-- **Built**
-- **Tested**
-- **Verified in FM27 Game Pass**
-- **Blocked**
-- **Deferred**
-
-Never mark a task complete based solely on a code file, screenshot, compile or previous conversation claim.
+Recovery source is available in the historical GitHub branch. The original recovery ZIP is located in the user's Library but its raw bytes could not be materialized in this tool session. Seven uploaded packages are inventoried. Initial repository research and licensing review are recorded. Architecture is selected. No new application code has yet been created.
