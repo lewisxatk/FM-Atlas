@@ -87,11 +87,11 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
             if (kinds.Count != 1 || !TryMapValueKind(kinds.Single(), out var valueKind))
                 continue;
 
-            if (knownFields.TryGetValue(key, out var known) && known.CanExecute)
-                continue;
-
-            if (knownFields.TryGetValue(key, out known))
+            if (knownFields.TryGetValue(key, out var known))
             {
+                // Include discovered known fields as well as dynamic fields. The
+                // caller needs the complete set of fields actually present in this
+                // database, including catalogue fields that were already executable.
                 results.Add(known with
                 {
                     ValueKind = valueKind,
