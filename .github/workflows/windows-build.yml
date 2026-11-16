@@ -63,7 +63,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fm-atlas-diagnostics-\${{ github.run_number }}
+          name: fm-atlas-diagnostics-${{ github.run_number }}
           path: |
             artifacts/dotnet-info.txt
             artifacts/windows-info.txt
@@ -76,7 +76,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: fm-atlas-win-x64-\${{ github.run_number }}
+          name: fm-atlas-win-x64-${{ github.run_number }}
           path: artifacts/FMAtlas-win-x64.zip
           if-no-files-found: error
           retention-days: 14

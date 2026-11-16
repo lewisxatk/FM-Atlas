@@ -1,22 +1,22 @@
 # FM Atlas — Current Known Issues and Verification Gaps
 
 **Updated:** 16 November 2026  
-**Source of truth:** \`rebuild/fresh-foundation-001\`  
+**Source of truth:** `rebuild/fresh-foundation-001`  
 **Draft pull request:** #10 — must remain unmerged until Windows and game-runtime acceptance pass.
 
 ## Critical — Windows build is not yet verified
 
-- The latest two Windows Actions jobs on commit \`e5fe8aa5dc1d7920c06cba4e30df243bc29574e0\` failed with \`runner_id=0\`, no runner name and an empty step list.
+- The latest two Windows Actions jobs on commit `e5fe8aa5dc1d7920c06cba4e30df243bc29574e0` failed with `runner_id=0`, no runner name and an empty step list.
 - No Restore, Build or Test step ran. These workflow failures are runner-allocation failures, not compiler diagnostics.
-- This update pins CI to the explicitly supported \`windows-2022\` label and makes CI publish a self-contained test ZIP only after the restore/build/test gate passes.
+- This update pins CI to the explicitly supported `windows-2022` label and makes CI publish a self-contained test ZIP only after the restore/build/test gate passes.
 - No local Windows/.NET SDK/MSBuild environment is available in the authoring session to replace the Windows CI compile or launch test.
 
 ## Live FM27 connection — read-only, not yet user-verified
 
-- The current connector is pinned to FM27 Game Pass package 0.9.2435.0 and an exact \`game_plugin.dll\` PE fingerprint.
-- The accessor exposes \`ReadProcessMemory\` only. It has no process-memory write function.
+- The current connector is pinned to FM27 Game Pass package 0.9.2435.0 and an exact `game_plugin.dll` PE fingerprint.
+- The accessor exposes `ReadProcessMemory` only. It has no process-memory write function.
 - The reader imports Player, Staff and Club records. It is not the complete Football Manager data model: competitions, nations, fixtures, results, history, tactics, training, injuries and transfer activity remain outside this import.
-- Field values carry \`Mapped\` evidence from external research until individually compared against the user's running game. Do not promote a field to ReadVerified based only on matching offsets or plausible values.
+- Field values carry `Mapped` evidence from external research until individually compared against the user's running game. Do not promote a field to ReadVerified based only on matching offsets or plausible values.
 - The user's actual Game Pass package, live save-generation stability and representative player/staff/club values have not been verified in-game.
 
 ## Player, Staff and Club profiles
@@ -24,8 +24,8 @@
 - The profile workspaces and section navigation exist.
 - Data families not supplied by the importer must show a clear Not Imported / Unknown / In Progress state. A visible tab does not mean the field family is populated.
 - Player CA/PA and supported attribute values can only be accepted after a comparison with the same player in the running career.
-- Club membership joins use source-mapped \`club_uid\`; that relationship still needs an in-game spot-check on the user's build.
-- Graphics discovery reads supported FM graphics folders and \`config.xml\` mappings; real local folder/portrait/badge matching needs user-side verification.
+- Club membership joins use source-mapped `club_uid`; that relationship still needs an in-game spot-check on the user's build.
+- Graphics discovery reads supported FM graphics folders and `config.xml` mappings; real local folder/portrait/badge matching needs user-side verification.
 
 ## Advanced Search
 

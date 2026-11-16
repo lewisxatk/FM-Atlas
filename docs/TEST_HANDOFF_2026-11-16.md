@@ -1,6 +1,6 @@
 # FM Atlas — First Windows and FM27 test handoff
 
-**Target branch:** \`rebuild/fresh-foundation-001\`  
+**Target branch:** `rebuild/fresh-foundation-001`  
 **Target build:** Windows 10/11 x64, .NET 8 WPF  
 **Live scanner target:** FM27 Game Pass 0.9.2435.0 only  
 **Mode:** read-only; no live edit or career-save writes
@@ -9,18 +9,18 @@
 
 Use the newest successful **FM Atlas Windows Build** workflow run for the exact branch head.
 
-- Download the artifact named \`fm-atlas-win-x64-<run number>\`.
-- Extract the ZIP fully to a normal folder, for example \`C:\FMAtlas\TestBuild\`.
-- Run \`FMAtlas.exe\` from the extracted folder.
+- Download the artifact named `fm-atlas-win-x64-<run number>`.
+- Extract the ZIP fully to a normal folder, for example `C:\FMAtlas\TestBuild`.
+- Run `FMAtlas.exe` from the extracted folder.
 - Do not use an artifact from an earlier commit.
 
 If the hosted workflow has not produced a green run, build on the Windows PC from the repository root:
 
-\`\`\`powershell
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Build-Test-Package.ps1
-\`\`\`
+```
 
-The script requires the .NET 8 SDK. On success it creates a self-contained ZIP and a text report under \`artifacts\`. Step-by-step logs are in \`artifacts\logs\`; automated test results are in \`artifacts\test-results\`. A failed step stops packaging and leaves its log behind.
+The script requires the .NET 8 SDK. On success it creates a self-contained ZIP and a text report under `artifacts`. Step-by-step logs are in `artifacts\logs`; automated test results are in `artifacts\test-results`. A failed step stops packaging and leaves its log behind.
 
 ## 2. Protect the career first
 
@@ -110,7 +110,7 @@ Copy and fill this section. Screenshots and error text are more useful than send
 - UI clipping / layout issues:
 - Exact error text:
 
-Attach the generated \`FMAtlas-Test-Report-*.txt\` and the per-step logs if the local build script was used. Do not send a career save, account credentials, or licensed facepack/logo files.
+Attach the generated `FMAtlas-Test-Report-*.txt` and the per-step logs if the local build script was used. Do not send a career save, account credentials, or licensed facepack/logo files.
 
 ## What is deliberately not testable yet
 

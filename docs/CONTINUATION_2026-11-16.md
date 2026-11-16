@@ -1,11 +1,11 @@
 # FM Atlas — Continuation checkpoint (16 November 2026)
 
 ## Source of truth
-- Repository: \`lewisxatk/FM-Atlas\`
-- Active branch: \`rebuild/fresh-foundation-001\`
-- Base checkpoint for this follow-up: \`e5fe8aa5dc1d7920c06cba4e30df243bc29574e0\`
+- Repository: `lewisxatk/FM-Atlas`
+- Active branch: `rebuild/fresh-foundation-001`
+- Base checkpoint for this follow-up: `e5fe8aa5dc1d7920c06cba4e30df243bc29574e0`
 - Draft PR: #10; do not merge until Windows build, tests and runtime acceptance pass.
-- \`main\` remains untouched by rebuild work.
+- `main` remains untouched by rebuild work.
 
 ## Current implementation
 The branch contains the clean .NET 8 WPF solution, typed Domain/Application/Infrastructure layers, SQLite snapshot and field index, Dashboard, Players/Staff/Clubs directories, player/staff/club profile workspaces, Quick Search, schema-driven FMRTE-style Advanced Search, CSV import, graphics-folder discovery, and the exact-fingerprint read-only FM27 Game Pass 0.9.2435.0 connector.
@@ -16,16 +16,16 @@ The current profiles intentionally show Not Imported / Unknown / In Progress for
 
 ## Latest CI evidence before this update
 - Runs 43871064257 and 43871053277 both ended before any job steps.
-- Their jobs report \`runner_id=0\`, empty runner names and empty \`steps=[]\`.
+- Their jobs report `runner_id=0`, empty runner names and empty `steps=[]`.
 - No Restore, Build or Test ran. Do not describe those runs as compiler failures or successful verification.
 - The source-authoring environment does not have Windows/.NET SDK/MSBuild, so a Windows build and WPF launch are still outstanding.
 
 ## Changes in this follow-up
-- Pin Windows CI to the supported Windows Server 2022 hosted runner instead of following \`windows-latest\`.
+- Pin Windows CI to the supported Windows Server 2022 hosted runner instead of following `windows-latest`.
 - Expand CI to run restore, Release build, automated tests with TRX output, self-contained Windows x64 publish and ZIP packaging.
 - Always upload available environment/test diagnostics; upload the runnable ZIP only after the full build/test/publish job succeeds.
 - Update the local PowerShell packaging script to write per-step logs, TRX test results, a SHA-256 package hash and a human-readable pass report. The Windows ZIP is self-contained and does not require a separate .NET Desktop Runtime.
-- Add \`docs/TEST_HANDOFF_2026-11-16.md\` with safe first-launch and read-only FM27 acceptance steps.
+- Add `docs/TEST_HANDOFF_2026-11-16.md` with safe first-launch and read-only FM27 acceptance steps.
 - Replace stale pre-rebuild issue notes with current branch-specific verification gaps.
 
 ## Test and acceptance rules
