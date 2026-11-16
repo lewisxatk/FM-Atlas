@@ -446,7 +446,7 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             normalised.StartsWith("finance_", StringComparison.OrdinalIgnoreCase) ||
             normalised.StartsWith("role_preference_", StringComparison.OrdinalIgnoreCase) ||
             normalised is "is_newgen" or "wonderkid" or "eu_nationality" or
-                "left_foot" or "right_foot" or "preferred_foot" or
+                "left_foot" or "right_foot" or "preferred_foot" or "gender" or "game_uid" or
                 "international_caps" or "international_goals" or "continent" or
                 "region" or "city_of_birth" or "ethnicity" or "division" or
                 "training_status_club" or "training_status_nation" or
@@ -492,6 +492,8 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             "club_maximum_attendance" => ["maximum_attendance"],
             "club_ownership_type" => ["ownership_type"],
             "club_chairperson_title" => ["chairperson_title"],
+            "club_minimum_attendance" => ["minimum_attendance"],
+            "club_maximum_attendance" => ["maximum_attendance"],
             "club_first_team_reputation" => ["first_team_reputation"],
             "club_reserve_team_reputation" => ["reserve_team_reputation"],
             "club_youth_team_reputation" => ["youth_team_reputation"],
