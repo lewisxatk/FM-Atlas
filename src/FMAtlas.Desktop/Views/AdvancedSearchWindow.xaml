@@ -84,7 +84,9 @@
                     <CheckBox Content="Has trait" IsChecked="{Binding IncludeTrait}" IsEnabled="{Binding IsEnabled}" Foreground="{StaticResource Atlas.Muted}" FontSize="9" VerticalAlignment="Center" Margin="0,0,7,0"/>
                     <TextBox Style="{StaticResource FilterValue}" Width="145" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" ToolTip="Preferred move / trait"/>
                 </StackPanel>
-                <DataTemplate.Triggers>
+
+            </Grid>
+            <DataTemplate.Triggers>
                     <DataTrigger Binding="{Binding ControlKind}" Value="Boolean">
                         <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
                         <Setter TargetName="BooleanControl" Property="Visibility" Value="Visible"/>
@@ -110,7 +112,6 @@
                         <Setter TargetName="TraitControls" Property="Visibility" Value="Visible"/>
                     </DataTrigger>
                 </DataTemplate.Triggers>
-            </Grid>
         </DataTemplate>
         <DataTemplate x:Key="AdvancedSearchSectionTemplate">
             <Border Style="{StaticResource FilterPanel}" Margin="0,0,9,9">
