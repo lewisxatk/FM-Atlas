@@ -228,3 +228,14 @@ The Club Squads and Staff lists now hydrate every indexed match from the lossles
 - Rows double-click into the existing player or staff profile workspace tab.
 
 This improves the club profile's navigation and data density. It does not add new memory fields or verify the underlying club UID offsets; it presents already imported typed snapshots.
+
+
+## 15. Final static validation and Windows runner result
+
+- Final static XAML tag-stack check: all seven WPF XAML files (MainWindow, Player/Staff/Club profiles, EntityBrowser, AdvancedSearch and App resources) have balanced element structure.
+- Final event binding scan: all 38 declared Click/MouseDoubleClick/SelectionChanged/etc. handlers have corresponding code-behind methods.
+- StaticResource scan: no missing resource keys among the seven XAML files.
+- Latest branch head at this review update: `daa4dcd700e80c9c348bcc88464362f4ab93d1d9`.
+- Latest Windows Actions run #843 (ID `43867836792`) on that head completed failure. Job `build` returned `steps=null`, `logs_url=null`; no build, restore or test step was run. Earlier retry #821 also failed before runner steps. This is still a CI runner/provisioning failure with no source compiler output, not a source compile diagnosis.
+- The current environment has no .NET 8 SDK, MSBuild, C# compiler or Windows runtime, so no local build or visual desktop launch has been completed.
+- No test-ready ZIP / executable is available. The `Build-Test-Package.ps1` script remains the local Windows validation route.
