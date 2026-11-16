@@ -1,0 +1,98 @@
+using Microsoft.Data.Sqlite;
+using FMAtlas.Application.Abstractions;
+using FMAtlas.Domain.Entities;
+
+namespace FMAtlas.Infrastructure.Persistence;
+
+/// <summary>
+/// Read-only quick search over entity display names populated by the record
+/// snapshot store. Search terms are parameterised and LIKE metacharacters are
+/// escaped so user input is treated literally.
+/// </summary>
+public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
+{
+    private readonly string _connectionString;
+
+    public SqliteEntitySearchProvider(string databasePath)
+    {
+        if (string.IsNullOrWhiteSpace(databasePath))
+            throw new ArgumentException("A database file path is required.", nameof(databasePath));
+
+        var builder = new SqliteConnectionStringBuilder
+        {
+            DataSource = Path.GetFullPath(databasePath),
+            Mode = SqliteOpenMode.ReadOnly,
+            Cache = SqliteCacheMode.Shared,
+            Pooling = true
+        };
+        _connectionString = builder.ToString();
+    }
+
+    public async Task<IReadOnlyList<EntitySearchResult>> QuickSearchAsync(
+        string searchText,
+        IReadOnlyCollection<EntityKind>? entityKinds = null,
+        int limit = 50,
+        CancellationToken cancellationToken = default)
+    {
+        if (limit is < 1 or > 200)
+            throw new ArgumentOutOfRangeException(nameof(limit), "Quick search limit must be between 1 and 200.");
+
+        if (string.IsNullOrWhiteSpace(searchText))
+            return Array.Empty<EntitySearchResult>();
+
+        var kinds = entityKinds?.Distinct().ToArray();
+        if (kinds is { Length: 0 })
+            return Array.Empty<EntitySearchResult>();
+
+        var kindFilter = kinds is null
+            ? string.Empty
+            : $" AND entity_kind IN ({string.Join(", ", kinds.Select((_, index) => $"$kind{index}"))})";
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT entity_kind, source_id, provider_key, display_name
+            FROM entities
+            WHERE display_name IS NOT NULL
+              AND display_name LIKE $pattern ESCAPE '\'
+              {kindFilter}
+            ORDER BY display_name COLLATE NOCASE, entity_kind, provider_key, source_id
+            LIMIT $limit;
+            """;
+
+        command.Parameters.AddWithValue("$pattern", BuildLiteralContainsPattern(searchText.Trim()));
+        command.Parameters.AddWithValue("$limit", limit);
+
+        if (kinds is not null)
+        {
+            for (var index = 0; index < kinds.Length; index++)
+                command.Parameters.AddWithValue($"$kind{index}", kinds[index].ToString());
+        }
+
+        var results = new List<EntitySearchResult>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (!Enum.TryParse<EntityKind>(reader.GetString(0), ignoreCase: true, out var kind))
+                continue;
+
+            results.Add(new EntitySearchResult(
+                new EntityIdentity(kind, reader.GetString(1), reader.GetString(2)),
+                reader.GetString(3)));
+        }
+
+        return results.AsReadOnly();
+    }
+
+    private static string BuildLiteralContainsPattern(string value)
+    {
+        var escaped = value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
+
+        return "%" + escaped + "%";
+    }
+}
