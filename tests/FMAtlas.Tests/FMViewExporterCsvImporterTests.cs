@@ -107,6 +107,32 @@ public sealed class FMViewExporterCsvImporterTests
     }
 
     [Fact]
+    public async Task ImportedExplicitGenderFeedsTheGlobalWomenVisibilityFilter()
+    {
+        using var temp = new TemporaryDirectory();
+        var databasePath = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(databasePath).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(databasePath);
+        var csvPath = Path.Combine(temp.Root, "gender.csv");
+        await File.WriteAllTextAsync(csvPath,
+            "Player,Unique ID,Gender\\n" +
+            "Female Player,901,Female\\n" +
+            "Male Player,902,Male\\n");
+
+        var import = await new FMViewExporterCsvImporter(store).ImportAsync(csvPath);
+        Assert.Equal(2, import.ImportedPlayers);
+
+        var search = new SqliteEntitySearchProvider(databasePath);
+        var hidden = await search.QuickSearchAsync("Player");
+        var all = await search.QuickSearchAsync("Player", includeWomenPlayers: true);
+
+        Assert.Single(hidden);
+        Assert.Equal("902", hidden[0].Identity.SourceId);
+        Assert.Equal(2, all.Count);
+        Assert.Contains(all, item => item.Identity.SourceId == "901");
+    }
+
+    [Fact]
     public async Task SupportsSemicolonDelimitedGermanDecimalCommaCsv()
     {
         using var temp = new TemporaryDirectory();
