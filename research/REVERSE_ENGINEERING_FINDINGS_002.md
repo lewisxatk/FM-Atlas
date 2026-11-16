@@ -108,3 +108,21 @@ The workflow definition uses `windows-latest`, .NET 8 setup, restore, Release bu
 4. Continue Game Pass build identification and read-only connection research, with exact build evidence.
 5. Implement read-only import only after the process/session safety gates and a disposable-career test plan are ready.
 6. Keep live writes disabled until each field has independent read verification, a guarded write test, read-back, and in-game confirmation.
+
+
+## 8. FM27 gender flag: an independent mapping lead for the women-player filter
+
+Inspected the MIT-licensed FMSuperScout source:
+- https://github.com/mavarobli/FMSuperScout/blob/4dc3abb8f94e2ea882ccbfe58be35e689703b874/core/Fields.cs
+
+Its FM27 field catalogue documents:
+- gender as a bit in the person block;
+- byte offset `0x19` from that person-block base;
+- female flag mask `0x10`;
+- the source comment records a discovery test intended to distinguish youth/team-type flags from gender, with male and female examples across different ages/levels.
+
+The same source documents that player and person blocks have different bases and that the person pointer is adjusted using a dynamic class-specific offset. Therefore this is **not** a player-record-relative offset that can be applied blindly.
+
+**FM Atlas consequence:** the read-only importer should normalise the verified raw gender flag into the domain's sourced `Gender` value (for example, `Female` / `Male`) so the existing SQLite Quick Search and Advanced Search exclusion can work. Preserve the raw source evidence and build/profile identity alongside the normalised value.
+
+**Verification gate:** this is an independent research lead for FM27 27.0, not proof for every patch/storefront. Verify against the exact Game Pass package and a set of known male/female player records on a disposable career before treating it as read-verified. Do not enable writes to this flag. No offset or scanner code has been copied into FM Atlas.
