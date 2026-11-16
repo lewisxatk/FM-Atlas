@@ -44,7 +44,7 @@ public sealed class WindowsGameProcessProbe : IGameProcessProbe
                             if (string.Equals(module.ModuleName, "game_plugin.dll", StringComparison.OrdinalIgnoreCase))
                             {
                                 modulePath = module.FileName;
-                                moduleFingerprint = PortableExecutableFingerprintReader.TryRead(modulePath);
+                                moduleFingerprint = PortableExecutableFingerprintReader.TryRead(modulePath!);
                                 if (moduleFingerprint is null)
                                     diagnostic = "game_plugin.dll was found, but its on-disk PE fingerprint could not be read.";
                                 break;
