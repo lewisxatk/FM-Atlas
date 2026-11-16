@@ -41,7 +41,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [~] M2.8 Prominent right-side Load Game button added; currently performs process/module presence check only, not career loading.
 - [~] M2.9 Compact Save Atlas / Save Changes controls placed; intentionally disabled until persistence/live writer exist.
 - [~] M2.10 Player-profile workspace shell created with an open-player tab row; multi-player tab management is not wired.
-- [ ] M2.11 Settings, logs, diagnostics and local persistence.
+- [~] M2.11 Local SQLite schema v2 and typed snapshot persistence implemented; settings/logs/diagnostics integration and Windows verification remain.
 - [ ] M2.12 Windows desktop resize/accessibility tests.
 
 ## M3 — Game connection and data
@@ -50,16 +50,16 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M3.3 Career loaded detection.
 - [ ] M3.4 Read-only live data acquisition.
 - [ ] M3.5 Offline save import.
-- [ ] M3.6 Typed local database and migrations.
-- [ ] M3.7 Player/staff/club entity mapping.
-- [ ] M3.8 Data provenance and unknown-value handling.
+- [~] M3.6 SQLite schema v2, migration runner and typed JSON entity snapshot store implemented; searchable field projection and import transactions remain.
+- [~] M3.7 Typed PlayerRecord/StaffRecord/ClubRecord models and provider-scoped identities implemented; real provider mappings/import still pending.
+- [~] M3.8 Per-field source/evidence/build provenance model implemented and preserved in snapshots; populated from real providers still pending.
 - [ ] M3.9 Career switch/reload invalidation.
 - [ ] M3.10 Data accuracy comparison against FM.
 
 ## M4 — Player workspace
 - [x] M4.1 Full-screen REF-004 profile layout shell created; actual screenshot comparison and live-data integration remain.
-- [x] M4.2 Left identity/information rail and portrait placeholder created; graphics lookup remains.
-- [ ] M4.3 Player graphics locator.
+- [~] M4.2 Left identity/information rail and portrait placeholder created; read-only graphics locator exists, WPF photo binding remains.
+- [~] M4.3 Read-only config.xml graphics locator and synthetic tests implemented; actual user-folder validation, image decoding/cache and profile binding remain.
 - [~] M4.4 Central attribute groups are rendered from the Domain catalogue with empty/unavailable values; real player values and editing remain.
 - [~] M4.5 Names/grouping/source order documented and coded; personality is separate from hidden attributes; final FM27/FMRTE visual order verification remains.
 - [ ] M4.6 CA and PA display.
@@ -83,14 +83,14 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 ## M5 — Search
 - [ ] M5.1 Top Quick Search.
 - [~] M5.2 REF-002 FMRTE-style Advanced Search dialog shell created; not connected to search execution.
-- [~] M5.3 Player / Coach / Club selectors displayed but disabled until entity providers are ready.
-- [~] M5.4 General filter layout shell and documented field schema added; query execution not connected.
-- [~] M5.5 Contract fields documented in search schema; filter controls/query not implemented.
-- [~] M5.6 Technical/GK attribute fields generated from the Domain catalogue; UI/query not implemented.
-- [~] M5.7 Mental and separate personality fields generated from the Domain catalogue; UI/query not implemented.
-- [~] M5.8 Physical/Hidden attribute fields generated from the Domain catalogue; UI/query not implemented.
-- [~] M5.9 Preferred Moves field documented in schema; UI/query not implemented.
-- [~] M5.10 Relations field documented in schema; UI/query not implemented.
+- [~] M5.3 Player / Coach / Club selectors now switch the schema context; filter controls stay disabled until entity/query providers are verified.
+- [~] M5.4 General player panel retains the REF-002 layout; other categories are rendered from the schema; query execution is not connected.
+- [~] M5.5 Contract panel now renders schema-defined fields; controls/query remain disabled.
+- [~] M5.6 Technical/GK panel now renders schema-defined player/coach fields; controls/query remain disabled.
+- [~] M5.7 Mental and separate personality panels now render schema-defined fields; controls/query remain disabled.
+- [~] M5.8 Physical/Hidden panel now renders schema-defined fields; controls/query remain disabled.
+- [~] M5.9 Preferred Moves panel now renders schema-defined fields; controls/query remain disabled.
+- [~] M5.10 Relations panel now renders schema-defined fields; controls/query remain disabled.
 - [ ] M5.11 Position pitch and suitability.
 - [ ] M5.12 Min/max, boolean and lookup controls.
 - [ ] M5.13 Explicit AND/OR semantics.
@@ -183,3 +183,19 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - Latest code head: `d762f24e5e50e45240c476fe6b8c63b7d8dfe0d9`.
 - Latest Windows workflow: [43829628775](https://github.com/lewisxatk/FM-Atlas/actions/runs/43829628775), queued at checkpoint time.
 - Do not mark this code as compiled/tested until the runner actually executes.
+
+
+## Update — checkpoint 011 (2026-11-16)
+
+- [~] M3.6a Versioned typed JSON snapshots for PlayerRecord, StaffRecord and ClubRecord committed; normalised searchable field projection remains.
+- [~] M3.6b SQLite schema v2 migration and explicit v1-to-v2 upgrade path committed; Windows runner verification pending.
+- [~] M3.7a IEntityRecord contract ensures a snapshot uses identity from the record itself.
+- [~] M4.3 Graphics locator source and synthetic tests committed; actual Windows graphics directory validation remains.
+- [~] M5.2–M5.10 Dynamic category/entity panels are wired to the field catalogue; actual search execution is not implemented.
+- [ ] M3.11 Project typed source records into indexed field_values within the import transaction.
+- [ ] M3.12 Implement indexed player/staff/club repository queries.
+- [ ] M4.3b Bind player image and data to the REF-004 profile.
+- [ ] M5.16 Connect Quick Search and Advanced Search to real indexed repositories.
+
+**Latest code before this documentation update:** `aae269ec2cb6dc96a645183684ec8d8d3ffb3fc9`.  
+**Latest successful Windows build remains:** `fbe36400`. New code is not build-verified while Actions jobs fail before runner allocation.
