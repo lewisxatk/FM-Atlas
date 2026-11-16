@@ -1052,3 +1052,12 @@ Re-opened FMLibreEditor 0.9.2435.0 recon, exact build profile, edit-field/write 
 4. Implement a separate safe Windows write primitive and first scalar field only after read evidence is independently verified.
 5. Add conflict detection, read-back, rollback and undo tests on a disposable career.
 6. Expand data providers to all requested world-data families before claiming full coverage.
+
+
+### Additional live-session monitor hardening
+
+- Changed `CheckSessionAsync` to contain unexpected session/memory/database errors instead of allowing them to escape the WPF dispatcher timer.
+- Invalidation now closes the process handle even if deleting the live provider fails, and the UI receives the cleanup failure rather than a false claim that stale rows were removed.
+- All monitor-driven cleanup uses a non-cancelled token.
+- Commit: `a6504c38bcb637f8c81b3dc9ee2e694c163e929d`.
+- Research note updated: `research/LIVE_EDIT_SAFETY_001.md` (commit `128dc52296775904882801af529245a56e062e20`).
