@@ -768,3 +768,11 @@ No live career file has been changed. No process memory has been read or written
 **Files with the main source changes:** `IIndexedAdvancedSearchFieldProvider.cs`, `AdvancedSearchCatalog.cs`, `AdvancedSearchQuery.cs`, `SqliteAdvancedSearchProvider.cs`, `AdvancedSearchWindowViewModel.cs`, `AdvancedSearchWindow.xaml(.cs)`, `PlayerProfileViewModel.cs`, `PlayerProfileView.xaml`, `MainWindow.xaml.cs`, `App.xaml(.cs)`, and related regression tests.
 
 **Current status:** Changes are committed; no uncommitted changes are known. Do not describe this branch as a verified release until Windows restore/build/test passes.
+
+
+### Post-checkpoint verification update
+
+- The documentation/checklist state was synced at commit `89f30a4bad73429b81a3310d688851e73a3f6c84`.
+- Windows workflow [43843064600](https://github.com/lewisxatk/FM-Atlas/actions/runs/43843064600) on that head completed with failure. Job `133216289077` returned `steps=null`, no log URL, and the job-log download returned 404 (`BlobNotFound`).
+- This repeats the earlier runner-start failure pattern; it does not identify a compile error and does not verify a successful build.
+- No current Windows artifact was created.
