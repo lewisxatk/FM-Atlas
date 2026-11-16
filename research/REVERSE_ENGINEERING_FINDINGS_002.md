@@ -126,3 +126,19 @@ The same source documents that player and person blocks have different bases and
 **FM Atlas consequence:** the read-only importer should normalise the verified raw gender flag into the domain's sourced `Gender` value (for example, `Female` / `Male`) so the existing SQLite Quick Search and Advanced Search exclusion can work. Preserve the raw source evidence and build/profile identity alongside the normalised value.
 
 **Verification gate:** this is an independent research lead for FM27 27.0, not proof for every patch/storefront. Verify against the exact Game Pass package and a set of known male/female player records on a disposable career before treating it as read-verified. Do not enable writes to this flag. No offset or scanner code has been copied into FM Atlas.
+
+
+## 9. FM27 offline-save parser coverage is build-specific and partial
+
+The fmsave public README and trust guide inspected for this pass state:
+- Its normal FM27 API/CLI support is registered for build `27.0.0+2486695`.
+- Other FM27 builds are treated as unverified when they borrow available layouts.
+- A known build means a layout is registered for each reader; it does **not** confirm the meaning of every decoded field.
+- FM27 support is partial and some field statuses remain unconfirmed.
+- The guide explicitly warns that passing reader checks does not prove every decoded value is correct.
+
+References:
+- https://github.com/rhiever/fmsave/blob/f4f70f62cccae27c63c8dc9610f50c16d5ddcc29/README.md
+- https://github.com/rhiever/fmsave/blob/f4f70f62cccae27c63c8dc9610f50c16d5ddcc29/docs/guides/trust.md
+
+**FM Atlas consequence:** do not treat “FM27 supported” as universal compatibility for the user's FM27 Game Pass save. If offline save import is added, capture the save build/schema, expose borrowed/unverified layout warnings, and keep per-field trust statuses. Compare offline parser output with live-game/UI evidence where possible.
