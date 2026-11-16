@@ -148,6 +148,11 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             return condition.Operator == SearchFilterOperator.HasTrait ? exists : $"NOT {exists}";
         }
 
+        if (condition.FieldKey.Equals("ability_difference", StringComparison.OrdinalIgnoreCase))
+        {
+            return BuildAbilityDifferencePredicate(conditionIndex, condition, parameters, ref nextParameter);
+        }
+
         if (condition.FieldKey.Equals("position_familiarity", StringComparison.OrdinalIgnoreCase))
         {
             var positionKey = "position_" + condition.TextValue!.Trim().ToLowerInvariant();
@@ -215,6 +220,47 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
                   AND {alias}.provider_key = e.provider_key
                   AND {alias}.field_key IN ({string.Join(", ", keyParameters)})
                   AND {predicate}
+            )
+            """;
+    }
+
+    private static string BuildAbilityDifferencePredicate(
+        int conditionIndex,
+        SearchFilterCondition condition,
+        ICollection<(string Name, object Value)> parameters,
+        ref int nextParameter)
+    {
+        var ca = $"ca{conditionIndex}";
+        var pa = $"pa{conditionIndex}";
+        var clauses = new List<string>();
+
+        if (condition.Minimum is decimal minimum)
+        {
+            var value = AddParameter(parameters, ref nextParameter, decimal.ToInt64(minimum));
+            clauses.Add($"({pa}.integer_value - {ca}.integer_value) >= {value}");
+        }
+
+        if (condition.Maximum is decimal maximum)
+        {
+            var value = AddParameter(parameters, ref nextParameter, decimal.ToInt64(maximum));
+            clauses.Add($"({pa}.integer_value - {ca}.integer_value) <= {value}");
+        }
+
+        return $"""
+            EXISTS (
+                SELECT 1 FROM field_values AS {ca}
+                WHERE {ca}.entity_kind = e.entity_kind
+                  AND {ca}.source_id = e.source_id
+                  AND {ca}.provider_key = e.provider_key
+                  AND {ca}.field_key = 'current_ability'
+                  AND EXISTS (
+                      SELECT 1 FROM field_values AS {pa}
+                      WHERE {pa}.entity_kind = e.entity_kind
+                        AND {pa}.source_id = e.source_id
+                        AND {pa}.provider_key = e.provider_key
+                        AND {pa}.field_key = 'potential_ability'
+                        AND {string.Join(" AND ", clauses)}
+                  )
             )
             """;
     }
