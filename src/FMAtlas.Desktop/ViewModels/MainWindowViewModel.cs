@@ -578,6 +578,7 @@ public sealed class QuickSearchResultViewModel
     public QuickSearchResultViewModel(EntitySearchResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
+        Identity = result.Identity;
         DisplayName = result.DisplayName;
         EntityType = result.Identity.Kind switch
         {
@@ -593,6 +594,7 @@ public sealed class QuickSearchResultViewModel
         IsPlayer = result.Identity.Kind == EntityKind.Player;
     }
 
+    public FMAtlas.Domain.Entities.EntityIdentity Identity { get; }
     public string DisplayName { get; }
     public string EntityType { get; }
     public string SourceId { get; }
