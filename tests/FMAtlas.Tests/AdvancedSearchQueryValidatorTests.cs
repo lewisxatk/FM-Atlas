@@ -90,7 +90,7 @@ public sealed class AdvancedSearchQueryValidatorTests
         var query = new AdvancedSearchQuery(
             SearchEntityKind.Player,
             SearchFilterLogic.All,
-            [new SearchFilterCondition("wonderkid", SearchFilterOperator.IsTrue)]);
+            [new SearchFilterCondition("relations", SearchFilterOperator.Contains, TextValue: "teammate")]);
 
         Assert.False(AdvancedSearchQueryValidator.Validate(query).IsValid);
         Assert.False(query.CanExecute);
@@ -138,6 +138,22 @@ public sealed class AdvancedSearchQueryValidatorTests
 
         Assert.True(AdvancedSearchQueryValidator.Validate(query).IsValid);
         Assert.True(query.CanExecute);
+    }
+
+    [Fact]
+    public void StaffRoleAndNewgenFiltersAreValidOneSidedRangesAndUnknownOptions()
+    {
+        var roleQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Coach,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("role_preference_scout", SearchFilterOperator.Range, Minimum: 12)]);
+        var newgenQuery = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("is_newgen", SearchFilterOperator.IsTrue)]);
+
+        Assert.True(AdvancedSearchQueryValidator.Validate(roleQuery).IsValid);
+        Assert.True(AdvancedSearchQueryValidator.Validate(newgenQuery).IsValid);
     }
 
     [Fact]
