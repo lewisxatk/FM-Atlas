@@ -232,8 +232,8 @@ internal sealed class FM27GamePass0935Reader
     private PlayerRecord? ReadPlayer(ulong address, FieldProvenance evidence, DateOnly inGameDate)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "player object");
-        // One contiguous object read supplies the identity, attributes, ability, contract
-        // pointer and all person-block fields, including the player-coach +0xF8 variant.
+        // One contiguous object read supplies the identity, attributes, ability, contracts
+        // and shifted person-block fields, including the player-coach +0xF8 variant.
         var data = _memory.ReadBytes(address, 0x4B8);
         var shift = FindPlayerPersonShift(address, data);
         if (shift is null)
@@ -261,6 +261,7 @@ internal sealed class FM27GamePass0935Reader
         var dateOfBirth = MakeFmDate(U16(0x310, offset), U16(0x312, offset));
         var age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
         var nationality = ReadNationName(U64(0x2F0, offset));
+        var cityOfBirth = ReadCityName(U64(0x308, offset));
         var club = ReadPlayerClubName(U64(0x130));
         var genderFlags = B(0x2A1, offset);
         var madeByGameFlags = B(0x2A0, offset);
@@ -273,7 +274,8 @@ internal sealed class FM27GamePass0935Reader
             var raw = B(fieldOffset);
             if (raw > 100)
                 continue;
-            var value = (raw + 2) / 5;
+            // FM stores the ratings 0–100; its displayed scale is rounded and clamped to 1–20.
+            var value = Math.Clamp((raw + 2) / 5, 1, 20);
             var definition = PlayerAttributeCatalog.TryGetByKey(key, out var found) ? found : null;
             if (definition?.Group == PlayerAttributeGroupKind.Hidden)
                 hidden[key] = new SourcedValue<int>(value, evidence);
@@ -287,7 +289,7 @@ internal sealed class FM27GamePass0935Reader
         for (var index = 0; index < PositionKeys.Length; index++)
         {
             var rating = B(0x150 + (ulong)index);
-            if (rating <= 20)
+            if (rating is >= 1 and <= 20)
                 positions[PositionKeys[index]] = new SourcedValue<int>(rating, evidence);
         }
 
@@ -300,16 +302,87 @@ internal sealed class FM27GamePass0935Reader
         }
 
         var contract = U64(0x330, offset);
-        var wage = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? TryReadInt32(contract + 0x20) : null;
-        var contractExpiry = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadFmDateSafe(contract + 0x48) : null;
+        byte[]? contractData = null;
+        if (WindowsProcessMemoryAccessor.IsUserPointer(contract))
+        {
+            try { contractData = _memory.ReadBytes(contract, 0xC8); }
+            catch (Win32Exception) { }
+        }
+
+        var wage = contractData is null ? (int?)null : BitConverter.ToInt32(contractData, 0x20);
+        var contractSigned = contractData is null
+            ? null
+            : MakeFmDate(BitConverter.ToUInt16(contractData, 0x44), BitConverter.ToUInt16(contractData, 0x46));
+        var contractExpiry = contractData is null
+            ? null
+            : MakeFmDate(BitConverter.ToUInt16(contractData, 0x48), BitConverter.ToUInt16(contractData, 0x4A));
+        var contractJoined = contractData is null
+            ? null
+            : MakeFmDate(BitConverter.ToUInt16(contractData, 0x4C), BitConverter.ToUInt16(contractData, 0x4E));
+        var squadStatus = contractData is null ? (byte?)null : contractData[0x54];
+        var listingFlags = contractData is null ? (byte)0 : contractData[0x57];
+        var squadNumberRaw = contractData is null ? (byte)255 : contractData[0x5D];
+        var contractType = contractData is null ? (byte?)null : contractData[0xC3];
+        var loyaltyBonus = contractData is null ? (int?)null : BitConverter.ToInt32(contractData, 0x38);
+        var happiness = contractData is null ? (sbyte?)null : unchecked((sbyte)contractData[0x5A]);
+        var playingTimeHappiness = contractData is null ? (sbyte?)null : unchecked((sbyte)contractData[0x5C]);
+
         var height = U16(0x22E);
         var currentAbility = U16(0x264);
         var rawPotential = I16(0x266);
         var transferValue = BitConverter.ToInt32(data, 0x234);
+        var rawAskingPrice = BitConverter.ToInt32(data, 0x238);
+        var homeReputation = U16(0x25E);
+        var currentReputation = U16(0x260);
+        var worldReputation = U16(0x262);
+        var condition = U16(0x25C);
+        var matchSharpness = U16(0x258);
+        var jadedness = I16(0x25A);
+        var morale = B(0x26C);
         var caps = U16(0x3BC, offset);
         var goals = U16(0x3BE, offset);
+        var u21Caps = B(0x3C0, offset);
+        var u21Goals = B(0x3C1, offset);
         var primaryPosition = positions.OrderByDescending(pair => pair.Value.Value).FirstOrDefault();
-        var positionName = primaryPosition.Key is null ? null : primaryPosition.Key.ToUpperInvariant();
+        var positionName = primaryPosition.Key is null || primaryPosition.Value.Value <= 0
+            ? null
+            : primaryPosition.Key.ToUpperInvariant();
+
+        var searchIntegers = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+        void AddSearchInt(string key, int? value)
+        {
+            if (value is int number)
+                searchIntegers[key] = new SourcedValue<int>(number, evidence);
+        }
+        AddSearchInt("home_reputation", homeReputation);
+        AddSearchInt("current_reputation", currentReputation);
+        AddSearchInt("world_reputation", worldReputation);
+        AddSearchInt("condition", condition);
+        AddSearchInt("match_sharpness", matchSharpness);
+        AddSearchInt("jadedness", jadedness);
+        AddSearchInt("morale", morale);
+        AddSearchInt("asking_price", rawAskingPrice >= 0 ? rawAskingPrice : null);
+        AddSearchInt("u21_caps", u21Caps);
+        AddSearchInt("u21_goals", u21Goals);
+        AddSearchInt("squad_status", squadStatus);
+        AddSearchInt("squad_number", squadNumberRaw != 255 ? squadNumberRaw : null);
+        AddSearchInt("contract_type", contractType);
+        AddSearchInt("loyalty_bonus", loyaltyBonus);
+        AddSearchInt("contract_happiness", happiness);
+        AddSearchInt("playing_time_happiness", playingTimeHappiness);
+
+        var searchBooleans = new Dictionary<string, SourcedValue<bool>>(StringComparer.OrdinalIgnoreCase);
+        if (contractData is not null)
+        {
+            searchBooleans["transfer_listed"] = new SourcedValue<bool>((listingFlags & 0x01) != 0, evidence);
+            searchBooleans["loan_listed"] = new SourcedValue<bool>((listingFlags & 0x02) != 0, evidence);
+        }
+
+        var searchDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase);
+        if (contractSigned is DateOnly signed)
+            searchDates["contract_signed"] = new SourcedValue<DateOnly>(signed, evidence);
+        if (contractJoined is DateOnly joined)
+            searchDates["contract_joined"] = new SourcedValue<DateOnly>(joined, evidence);
 
         return new PlayerRecord(new EntityIdentity(EntityKind.Player, uid.ToString(CultureInfo.InvariantCulture), _providerKey))
         {
@@ -318,6 +391,7 @@ internal sealed class FM27GamePass0935Reader
             DateOfBirth = dateOfBirth is DateOnly dob ? new SourcedValue<DateOnly>(dob, evidence) : null,
             Age = age is int playerAge ? new SourcedValue<int>(playerAge, evidence) : null,
             Nationality = nationality is not null ? new SourcedValue<string>(nationality, evidence) : null,
+            CityOfBirth = cityOfBirth is not null ? new SourcedValue<string>(cityOfBirth, evidence) : null,
             Gender = new SourcedValue<string>((genderFlags & 0x10) != 0 ? "Female" : "Male", evidence),
             ClubName = club is not null ? new SourcedValue<string>(club, evidence) : null,
             PrimaryPosition = positionName is not null ? new SourcedValue<string>(positionName, evidence) : null,
@@ -334,6 +408,9 @@ internal sealed class FM27GamePass0935Reader
             Personality = personality,
             FootRatings = feet,
             PositionRatings = positions,
+            SearchIntegerFields = searchIntegers,
+            SearchBooleanFields = searchBooleans,
+            SearchDateFields = searchDates,
             IsNewgen = new SourcedValue<bool>((madeByGameFlags & 0x08) != 0, evidence)
         };
     }
