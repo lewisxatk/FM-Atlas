@@ -11,6 +11,7 @@ namespace FMAtlas.Infrastructure.Connection;
 /// </summary>
 public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
 {
+    public const string LiveProviderKey = "live-fm27-gamepass-0.9.2435.0";
     private sealed record LiveSession(
         Process Process,
         WindowsProcessMemoryAccessor Memory,
@@ -57,7 +58,10 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
         LiveSession? candidate = null;
         try
         {
+            var previousSession = _session;
             DisconnectCore();
+            if (previousSession is not null)
+                await _snapshotStore.DeleteProviderAsync(previousSession.ProviderKey, cancellationToken).ConfigureAwait(false);
             _disconnectRequested = false;
             progress?.Report(new LiveGameLoadProgress(2, "Finding Football Manager", "Looking for the running FM27 Game Pass process."));
 
@@ -70,6 +74,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             progress?.Report(new LiveGameLoadProgress(96, "Building the search index",
                 $"Saving {work.Records.Count:N0} player, staff and club records in one local database transaction."));
 
+            await _snapshotStore.DeleteProviderAsync(work.Session.ProviderKey, cancellationToken).ConfigureAwait(false);
             await _snapshotStore.SaveSnapshotsAsync(work.Records, cancellationToken).ConfigureAwait(false);
 
             // The game could load another save while SQLite was being populated. Do not leave those rows searchable.
@@ -183,7 +188,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             if (initialGeneration <= 0)
                 throw new InvalidDataException("FM27's save-generation counter is not valid. Make sure a career has finished loading.");
 
-            var providerKey = $"live-fm27-gamepass-{FM27GamePass0935Reader.BuildVersionForProvider}:{gameProcess.Id}:{initialGeneration}:{Guid.NewGuid():N}";
+            var providerKey = LiveProviderKey;
             var reader = new FM27GamePass0935Reader(memory, moduleBase, providerKey);
             var initial = reader.InspectLoadedSave();
             if (initial.SaveGeneration != initialGeneration)
