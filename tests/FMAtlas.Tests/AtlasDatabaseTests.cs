@@ -42,7 +42,7 @@ public sealed class AtlasDatabaseTests
         await database.InitializeAsync();
         await database.InitializeAsync();
 
-        Assert.Equal(1, await database.GetSchemaVersionAsync());
+        Assert.Equal(AtlasDatabase.SchemaVersion, await database.GetSchemaVersionAsync());
 
         await using var connection = new SqliteConnection($"Data Source={path}");
         await connection.OpenAsync();
