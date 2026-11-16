@@ -220,3 +220,98 @@ None known. All code and documentation changes above were committed through GitH
 ### Uncommitted changes
 
 None known. All changes above were committed through GitHub. Re-read the branch head and checkpoint before the next work unit.
+
+
+---
+
+## Checkpoint 008 — recovery, FMRTE package audit and read-only build identification
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Head at checkpoint:** `d9bb7ee5d7d8a2204521f1b237ba43e9e3d3b472`  
+**Status:** Research and code changes saved. Latest code changes after the last successful Windows build have not yet been compiled because GitHub Actions jobs are failing before any runner/steps start.
+
+### Recovery ZIP
+
+- Located the exact original archive in the user's Library: `/FMATLAS/FM-Atlas-GitHub-Recovery-Import-R7.2.0.zip` (17,481,541 bytes).
+- Attempted raw-byte materialization; the file provider refused the raw-byte path, so the ZIP could not be extracted in the current runtime.
+- Confirmed the recovered source is already available in GitHub branch `recovery/r7.2.0-source-import`, under `application/R7.2.0/FM-Atlas-R7.2.0-Work`.
+- Read the stored 13 November R7.2.0 Windows build log: 92 compile errors and 15 warnings. Major categories include missing System.IO symbols, unassigned locals, missing importer fingerprint/RVA constants, missing AtlasLog.Warn and an IntPtr-to-ulong conversion. This reinforces the decision to build fresh and use old code only as selective research.
+
+### Uploaded packages inspected
+
+- FMRTE 27.0.1 build 12 ZIP: package metadata, release notes and selected bundled UI screenshots inspected without executing it.
+- FM Player Analyzer 2.2.3 ZIP: source tree, read-only FM27 save-reader/graphics architecture and third-party notices inspected.
+- TalentSeer 27.1.2 ZIP: README and third-party notices inspected; binary not executed/decompiled.
+- FMSuperScout, FMLibreEditor and FM-Dossier installers: file metadata/static strings inspected; installers not executed.
+- Genie Scout 26 ZIP: contains only the installer executable; not executed.
+
+### Licensing decisions
+
+- FMLibreEditor and FM Player Analyzer are GPLv3: research/reference only unless FM Atlas intentionally adopts GPLv3 obligations.
+- FMSuperScout and fmsave are MIT: potential code reuse with attribution/notices and dependency review.
+- FMRTE is commercial/proprietary; do not copy code or assets.
+- TalentSeer is supplied as a binary and guide; use the guide as feature discovery only.
+
+### New FMRTE reference material
+
+- REF-005: Potential Attributes panel.
+- REF-006: Edit History.
+- REF-007: Tactical Understanding and national tactical understanding.
+- REF-008: Assistant Review.
+- REF-009: Mass Edit Presets.
+- REF-010: Career Plans.
+
+The feature audit now records the controls and behaviour visible in those build 12 assets and the package's exact 27.0.1 build 12 release notes.
+
+### Additional code committed
+
+1. Player attribute catalogue now has:
+   - 52 unique standard/hidden non-foot attributes;
+   - 8 separate personality ratings in the documented FM storage order;
+   - 2 foot ratings kept separate;
+   - outfield and goalkeeper profile groups;
+   - shared First Touch and Passing;
+   - source-evidence labels.
+2. Advanced Search now has:
+   - seven category definitions;
+   - Player/Coach/Club entity support;
+   - typed filter field definitions;
+   - personality fields in Mental Attributes;
+   - typed conditions and structural validation;
+   - explicit All/Any logic;
+   - all search fields still In Progress and not executable.
+3. Player profile shell section list now includes Personality, Hidden Attributes, Staff, Clone Center and Role Attributes; actions remain disabled until a real player record and providers exist.
+4. Read-only PE fingerprint reader added; it reads only on-disk module metadata, not process memory.
+5. Reference-only build registry added for FMLibreEditor Game Pass 0.9.2435.0 and 0.9.2409.0 fingerprints. Both profiles are explicitly read-disabled and write-disabled.
+6. Main window diagnostics report the external reference match without enabling live data access.
+
+### CI evidence and limitation
+
+- Last known successful Windows build/test run: [43788503042](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788503042), commit `fbe36400b4894c28acd50afe22e651fe692e9796`.
+- Subsequent code commits for personality and build-profile support triggered runs that ended in failure with `runner_id=0` and empty `steps`; the jobs did not start, so these are **not compiler/test failures**.
+- A rerun was attempted; it again failed before a runner or step was allocated.
+- Local container has no .NET SDK and cannot build WPF. Do not claim the newest code is build-verified until a Windows runner completes restore/build/test.
+
+### Current implementation limits
+
+- No live process memory has been read.
+- No player, staff or club records have been imported from the user's running game.
+- No writes have been performed.
+- The 0.9.2435.0 and 0.9.2409.0 profiles are external reference fingerprints only; user's installed package remains unidentified.
+- Player profile and Advanced Search are structural shells. Their controls are intentionally disabled until data/query providers exist.
+- The R7.2.0 ZIP bytes were not materialized, but the recovered source branch and historical build log are available.
+
+### Next exact actions
+
+1. Resolve/await Windows Actions runner availability and compile the latest branch. Fix any genuine compiler/test failures once logs exist.
+2. Add the remaining Advanced Search category panels from the schema (Contract, Technical/GK, Mental, Physical/Hidden, Preferred Moves, Relations).
+3. Add typed PlayerRecord/StaffRecord/ClubRecord models and source provenance.
+4. Implement the Game Pass read-only process probe and compare the actual user module fingerprint to the reference registry.
+5. Implement graphics locator indexing `config.xml` and resolving portraits by player UID.
+6. Connect player profile tabs to a real read provider; do not enable editing yet.
+7. Continue only after updating this checkpoint with exact commit/run evidence.
+
+### Uncommitted changes
+
+None known. All listed changes are committed. Re-read this checkpoint and branch head before further work.
