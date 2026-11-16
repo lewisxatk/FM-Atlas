@@ -21,7 +21,7 @@ public sealed class FM27LiveScanValidatorTests
     {
         var records = new FMAtlas.Domain.Entities.IEntityRecord[]
         {
-            Player("1001", 150),
+            Player("1001", 150, potentialAbility: -95),
             Player("1002", 110),
             Player("1003", 80),
             Player("1004", 90),
@@ -38,6 +38,44 @@ public sealed class FM27LiveScanValidatorTests
         Assert.Equal(4, result.PlayersWithCurrentAbility);
         Assert.Equal(4, result.PlayersWithNaturalPosition);
         Assert.Equal(4, result.PlayersWithTwentyInAtLeastOnePosition);
+    }
+
+    [Fact]
+    public void AcceptsSignedNegativeRandomPotentialAbilityMarker()
+    {
+        var records = new FMAtlas.Domain.Entities.IEntityRecord[]
+        {
+            Player("1001", 150, potentialAbility: -95),
+            Player("1002", 110),
+            Player("1003", 80),
+            Player("1004", 90),
+            Staff("2001", 140),
+            Staff("2002", 90),
+            Club("3001")
+        };
+
+        var result = FM27LiveScanValidator.Validate(records);
+
+        Assert.Equal(4, result.Players);
+    }
+
+    [Fact]
+    public void RejectsPotentialAbilityOutsideSignedFmRange()
+    {
+        var records = new FMAtlas.Domain.Entities.IEntityRecord[]
+        {
+            Player("1001", 150, potentialAbility: 201),
+            Player("1002", 110),
+            Player("1003", 80),
+            Player("1004", 90),
+            Staff("2001", 140),
+            Staff("2002", 90),
+            Club("3001")
+        };
+
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+
+        Assert.Contains("player value", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -92,12 +130,17 @@ public sealed class FM27LiveScanValidatorTests
         Assert.Contains("Current Ability", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static PlayerRecord Player(string uid, int? currentAbility, bool naturalPositionTwenty = true) =>
+    private static PlayerRecord Player(
+        string uid,
+        int? currentAbility,
+        bool naturalPositionTwenty = true,
+        int? potentialAbility = 180) =>
         new(new EntityIdentity(EntityKind.Player, uid, WindowsFm27LiveGameConnector.LiveProviderKey))
         {
             FullName = new SourcedValue<string>($"Player {uid}", Evidence),
             GameUid = new SourcedValue<string>(uid, Evidence),
             CurrentAbility = currentAbility is int ca ? new SourcedValue<int>(ca, Evidence) : null,
+            PotentialAbility = potentialAbility is int pa ? new SourcedValue<int>(pa, Evidence) : null,
             PrimaryPosition = new SourcedValue<string>("ST", Evidence),
             PositionRatings = new Dictionary<string, SourcedValue<int>>
             {
