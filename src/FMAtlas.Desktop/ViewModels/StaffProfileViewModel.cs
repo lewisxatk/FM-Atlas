@@ -48,7 +48,7 @@ public sealed class StaffProfileViewModel : INotifyPropertyChanged
         }
     }
     public string SectionDescription { get => _sectionDescription; private set { _sectionDescription = value; OnPropertyChanged(); } }
-    public string SectionEmptyText { get => _sectionEmptyText; private set { _sectionEmptyText = value; OnPropertyChanged(); } }
+    public string SectionEmptyText { get => _sectionEmptyText; private set { _sectionEmptyText = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSectionEmptyText)); } }
     public bool HasSectionEmptyText => !string.IsNullOrWhiteSpace(SectionEmptyText);
     public string Name => Staff.FullName?.Value ?? "Unnamed staff record";
     public string Subtitle => $"{Staff.PrimaryRole?.Value ?? "Staff"} · {Staff.ClubName?.Value ?? "Club not imported"} · {Staff.Identity.ProviderKey}";
