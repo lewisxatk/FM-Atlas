@@ -36,7 +36,6 @@
                                     Command="{Binding DataContext.SelectSectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding Name}"
                                     IsEnabled="{Binding DataContext.HasPlayer, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    Style="{StaticResource Atlas.ProfileTabButton}"
                                     Margin="0,0,5,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
