@@ -599,3 +599,19 @@ None known. All code and research above are committed. Re-read the branch head a
 ### Explicit safety boundary
 
 No live career file has been changed. No process memory has been read or written. The only new save operation here is the local Atlas database initialisation.
+
+
+---
+
+## Checkpoint 014 — schema test correction and CI retry
+
+**Date:** 2026-11-16 UTC
+
+- Reviewed the schema v2 migration tests and found one stale assertion expecting schema version 1 after idempotent initialisation.
+- Corrected it to assert `AtlasDatabase.SchemaVersion` (currently version 2). The migration-history assertion already expects exactly two migrations.
+- Latest test-fix commit: `550a3f9cd52ba1666a1e022ced5446e163e8ca85`.
+- Latest Windows Actions run: [43830954622](https://github.com/lewisxatk/FM-Atlas/actions/runs/43830954622). It again failed before runner allocation with `steps=null` and `logs_url=null`; no compiler or test output was produced.
+- A retry of run [43830873991](https://github.com/lewisxatk/FM-Atlas/actions/runs/43830873991) also failed before runner allocation. This is an Actions execution issue, not a diagnosed source error.
+- Local machine/tool environment has no .NET SDK, so the correction is committed but not yet compiled or executed.
+
+**Next:** regain a functioning Windows runner, then execute restore/build/test on the full latest branch. Do not package the unverified code as a tested build.
