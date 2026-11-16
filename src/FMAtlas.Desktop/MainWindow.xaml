@@ -241,10 +241,10 @@
                     <Button Grid.Column="4" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="Read-only live session. Editing and saving remain locked until FM Atlas independently verifies every write field, read-back and undo path.">
                         <TextBlock Text="Save Live Changes"/>
                     </Button>
-                    <Button Grid.Column="5" Style="{StaticResource Atlas.PrimaryButton}" Height="37" MinWidth="132" Command="{Binding LoadGameCommand}">
+                    <Button Grid.Column="5" Style="{StaticResource Atlas.PrimaryButton}" Height="37" MinWidth="132" IsEnabled="False" Command="{Binding LoadGameCommand}" ToolTip="Temporarily disabled while FM Atlas investigates an unexpected FM27 process closure during live loading.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="13" Margin="0,0,8,0"/>
-                            <TextBlock Text="Load Game"/>
+                            <TextBlock Text="Live Load Paused"/>
                         </StackPanel>
                     </Button>
                 </Grid>
@@ -387,11 +387,11 @@
                                 <Button Grid.Row="1" Content="Clubs" Tag="Clubs" Click="NavigationButton_Click" Style="{StaticResource Atlas.ButtonBase}" HorizontalContentAlignment="Left" Margin="0,0,6,7"/>
                                 <Button Grid.Row="1" Grid.Column="1" Content="Advanced Search" Click="AdvancedSearchButton_Click" Style="{StaticResource Atlas.ButtonBase}" HorizontalContentAlignment="Left" Margin="0,0,0,7"/>
                                 <Button Grid.Row="2" Content="Import Player CSV" Click="ImportPlayerExportButton_Click" Style="{StaticResource Atlas.ButtonBase}" HorizontalContentAlignment="Left" Margin="0,0,6,0"/>
-                                <Button Grid.Row="2" Grid.Column="1" Content="Load Game" Command="{Binding LoadGameCommand}" Style="{StaticResource Atlas.PrimaryButton}" HorizontalContentAlignment="Center"/>
+                                <Button Grid.Row="2" Grid.Column="1" Content="Live Load Paused" IsEnabled="False" Command="{Binding LoadGameCommand}" ToolTip="Temporarily disabled during the FM27 live-connection safety investigation." Style="{StaticResource Atlas.PrimaryButton}" HorizontalContentAlignment="Center"/>
                             </Grid>
                             <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,15,0,12"/>
                             <TextBlock Text="DATA STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
-                            <TextBlock Text="Live Game Pass connection is read-only. CSV imports remain separate source datasets. Live save editing is blocked until field-level write and read-back verification passes."
+                            <TextBlock Text="Live FM27 loading is temporarily paused during a safety investigation. CSV imports and local search remain available. Live editing remains disabled."
                                        FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
                         </StackPanel>
                     </Border>
