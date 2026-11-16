@@ -78,12 +78,12 @@ public static class FM27LiveScanValidator
             .ToHashSet(StringComparer.Ordinal);
         var playerClubReferences = players
             .Select(record => record.SearchIntegerFields.TryGetValue("club_uid", out var uid) ? uid.Value.ToString() : null)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .OfType<string>()
             .ToArray();
 
         if (playerClubReferences.Length >= 100)
         {
-            var linked = playerClubReferences.Count(clubIds.Contains);
+            var linked = playerClubReferences.Count(value => clubIds.Contains(value));
             var coverage = linked / (double)playerClubReferences.Length;
             if (coverage < 0.75)
                 throw new InvalidDataException(
