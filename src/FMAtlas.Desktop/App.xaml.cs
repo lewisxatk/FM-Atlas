@@ -3,6 +3,7 @@ using System.Windows;
 using FMAtlas.Desktop.ViewModels;
 using FMAtlas.Infrastructure.Connection;
 using FMAtlas.Infrastructure.Import;
+using FMAtlas.Infrastructure.Graphics;
 using FMAtlas.Infrastructure.Persistence;
 
 namespace FMAtlas.Desktop;
@@ -61,13 +62,33 @@ public partial class App : System.Windows.Application
         var playerExportImporter = new FMViewExporterCsvImporter(snapshotStore);
         var liveGameConnector = new WindowsFm27LiveGameConnector(snapshotStore);
 
+        // Index the standard FM27 user graphics folder when it exists. The indexer
+        // only reads config.xml mappings; it never copies or changes graphics files.
+        var graphicsLocator = new FootballManagerGraphicsLocator();
+        Task? graphicsIndexTask = null;
+        var documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var graphicsFolder = Path.Combine(
+            documentsFolder,
+            "Sports Interactive",
+            "Football Manager 27",
+            "graphics");
+        if (Directory.Exists(graphicsFolder))
+            graphicsIndexTask = graphicsLocator.IndexAsync(graphicsFolder);
+
         var viewModel = new MainWindowViewModel(
             processProbe,
             atlasDatabase,
             entitySearchProvider,
             liveGameConnector,
             databasePath);
-        var window = new MainWindow(viewModel, advancedSearchProvider, snapshotStore, playerExportImporter, entitySearchProvider);
+        var window = new MainWindow(
+            viewModel,
+            advancedSearchProvider,
+            snapshotStore,
+            playerExportImporter,
+            entitySearchProvider,
+            graphicsLocator,
+            graphicsIndexTask);
         MainWindow = window;
         window.Show();
     }
