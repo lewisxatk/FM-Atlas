@@ -87,10 +87,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 case GameProcessProbeState.ProcessAndModuleFound:
                     var candidate = result.Candidates.First(x => x.HasGamePluginModule);
                     ConnectionStatus = "Game module detected";
+                    var buildReference = candidate.ModuleFingerprint is null
+                        ? null
+                        : GameBuildProfileCatalog.MatchReference(candidate.ModuleFingerprint);
                     ConnectionDetail = candidate.ModuleFingerprint is null
                         ? $"FM process {candidate.ProcessId} and game_plugin.dll were detected, but the static module fingerprint could not be read. Exact build support, career identity and live data import remain In Progress. No player data has been read."
-                        : $"FM process {candidate.ProcessId} and game_plugin.dll were detected. Static module metadata: {candidate.ModuleFingerprint.Summary}. This is not yet a supported-build match; career identity and live data import remain In Progress. No player data has been read.";
-                    LastAction = $"Detected FM process {candidate.ProcessId}; read-only verification still required";
+                        : buildReference is null
+                            ? $"FM process {candidate.ProcessId} and game_plugin.dll were detected. Static module metadata: {candidate.ModuleFingerprint.Summary}. No known reference profile matches; no live data has been read or written."
+                            : $"FM process {candidate.ProcessId} matches the external reference fingerprint for {buildReference.DisplayName}. {candidate.ModuleFingerprint.Summary}. This is reference-only evidence, not an FM Atlas verified build. Live reads and writes remain disabled.";
+                    LastAction = $"Detected FM process {candidate.ProcessId}; build fingerprint checked, live editing disabled";
                     break;
             }
         }
