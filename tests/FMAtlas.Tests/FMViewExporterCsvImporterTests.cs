@@ -115,9 +115,9 @@ public sealed class FMViewExporterCsvImporterTests
         var store = new SqliteEntityRecordSnapshotStore(databasePath);
         var csvPath = Path.Combine(temp.Root, "gender.csv");
         await File.WriteAllTextAsync(csvPath,
-            "Player,Unique ID,Gender\\n" +
-            "Female Player,901,Female\\n" +
-            "Male Player,902,Male\\n");
+            "Player,Unique ID,Gender\n" +
+            "Female Player,901,Female\n" +
+            "Male Player,902,Male\n");
 
         var import = await new FMViewExporterCsvImporter(store).ImportAsync(csvPath);
         Assert.Equal(2, import.ImportedPlayers);
