@@ -1,6 +1,6 @@
 # FM Atlas — Session Continuity and Work Preservation
 
-**Revision:** 001  
+**Revision:** 002  
 **Date:** 2026-11-16  
 **Working branch:** `rebuild/fresh-foundation-001`
 
@@ -13,11 +13,12 @@ This project must survive streaming interruptions, conversation length limits, a
 1. Product scope: `FRESH_REBUILD_MASTER_PLAN.md`.
 2. Visual references: `REFERENCE_LIBRARY.md`.
 3. Detailed UI requirements: `DESIGN_SPECIFICATION.md`.
-4. Technical findings: `../research/RESEARCH_REGISTER.md` and new evidence records.
-5. Architecture decision: `ARCHITECTURE_DECISION.md` once completed.
-6. Current work state: `CURRENT_CHECKPOINT.md`.
-7. Task-by-task progress: `FRESH_REBUILD_CHECKLIST.md`.
-8. Change history: Git commits and pull requests.
+4. Architecture decision: `ARCHITECTURE_DECISION.md`.
+5. Uploaded package inventory: `../research/UPLOADED_RESEARCH_INVENTORY.md`.
+6. Technical findings: `../research/RESEARCH_FINDINGS_001.md` and `../research/RESEARCH_REGISTER.md`.
+7. Current work state: `CURRENT_CHECKPOINT.md`.
+8. Task-by-task progress: `FRESH_REBUILD_CHECKLIST.md`.
+9. Change history: Git commits and pull requests.
 
 If chat history conflicts with the latest committed specification/checkpoint, stop and reconcile explicitly. Do not guess.
 
