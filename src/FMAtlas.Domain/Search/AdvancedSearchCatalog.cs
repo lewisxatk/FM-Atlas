@@ -252,7 +252,7 @@ public static class AdvancedSearchCatalog
                 "club_founded_year" or "club_stadium_name" or "club_stadium_capacity" or
                 "club_average_attendance" or "international_caps" or "international_goals" or
                 "reputation_home" or "reputation_current" or "reputation_world" or
-                "ability_difference" or "recommended_ca" or "continent" or "region" or
+                "ability_difference" or "continent" or "region" or
                 "city_of_birth" or "ethnicity" or "division" or "training_status_club" or
                 "training_status_nation" or "primary_role" or "training_rating" or
                 "contract_status" or "release_clause" or "club_balance" or "club_debt" or
