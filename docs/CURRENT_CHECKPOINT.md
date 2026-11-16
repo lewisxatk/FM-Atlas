@@ -1,10 +1,10 @@
 # FM Atlas — Current Checkpoint
 
-**Checkpoint:** 004  
+**Checkpoint:** 005  
 **Date:** 2026-11-16 UTC  
 **Branch:** `rebuild/fresh-foundation-001`  
-**Base head before this checkpoint:** `9eae52a94536abf0b99a96fc5257e0cd195dc69e`  
-**Status:** Fresh WPF shell compiles and tests successfully on Windows CI. Artifact-upload workflow is running separately.
+**Base head before this checkpoint:** `8d7e21327408a0a8f16a3aecb49d25dbe53e6e79`  
+**Status:** Fresh WPF shell compiles, tests and Windows artifact upload successfully. First shell package is available for user review.
 
 ## Mission
 
@@ -82,7 +82,9 @@ The seven newly uploaded packages have been SHA-256 inventoried and statically i
 - Build: 0 warnings, 0 errors.
 - Tests: 3 passed, 0 failed.
 - This is a compile/unit-test result only. It does not prove the WPF app has been launched, visually compared, connected to FM or read/written game data.
-- A later workflow run with artifact upload is pending: [43787554512](https://github.com/lewisxatk/FM-Atlas/actions/runs/43787554512).
+- Workflow run [43787554512](https://github.com/lewisxatk/FM-Atlas/actions/runs/43787554512) completed successfully, including artifact upload.
+- Artifact: `fm-atlas-fresh-shell-win-x64.zip`, 13,154,594 bytes, SHA-256 `587c9e02ed906ca47dad868a9fef003b5f290378a68fe3028040d5054629bb22`, GitHub artifact ID `14191091352`, expires 2026-11-30.
+- The ZIP was downloaded and inspected: 35 files including `FMAtlas.exe`, application DLLs, runtime config and SQLite dependencies. It is a framework-dependent shell preview, not the finished editor.
 
 ## Current milestone
 
@@ -90,12 +92,11 @@ The seven newly uploaded packages have been SHA-256 inventoried and statically i
 
 ## Next actions
 
-1. Confirm the artifact-upload workflow completes and obtain the Windows shell package.
-2. Inspect/run the shell on Windows and compare screenshot with REF-001; refine only against approved reference.
-3. Add the verified FM27 attribute catalogue to the new Domain project and tests.
-4. Build the REF-002 Advanced Search dialog shell and filter model.
-5. Build the REF-004 full-screen tabbed player profile shell.
-6. Continue field-level Game Pass research and read-only connection probe.
+1. User inspects/runs the shell package on Windows and compares screenshot with REF-001; refine only against approved reference.
+2. Add the researched FM27 attribute catalogue to the new Domain project and tests, clearly marking profile order provisional until visually confirmed.
+3. Build the REF-002 Advanced Search dialog shell and filter model.
+4. Build the REF-004 full-screen tabbed player profile shell.
+5. Continue field-level Game Pass research and read-only connection probe.
 
 ## User action needed
 
