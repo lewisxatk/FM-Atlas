@@ -1,10 +1,10 @@
 # FM Atlas — Current Checkpoint
 
-**Checkpoint:** 003  
+**Checkpoint:** 004  
 **Date:** 2026-11-16 UTC  
 **Branch:** `rebuild/fresh-foundation-001`  
-**Previous saved branch head:** `e088c9f43bf91c08ef1d161a662d683ecc10e030`  
-**Status:** First clean WPF foundation and initial dashboard shell committed. Windows build result pending.
+**Base head before this checkpoint:** `9eae52a94536abf0b99a96fc5257e0cd195dc69e`  
+**Status:** Fresh WPF shell compiles and tests successfully on Windows CI. Artifact-upload workflow is running separately.
 
 ## Mission
 
@@ -34,18 +34,21 @@ The seven newly uploaded packages have been SHA-256 inventoried and statically i
 - FM Dossier upload is an installer only.
 - Research inventory and hashes: `research/UPLOADED_RESEARCH_INVENTORY.md`.
 - Technical findings: `research/RESEARCH_FINDINGS_001.md`.
+- FMRTE 27 player/staff/club/search/edit-history feature audit: `research/FMRTE_FEATURE_AUDIT_001.md`.
+- Field counts, attribute groups and confidence states: `research/FIELD_COVERAGE_LEDGER.md`.
 
-## Repository research completed in this session
+## Repository research completed
 
-- FMLibreEditor: separate process architecture, native `game_plugin.dll`, read/write checks, save-generation invalidation, read-only fallback; exact Game Pass evidence is package 0.9.2435.0 and must not be generalised to other builds.
+- FMLibreEditor: separate process architecture, native `game_plugin.dll`, write preconditions, save-generation invalidation, read-only fallback; exact Game Pass evidence is package 0.9.2435.0 and must not be generalised to other builds.
 - fm-editor: FM27 layout includes inherited FM26 leads; only explicitly witnessed fields are verified. Its README records a narrow Game Pass package bring-up, not broad feature parity.
 - FMSuperScout: MIT, .NET 8 Windows read-only scanner plus local search application; useful extraction/indexing benchmark.
-- fmsave: MIT, FM26/FM27 offline parser; 52 player attributes, 8 personality attributes and extensive save tables, with explicit coverage/unknown-value semantics.
+- fmsave: MIT, FM26/FM27 offline parser; 52 unique non-foot attributes, 8 personality fields and extensive save tables, with explicit coverage/unknown-value semantics.
+- FMLibreEditor player UI catalogue lists Technical 14, Mental 14, Physical 8, Goalkeeping 13, Hidden 5 and Feet 2; Technical/Goalkeeping overlap First Touch and Passing. This yields 52 unique non-foot attributes plus two foot ratings. Exact FM27 profile order still needs visual confirmation.
+- FMSuperScout documents a 55-byte raw attribute block scaled by five; this is not a 55-field UI catalogue or a write map.
 - FM View Exporter: GPL-3.0, documents 375 FM27 table columns and 377 Insert Column menu entries; table order is not assumed to equal player-profile attribute order.
 - FM Player Analyzer: GPL-3.0, useful save import, profile, graphics indexing and testing research.
+- FMRTE official documentation audited for player, staff and club tabs, advanced search, edit history and other tool families.
 - Licensing boundaries are documented; no third-party source copied.
-- Official FMRTE 27 player, staff, club, search and edit-history documentation was researched; detailed tab/feature audit committed as `research/FMRTE_FEATURE_AUDIT_001.md`.
-- Player tabs now follow the actual FMRTE 27 section inventory while retaining the user's required top-of-profile tab placement.
 
 ## Architecture decision
 
@@ -68,34 +71,32 @@ The seven newly uploaded packages have been SHA-256 inventoried and statically i
 - Prominent Load Game action on the right.
 - Honest dashboard state: no career loaded, no player records imported, no pending edits.
 - Load Game currently performs a read-only process/module presence check only. It does not read memory, identify the build, load a career or edit the game.
-- A Windows GitHub Actions restore/build/test workflow is committed.
-- Initial unit tests cover connection-result state objects.
+- Windows GitHub Actions restore/build/test workflow committed, with Windows build artifact upload step added.
+- All unimplemented controls are disabled or clearly identified as In Progress.
+
+## Windows CI evidence
+
+- Run [43787424965](https://github.com/lewisxatk/FM-Atlas/actions/runs/43787424965) on commit `5a4dcb6b2075c8d60cc6e675d7a9557b21558bd5` completed successfully.
+- Restore passed.
+- All five projects compiled on Windows Server 2025 with .NET SDK 8.0.428.
+- Build: 0 warnings, 0 errors.
+- Tests: 3 passed, 0 failed.
+- This is a compile/unit-test result only. It does not prove the WPF app has been launched, visually compared, connected to FM or read/written game data.
+- A later workflow run with artifact upload is pending: [43787554512](https://github.com/lewisxatk/FM-Atlas/actions/runs/43787554512).
 
 ## Current milestone
 
 **M2 — Fresh application foundation.**
 
-## Tests and environment
-
-- Uploaded ZIP manifest and SHA-256 inventory: completed.
-- Public repository source/documentation reads: initial pass completed.
-- No installer executed.
-- No FM process attached.
-- No live memory read/write test.
-- No local WPF compile: `dotnet` is not installed in this container.
-- GitHub Actions workflow file committed; run/status not yet verified.
-- No visual screenshot comparison yet.
-- All work committed to GitHub; no uncommitted changes in the GitHub branch.
-
 ## Next actions
 
-1. Run/verify the Windows GitHub Actions build; fix any XAML/C# compile errors.
-2. If Actions cannot run automatically, user builds on Windows with the README commands and supplies the unedited build log.
-3. Compare the actual desktop screenshot with REF-001 and refine only against the approved reference.
-4. Build the REF-002 Advanced Search dialog structure.
-5. Build the REF-004 player profile workspace/tab layout.
-6. Continue field-level research and read-only Game Pass probe.
+1. Confirm the artifact-upload workflow completes and obtain the Windows shell package.
+2. Inspect/run the shell on Windows and compare screenshot with REF-001; refine only against approved reference.
+3. Add the verified FM27 attribute catalogue to the new Domain project and tests.
+4. Build the REF-002 Advanced Search dialog shell and filter model.
+5. Build the REF-004 full-screen tabbed player profile shell.
+6. Continue field-level Game Pass research and read-only connection probe.
 
 ## User action needed
 
-No new download is required now. The R7.2.0 recovery ZIP is located in the Library; the imported source branch is available. Later, provide the exact FM27 Game Pass package/build details and use a disposable offline career for live integration tests.
+No new research download is required now. The R7.2.0 recovery ZIP is located in the Library; its imported source branch is available. Later, provide the exact FM27 Game Pass package/build details and use a disposable offline career for live integration tests.
