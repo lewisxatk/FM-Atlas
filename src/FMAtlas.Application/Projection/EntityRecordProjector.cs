@@ -52,7 +52,9 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         Add(fields, "transfer_value", player.TransferValue);
 
         AddIntMap(fields, "attribute_", player.Attributes);
+        AddIntMap(fields, "attribute_", player.HiddenAttributes);
         AddIntMap(fields, "personality_", player.Personality);
+        AddIntMap(fields, "foot_", player.FootRatings);
         AddIntMap(fields, "position_", player.PositionRatings);
         AddDecimalMap(fields, "stat_", player.SeasonStatistics);
         AddStringMap(fields, "extra_", player.ExtendedFields);
