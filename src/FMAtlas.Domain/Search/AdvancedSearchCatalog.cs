@@ -66,7 +66,29 @@ public static class AdvancedSearchCatalog
 
     private static readonly (string Key, string Label)[] CoachMedical =
     [
-        ("physiotherapy", "Physiotherapy"), ("sports_science", "Sports Science")
+        ("physiotherapy", "Physiotherapy"), ("sports_science", "Sports Science"),
+        ("judging_player_data", "Judging Player Data"), ("judging_team_data", "Judging Team Data"),
+        ("presenting_data", "Presenting Data")
+    ];
+
+    // Staff job-preference ratings documented in the FM27 reverse-engineering reference.
+    // The source's group 7 remains unnamed and is intentionally omitted.
+    private static readonly (string Key, string Label)[] StaffRolePreferences =
+    [
+        ("role_preference_manager", "Manager"),
+        ("role_preference_assistant_manager", "Assistant Manager"),
+        ("role_preference_coach", "Coach"),
+        ("role_preference_physio", "Physiotherapist"),
+        ("role_preference_scout", "Scout"),
+        ("role_preference_goalkeeper_coach", "Goalkeeping Coach"),
+        ("role_preference_fitness_coach", "Fitness Coach"),
+        ("role_preference_board", "Board / Chairperson"),
+        ("role_preference_director_of_football", "Director of Football"),
+        ("role_preference_head_of_youth_development", "Head of Youth Development"),
+        ("role_preference_loan_manager", "Loan Manager"),
+        ("role_preference_analyst", "Analyst"),
+        ("role_preference_sports_scientist", "Sports Scientist"),
+        ("role_preference_technical_director", "Technical Director")
     ];
 
     public static IReadOnlyList<AdvancedSearchCategoryDefinition> Categories { get; } =
@@ -92,6 +114,13 @@ public static class AdvancedSearchCatalog
         F("club_debt", "Club Debt", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
         F("club_transfer_budget", "Transfer Budget", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
         F("club_wage_budget", "Wage Budget", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
+        F("club_transfer_budget_season", "Season Transfer Budget", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
+        F("club_transfer_budget_remaining", "Transfer Budget Remaining", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
+        F("club_wage_used", "Wage Used", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
+        F("club_max_wage", "Maximum Wage", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
+        F("club_transfer_revenue_percentage", "Transfer Revenue Available (%)", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs, 0, 100),
+        F("club_total_debt", "Total Original Debt", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
+        F("club_monthly_debt_repayments", "Monthly Debt Repayments", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
         F("club_loans", "Club Loans", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs),
         F("club_sponsorship", "Sponsorship Income", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Clubs)
     ];
@@ -123,6 +152,9 @@ public static class AdvancedSearchCatalog
             {
                 staffFields.AddRange(CoachMental.Select(item => F($"attribute_{item.Key}", item.Label, category, SearchFieldValueKind.IntegerRange, Coaches, 0, 20)));
                 staffFields.AddRange(CoachKnowledge.Select(item => F($"knowledge_{item.Key}", item.Label, category, SearchFieldValueKind.IntegerRange, Coaches, 0, 20)));
+                staffFields.AddRange(PlayerAttributeCatalog.PersonalityAttributes.Select(attribute =>
+                    F($"personality_{attribute.Key}", $"Personality: {attribute.DisplayName}", category,
+                        SearchFieldValueKind.IntegerRange, Coaches, 0, 20)));
             }
             return staffFields;
         }
@@ -205,10 +237,20 @@ public static class AdvancedSearchCatalog
             F("club_reputation", "Club Reputation", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 10000),
             F("club_stadium_name", "Stadium Name", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Text, Clubs),
             F("club_stadium_capacity", "Stadium Capacity", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 200000),
-            F("club_average_attendance", "Average Attendance", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 200000)
+            F("club_average_attendance", "Average Attendance", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 200000),
+            F("club_minimum_attendance", "Minimum Attendance", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 200000),
+            F("club_maximum_attendance", "Maximum Attendance", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 200000),
+            F("club_ownership_type", "Ownership Type", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Enum, Clubs),
+            F("club_chairperson_title", "Chairperson Title", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Enum, Clubs),
+            F("club_first_team_reputation", "First Team Reputation", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 10000),
+            F("club_reserve_team_reputation", "Reserve Team Reputation", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 10000),
+            F("club_youth_team_reputation", "Youth Team Reputation", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 10000)
         };
         fields.AddRange(new[]
         {
+            F("club_corporate_facilities", "Corporate Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
+            F("club_youth_coaching", "Youth Coaching", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
+            F("club_youth_importance", "Youth Importance", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
             F("club_training_facilities", "Training Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
             F("club_youth_facilities", "Youth Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
             F("club_youth_recruitment", "Youth Recruitment", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
@@ -219,6 +261,9 @@ public static class AdvancedSearchCatalog
         fields.AddRange(PlayerPositions.Select(position => F(
             $"position_{position.Key}", $"{position.Label} Rating", AdvancedSearchCategoryKind.General,
             SearchFieldValueKind.IntegerRange, Players, 0, 20)));
+        fields.AddRange(StaffRolePreferences.Select(role => F(
+            role.Key, $"Preferred Role: {role.Label}", AdvancedSearchCategoryKind.General,
+            SearchFieldValueKind.IntegerRange, Coaches, 0, 20)));
         fields.AddRange(PlayerAttributeCatalog.FootAttributes.Select(foot => F(
             foot.Key, foot.DisplayName, AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players, 0, 20)));
         return fields.AsReadOnly();
@@ -264,6 +309,7 @@ public static class AdvancedSearchCatalog
             key.StartsWith("facility_", StringComparison.OrdinalIgnoreCase) ||
             key.StartsWith("finance_", StringComparison.OrdinalIgnoreCase) ||
             key.StartsWith("club_", StringComparison.OrdinalIgnoreCase) ||
+            key.StartsWith("role_preference_", StringComparison.OrdinalIgnoreCase) ||
             key is "left_foot" or "right_foot";
 
         if (key == "relations")
