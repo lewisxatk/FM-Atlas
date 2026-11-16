@@ -15,6 +15,9 @@ This library is the source of truth for visual and interaction references. New s
 | REF-002 | `IMG_8151.jpeg` | FMRTE advanced-search dialog: category navigation, entity tabs, grouped filter panels, position pitch, numeric ranges and bottom actions. | Exact functional/layout reference |
 | REF-003 | `IMG_8152.png` | Watched Earth visual language: black canvas, off-white typography, orange accent, editorial display type, monospaced metadata, thin framing lines and restrained controls. | Primary visual identity reference |
 
+
+| REF-004 | `IMG_8153.png` | Full-screen player profile reference: left identity/information rail with portrait; central FM attribute display; compact top-level player profile tabs; dense performance/intelligence panels as visual inspiration. The example player is Lamine Yamal. | Primary player-profile reference |
+
 ### External references
 
 - [Watched Earth](https://www.watched.earth/) — visual language and typography reference.
@@ -38,6 +41,7 @@ The original image uploads are attached to the conversation as:
 - `IMG_8150.png` — REF-001
 - `IMG_8151.jpeg` — REF-002
 - `IMG_8152.png` — REF-003
+- `IMG_8153.png` — REF-004
 
 The screenshots have been inspected in the conversation. This GitHub document records their identities and interpretation; the binary image files have **not** been committed to the repository in this change. Keep the original uploads unchanged and add the actual image binaries to a repository asset folder when a binary-capable transfer is available.
 
