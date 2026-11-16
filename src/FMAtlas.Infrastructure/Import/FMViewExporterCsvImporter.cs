@@ -84,7 +84,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         // file updates the same snapshots; a different export cannot overwrite another.
         var providerKey = $"fm27-view-export:{fileHash[..20]}";
         var warnings = new List<string>();
-        var provenance = Createprovenance();
+        var provenance = CreateCsvEvidence();
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
         var imported = 0;
         var skipped = 0;
