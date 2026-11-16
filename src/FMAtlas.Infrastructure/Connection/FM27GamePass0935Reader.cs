@@ -397,6 +397,7 @@ internal sealed class FM27GamePass0935Reader
             if (value is int number)
                 searchIntegers[key] = new SourcedValue<int>(number, evidence);
         }
+        AddSearchInt("club_uid", teamInfo.ClubUid is uint clubUid && clubUid <= int.MaxValue ? (int)clubUid : null);
         AddSearchInt("home_reputation", homeReputation);
         AddSearchInt("current_reputation", currentReputation);
         AddSearchInt("world_reputation", worldReputation);
@@ -947,12 +948,14 @@ internal sealed class FM27GamePass0935Reader
         return ReadFmString(SafeReadPointer(city + 0x18));
     }
 
-    private (string? ClubName, string? LeagueName, string? TeamKind) ReadPlayerTeam(ulong team)
+    private (string? ClubName, string? LeagueName, string? TeamKind, uint? ClubUid) ReadPlayerTeam(ulong team)
     {
         if (!WindowsProcessMemoryAccessor.IsUserPointer(team))
-            return (null, null, null);
+            return (null, null, null, null);
 
-        var club = ReadPlayerClubName(team);
+        var clubObject = SafeReadPointer(team + 0x30);
+        var clubName = clubObject == 0 ? null : ReadFmString(SafeReadPointer(clubObject + 0xC0));
+        var clubUid = clubObject == 0 ? null : TryReadUInt32(clubObject + 0x0C);
         var competition = SafeReadPointer(team + 0x50);
         var leagueName = competition == 0 ? null : ReadFmString(SafeReadPointer(competition + 0x40));
 
@@ -965,7 +968,7 @@ internal sealed class FM27GamePass0935Reader
             _ => null
         };
 
-        return (club, leagueName, teamKind);
+        return (clubName, leagueName, teamKind, clubUid);
     }
 
     private string? ReadPlayerClubName(ulong team)
