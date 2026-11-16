@@ -220,7 +220,7 @@ public static class AdvancedSearchCatalog
             F("team", "Team / Club", AdvancedSearchCategoryKind.General, SearchFieldValueKind.EntityLookup, PlayersAndCoaches),
             F("preferred_foot", "Preferred Foot", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Enum, Players),
             F("wonderkid", "Wonderkid", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Boolean, Players),
-            F("is_newgen", "Newgen / Generated Record", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Boolean, PlayersAndCoaches),
+            F("is_newgen", "Newgen / Original Database Status", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Boolean, PlayersAndCoaches),
             F("reputation_home", "Home Reputation", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, PlayersAndCoaches, 0, 10000),
             F("reputation_current", "Current Reputation", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, PlayersAndCoaches, 0, 10000),
             F("reputation_world", "World Reputation", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, PlayersAndCoaches, 0, 10000),
