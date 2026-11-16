@@ -154,9 +154,14 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="MATCH" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,7,0"/>
-                <ComboBox x:Name="LogicComboBox" Width="145" Height="28" SelectedIndex="0" SelectionChanged="LogicComboBox_SelectionChanged" Background="#171717" Foreground="{StaticResource Atlas.Text}" BorderBrush="{StaticResource Atlas.Border}" FontSize="9">
+                <ComboBox x:Name="LogicComboBox" Width="112" Height="28" SelectedIndex="0" SelectionChanged="LogicComboBox_SelectionChanged" Background="#171717" Foreground="{StaticResource Atlas.Text}" BorderBrush="{StaticResource Atlas.Border}" FontSize="9">
                     <ComboBoxItem Content="All conditions"/>
                     <ComboBoxItem Content="Any condition"/>
+                </ComboBox>
+                <TextBlock Text="POSITIONS" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="10,0,7,0"/>
+                <ComboBox x:Name="PositionLogicComboBox" Width="130" Height="28" SelectedIndex="0" SelectionChanged="PositionLogicComboBox_SelectionChanged" Background="#171717" Foreground="{StaticResource Atlas.Text}" BorderBrush="{StaticResource Atlas.Border}" FontSize="9">
+                    <ComboBoxItem Content="All chosen"/>
+                    <ComboBoxItem Content="Any chosen"/>
                 </ComboBox>
             </StackPanel>
         </Grid>
