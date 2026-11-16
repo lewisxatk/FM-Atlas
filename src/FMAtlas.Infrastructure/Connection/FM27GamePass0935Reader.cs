@@ -563,8 +563,10 @@ internal sealed class FM27GamePass0935Reader
         var dayField = _memory.ReadUInt16(checked(_moduleBase + CurrentDateRva));
         var day = (ushort)(dayField & 0x1FF);
         var year = _memory.ReadUInt16(checked(_moduleBase + CurrentDateRva + 2));
+        if (year is <= 1900 or > 2200)
+            throw new InvalidDataException($"The FM27 in-game date did not validate (raw day field 0x{dayField:X4}, year {year}).");
         var lastDay = DateTime.IsLeapYear(year) ? 366 : 365;
-        if (year is <= 1900 or > 2200 || day is < 1 || day > lastDay)
+        if (day is < 1 || day > lastDay)
             throw new InvalidDataException($"The FM27 in-game date did not validate (raw day field 0x{dayField:X4}, year {year}).");
         return new DateOnly(year, 1, 1).AddDays(day - 1);
     }
@@ -628,6 +630,13 @@ internal sealed class FM27GamePass0935Reader
         if (!WindowsProcessMemoryAccessor.IsUserPointer(nation))
             return null;
         return ReadFmString(SafeReadPointer(nation + 0x18));
+    }
+
+    private string? ReadCityName(ulong city)
+    {
+        if (!WindowsProcessMemoryAccessor.IsUserPointer(city))
+            return null;
+        return ReadFmString(SafeReadPointer(city + 0x18));
     }
 
     private string? ReadPlayerClubName(ulong team)
@@ -724,8 +733,10 @@ internal sealed class FM27GamePass0935Reader
         // FM27 reserves the upper bits of its day field for flags; only the low
         // nine bits carry the one-based day of year.
         var day = (ushort)(dayField & 0x1FF);
-        var lastDay = year <= 2200 ? (DateTime.IsLeapYear(year) ? 366 : 365) : 0;
-        if (year is <= 1900 or > 2200 || day is < 1 || day > lastDay)
+        if (year is <= 1900 or > 2200 || day == 0)
+            return null;
+        var lastDay = DateTime.IsLeapYear(year) ? 366 : 365;
+        if (day > lastDay)
             return null;
         return new DateOnly(year, 1, 1).AddDays(day - 1);
     }
