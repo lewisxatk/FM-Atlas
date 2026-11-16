@@ -1,0 +1,36 @@
+name: FM Atlas Windows Build
+
+on:
+  push:
+    branches:
+      - rebuild/**
+  pull_request:
+    branches:
+      - main
+      - rebuild/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore FMAtlas.sln
+
+      - name: Build
+        run: dotnet build FMAtlas.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test FMAtlas.sln --configuration Release --no-build --verbosity normal
