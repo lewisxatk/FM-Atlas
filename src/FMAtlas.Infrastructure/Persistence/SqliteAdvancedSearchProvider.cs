@@ -76,33 +76,25 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
                 IsPositionCondition(condition.FieldKey)));
         }
 
-        var predicates = builtPredicates.Select(item => item.Predicate).ToArray();
         var logic = query.Logic == SearchFilterLogic.All ? " AND " : " OR ";
-        string criteriaPredicate;
+        var positionLogic = query.PositionLogic == SearchFilterLogic.All ? " AND " : " OR ";
 
         var positionPredicates = builtPredicates.Where(item => item.IsPosition)
             .Select(item => item.Predicate).ToArray();
         var otherPredicates = builtPredicates.Where(item => !item.IsPosition)
             .Select(item => item.Predicate).ToArray();
 
-        if (query.PositionLogic == SearchFilterLogic.Any && positionPredicates.Length > 1)
-        {
-            var positionGroup = $"({string.Join(" OR ", positionPredicates)})";
-            if (otherPredicates.Length == 0)
-            {
-                criteriaPredicate = positionGroup;
-            }
-            else
-            {
-                var otherGroup = $"({string.Join(logic, otherPredicates)})";
-                var outerLogic = query.Logic == SearchFilterLogic.All ? " AND " : " OR ";
-                criteriaPredicate = $"{otherGroup}{outerLogic}{positionGroup}";
-            }
-        }
-        else
-        {
-            criteriaPredicate = string.Join(logic, predicates);
-        }
+        // Position criteria form their own group. Their All/Any rule remains
+        // independent even when the overall query uses the opposite logic.
+        var groups = new List<string>(2);
+        if (otherPredicates.Length > 0)
+            groups.Add($"({string.Join(logic, otherPredicates)})");
+        if (positionPredicates.Length > 0)
+            groups.Add($"({string.Join(positionLogic, positionPredicates)})");
+
+        var criteriaPredicate = groups.Count == 1
+            ? groups[0]
+            : string.Join(logic, groups);
 
         var sql = $"""
             SELECT e.entity_kind, e.source_id, e.provider_key, e.display_name

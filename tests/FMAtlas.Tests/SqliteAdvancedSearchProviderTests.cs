@@ -482,6 +482,63 @@ public sealed class SqliteAdvancedSearchProviderTests
         }
     }
 
+    [Fact]
+    public async Task PositionAllLogicRemainsIndependentWhenOverallLogicIsAny()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(path);
+
+        var hybrid = new EntityIdentity(EntityKind.Player, "hybrid", "test");
+        var goalkeeperOnly = new EntityIdentity(EntityKind.Player, "goalkeeper-only", "test");
+        var highAbilityOnly = new EntityIdentity(EntityKind.Player, "high-ability-only", "test");
+
+        await store.SaveSnapshotAsync(new PlayerRecord(hybrid)
+        {
+            FullName = new SourcedValue<string>("Hybrid Player", Evidence),
+            CurrentAbility = new SourcedValue<int>(130, Evidence),
+            PositionRatings = new Dictionary<string, SourcedValue<int>>
+            {
+                ["gk"] = new(18, Evidence),
+                ["dc"] = new(17, Evidence)
+            }
+        }, "Hybrid Player");
+
+        await store.SaveSnapshotAsync(new PlayerRecord(goalkeeperOnly)
+        {
+            FullName = new SourcedValue<string>("Goalkeeper Only", Evidence),
+            CurrentAbility = new SourcedValue<int>(100, Evidence),
+            PositionRatings = new Dictionary<string, SourcedValue<int>>
+            {
+                ["gk"] = new(18, Evidence)
+            }
+        }, "Goalkeeper Only");
+
+        await store.SaveSnapshotAsync(new PlayerRecord(highAbilityOnly)
+        {
+            FullName = new SourcedValue<string>("High Ability Only", Evidence),
+            CurrentAbility = new SourcedValue<int>(160, Evidence)
+        }, "High Ability Only");
+
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.Any,
+            [
+                new SearchFilterCondition("position_gk", SearchFilterOperator.Range, Minimum: 15),
+                new SearchFilterCondition("position_dc", SearchFilterOperator.Range, Minimum: 15),
+                new SearchFilterCondition("current_ability", SearchFilterOperator.Range, Minimum: 150)
+            ],
+            PositionLogic: SearchFilterLogic.All);
+
+        var results = await new SqliteAdvancedSearchProvider(path).ExecuteAsync(query);
+
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, result => result.Identity.SourceId == "hybrid");
+        Assert.Contains(results, result => result.Identity.SourceId == "high-ability-only");
+        Assert.DoesNotContain(results, result => result.Identity.SourceId == "goalkeeper-only");
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =
