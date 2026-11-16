@@ -263,6 +263,7 @@ public static class AdvancedSearchCatalog
             key.StartsWith("knowledge_", StringComparison.OrdinalIgnoreCase) ||
             key.StartsWith("facility_", StringComparison.OrdinalIgnoreCase) ||
             key.StartsWith("finance_", StringComparison.OrdinalIgnoreCase) ||
+            key.StartsWith("club_", StringComparison.OrdinalIgnoreCase) ||
             key is "left_foot" or "right_foot";
 
         if (key == "relations")
