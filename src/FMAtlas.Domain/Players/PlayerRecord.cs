@@ -11,6 +11,7 @@ namespace FMAtlas.Domain.Players;
 public sealed record PlayerRecord(EntityIdentity Identity) : IEntityRecord
 {
     public SourcedValue<string>? FullName { get; init; }
+    public SourcedValue<string>? GameUid { get; init; }
     public SourcedValue<DateOnly>? DateOfBirth { get; init; }
     public SourcedValue<int>? Age { get; init; }
     public SourcedValue<string>? Nationality { get; init; }
