@@ -16,5 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\FMAtlas.Domain\FMAtlas.Domain.csproj" />
     <ProjectReference Include="..\..\src\FMAtlas.Application\FMAtlas.Application.csproj" />
+    <ProjectReference Include="..\..\src\FMAtlas.Infrastructure\FMAtlas.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
