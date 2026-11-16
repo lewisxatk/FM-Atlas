@@ -401,3 +401,17 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 - [x] C5 Squad/staff list entries open the matching full profile in the main workspace.
 - [x] C6 Add regression coverage for both Player and Staff membership joins (club 77 includes linked records and excludes club 88).
 - [ ] C7 Verify both pointer relationships against a live disposable/current Game Pass career; evidence remains Mapped.
+
+
+
+### Final profile/workspace follow-up — 2026-11-16
+
+- [x] U20 Club Squads uses current player team -> club UID and queries the exact Club source ID.
+- [x] U21 Club Staff uses staff contract -> team -> club UID and queries the exact Club source ID.
+- [x] U22 Club player/staff results open the corresponding profile tab on double-click.
+- [x] U23 Club section display now surfaces available typed text, integer, decimal, date and Boolean field families without duplicate rows.
+- [x] U24 Staff identity rail surfaces DOB, club, role, UID, wage and contract expiry.
+- [x] U25 Header breadcrumb follows the selected in-app workspace tab.
+- [x] U26 Removed stale “IN PROGRESS” marker from Players navigation.
+- [x] U27 Static WPF check: 7 XAML files balanced; 38 events resolved; zero missing static resources.
+- [ ] U28 Full Windows .NET 8 compile/test, real visual comparison and live Game Pass runtime verification.
