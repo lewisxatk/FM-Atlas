@@ -1228,3 +1228,18 @@ Safety boundary: no live process writes and no modification of the user's career
 **Design review:** `docs/UI_REVIEW_001.md`.  
 **Live connection safety:** `research/LIVE_GAME_CONNECTION_001.md` and `research/LIVE_EDIT_SAFETY_001.md`.  
 **Latest honest state:** profile/workspace structure substantially implemented; many source-specific tabs remain empty; live reader unverified; no writer enabled; no Windows build artifact produced.
+
+
+
+### Checkpoint 022 — Club profile linked squads and staff
+
+- [x] Player live records now project a numeric `club_uid` from the player's team -> club object.
+- [x] Staff live records now project a numeric `club_uid` from contract -> team -> club object.
+- [x] Club Squads section queries the player index by exact `club_uid` and displays matching player names/IDs.
+- [x] Club Staff section queries the staff index by exact `club_uid` and displays matching coach/staff names/IDs.
+- [x] Double-click from either list opens the corresponding Player or Staff profile in the in-app workspace.
+- [x] Added a regression test proving both joins include club 77 records and exclude club 88 records.
+- [ ] Verify the source offsets and relationships against a running FM27 Game Pass 0.9.2435.0 career. These are still `LiveGameMemory / Mapped`, not `ReadVerified`.
+- [ ] Windows .NET 8 restore/build/test remains blocked by Actions runner failures before steps/logs; no executable artifact is verified.
+
+**Latest code commit for staff/player club links:** see branch head and `research/LIVE_GAME_CONNECTION_001.md`.
