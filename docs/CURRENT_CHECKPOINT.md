@@ -1088,3 +1088,75 @@ Re-opened FMLibreEditor 0.9.2435.0 recon, exact build profile, edit-field/write 
 **Latest live-read hardening commits:** `895eda4955cefa522c15f77f2aeda6fef293991b`, `009407fc8d48a4135ee0590700b57aa54cbd1118`, and research update `c90f694702445b1bfc3e43bb3d71e06d07433f64`.
 
 **Next critical task:** build a disposable-save field verification harness for the current read mappings, then implement a separate Windows writer with immediate preflight, read-back and undo. Do not enable writes based only on external offsets.
+
+
+---
+
+## Checkpoint 020 — FM27 Game Pass live connection, scan, indexing and loading lock
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Current phase:** Live save limitation is the priority.  
+**Status:** Exact-build read-only scanner, session invalidation, local typed import and blocking animated loading experience are committed. Windows compile/runtime verification is still outstanding.
+
+### What is now connected
+
+1. **Load Game** invokes `WindowsFm27LiveGameConnector.ConnectAndImportAsync` rather than the earlier presence-only process probe.
+2. Process discovery expects one FM process and a loaded `game_plugin.dll`. It checks the x64 PE fingerprint before opening the process.
+3. The reader is explicitly restricted to Game Pass 0.9.2435.0:
+   - machine `0x8664`;
+   - PE timestamp `0x6AE8CF77`;
+   - SizeOfImage `0x17969000`.
+4. The connector opens a read-only process handle and scans the documented Player, Staff and Club pointer arrays.
+5. Player, Staff and Club snapshots are built with typed field values and per-field provenance.
+6. The whole live entity set and its search projection is saved in one SQLite transaction.
+7. The current active save generation is verified before scanning, after scanning, after database import and every two seconds while connected. A process exit, save switch, empty player array or loss of a valid memory read closes the session and removes the transient live provider.
+8. The transient live provider is cleared at app startup and before a fresh load; CSV providers are preserved.
+
+### Live data fields now mapped
+
+**Players:** UID/name/common name, DOB/age, nationality/secondary nationality, gender, city of birth, club/team/competition, position and height; CA/PA, transfer value, wage and contract expiry; 52 standard/hidden attributes, eight personality ratings, two foot ratings, 15 positions, 64 preferred moves; caps/goals and U21 caps/goals; home/current/world reputation, condition, match sharpness, jadedness and morale; asking price, squad status/number, transfer/loan-list flags, contract type, loyalty bonus, happiness and contract dates; Newgen flag; trained-in nation, trained-at club and work-permit nationality relationship search fields.
+
+**Staff:** UID/name, DOB/age, nationality/gender, club and job role; CA/PA, wage, contract expiry/signed/joined dates and contract type; coaching/mental/medical/knowledge values, authority and working-with-youngsters; personality and home/current/world reputation.
+
+**Clubs:** UID/name/short name, nation, competition, founded year, reputation, women's-club flag, training/youth/corporate facilities, stadium name/capacity/seating/used/expansion, supporter mix and traits, season ticket/social follower counts, balance, transfer budget, wage budget, total wage budget and average ticket price when a club's finance record is present and each value validates.
+
+Fields that are absent or fail their validation are left unknown; they are not manufactured as zero. Additional typed values flow into the Indexed Fields category of Advanced Search.
+
+### Loading experience
+
+- A centered compact loading panel displays a rotating dashed ring, stage text, detail, progress bar and percentage.
+- The overlay blocks the entire main workspace and owned Advanced Search/profile windows while the scan/index is in progress.
+- The UI holds keyboard focus on the overlay; Quick Search popup refresh is deferred until the overlay has closed.
+- Memory scanning runs on a background task and SQLite persistence uses asynchronous calls, so the loading animation can keep rendering.
+
+### Critical build / edit safety
+
+- The profile's evidence status remains **ExternalReferenceOnly**. A new `CanAttemptReadOnlyScan` property explicitly allows a scanner only where FM Atlas has code for that exact package. This is not the same as `CanReadLiveData` (still false) and never enables writes.
+- `WindowsProcessMemoryAccessor` opens only `PROCESS_VM_READ | PROCESS_QUERY_INFORMATION` and exposes `ReadProcessMemory` only.
+- **Save Live Changes remains disabled.** No live field is WriteVerified and no live process write has been performed. We are not claiming that editing/saving is finished.
+- The current scanner will reject Game Pass 0.9.2409.0, Steam, unknown FM27 patches and any non-matching module fingerprint.
+
+### Tests and verification
+
+New source regression coverage includes:
+- atomic Player/Staff/Club batch import into Quick and Advanced Search;
+- provider-scoped live data deletion that preserves imported CSV datasets;
+- all-or-nothing batch rollback for an invalid entity identity;
+- preferred-move HasTrait query from batch-imported live records;
+- dynamic club facility, stadium, women's-club and finance-field discovery;
+- exact Game Pass profile read-only-probe permission distinct from Atlas-verified read/write permission.
+
+These tests are committed but not executed. This environment does not have the .NET SDK or a Windows runtime. The recent GitHub-hosted Windows jobs have failed before runner allocation and produced no steps or log object. No current Windows build artifact has been produced. Do not call the scanner tested or the current branch release-ready until a real Windows restore/build/test and in-game comparison pass.
+
+### Current remaining priorities
+
+1. Run the full .NET 8 Windows restore/build/test script on the latest branch head and fix actual compiler/XAML/test errors.
+2. First live Game Pass test on package 0.9.2435.0; compare counts, names, genders, attributes, CA/PA, contract dates and clubs with the FM UI.
+3. Add remaining missing player/staff/club fields after their object structures are confirmed.
+4. Mark the build AtlasReadVerified only after that real comparison.
+5. Build a separate guarded editing writer only after each field has a tested offset, value bounds, save-generation check, pre-write read, post-write read-back and undo/rollback test. Keep Save Live Changes disabled until then.
+
+Detailed findings: `research/LIVE_GAME_CONNECTION_001.md`.  
+Checklist: `docs/FRESH_REBUILD_CHECKLIST.md`.  
+Safety boundary: no live process writes and no modification of the user's career file have been performed.
