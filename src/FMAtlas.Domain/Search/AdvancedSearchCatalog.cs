@@ -323,7 +323,7 @@ public static class AdvancedSearchCatalog
             key.StartsWith("finance_", StringComparison.OrdinalIgnoreCase) ||
             key.StartsWith("club_", StringComparison.OrdinalIgnoreCase) ||
             key.StartsWith("role_preference_", StringComparison.OrdinalIgnoreCase) ||
-            key is "left_foot" or "right_foot";
+            key is "left_foot" or "right_foot" or "relations";
 
         return new AdvancedSearchFieldDefinition(
             key, label, category, valueKind, entities, FieldEvidenceStatus.Documented,
