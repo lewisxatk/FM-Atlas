@@ -14,6 +14,9 @@ namespace FMAtlas.Desktop.ViewModels;
 /// </summary>
 public sealed class PlayerProfileViewModel : INotifyPropertyChanged
 {
+    private static readonly string[] CanonicalPositionOrder =
+        ["GK", "SW", "DL", "DC", "DR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST", "WBL", "WBR"];
+
     private string _selectedSection = "Information";
     private readonly ObservableCollection<ProfileValueRowViewModel> _selectedSectionRows = [];
     private string _sectionDescription = "Player information and the full supported FM attribute set.";
@@ -55,7 +58,11 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
 
         PositionRatings = new ObservableCollection<ProfileValueRowViewModel>(
             player.PositionRatings
-                .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(pair =>
+                {
+                    var index = Array.IndexOf(CanonicalPositionOrder, pair.Key.ToUpperInvariant());
+                    return index < 0 ? int.MaxValue : index;
+                })
                 .Select(pair => new ProfileValueRowViewModel(
                     pair.Key.ToUpperInvariant(),
                     Format(pair.Value.Value),
@@ -122,6 +129,9 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     public string AgeInfoText => $"Age  ·  {Format(Player.Age?.Value)}";
     public string DateOfBirthInfoText => $"Date of birth  ·  {Format(Player.DateOfBirth?.Value)}";
     public string NationalityInfoText => $"Nationality  ·  {Format(Player.Nationality?.Value)}";
+    public string SecondNationalityInfoText => $"Second nationality  ·  {Format(Player.SecondNationality?.Value)}";
+    public string CityOfBirthInfoText => $"Born  ·  {Format(Player.CityOfBirth?.Value)}";
+    public string AskingPriceInfoText => $"Asking price  ·  {Format(Player.SearchIntegerFields.GetValueOrDefault("asking_price")?.Value, " currency units")}";
     public string ClubInfoText => $"Club / Team  ·  {Format(Player.ClubName?.Value ?? Player.TeamName?.Value)}";
     public string LeagueInfoText => $"League  ·  {Format(Player.LeagueName?.Value)}";
     public string PositionInfoText => $"Position  ·  {Format(Player.PrimaryPosition?.Value)}";
