@@ -26,12 +26,24 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     {
         Player = player ?? throw new ArgumentNullException(nameof(player));
         OpenPlayers = [];
-        Sections =
-        [
-            "Information", "Contract", "Stats", "Unavailability", "Transfer Proposals",
-            "Retire Date", "Positions", "Preferred Moves", "Relationships", "Languages",
-            "Scout Information", "Staff", "Clone Center", "Personality / Hidden", "History"
-        ];
+        Sections = new ObservableCollection<ProfileSectionTabViewModel>
+        {
+            new("Information", isSelected: "Information" == "Information"),
+            new("Contract", isSelected: "Contract" == "Information"),
+            new("Stats", isSelected: "Stats" == "Information"),
+            new("Unavailability", isSelected: "Unavailability" == "Information"),
+            new("Transfer Proposals", isSelected: "Transfer Proposals" == "Information"),
+            new("Retire Date", isSelected: "Retire Date" == "Information"),
+            new("Positions", isSelected: "Positions" == "Information"),
+            new("Preferred Moves", isSelected: "Preferred Moves" == "Information"),
+            new("Relationships", isSelected: "Relationships" == "Information"),
+            new("Languages", isSelected: "Languages" == "Information"),
+            new("Scout Information", isSelected: "Scout Information" == "Information"),
+            new("Staff", isSelected: "Staff" == "Information"),
+            new("Clone Center", isSelected: "Clone Center" == "Information"),
+            new("Personality / Hidden", isSelected: "Personality / Hidden" == "Information"),
+            new("History", isSelected: "History" == "Information")
+        };
 
         // The public FMLibreEditor profile catalogue uses GK >= 15 to select
         // the goalkeeper profile group. A small non-zero GK familiarity alone
@@ -73,7 +85,7 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
 
         SelectSectionCommand = new ProfileSectionCommand(section =>
         {
-            if (section is string name && Sections.Contains(name))
+            if (section is string name && Sections.Any(tab => tab.Name == name))
                 SelectedSection = name;
         });
         UpdateSelectedSectionRows();
@@ -84,7 +96,7 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     private PlayerRecord Player { get; }
 
     public ObservableCollection<OpenPlayerTabViewModel> OpenPlayers { get; }
-    public IReadOnlyList<string> Sections { get; }
+    public ObservableCollection<ProfileSectionTabViewModel> Sections { get; }
     public ObservableCollection<PlayerAttributeGroupViewModel> AttributeGroups { get; }
     public ObservableCollection<ProfileValueRowViewModel> SeasonStatistics { get; }
     public ObservableCollection<ProfileValueRowViewModel> PositionRatings { get; }
@@ -99,6 +111,8 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
             if (_selectedSection == value)
                 return;
             _selectedSection = value;
+            foreach (var tab in Sections)
+                tab.IsSelected = tab.Name == value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsInformationSection));
             UpdateSelectedSectionRows();
