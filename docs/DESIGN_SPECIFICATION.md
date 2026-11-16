@@ -378,3 +378,59 @@ The screenshot's profile header also informs a compact identity/ability summary:
 - [ ] Unsaved changes are protected when switching or closing tabs.
 - [ ] Profile layout is visually compared against REF-004 at a desktop resolution.
 - [ ] No placeholder or third-party example metrics are misrepresented as Football Manager data.
+
+
+## 13. Attribute editor detail — REF-005
+
+**Controlling reference:** FMRTE 27.0.1 build 12 bundled image `current/Assets/whatsnew/potential-attributes.png`.
+
+The central attribute workspace in REF-004 must follow the familiar FMRTE/FM attribute arrangement:
+- Technical / Goal Keeper selector, showing the appropriate primary group for the selected player.
+- Separate Mental, Physical and Hidden groups.
+- Attribute labels and ordering from the canonical FM attribute catalogue, not alphabetically sorted or invented.
+- Current / Potential view selector, with actual source semantics verified before values are displayed.
+- Role selection and role-attribute information as a distinct calculated/recommended view, not mixed into raw FM attribute values.
+- Key for role, Preferable and Lower is better metadata where supported.
+- Custom role-attribute weights only after their meaning and data source are verified.
+- Player presets and Make Wonderkid actions are later editing features; they must be explicit operations with validation and change history.
+
+The screenshot is a visual reference, not proof that all shown values are raw player attributes. Role weights and potential projections must be labelled separately from actual FM data.
+
+### Attribute catalogue rules
+
+- The current best source for FM profile grouping/order is FMLibreEditor's `playerAttributes.ts`, whose comment explicitly states that it follows the order FM lists by group.
+- Outfield profile: Technical, Mental, Physical, Hidden, Personality, Feet.
+- Goalkeeper profile: Goalkeeping, Mental, Physical, Hidden, Personality, Feet. The Goalkeeping group includes shared First Touch and Passing.
+- The eight personality ratings are a separate group and are not part of the 52 unique non-foot standard/hidden attributes.
+- Goalkeeper classification in the inspected FMLibreEditor code uses GK position rating 15 or higher. This is documented external behaviour; verify against FM27/FMRTE before treating it as the final in-app rule.
+- Final label and order comparison must be done against the user's FM27 in-game profile and FMRTE.
+
+## 14. Changes / Edit History — REF-006
+
+The FMRTE reference shows changes grouped by player and batch, with old/new values, individual Undo, Undo all and Clear history.
+
+FM Atlas requirements:
+- Dedicated Changes / Edit History workspace.
+- Group changes by player and operation batch.
+- Show field name, previous value, new value and timestamp.
+- Support per-field Undo and batch Undo only when safe.
+- Validate the current game value before undoing; never overwrite a later external change.
+- Clearly label actions that cannot be undone.
+- Clear history must not imply that it reverts changes.
+- Keep the current session history separate from saved career persistence.
+
+## 15. Tactical Understanding — REF-007 (deferred)
+
+The FMRTE screenshots show tactical dimensions for in-possession, out-of-possession and shapes, plus Team Cohesion. The national-team view also shows Training Contribution alongside Match Exposure.
+
+This remains outside the first simple-editor release. Research the exact FM27 values, semantics and live/save data source before implementation. Do not infer or fabricate formulas from the visual bars.
+
+## 16. Bulk change review and presets — REF-008 / REF-009 (deferred)
+
+- REF-008 establishes a review-before-apply pattern with selected proposed operations, current/proposed values and reasons.
+- REF-009 establishes named, entity-scoped mass-edit presets and explicit duplicate-name replacement.
+- These are later features after single-record editing, history and rollback are reliable.
+
+## 17. Career Plans — REF-010
+
+Career Plans belongs in the relevant player/staff profile only when the selected entity exposes those fields. The reference shows a future job, outlook and in-game narrative. Field availability and editability must be researched separately.
