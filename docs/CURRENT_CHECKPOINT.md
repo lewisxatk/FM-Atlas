@@ -704,3 +704,67 @@ No live career file has been changed. No process memory has been read or written
 7. Only after a real save has been read and field mappings verified, enable live-save actions. Save Live Save remains a separate, gated write operation.
 
 **Preservation:** Historical recovery source remains untouched. All work in this checkpoint belongs to the fresh rebuild branch.
+
+
+---
+
+## Checkpoint 016 — Indexed search expansion and read-only player profile handoff
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Starting code head:** `25ff168bb43a0b0855b912ad8d8c4778bf73b03b`  
+**Status:** Code and source regression tests committed. Windows restore/build/test remains unverified because Actions jobs terminate before runner steps/logs become available.
+
+### Work recovered and preserved
+
+- Re-fetched the current branch head and the latest committed source before continuing after the interrupted response.
+- Preserved all intervening work on the branch, including search presets, typed filters, relationship persistence/search and independent All/Any position grouping.
+- Did not alter the historical recovery branch or merge the draft PR.
+
+### Advanced Search coverage and behaviour
+
+- Search remains read-only against the local SQLite index.
+- Added/retained the Player, Coach and Club entity contexts, field finder across categories, All/Any matching, separate position All/Any matching, numeric/date MIN/MAX controls, Boolean Any/Yes/No/Unknown, text/enum, trait and position-rating controls.
+- Numeric SQL predicates use inclusive `>=` and `<=`. A MIN-only condition (e.g. Dribbling minimum 12) has no upper limit; a MAX-only condition has no lower limit.
+- Static catalogue covers the documented player attributes, hidden attributes, separate personality values, left/right foot, positions, CA/PA, reputation, personal/contract fields, staff fields and club facilities/finances. Per-field bounds are validated, including 0–20 ratings and distinct CA/PA/reputation scales.
+- The Newgen filter has three explicit states: generated/newgen, source-confirmed original database person, and unknown. Age/PA/name/face are not used as substitutes for a source-confirmed generated-person flag.
+- Indexed Data discovers consistently typed fields actually present in local `field_values`, including integer, decimal, text, date and Boolean fields. It excludes a key where stored values use mixed types. This extends search to imported statistics without inventing mappings.
+- Search preset JSON includes entity, conditions and matching logic; Clear Filters clears the selected entity's stored criteria and results.
+- Relations has a read-only, bidirectional query path over the normalized relationship table. Live FM relationship ingestion is not yet connected.
+- Recommended CA remains In Progress until an evidenced formula/field mapping has been independently verified.
+
+### Player profile handoff
+
+- Advanced Search result rows retain the complete provider-scoped entity identity.
+- Double-clicking a Player result asks the typed snapshot store for the matching `PlayerRecord`.
+- If the snapshot is available, a separate read-only profile window opens; a window for the same provider-scoped identity is activated rather than duplicated.
+- If the entity row exists but the typed player snapshot is missing, the app presents an explicit message instead of inventing a profile.
+- The profile binds snapshot-backed identity, contract summary, CA/PA with evidence tooltips, attribute groups, position ratings, preferred moves, season statistics and Newgen classification/evidence.
+- Coach and Club profile windows are not connected. Profile section-specific screens/tabs, WPF portrait binding and editable player controls remain incomplete.
+- Live profile data depends on a future verified importer. The profile does not read live process memory.
+
+### Startup and database
+
+- Removed the conflicting WPF `StartupUri`; the app has one dependency-injected `OnStartup` path.
+- Local Atlas database initialisation/migrations are performed before the read-only search providers are used.
+- Startup migration errors are reported with a message and non-zero shutdown rather than failing silently.
+
+### Verification and blocker
+
+- Source regression tests now cover one-sided ranges, bounds, Boolean newgen states, position logic, club/staff mappings, relationships, preset roundtrip, discovered indexed season statistics and every field marked READY.
+- These tests are committed but **not yet executed** in this session; the local environment has no .NET SDK.
+- Latest observed Windows workflow on the starting head: [43842585096](https://github.com/lewisxatk/FM-Atlas/actions/runs/43842585096). It failed within seconds; its job has `steps=null` and no downloadable logs (`BlobNotFound`). This is not a diagnosed C#/XAML error, but it is not a passing build either.
+- No current Windows build artifact is verified or available from these runs.
+
+### Explicit remaining work / safety boundary
+
+1. Restore a functioning Windows Actions runner or run the documented .NET 8 restore/build/test commands on the user's Windows machine and resolve any real compiler/test errors.
+2. Add a verified FM27 Game Pass read-only save/world-data importer to populate player/staff/club typed records, dynamic field index, relations and authoritative newgen status.
+3. Validate every field against FM27 UI and an independent tool for the exact installed package/build; final player attribute display order still needs visual confirmation.
+4. Finish player profile section-specific navigation, portrait binding and Coach/Club profiles.
+5. Only after real build and field-level verification, implement guarded live writing, read-back, rollback and in-game persistence. Load Live Save and Save Live Save remain disabled.
+6. The Wyscout/StatsBomb scouting expansion remains deferred until the basic importer, search and profile are usable.
+
+**Files with the main source changes:** `IIndexedAdvancedSearchFieldProvider.cs`, `AdvancedSearchCatalog.cs`, `AdvancedSearchQuery.cs`, `SqliteAdvancedSearchProvider.cs`, `AdvancedSearchWindowViewModel.cs`, `AdvancedSearchWindow.xaml(.cs)`, `PlayerProfileViewModel.cs`, `PlayerProfileView.xaml`, `MainWindow.xaml.cs`, `App.xaml(.cs)`, and related regression tests.
+
+**Current status:** Changes are committed; no uncommitted changes are known. Do not describe this branch as a verified release until Windows restore/build/test passes.
