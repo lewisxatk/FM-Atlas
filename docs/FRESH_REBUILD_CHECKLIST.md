@@ -63,7 +63,19 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M4.5 Verified FM attribute names/grouping/order.
 - [ ] M4.6 CA and PA display.
 - [ ] M4.7 Right-side grounded information panels.
-- [ ] M4.8 Compact player tabs.
+- [ ] M4.8 Compact top-of-profile FMRTE-style tabs.
+- [ ] M4.8a Information and complete attribute view.
+- [ ] M4.8b Contract.
+- [ ] M4.8c Stats (read-only, real save data).
+- [ ] M4.8d Unavailability.
+- [ ] M4.8e Transfer Proposals.
+- [ ] M4.8f Retire Date.
+- [ ] M4.8g Positions.
+- [ ] M4.8h Preferred Moves.
+- [ ] M4.8i Relationships and Languages.
+- [ ] M4.8j Scout Information (verified only).
+- [ ] M4.8k Conditional Staff and Clone Center.
+- [ ] M4.8l History and Personality/Hidden where supported.
 - [ ] M4.9 Multiple open player tabs.
 - [ ] M4.10 Unsaved change protection.
 
@@ -101,9 +113,15 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 ## M7 — Staff and clubs
 - [ ] M7.1 Staff search/profile.
 - [ ] M7.2 Staff attribute and contract information.
+- [ ] M7.2a Career Plans, Promises and Swap Staff.
+- [ ] M7.2b Training Rating, Formations/Tendencies and Knowledge.
+- [ ] M7.2c Relationships, Retire Date and Languages.
 - [ ] M7.3 Staff verified editing.
 - [ ] M7.4 Club search/profile.
 - [ ] M7.5 Club facilities/finances/stadium information.
+- [ ] M7.5a Squads, Youth Intake and Club Vision.
+- [ ] M7.5b Possible Signings, Player Clauses and Transfer Center.
+- [ ] M7.5c Staff, Wage Contributions, Kits/Colours and Affiliations.
 - [ ] M7.6 Club verified editing.
 
 ## M8 — Release
@@ -128,6 +146,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] Recovery branch/source inventory checked.
 - [x] Uploaded research package inventory and first research findings committed.
 - [x] Architecture decision documented.
+- [x] FMRTE 27 official player/staff/club/search/edit-history feature audit committed.
 - [x] Clean WPF solution and initial shell source committed.
 - [x] Windows CI workflow and initial unit-test project committed.
 - [ ] Windows CI/build result and visual screenshot comparison still required.
