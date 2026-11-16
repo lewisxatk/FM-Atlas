@@ -984,3 +984,17 @@ When a compatible UTF-8 FM27 player CSV is available:
 - A failed-job retry was accepted. Retry job ID `133251606257` also completed with failure, returned zero steps and its job-log download returned 404/BlobNotFound.
 - No Restore / Build / Test command ran, no compiler/test output exists, and no artifact was uploaded. This remains a hosted Actions provisioning/access blocker, not a diagnosed source compile failure and not a pass.
 - The added local PowerShell script is therefore the available route to obtain an actionable Windows build/test result. The script itself has not been run in this environment because the .NET SDK and Windows PowerShell are unavailable.
+
+
+### Checkpoint 019 — import usability and evidence warnings
+
+**Latest source commit:** `233541fed9ab6a6a34c07bc7e5f178b00e96bfa8`.
+
+- The Import CSV result now includes a clear warning when the chosen file has no explicit `Gender` column. It explains that unclassified player records stay visible under the Include women filter.
+- The main-header Include women tooltip now describes the unknown-gender behaviour.
+- Added test assertions that the missing-gender warning appears only when the CSV lacks gender, and that an explicit gender column feeds the global Quick Search Include women filter.
+- Semicolon-delimited CSV decimal parsing now uses the separators present in each value: a comma-only value is parsed as decimal-comma, a dot-only value as decimal-dot, and mixed comma/dot values use the delimiter convention. A regression assertion covers a semicolon CSV containing both `181,5 cm` and `72.5`.
+- The dashboard's player tile now reports the number of players imported in the **latest CSV** rather than remaining stuck on “No records imported”. It explicitly labels the metric as the latest import, not a total across all stored datasets.
+- Zero-player imports display a “No players imported” status rather than a misleading plural success message.
+
+**Verification:** These source/tests remain unexecuted. The local tool environment has no .NET SDK. The last observed hosted runner run #451 (ID `43853394674`) failed before any steps/logs and its retry failed the same way. Later push commits do not currently have a retrievable status result from the available connector response. No Windows test package exists yet.
