@@ -27,13 +27,36 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
         IReadOnlyList<FMAtlas.Domain.Entities.IEntityRecord> Records,
         int Players,
         int Staff,
-        int Clubs);
+        int Clubs,
+        FM27LiveScanValidationResult Validation);
 
     private readonly IEntityRecordBatchSnapshotStore _snapshotStore;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private LiveSession? _session;
     private volatile bool _disconnectRequested;
     private bool _disposed;
+    private static readonly object DiagnosticLock = new();
+
+    private static string DiagnosticPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "FM Atlas", "Logs", "live-connection.log");
+
+    private static void WriteDiagnostic(string message)
+    {
+        try
+        {
+            lock (DiagnosticLock)
+            {
+                var path = DiagnosticPath;
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.AppendAllText(path, $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}");
+            }
+        }
+        catch
+        {
+            // Diagnostics must never prevent connection cleanup or change FM behaviour.
+        }
+    }
 
     public WindowsFm27LiveGameConnector(IEntityRecordBatchSnapshotStore snapshotStore)
     {
@@ -57,6 +80,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
         ThrowIfDisposed();
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         LiveSession? candidate = null;
+        WriteDiagnostic("Load request started. Read-only mode; no process-write or terminate rights are requested.");
         try
         {
             var previousSession = _session;
@@ -81,6 +105,9 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 () => ScanLiveGame(progress, cancellationToken),
                 cancellationToken).ConfigureAwait(false);
             candidate = work.Session;
+            WriteDiagnostic($"Read-only scan passed layout checks: players={work.Players}; staff={work.Staff}; clubs={work.Clubs}; " +
+                $"memoryReads={work.Session.Memory.ReadOperations}; bytesRead={work.Session.Memory.BytesRead}; " +
+                $"saveGeneration={work.Session.SaveGeneration}; {work.Validation.Summary}");
 
             cancellationToken.ThrowIfCancellationRequested();
             progress?.Report(new LiveGameLoadProgress(96, "Building the search index",
@@ -124,6 +151,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
         }
         catch (Exception loadException)
         {
+            WriteDiagnostic($"Load failed: {loadException.GetType().Name}: {loadException.Message}");
             if (candidate is not null)
             {
                 try
@@ -175,6 +203,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
         WindowsProcessMemoryAccessor? memory = null;
         try
         {
+            WriteDiagnostic($"FM process found: pid={gameProcess.Id}; processName={gameProcess.ProcessName}.");
             cancellationToken.ThrowIfCancellationRequested();
             ProcessModule? plugin = null;
             try
@@ -197,6 +226,9 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             if (fingerprint is null)
                 throw new InvalidOperationException("FM Atlas found game_plugin.dll but could not read its on-disk PE fingerprint. The Game Pass package cannot be confirmed, so no live data was read.");
 
+            WriteDiagnostic($"game_plugin.dll fingerprint: machine=0x{fingerprint.Machine:X4}; timestamp=0x{fingerprint.PeTimestamp:X8}; " +
+                $"imageSize=0x{fingerprint.SizeOfImage:X8}; fileVersion={fingerprint.FileVersion ?? "unavailable"}.");
+
             if (!FM27GamePass0935Reader.Matches(fingerprint))
             {
                 var known = GameBuildProfileCatalog.MatchReference(fingerprint);
@@ -218,6 +250,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             var providerKey = LiveProviderKey;
             var reader = new FM27GamePass0935Reader(memory, moduleBase, providerKey);
             var initial = reader.InspectLoadedSave();
+            WriteDiagnostic($"Initial save probe: generation={initial.SaveGeneration}; players={initial.Players}; staff={initial.Staff}; clubs={initial.Clubs}; inGameDate={initial.InGameDate:yyyy-MM-dd}.");
             if (initial.SaveGeneration != initialGeneration)
                 throw new InvalidOperationException("FM27 changed its loaded save during connection. Press Load Game again after the loading screen finishes.");
 
@@ -241,6 +274,10 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             try
             {
                 var records = reader.ReadAllRecords(progress, cancellationToken);
+                progress?.Report(new LiveGameLoadProgress(92, "Validating the live layout",
+                    "Checking entity identities, CA values, position ratings and player-to-club links before importing."));
+                var validation = FM27LiveScanValidator.Validate(records);
+                WriteDiagnostic($"Layout validation passed: {validation.Summary}; warnings={validation.Warnings.Count}.");
                 cancellationToken.ThrowIfCancellationRequested();
                 if (session.Process.HasExited)
                     throw new InvalidOperationException("Football Manager closed while FM Atlas was reading the career.");
@@ -255,10 +292,11 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 if (playerCount == 0 || staffCount == 0 || clubCount == 0)
                     throw new InvalidDataException($"The scan was incomplete (players {playerCount:N0}, staff {staffCount:N0}, clubs {clubCount:N0}). FM Atlas has discarded the scan rather than indexing partial results.");
 
-                return new ScanWork(session, records, playerCount, staffCount, clubCount);
+                return new ScanWork(session, records, playerCount, staffCount, clubCount, validation);
             }
-            catch
+            catch (Exception exception)
             {
+                WriteDiagnostic($"Scan rejected before import: {exception.GetType().Name}: {exception.Message}");
                 DisconnectSession(session);
                 throw;
             }
