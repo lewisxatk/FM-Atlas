@@ -15,7 +15,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     // Enables only the exact-build, read-only Game Pass scanner. Live writing
     // remains disabled and the UI requires an explicit confirmation before scanning.
-    private const bool LiveLoadSafetyGateEnabled = true;
+    private static readonly bool LiveLoadSafetyGateEnabled = true;
     private readonly IGameProcessProbe _processProbe;
     private readonly IAtlasDatabase _atlasDatabase;
     private readonly IEntitySearchProvider _entitySearchProvider;
