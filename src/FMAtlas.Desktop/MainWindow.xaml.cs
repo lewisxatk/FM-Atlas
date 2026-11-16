@@ -5,6 +5,8 @@ using Microsoft.Win32;
 using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Entities;
 using FMAtlas.Domain.Players;
+using FMAtlas.Domain.Staff;
+using FMAtlas.Domain.Clubs;
 using FMAtlas.Desktop.ViewModels;
 using FMAtlas.Desktop.Views;
 
@@ -15,8 +17,9 @@ public partial class MainWindow : Window
     private readonly IAdvancedSearchProvider _advancedSearchProvider;
     private readonly IEntityRecordSnapshotStore _snapshotStore;
     private readonly IPlayerExportImporter _playerExportImporter;
+    private readonly IEntitySearchProvider _entitySearchProvider;
     private readonly MainWindowViewModel _mainWindowViewModel;
-    private readonly Dictionary<string, Window> _openPlayerProfiles = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TabItem> _openWorkspaceTabs = new(StringComparer.Ordinal);
     private AdvancedSearchWindow? _advancedSearchWindow;
     private readonly DispatcherTimer _liveSessionMonitorTimer;
 
@@ -24,7 +27,8 @@ public partial class MainWindow : Window
         MainWindowViewModel viewModel,
         IAdvancedSearchProvider advancedSearchProvider,
         IEntityRecordSnapshotStore snapshotStore,
-        IPlayerExportImporter playerExportImporter)
+        IPlayerExportImporter playerExportImporter,
+        IEntitySearchProvider entitySearchProvider)
     {
         InitializeComponent();
         DataContext = viewModel;
@@ -41,6 +45,7 @@ public partial class MainWindow : Window
             // owned workspace until the live snapshot is complete or rejected.
             foreach (Window ownedWindow in OwnedWindows)
                 ownedWindow.IsEnabled = !isLoading;
+            WorkspaceTabControl.IsEnabled = !isLoading;
 
             if (isLoading)
             {
@@ -54,6 +59,7 @@ public partial class MainWindow : Window
         _advancedSearchProvider = advancedSearchProvider ?? throw new ArgumentNullException(nameof(advancedSearchProvider));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _playerExportImporter = playerExportImporter ?? throw new ArgumentNullException(nameof(playerExportImporter));
+        _entitySearchProvider = entitySearchProvider ?? throw new ArgumentNullException(nameof(entitySearchProvider));
 
         _liveSessionMonitorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _liveSessionMonitorTimer.Tick += async (_, _) =>
@@ -149,75 +155,209 @@ public partial class MainWindow : Window
                 _advancedSearchWindow = null;
         };
 
-        searchWindow.Show();
-        searchWindow.Activate();
+        searchWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        searchWindow.ShowDialog();
+    }
+
+    private void NavigationButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string destination })
+            return;
+
+        if (destination == "Dashboard")
+        {
+            WorkspaceTabControl.SelectedIndex = 0;
+            return;
+        }
+
+        if (destination is "Players" or "Staff" or "Clubs")
+        {
+            var kind = destination switch
+            {
+                "Players" => EntityKind.Player,
+                "Staff" => EntityKind.Staff,
+                _ => EntityKind.Club
+            };
+            var key = $"directory|{kind}";
+            if (_openWorkspaceTabs.TryGetValue(key, out var existingDirectory))
+            {
+                WorkspaceTabControl.SelectedItem = existingDirectory;
+                return;
+            }
+
+            var browser = new EntityBrowserView
+            {
+                DataContext = new EntityBrowserViewModel(
+                    _entitySearchProvider,
+                    kind,
+                    () => _mainWindowViewModel.IncludeWomenPlayers)
+            };
+            browser.ResultOpenRequested += (_, result) => OpenSearchResult(result);
+            AddWorkspaceTab(destination, key, browser);
+            return;
+        }
+
+        if (destination == "Save Manager")
+        {
+            OpenInformationTab("Save Manager",
+                "The live career is currently loaded as a read-only snapshot. Local Atlas storage is separate from the Football Manager career file. Backup, reload and save-file management actions will be enabled only after their data paths are implemented and verified.");
+            return;
+        }
+
+        if (destination == "Settings")
+        {
+            OpenInformationTab("Settings",
+                "The global Include women preference is saved locally. Additional application, data-source and appearance settings are still being implemented.");
+        }
+    }
+
+    private void OpenInformationTab(string title, string message)
+    {
+        var key = $"workspace|{title}";
+        if (_openWorkspaceTabs.TryGetValue(key, out var existing))
+        {
+            WorkspaceTabControl.SelectedItem = existing;
+            return;
+        }
+
+        var panel = new Border
+        {
+            Background = (System.Windows.Media.Brush)FindResource("Atlas.Surface"),
+            BorderBrush = (System.Windows.Media.Brush)FindResource("Atlas.Border"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(9),
+            Padding = new Thickness(24),
+            Margin = new Thickness(26)
+        };
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock { Text = title.ToUpperInvariant(), FontFamily = new System.Windows.Media.FontFamily("Consolas"), FontSize = 9, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Accent") });
+        stack.Children.Add(new TextBlock { Text = title, FontFamily = new System.Windows.Media.FontFamily("Georgia"), FontSize = 28, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Text"), Margin = new Thickness(0, 7, 0, 12) });
+        stack.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Muted"), MaxWidth = 760 });
+        panel.Child = stack;
+        AddWorkspaceTab(title, key, panel);
+    }
+
+    private void AddWorkspaceTab(string title, string key, object content)
+    {
+        if (_openWorkspaceTabs.TryGetValue(key, out var existing))
+        {
+            WorkspaceTabControl.SelectedItem = existing;
+            return;
+        }
+
+        var tab = new TabItem
+        {
+            Tag = key,
+            Content = content,
+            Header = CreateWorkspaceTabHeader(title, key)
+        };
+        _openWorkspaceTabs[key] = tab;
+        WorkspaceTabControl.Items.Add(tab);
+        WorkspaceTabControl.SelectedItem = tab;
+    }
+
+    private object CreateWorkspaceTabHeader(string title, string key)
+    {
+        var header = new DockPanel { LastChildFill = false };
+        header.Children.Add(new TextBlock
+        {
+            Text = title,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 8, 0),
+            FontSize = 10
+        });
+        var close = new Button
+        {
+            Content = "×",
+            ToolTip = "Close workspace tab",
+            Padding = new Thickness(5, 0, 5, 1),
+            MinWidth = 20,
+            MinHeight = 18,
+            FontSize = 13,
+            Background = System.Windows.Media.Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Muted"),
+            Cursor = Cursors.Hand
+        };
+        close.Click += (_, _) => CloseWorkspaceTab(key);
+        DockPanel.SetDock(close, Dock.Right);
+        header.Children.Add(close);
+        return header;
+    }
+
+    private void CloseWorkspaceTab(string key)
+    {
+        if (!_openWorkspaceTabs.Remove(key, out var tab))
+            return;
+        WorkspaceTabControl.Items.Remove(tab);
+    }
+
+    private void QuickSearchResults_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (QuickSearchResultsListBox.SelectedItem is QuickSearchResultViewModel result)
+            OpenSearchResult(new EntitySearchResult(result.Identity, result.DisplayName));
     }
 
     private async void OpenSearchResult(EntitySearchResult result)
     {
-        if (result.Identity.Kind != EntityKind.Player)
-        {
-            MessageBox.Show(
-                this,
-                "The current profile workspace opens Player records. Coach and Club profiles are still in progress.",
-                "FM Atlas",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
+        ArgumentNullException.ThrowIfNull(result);
         var key = $"{result.Identity.Kind}|{result.Identity.ProviderKey}|{result.Identity.SourceId}";
-        if (_openPlayerProfiles.TryGetValue(key, out var existing))
+        if (_openWorkspaceTabs.TryGetValue(key, out var openTab))
         {
-            if (existing.WindowState == WindowState.Minimized)
-                existing.WindowState = WindowState.Normal;
-            existing.Activate();
+            WorkspaceTabControl.SelectedItem = openTab;
             return;
         }
 
         try
         {
-            var player = await _snapshotStore.GetSnapshotAsync<PlayerRecord>(result.Identity);
-            if (player is null)
+            object? profile = result.Identity.Kind switch
+            {
+                EntityKind.Player => await LoadPlayerProfileAsync(result.Identity),
+                EntityKind.Staff => await LoadStaffProfileAsync(result.Identity),
+                EntityKind.Club => await LoadClubProfileAsync(result.Identity),
+                _ => null
+            };
+
+            if (profile is null)
             {
                 MessageBox.Show(
                     this,
-                    "This search result exists in the local entity index, but its typed player snapshot is not available. Re-import the source record before opening its full profile.",
-                    "Player snapshot unavailable",
+                    $"The {result.Identity.Kind} profile snapshot is not available in the local record store. Reload the active career or import the source data again.",
+                    "FM Atlas — Profile unavailable",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
                 return;
             }
 
-            var profileWindow = new Window
-            {
-                Title = $"FM Atlas — {player.FullName?.Value ?? result.DisplayName}",
-                Owner = this,
-                Width = 1480,
-                Height = 940,
-                MinWidth = 1080,
-                MinHeight = 700,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Background = (System.Windows.Media.Brush)FindResource("Atlas.Canvas"),
-                Content = new PlayerProfileView
-                {
-                    DataContext = new PlayerProfileViewModel(player)
-                }
-            };
-
-            _openPlayerProfiles[key] = profileWindow;
-            profileWindow.Closed += (_, _) => _openPlayerProfiles.Remove(key);
-            profileWindow.Show();
-            profileWindow.Activate();
+            var title = result.DisplayName;
+            AddWorkspaceTab(title, key, profile);
         }
         catch (Exception exception)
         {
             MessageBox.Show(
                 this,
-                $"The player profile could not be loaded: {exception.Message}",
+                $"The profile could not be opened: {exception.Message}",
                 "FM Atlas",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
+    }
+
+    private async Task<PlayerProfileView?> LoadPlayerProfileAsync(EntityIdentity identity)
+    {
+        var player = await _snapshotStore.GetSnapshotAsync<PlayerRecord>(identity);
+        return player is null ? null : new PlayerProfileView { DataContext = new PlayerProfileViewModel(player) };
+    }
+
+    private async Task<StaffProfileView?> LoadStaffProfileAsync(EntityIdentity identity)
+    {
+        var staff = await _snapshotStore.GetSnapshotAsync<StaffRecord>(identity);
+        return staff is null ? null : new StaffProfileView { DataContext = new StaffProfileViewModel(staff) };
+    }
+
+    private async Task<ClubProfileView?> LoadClubProfileAsync(EntityIdentity identity)
+    {
+        var club = await _snapshotStore.GetSnapshotAsync<ClubRecord>(identity);
+        return club is null ? null : new ClubProfileView { DataContext = new ClubProfileViewModel(club) };
     }
 }
