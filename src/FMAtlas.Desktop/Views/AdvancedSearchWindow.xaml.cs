@@ -58,6 +58,12 @@ public partial class AdvancedSearchWindow : Window
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => Close();
 
+    private void ClearFilters_Click(object sender, RoutedEventArgs e)
+    {
+        LogicComboBox.SelectedIndex = 0;
+        _viewModel.ClearFilters();
+    }
+
     private void RefreshSelection()
     {
         SetSelected(PlayerEntityButton, _viewModel.SelectedEntity == SearchEntityKind.Player);

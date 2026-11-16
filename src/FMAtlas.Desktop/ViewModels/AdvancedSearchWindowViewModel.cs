@@ -79,6 +79,20 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         RebuildSections();
     }
 
+    public void ClearFilters()
+    {
+        foreach (var field in _fieldState
+                     .Where(pair => pair.Key.Entity == SelectedEntity)
+                     .Select(pair => pair.Value))
+        {
+            field.Clear();
+        }
+
+        Results.Clear();
+        SelectedLogic = SearchFilterLogic.All;
+        StatusText = "Filters cleared for the selected entity.";
+    }
+
     public async Task RunSearchAsync(CancellationToken cancellationToken = default)
     {
         if (IsBusy)
@@ -457,6 +471,16 @@ public sealed class AdvancedSearchFieldViewModel : INotifyPropertyChanged
     {
         get => _isEnabled;
         private set => SetField(ref _isEnabled, value);
+    }
+
+    public void Clear()
+    {
+        MinimumText = string.Empty;
+        MaximumText = string.Empty;
+        TextValue = string.Empty;
+        DateMinimumText = string.Empty;
+        DateMaximumText = string.Empty;
+        IncludeTrait = true;
     }
 
     public void RefreshDefinition(AdvancedSearchFieldDefinition definition)

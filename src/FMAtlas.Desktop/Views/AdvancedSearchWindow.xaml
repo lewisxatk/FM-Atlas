@@ -335,6 +335,7 @@
         <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
             <TextBlock Text="READ-ONLY LOCAL INDEX · READY FIELDS ONLY · LIVE CAREER DATA IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Clear filters" Click="ClearFilters_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,8,0"/>
                 <Button Content="Cancel" Click="Cancel_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,8,0"/>
                 <Button Content="Search" Click="Search_Click" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="78"/>
             </StackPanel>
