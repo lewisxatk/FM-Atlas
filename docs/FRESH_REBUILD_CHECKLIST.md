@@ -288,3 +288,11 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 - [!] Hosted Windows CI still has no actionable steps/logs. Latest observed failed run #425 is still the only retrievable run snapshot; its retry ended with zero steps and no log object. The current source is not yet build-verified.
 
 **Latest source hardening commits:** `ba27e090390f429a92f8e34d810114a57031d900`, `82853b019ad393bb0d1920266738064aeafbc41a`, `3109bcc2f3f94cec6a00821d8ae3264718997ef6`, `1e74762531c2d74ad7b576c466b0ead754a3e25c`.
+
+
+### Latest CI recheck — 2026-11-16
+
+- [!] Latest retrievable Windows Actions run #451 (`43853394674`) on checkpoint sync commit `298e158b70705d9bc2754b24e1f1e1fe347f3e9a61` failed before any job steps were created.
+- [!] Retry job `133251606257` also failed with `steps=[]`, no log URL, and 404/BlobNotFound on log download.
+- [ ] Current branch head must still pass Windows restore/build/test before an application ZIP is considered test-ready.
+- [~] Local fallback script `scripts/Build-Test-Package.ps1` committed to run the exact checks and package only on a clean pass.
