@@ -145,6 +145,7 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         ? new Uri(_portraitImagePath, UriKind.Absolute)
         : null;
     public bool HasPortrait => PortraitUri is not null;
+    public bool HasNoPortrait => !HasPortrait;
     public string PlayerSubtitle => $"{Player.Identity.ProviderKey} · Source ID {Player.Identity.SourceId}";
     public string AgeInfoText => $"Age  ·  {Format(Player.Age?.Value)}";
     public string DateOfBirthInfoText => $"Date of birth  ·  {Format(Player.DateOfBirth?.Value)}";
