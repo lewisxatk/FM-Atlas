@@ -44,6 +44,12 @@ public sealed class SqliteEntityRelationshipStore : IEntityRelationshipStore
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using (var foreignKeys = connection.CreateCommand())
+        {
+            foreignKeys.CommandText = "PRAGMA foreign_keys = ON;";
+            await foreignKeys.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         await using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO entity_relationships(
