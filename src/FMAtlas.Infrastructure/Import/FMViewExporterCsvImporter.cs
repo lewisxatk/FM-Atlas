@@ -97,7 +97,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         var duplicateIds = 0;
         var rowsRead = 0;
 
-        var mappedColumns = BuildMappedColumnSet(headerLookup);
+        var mappedColumns = BuildMappedColumnSet(headers);
         var dynamicColumns = BuildDynamicColumnMap(headers, mappedColumns, rows, delimiter);
 
         for (var rowIndex = 1; rowIndex < rows.Count; rowIndex++)
@@ -249,7 +249,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             GameUid = new SourcedValue<string>(uid, CsvEvidence),
             DateOfBirth = dob is DateOnly birth ? new SourcedValue<DateOnly>(birth, CsvEvidence) : null,
             Age = age is int playerAge ? new SourcedValue<int>(playerAge, CsvEvidence) : null,
-            Nationality = GetText(row, headerLookup, CsvEvidence, "Nation", "Nationality"),
+            Nationality = GetTextAtColumn(row, FindLastColumn(headers, "Nation", "Nationality"), CsvEvidence),
             SecondNationality = GetText(row, headerLookup, CsvEvidence, "2nd Nat", "Second Nationality"),
             Gender = GetText(row, headerLookup, CsvEvidence, "Gender"),
             ClubName = GetText(row, headerLookup, CsvEvidence, "Club"),
@@ -342,27 +342,25 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         return result;
     }
 
-    private static IReadOnlySet<int> BuildMappedColumnSet(IReadOnlyDictionary<string, int> lookup)
+    private static IReadOnlySet<int> BuildMappedColumnSet(IReadOnlyList<string> headers)
     {
         var mapped = new HashSet<int>();
-        foreach (var alias in new[]
-        {
-            "Player", "Name", "Full Name", "Player Name", "Unique ID", "UID", "Player UID", "Game UID",
-            "Date of Birth", "DOB", "Birth Date", "Age", "Nation", "Nationality", "2nd Nat", "Second Nationality",
-            "Gender", "Club", "Team", "Division", "League", "Position", "Best Pos", "Preferred Foot",
-            "Height", "Height (cm)", "Weight", "Weight (kg)", "CA", "Current Ability", "PA", "Potential Ability",
-            "International Caps", "Caps", "International Goals"
-        })
-        {
-            var index = FindColumn(lookup, alias);
-            if (index >= 0)
-                mapped.Add(index);
-        }
+        var knownHeaders = new HashSet<string>(
+            new[]
+            {
+                "Player", "Name", "Full Name", "Player Name", "Unique ID", "UID", "Player UID", "Game UID",
+                "Date of Birth", "DOB", "Birth Date", "Age", "Nation", "Nationality", "2nd Nat", "Second Nationality",
+                "Gender", "Club", "Team", "Division", "League", "Position", "Best Pos", "Preferred Foot",
+                "Height", "Height (cm)", "Weight", "Weight (kg)", "CA", "Current Ability", "PA", "Potential Ability",
+                "International Caps", "Caps", "International Goals"
+            }.Select(NormaliseHeader),
+            StringComparer.OrdinalIgnoreCase);
 
-        foreach (var header in lookup.Keys)
+        for (var index = 0; index < headers.Count; index++)
         {
-            if (AttributeAliases.ContainsKey(header))
-                mapped.Add(lookup[header]);
+            var normalized = NormaliseHeader(headers[index]);
+            if (knownHeaders.Contains(normalized) || AttributeAliases.ContainsKey(normalized))
+                mapped.Add(index);
         }
 
         return mapped;
@@ -391,6 +389,27 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         }
 
         return -1;
+    }
+
+    private static int FindLastColumn(IReadOnlyList<string> headers, params string[] aliases)
+    {
+        var normalizedAliases = aliases.Select(NormaliseHeader).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (var index = headers.Count - 1; index >= 0; index--)
+        {
+            if (normalizedAliases.Contains(NormaliseHeader(headers[index])))
+                return index;
+        }
+
+        return -1;
+    }
+
+    private static SourcedValue<string>? GetTextAtColumn(
+        IReadOnlyList<string> row,
+        int index,
+        FieldProvenance provenance)
+    {
+        var value = GetCell(row, index).Trim();
+        return value.Length == 0 ? null : new SourcedValue<string>(value, provenance);
     }
 
     private static SourcedValue<string>? GetText(
