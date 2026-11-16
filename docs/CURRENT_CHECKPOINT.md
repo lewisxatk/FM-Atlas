@@ -3,7 +3,7 @@
 **Checkpoint:** 001  
 **Date:** 2026-11-16 UTC  
 **Branch:** `rebuild/fresh-foundation-001`  
-**Base:** Design branch commit `0f4b1b9238bd62cf1c9ab3af3f684f7da1c0ff14`  
+**Latest saved commit before this checkpoint update:** `4e8752debccabf194cd08a6acae059e18ffa5a98`  
 **Status:** Planning/recovery gate. No new application code started.
 
 ## Mission
