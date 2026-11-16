@@ -436,7 +436,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private async Task LoadLiveGameAsync()
     {
         var refreshSearchAfterLoad = false;
-        NotifyLiveDataInvalidated();
+        if (LiveSessionActive)
+            NotifyLiveDataInvalidated();
         LiveSessionActive = false;
         LiveWritesEnabled = false;
         IsBusy = true;
