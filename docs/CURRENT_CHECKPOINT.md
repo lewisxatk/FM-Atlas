@@ -1331,3 +1331,17 @@ Safety boundary: no live process writes and no modification of the user's career
 - [x] Missing typed snapshots are explicitly labelled; no attributes are inferred.
 - [x] Double-click continues to open the full Player/Staff profile tab.
 - [ ] Runtime validation against a live FM27 Game Pass career remains outstanding, as do Windows build/test and live writing.
+
+
+### Checkpoint 025 — final static review and current CI status
+
+- [x] Final XAML tag-stack validation passed across seven files.
+- [x] Final WPF event-handler scan: 38 referenced handlers found in code-behind.
+- [x] Final StaticResource scan: no missing resource keys.
+- [x] Club profile linked player/staff lists hydrate typed snapshots and show role/position, age and CA/PA when available.
+- [ ] Windows build/test not complete: latest run #843 (`43867836792`) on head `daa4dcd700e80c9c348bcc88464362f4ab93d1d9` failed with `steps=null` and no log URL. Restore/Build/Test did not run.
+- [ ] No Windows desktop executable/ZIP is verified.
+- [ ] Live Game Pass offsets and club joins remain Mapped and require actual career comparison.
+- [ ] Live writer/read-back/undo is not implemented or verified. **Save Live Changes remains disabled.**
+
+The branch is ready for the next Windows validation attempt, not an accepted/verified release. The environment used for these edits cannot compile or launch WPF.
