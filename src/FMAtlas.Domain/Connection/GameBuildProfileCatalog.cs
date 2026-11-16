@@ -30,9 +30,10 @@ public sealed record GameBuildProfile(
     /// not the same as AtlasReadVerified and never authorizes a process-memory write.
     /// </summary>
     public bool CanAttemptReadOnlyScan =>
-        HasReadOnlyScanner && EvidenceStatus is GameBuildEvidenceStatus.ExternalReferenceOnly
+        HasReadOnlyScanner &&
+        (EvidenceStatus is GameBuildEvidenceStatus.ExternalReferenceOnly
             or GameBuildEvidenceStatus.AtlasReadVerified
-            or GameBuildEvidenceStatus.AtlasWriteVerified;
+            or GameBuildEvidenceStatus.AtlasWriteVerified);
 
     /// <summary>True only after FM Atlas has independently verified the read mapping on this build.</summary>
     public bool CanReadLiveData => EvidenceStatus is GameBuildEvidenceStatus.AtlasReadVerified
