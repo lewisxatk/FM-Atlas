@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using FMAtlas.Desktop.ViewModels;
 using FMAtlas.Infrastructure.Connection;
+using FMAtlas.Infrastructure.Import;
 using FMAtlas.Infrastructure.Persistence;
 
 namespace FMAtlas.Desktop;
@@ -38,13 +39,14 @@ public partial class App : System.Windows.Application
         var advancedSearchProvider = new SqliteAdvancedSearchProvider(databasePath);
 
         var snapshotStore = new SqliteEntityRecordSnapshotStore(databasePath);
+        var playerExportImporter = new FMViewExporterCsvImporter(snapshotStore);
 
         var viewModel = new MainWindowViewModel(
             processProbe,
             atlasDatabase,
             entitySearchProvider,
             databasePath);
-        var window = new MainWindow(viewModel, advancedSearchProvider, snapshotStore);
+        var window = new MainWindow(viewModel, advancedSearchProvider, snapshotStore, playerExportImporter);
         MainWindow = window;
         window.Show();
     }
