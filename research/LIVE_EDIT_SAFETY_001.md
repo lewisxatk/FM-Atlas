@@ -151,3 +151,28 @@ Added `tests/FMAtlas.Tests/LiveEditWritePreflightTests.cs` for the positive path
 ### Session-monitor failure containment
 
 A further hardening change broadens live-session monitor exception handling. A lost process handle, unexpected memory-read error or local snapshot-store cleanup error must not escape the WPF dispatcher timer as an unhandled UI exception. Session invalidation now always closes the process handle, attempts provider cleanup with a non-cancelled token, and includes any cleanup failure in the connection status. A cleanup failure is not described as successful deletion.
+
+
+## 9. Follow-up live-reader integrity hardening — 16 November 2026
+
+A source audit found that the first implementation caught recoverable player/staff/club read exceptions and silently skipped those entries. That could make a partial scan look like a complete career even when the pointer arrays contained unreadable or unrecognised objects.
+
+The reader has now been changed to fail closed:
+
+- Every pointer in the player, staff and club arrays must produce a typed record with a verifiable identity.
+- A null/unrecognised object or recoverable memory/format error now aborts the whole scan and reports the entity kind and object address.
+- The connector does not call the SQLite batch persistence until the complete scan method returns, so a failed scan cannot be indexed as a partial career.
+- The existing cleanup path removes a candidate provider if failure occurs after persistence, and a fresh load begins by clearing the previous live provider.
+- The process-memory accessor remains read-only; this change does not add a write primitive.
+
+This is intentionally stricter than best-effort import. If the external layout is slightly wrong for even one object variant, the user should see a specific failed-load diagnostic rather than a misleadingly complete result. The first real Game Pass run may therefore reveal mapping gaps that need investigation.
+
+A lifecycle race was also fixed: disposing the connector no longer disposes its semaphore while an in-flight load/check may still execute its `finally { Release(); }` block. Disconnect is requested and handles are torn down through the normal operation path; the semaphore is left for garbage collection.
+
+### Current implementation boundary
+
+- Live read: externally mapped 0.9.2435.0 only; not independently validated against the user's running career.
+- Search: player, staff and club records only.
+- Write: no process-memory write API exists; Save Live Changes stays disabled.
+- Save Atlas: local SQLite state only; it does not save changes into the FM career.
+- Build: current changes remain uncompiled/unexecuted in this environment; a clean Windows restore/build/test is mandatory before the user tests the binary.
