@@ -200,3 +200,10 @@ The Club profile section projector now exposes every typed value family relevant
 - Stadium: typed integer, text, decimal and date stadium fields in addition to the core stadium name/capacity properties.
 
 This is a presentation-layer coverage improvement only. It displays values already present in the typed ClubRecord; it does not claim the live importer currently supplies every family. Missing source data continues to produce the existing honest empty state. Windows compilation and runtime acceptance remain blocked by GitHub Actions jobs failing before any runner steps are created.
+
+## 13. Staff and Club profile summary refinement
+
+- Staff profile identity rail now surfaces gender, nationality, date of birth, club/team, primary role and unique game ID, followed by a compact contract summary for wage and expiry. The top profile strip retains age, CA and PA.
+- Club profile identity rail now surfaces crest, nation/competition, stadium/capacity, ownership, average attendance and chairperson when supplied. The full Information and Stadium sections continue to expose the corresponding sourced rows.
+- Internal rebuild labelling has been removed from the left navigation footer; it now carries a neutral product label.
+- These changes improve presentation of existing typed fields only. They do not increase live importer coverage or change the read-only safety boundary.
