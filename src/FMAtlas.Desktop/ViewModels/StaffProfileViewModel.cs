@@ -17,15 +17,23 @@ public sealed class StaffProfileViewModel : INotifyPropertyChanged
     public StaffProfileViewModel(StaffRecord staff)
     {
         Staff = staff ?? throw new ArgumentNullException(nameof(staff));
-        Sections =
-        [
-            "Information", "Contract", "Career Plans", "Promises", "Swap Staff",
-            "Training Rating", "Formations / Tendencies", "Relationships",
-            "Knowledge", "Retire Date", "Languages"
-        ];
+        Sections = new ObservableCollection<ProfileSectionTabViewModel>
+        {
+            new("Information", isSelected: "Information" == "Information"),
+            new("Contract", isSelected: "Contract" == "Information"),
+            new("Career Plans", isSelected: "Career Plans" == "Information"),
+            new("Promises", isSelected: "Promises" == "Information"),
+            new("Swap Staff", isSelected: "Swap Staff" == "Information"),
+            new("Training Rating", isSelected: "Training Rating" == "Information"),
+            new("Formations / Tendencies", isSelected: "Formations / Tendencies" == "Information"),
+            new("Relationships", isSelected: "Relationships" == "Information"),
+            new("Knowledge", isSelected: "Knowledge" == "Information"),
+            new("Retire Date", isSelected: "Retire Date" == "Information"),
+            new("Languages", isSelected: "Languages" == "Information")
+        };
         SelectSectionCommand = new ProfileSectionCommand(section =>
         {
-            if (section is string name && Sections.Contains(name))
+            if (section is string name && Sections.Any(tab => tab.Name == name))
                 SelectedSection = name;
         });
         UpdateRows();
@@ -33,7 +41,7 @@ public sealed class StaffProfileViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private StaffRecord Staff { get; }
-    public IReadOnlyList<string> Sections { get; }
+    public ObservableCollection<ProfileSectionTabViewModel> Sections { get; }
     public ObservableCollection<ProfileValueRowViewModel> SectionRows { get; } = [];
     public ICommand SelectSectionCommand { get; }
     public string SelectedSection
@@ -43,6 +51,8 @@ public sealed class StaffProfileViewModel : INotifyPropertyChanged
         {
             if (_selectedSection == value) return;
             _selectedSection = value;
+            foreach (var tab in Sections)
+                tab.IsSelected = tab.Name == value;
             OnPropertyChanged();
             UpdateRows();
         }
