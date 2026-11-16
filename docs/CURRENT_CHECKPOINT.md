@@ -101,3 +101,62 @@ The seven newly uploaded packages have been SHA-256 inventoried and statically i
 ## User action needed
 
 No new research download is required now. The R7.2.0 recovery ZIP is located in the Library; its imported source branch is available. Later, provide the exact FM27 Game Pass package/build details and use a disposable offline career for live integration tests.
+
+
+---
+
+## Checkpoint 006 — continuation after stream interruption
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Checkpoint base head:** `eecf272dad88daad192252a063e1ce72e1d3bcd5`  
+**Status:** Domain attribute catalogue and first REF-004 player-profile workspace shell committed. Latest Windows CI runs were still in progress when this checkpoint was written.
+
+### Work continued and saved
+
+1. Re-opened the existing master plan, checklist, continuity procedure, research inventory, findings, field ledger, FMRTE audit, architecture decision and current checkpoint before continuing.
+2. Re-inspected the exact FMLibreEditor FM27 Game Pass 0.9.2435.0 recon, player attribute group source and probe entry point.
+3. Re-inspected FMSuperScout `Fields.cs` and its external scanner implementation.
+4. Re-opened the uploaded FM Player Analyzer source and TalentSeer user guide. No EXE or installer was executed.
+5. Added `src/FMAtlas.Domain/Players/PlayerAttributeCatalog.cs` with 52 unique non-foot attributes, separate feet, shared Technical/Goalkeeping First Touch and Passing definitions, source order and explicit documented evidence status.
+6. Added `tests/FMAtlas.Tests/PlayerAttributeCatalogTests.cs` covering counts, group overlap, outfield/goalkeeper group selection, hidden/feet separation, technical order and lookup.
+7. Added the REF-004 player-profile view model and WPF view shell:
+   - left identity/information rail and neutral portrait placeholder;
+   - central FM attribute groups rendered from the Domain catalogue;
+   - right-side empty/verified-data panels;
+   - open-player tab row;
+   - compact FMRTE-style player section tabs at the top;
+   - no fabricated player, CA/PA, statistics or editable values.
+8. Added profile-specific WPF styles to `App.xaml`.
+9. Updated the research findings with the additional source-level evidence and the distinction between documented layout and user-build verification.
+
+### CI and build evidence
+
+- Attribute catalogue/test commit triggered Windows workflow run [43787875022](https://github.com/lewisxatk/FM-Atlas/actions/runs/43787875022); all steps completed successfully, including restore, build, tests and artifact upload.
+- The profile view/model/style commits triggered Windows workflow runs including [43788055915](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788055915), [43788051366](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788051366), [43788027235](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788027235), [43788023540](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788023540), [43788020996](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788020996) and [43788017254](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788017254). They were pending/in progress at the time of this checkpoint; do not mark the profile view as build-verified until the latest run is checked.
+- Local container does not have the .NET SDK. Windows GitHub Actions is the compile/test authority for this branch.
+
+### Important limits
+
+- Player profile view is a shell/template, not yet wired to a live player provider or workspace tab manager.
+- Attribute values are deliberately empty. No CA/PA or field values are being fabricated.
+- Profile section buttons are present but must remain unavailable until actual player data and per-section providers are connected.
+- No player memory reads or writes have been performed.
+- The FMLibreEditor Game Pass profile applies only to the documented 0.9.2435.0 package. The user's installed package has not been fingerprinted.
+- The FMRTE/FMLibreEditor/FMSuperScout proprietary/source-code reuse boundaries remain unchanged. No third-party code was copied.
+
+### Current milestone
+
+M4 — Player workspace shell started, after M1 catalogue foundation.
+
+### Next actions
+
+1. Check latest Windows CI run(s) and fix any XAML/C# compile or test failures before adding more UI.
+2. Add the REF-002 Advanced Search schema and WPF dialog shell, keeping all controls disabled until a real search/index provider exists.
+3. Implement typed player profile data contracts and connect the profile shell to actual selected-player records once a read provider is available.
+4. Continue Game Pass exact-package identification and read-only probe research; do not enable writes.
+5. Update this checkpoint after the next coherent change.
+
+### Uncommitted work
+
+None known. All code and documentation changes above were committed through GitHub. Verify latest branch head before continuing.
