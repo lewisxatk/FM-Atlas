@@ -19,6 +19,8 @@ public partial class MainWindow : Window
     private readonly IEntityRecordSnapshotStore _snapshotStore;
     private readonly IPlayerExportImporter _playerExportImporter;
     private readonly IEntitySearchProvider _entitySearchProvider;
+    private readonly IGraphicsLocator _graphicsLocator;
+    private readonly Task? _graphicsIndexTask;
     private readonly MainWindowViewModel _mainWindowViewModel;
     private readonly Dictionary<string, TabItem> _openWorkspaceTabs = new(StringComparer.Ordinal);
     private AdvancedSearchWindow? _advancedSearchWindow;
@@ -29,7 +31,9 @@ public partial class MainWindow : Window
         IAdvancedSearchProvider advancedSearchProvider,
         IEntityRecordSnapshotStore snapshotStore,
         IPlayerExportImporter playerExportImporter,
-        IEntitySearchProvider entitySearchProvider)
+        IEntitySearchProvider entitySearchProvider,
+        IGraphicsLocator graphicsLocator,
+        Task? graphicsIndexTask = null)
     {
         InitializeComponent();
         DataContext = viewModel;
@@ -60,6 +64,8 @@ public partial class MainWindow : Window
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _playerExportImporter = playerExportImporter ?? throw new ArgumentNullException(nameof(playerExportImporter));
         _entitySearchProvider = entitySearchProvider ?? throw new ArgumentNullException(nameof(entitySearchProvider));
+        _graphicsLocator = graphicsLocator ?? throw new ArgumentNullException(nameof(graphicsLocator));
+        _graphicsIndexTask = graphicsIndexTask;
 
         _liveSessionMonitorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _liveSessionMonitorTimer.Tick += async (_, _) =>
@@ -346,7 +352,13 @@ public partial class MainWindow : Window
     private async Task<PlayerProfileView?> LoadPlayerProfileAsync(EntityIdentity identity)
     {
         var player = await _snapshotStore.GetSnapshotAsync<PlayerRecord>(identity);
-        return player is null ? null : new PlayerProfileView { DataContext = new PlayerProfileViewModel(player) };
+        if (player is null)
+            return null;
+
+        await EnsureGraphicsIndexReadyAsync();
+        var portraitUid = player.GameUid?.Value ?? identity.SourceId;
+        var portraitPath = _graphicsLocator.FindPortrait(portraitUid)?.ImagePath;
+        return new PlayerProfileView { DataContext = new PlayerProfileViewModel(player, portraitPath) };
     }
 
     private async Task<StaffProfileView?> LoadStaffProfileAsync(EntityIdentity identity)
@@ -358,6 +370,29 @@ public partial class MainWindow : Window
     private async Task<ClubProfileView?> LoadClubProfileAsync(EntityIdentity identity)
     {
         var club = await _snapshotStore.GetSnapshotAsync<ClubRecord>(identity);
-        return club is null ? null : new ClubProfileView { DataContext = new ClubProfileViewModel(club) };
+        if (club is null)
+            return null;
+
+        await EnsureGraphicsIndexReadyAsync();
+        var logoPath = uint.TryParse(identity.SourceId, out var clubId)
+            ? _graphicsLocator.FindClubLogo(clubId)?.ImagePath
+            : null;
+        return new ClubProfileView { DataContext = new ClubProfileViewModel(club, logoPath) };
+    }
+
+    private async Task EnsureGraphicsIndexReadyAsync()
+    {
+        if (_graphicsIndexTask is null)
+            return;
+
+        try
+        {
+            await _graphicsIndexTask;
+        }
+        catch (Exception exception)
+        {
+            // A graphics-pack problem must never prevent opening a player or club profile.
+            System.Diagnostics.Debug.WriteLine($"FM Atlas graphics index unavailable: {exception.Message}");
+        }
     }
 }
