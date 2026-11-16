@@ -45,3 +45,19 @@ Version 2 adds entity_record_snapshots:
 The JSON snapshot layer is a lossless import/cache foundation, not the search index. The importer must also project supported fields into field_values for fast Quick Search and Advanced Search. Keep the original snapshot so future projection changes can be rebuilt without re-reading the career.
 
 The application refuses to downgrade a database whose PRAGMA user_version is newer than its supported schema.
+
+
+## Projection and search additions — checkpoint 012
+
+Snapshot persistence now invokes the typed EntityRecordProjector and replaces the entity's normalised field_values projection in the same transaction as the JSON snapshot. The projection covers PlayerRecord, StaffRecord and ClubRecord and preserves per-field source/evidence/build metadata.
+
+Player collections remain distinct:
+- visible attribute values;
+- hidden attribute values;
+- personality values;
+- left/right foot ratings;
+- position ratings;
+- preferred moves;
+- season statistics.
+
+The first read-only Quick Search provider now queries the entities table by display name with optional entity-kind filters. The provider escapes LIKE wildcards and limits results to 1–200. This is a text search service, not yet an Advanced Search executor or WPF connection.
