@@ -46,7 +46,7 @@
                     <ColumnDefinition Width="112"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" VerticalAlignment="Center" ToolTip="{Binding EvidenceStatus}">
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" ToolTip="{Binding HelpText}">
                     <TextBlock Text="{Binding DisplayName}" Style="{StaticResource FilterLabel}"/>
                     <TextBlock Text="{Binding ImplementationStatus}" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" Margin="0,2,0,0"/>
                 </StackPanel>
@@ -56,15 +56,16 @@
                     <TextBlock Text="MAX" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="9,0,4,0"/>
                     <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum. Leave blank to set no upper limit."/>
                 </StackPanel>
-                <ComboBox x:Name="BooleanControl" Grid.Column="1" Width="115" Height="25"
+                <ComboBox x:Name="BooleanControl" Grid.Column="1" Width="175" Height="25"
                           SelectedIndex="{Binding BooleanSelection, UpdateSourceTrigger=PropertyChanged}"
                           Background="#171717" Foreground="{StaticResource Atlas.Muted}"
-                          BorderBrush="{StaticResource Atlas.Border}" FontSize="10"
+                          BorderBrush="{StaticResource Atlas.Border}" FontSize="9"
+                          ToolTip="{Binding HelpText}"
                           IsEnabled="{Binding IsEnabled}" Visibility="Collapsed">
                     <ComboBoxItem Content="Any"/>
-                    <ComboBoxItem Content="Yes"/>
-                    <ComboBoxItem Content="No"/>
-                    <ComboBoxItem Content="Unknown"/>
+                    <ComboBoxItem Content="{Binding BooleanTrueLabel}"/>
+                    <ComboBoxItem Content="{Binding BooleanFalseLabel}"/>
+                    <ComboBoxItem Content="{Binding BooleanUnknownLabel}"/>
                 </ComboBox>
                 <StackPanel x:Name="DateControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
                     <TextBox Style="{StaticResource FilterValue}" Width="82" IsEnabled="{Binding IsEnabled}" Text="{Binding DateMinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Start date, YYYY-MM-DD"/>
@@ -188,7 +189,14 @@
                 </Border>
             </StackPanel>
 
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <DockPanel Grid.Column="2" LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,9">
+                    <TextBlock Text="FIND A FIELD" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,0,0,4"/>
+                    <TextBox Style="{StaticResource FilterValue}" Height="30" FontSize="11"
+                             Text="{Binding FieldSearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Search every category for an attribute, statistic, position, contract field or other criterion. The selected entity stays in scope."/>
+                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <Grid>
                     <Grid x:Name="GeneralPanel">
                     <Grid.ColumnDefinitions>
@@ -298,7 +306,7 @@
                                         <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,12"/>
                                     </Grid>
                                 </Border>
-                                <TextBlock Text="Position selection is a visual placeholder; pitch hit-testing and familiarity ranges are In Progress." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                <TextBlock Text="Choose from the individual 0–20 position-rating filters above. Each chosen position can be matched using the separate All chosen / Any chosen control." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
@@ -332,7 +340,8 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
                 </Grid>
-            </ScrollViewer>
+                </ScrollViewer>
+            </DockPanel>
         </Grid>
 
         <Border Grid.Row="3" Style="{StaticResource FilterPanel}" Margin="0,8,0,0" Padding="8">
