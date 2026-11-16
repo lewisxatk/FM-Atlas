@@ -14,8 +14,14 @@ public sealed record ClubRecord(EntityIdentity Identity) : IEntityRecord
     public SourcedValue<string>? NationName { get; init; }
     public SourcedValue<string>? CompetitionName { get; init; }
     public SourcedValue<string>? StadiumName { get; init; }
+    public SourcedValue<int>? StadiumCapacity { get; init; }
     public SourcedValue<int>? FoundedYear { get; init; }
     public SourcedValue<int>? Reputation { get; init; }
+    public SourcedValue<int>? MinimumAttendance { get; init; }
+    public SourcedValue<int>? AverageAttendance { get; init; }
+    public SourcedValue<int>? MaximumAttendance { get; init; }
+    public SourcedValue<string>? OwnershipType { get; init; }
+    public SourcedValue<string>? ChairpersonTitle { get; init; }
 
     public IReadOnlyDictionary<string, SourcedValue<decimal>> Finances { get; init; } =
         new Dictionary<string, SourcedValue<decimal>>(StringComparer.OrdinalIgnoreCase);
