@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>FMAtlas.Desktop</RootNamespace>
+    <AssemblyName>FMAtlas</AssemblyName>
+    <Product>FM Atlas</Product>
+    <Description>FM Atlas — Football Manager desktop editor</Description>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FMAtlas.Domain\FMAtlas.Domain.csproj" />
+    <ProjectReference Include="..\FMAtlas.Application\FMAtlas.Application.csproj" />
+    <ProjectReference Include="..\FMAtlas.Infrastructure\FMAtlas.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
