@@ -317,3 +317,12 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 - [ ] L15 Expand beyond player/staff/club to all required FM data families.
 
 **Non-negotiable:** no field is editable until its own write evidence is `WriteVerified` for the exact active build. The current connector remains read-only. The overlay blocks both the main window and owned workspaces while the read/index/validation transaction runs.
+
+
+### Live reader source integrity — 2026-11-16
+
+- [x] Restore the complete `ReadAllRecords` player/staff/club scan method after a malformed source edit had truncated it.
+- [x] Preserve the updated `0x4C0` player object bulk-read length for shifted player-coach trailing fields.
+- [x] Re-open the raw branch file and verify all three entity loops and the method return are present.
+- [ ] Compile and test the exact corrected head on a functioning Windows runner.
+- [!] Runs #586/#587 still fail before any runner steps or logs are available.
