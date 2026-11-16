@@ -271,6 +271,13 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                     return new LiveGameSessionStatus(false, true, generation, "The active FM27 save changed. Press Load Game to read the new career.");
                 }
 
+                if (_disconnectRequested)
+                {
+                    await InvalidateSessionAsync(session, "FM Atlas is closing the live session.", cancellationToken).ConfigureAwait(false);
+                    _disconnectRequested = false;
+                    return new LiveGameSessionStatus(false, false, null, "The live FM27 session has been disconnected.");
+                }
+
                 return new LiveGameSessionStatus(true, false, generation, "The same FM27 career is still loaded.");
             }
             catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or InvalidDataException)
