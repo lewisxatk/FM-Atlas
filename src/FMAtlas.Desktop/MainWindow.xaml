@@ -175,7 +175,8 @@
                                    Placement="Bottom"
                                    AllowsTransparency="True"
                                    StaysOpen="False"
-                                   IsOpen="{Binding IsQuickSearchOpen, Mode=TwoWay}">
+                                   IsOpen="{Binding IsQuickSearchOpen, Mode=OneWay}"
+                                    Closed="QuickSearchPopup_Closed">
                                 <Border Width="440"
                                         MaxHeight="330"
                                         Background="#101010"
