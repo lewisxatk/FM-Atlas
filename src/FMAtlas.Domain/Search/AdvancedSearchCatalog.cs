@@ -207,6 +207,15 @@ public static class AdvancedSearchCatalog
             F("club_stadium_capacity", "Stadium Capacity", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 200000),
             F("club_average_attendance", "Average Attendance", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 200000)
         };
+        fields.AddRange(new[]
+        {
+            F("club_training_facilities", "Training Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
+            F("club_youth_facilities", "Youth Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
+            F("club_youth_recruitment", "Youth Recruitment", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
+            F("club_junior_coaching", "Junior Coaching", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
+            F("club_medical_facilities", "Medical Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
+            F("club_sports_science_facilities", "Sports Science Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20)
+        });
         fields.AddRange(PlayerPositions.Select(position => F(
             $"position_{position.Key}", $"{position.Label} Rating", AdvancedSearchCategoryKind.General,
             SearchFieldValueKind.IntegerRange, Players, 0, 20)));
@@ -253,7 +262,8 @@ public static class AdvancedSearchCatalog
             key.StartsWith("position_", StringComparison.OrdinalIgnoreCase) ||
             key.StartsWith("knowledge_", StringComparison.OrdinalIgnoreCase) ||
             key.StartsWith("facility_", StringComparison.OrdinalIgnoreCase) ||
-            key.StartsWith("finance_", StringComparison.OrdinalIgnoreCase);
+            key.StartsWith("finance_", StringComparison.OrdinalIgnoreCase) ||
+            key is "left_foot" or "right_foot";
 
         if (key == "relations")
             ready = false;
