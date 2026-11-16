@@ -340,3 +340,26 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 - [ ] L15 Extend live acquisition beyond player/staff/club to the full FM world model.
 
 **Current truthful state:** the FM27 Game Pass 0.9.2435.0 connector can attempt an externally mapped read and index players/staff/clubs. It is not yet independently verified, does not edit the game, and does not cover every data family. The centred animated blocking overlay already locks the main window and all owned search/profile windows for the complete load/index/validation operation.
+
+
+## Update — FM27 Game Pass live connection and blocking loader (2026-11-16)
+
+- [~] M3.4a Add exact-build Game Pass process discovery for FM27 package `0.9.2435.0` (x64 PE timestamp `0x6AE8CF77`, SizeOfImage `0x17969000`). Other package fingerprints are rejected by the current scanner.
+- [~] M3.4b Add a read-only `ReadProcessMemory` accessor using only `PROCESS_VM_READ | PROCESS_QUERY_INFORMATION`; no process-write API or write permissions are present.
+- [~] M3.4c Read documented Player, Staff and Club array pointers; validate pointer ranges, array alignment, entity-count caps and record identity before importing.
+- [~] M3.4d Map typed player attributes/hidden/personality/feet/positions, CA/PA, preferred moves, contract basics, nationality/gender, team/competition, reputation/condition/morale, player relationships and transfer-list flags.
+- [~] M3.4e Map staff identity/roles/attributes/knowledge/personality/contracts/reputation and initial club facilities/finance/stadium/supporter fields.
+- [~] M3.4f Batch-write live records and searchable projections atomically through `IEntityRecordBatchSnapshotStore`.
+- [~] M3.4g Invalidate the live provider when process exits, save generation changes, player array empties or the read probe fails; recheck before and after the database import and every two seconds while connected.
+- [~] M5.26 Wire the main **Load Game** button to the asynchronous live read/import path; show connection status and imported entity counts.
+- [~] M5.27 Add a full-screen blocking loading overlay with a centered rotating spinner panel, progress stage/detail/percentage and keyboard focus capture. Keep owned search/profile workspaces disabled during load.
+- [~] M5.28 Keep the old CSV provider separate from the transient live provider; clear only the live provider at startup/reload/save-change.
+- [~] M5.29 Add tests for atomic mixed-entity import, provider cleanup, batch rollback, preferred-move query and dynamic club field search.
+- [ ] M8.7 Execute the Windows .NET 8 restore/build/xUnit suite on the current source head. The new scanner and UI have not yet been compiled or run.
+- [ ] M8.8 Test on the exact FM27 Game Pass 0.9.2435.0 install; verify entity counts, names, gender, attributes, CA/PA and contracts against the game's UI.
+- [ ] M8.9 Mark the build `AtlasReadVerified` only after independent FM Atlas runtime verification and field-by-field comparison.
+- [ ] M6.1+ Implement live editing only after per-field write mapping, value bounds, active-save revalidation, pre-write read, read-back, undo and disposable-career testing. **Save Live Changes remains disabled.**
+
+**Evidence distinction:** The build is currently an external-reference-only profile with an explicit narrow read-only scan attempt. `CanReadLiveData` remains false until Atlas runtime verification; `CanWriteLiveData` remains false. Imported field values are tagged `LiveGameMemory / Mapped`, not ReadVerified or WriteVerified.
+**Exact-scan restriction:** Although the reference catalogue contains Game Pass 0.9.2409.0, the current live scanner only supports 0.9.2435.0 and rejects the older fingerprint.
+**Detailed record:** `research/LIVE_GAME_CONNECTION_001.md`.
