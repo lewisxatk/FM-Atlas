@@ -251,3 +251,55 @@ FM Atlas now contains `src/FMAtlas.Domain/Players/PlayerAttributeCatalog.cs`:
 Tests were added in `tests/FMAtlas.Tests/PlayerAttributeCatalogTests.cs` for unique field count, group overlap, outfield/goalkeeper group selection, hidden/feet separation, technical order and key lookup.
 
 This catalogue is a documented schema foundation only. It does not prove live reads, field-level memory mapping, write support or final visual ordering.
+
+
+## 11. Uploaded package and source-code licensing audit
+
+License checks were made against the repositories and source archives before any reuse decision.
+
+| Research source | Observed license / contents | FM Atlas handling |
+|---|---|---|
+| FMLibreEditor | GNU GPL v3 | Use as research/reference. Do not copy/port code into a differently licensed FM Atlas distribution unless we deliberately accept GPLv3 obligations. |
+| FM Player Analyzer 2.2.3 | GNU GPL v3 | Source inspected for parser and graphics architecture; do not copy code into FM Atlas unless GPLv3 compliance is intentionally adopted. |
+| FMSuperScout | MIT | Code reuse is legally more flexible with required copyright/license notice; still review each dependency and verify any reused algorithm against FM27. |
+| fmsave | MIT | Code reuse is legally more flexible with required copyright/license notice; its save layout documentation can also inform a clean implementation. |
+| FMRTE 27.0.1 build 12 | Commercial/proprietary package | Do not copy, redistribute, decompile or embed its code/assets. Use public documentation, release notes and the user's supplied UI screenshots as feature/behaviour references. |
+| TalentSeer 27.1.2 | Uploaded ZIP contains README, executable and third-party notices; no source code | Use its README as feature-discovery evidence only. Do not decompile or copy its proprietary implementation. |
+| Genie Scout 26 setup ZIP | Contains only the installer executable | Not executed. No source code or inspectable application logic supplied in the ZIP. Use public docs and user-observed behaviour only. |
+| FMLibreEditor / FM-Dossier setup EXEs | Windows installer packages only | Not executed. Public source repositories/documentation are the preferred research route. |
+
+### Important licensing conclusion
+
+FMLibreEditor and FM Player Analyzer are GPLv3. FM Atlas is being built as a fresh WPF application, so their source code is treated as technical evidence rather than copied implementation. FMSuperScout and fmsave are MIT-licensed, but any reuse must retain notices and be checked for third-party dependencies. FMRTE and TalentSeer remain proprietary references.
+
+## 12. R7.2.0 recovery ZIP recovery attempt
+
+The exact original recovery archive was found in the user's personal Library:
+- Path: `/FMATLAS/FM-Atlas-GitHub-Recovery-Import-R7.2.0.zip`
+- Size: 17,481,541 bytes
+- Library file ID: `libfile_7af4b437c2f8819182fed322317a28c1`
+- File ID: `file_00000000013481f4abfefced647c019b`
+
+A raw-byte materialization attempt was refused because the file provider did not expose an authorized raw-byte path in the current session. The ZIP bytes therefore could not be extracted directly in this runtime.
+
+This does not block source recovery: the recovered R7.2.0 source tree is already present in the repository branch `recovery/r7.2.0-source-import`, under `application/R7.2.0/FM-Atlas-R7.2.0-Work`. That imported source tree is available for selective audit and comparison.
+
+### Recovered R7.2.0 build log
+
+The Library contains `FM-Atlas-build-20261113-152854.log` (Windows 10, .NET SDK 8.0.427, Release build). It reports **92 compile errors and 15 warnings**. Representative error families include:
+- missing `System.IO` symbols in GraphicsResolver and LiveMemoryEditService (`Path`, `Directory`, `File`, `DirectoryInfo`, `SearchOption`);
+- unassigned local variables in Advanced Search, Diagnostics, Role Lab and Value Finder;
+- missing `ExpectedModuleSha256`, `PlayerDataRva` and `PlayerEndRva` identifiers in LiveDataImporter;
+- missing `AtlasLog.Warn`;
+- a native integer to `ulong` conversion error in LiveMemoryEditService;
+- a number of unused filter fields and a nullable warning.
+
+This is concrete evidence for the fresh-foundation decision: the old source is a historical research/reference base, not a stable application to continue patching. Selective components can still be audited individually, but the new WPF application remains the primary implementation.
+
+## 13. Static FM27 Game Pass build fingerprint registry
+
+FM Atlas now has a reference-only build registry based on FMLibreEditor's published Game Pass recon:
+- 0.9.2435.0: PE timestamp `0x6AE8CF77`, image size `0x17969000`.
+- 0.9.2409.0: PE timestamp `0x6AE563A1`, image size `0x175DA000`.
+
+The registry explicitly marks both profiles `ExternalReferenceOnly`; neither permits Atlas live reads or writes. The new PE reader extracts only static on-disk module metadata. A match is a candidate identification, not proof of compatibility. The user's installed package must be fingerprinted and then independently verified before any memory read is enabled.
