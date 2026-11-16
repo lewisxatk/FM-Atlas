@@ -448,7 +448,7 @@ internal sealed class FM27GamePass0935Reader
             PrimaryPosition = positionName is not null ? new SourcedValue<string>(positionName, evidence) : null,
             HeightCentimetres = height is > 0 and < 300 ? new SourcedValue<decimal>(height, evidence) : null,
             CurrentAbility = currentAbility is > 0 and <= 200 ? new SourcedValue<int>(currentAbility, evidence) : null,
-            PotentialAbility = rawPotential is > 0 and <= 200 ? new SourcedValue<int>(rawPotential, evidence) : null,
+            PotentialAbility = rawPotential is >= -200 and <= 200 ? new SourcedValue<int>(rawPotential, evidence) : null,
             InternationalCaps = new SourcedValue<int>(caps, evidence),
             InternationalGoals = new SourcedValue<int>(goals, evidence),
             ContractExpires = contractExpiry is DateOnly expiry ? new SourcedValue<DateOnly>(expiry, evidence) : null,
