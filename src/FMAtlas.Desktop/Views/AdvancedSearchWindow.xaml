@@ -39,8 +39,52 @@
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="Padding" Value="9,8"/>
             <Setter Property="Margin" Value="0,0,0,3"/>
-            <Setter Property="IsEnabled" Value="False"/>
         </Style>
+        <DataTemplate x:Key="AdvancedSearchFieldTemplate">
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="112"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding DisplayName}" Style="{StaticResource FilterLabel}" VerticalAlignment="Center"/>
+                <StackPanel x:Name="RangeControls" Grid.Column="1" Orientation="Horizontal">
+                    <TextBox Style="{StaticResource FilterValue}" Width="55"/>
+                    <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="5,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="55"/>
+                </StackPanel>
+                <CheckBox x:Name="BooleanControl" Grid.Column="1" Content="Yes / No" Foreground="{StaticResource Atlas.Muted}" FontSize="10" IsEnabled="False" Visibility="Collapsed"/>
+                <StackPanel x:Name="DateControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
+                    <TextBox Style="{StaticResource FilterValue}" Width="82"/>
+                    <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="5,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="82"/>
+                </StackPanel>
+                <TextBox x:Name="TextControl" Grid.Column="1" Style="{StaticResource FilterValue}" Visibility="Collapsed"/>
+                <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Boolean">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="BooleanControl" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Date">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="DateControls" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Text">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="TextControl" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="AdvancedSearchSectionTemplate">
+            <Border Style="{StaticResource FilterPanel}" Margin="0,0,9,9">
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding EmptyMessage}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                    <ItemsControl ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource AdvancedSearchFieldTemplate}"/>
+                    <TextBlock Text="DOCUMENTED FIELD · QUERY HANDLER IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid Margin="18">
@@ -67,9 +111,9 @@
 
         <Grid Grid.Row="1" Margin="0,0,0,12">
             <StackPanel Orientation="Horizontal">
-                <Button Content="Player" Style="{StaticResource Atlas.ProfileTabButton}" IsEnabled="False" Margin="0,0,5,0"/>
-                <Button Content="Coach" Style="{StaticResource Atlas.ProfileTabButton}" IsEnabled="False" Margin="0,0,5,0"/>
-                <Button Content="Club" Style="{StaticResource Atlas.ProfileTabButton}" IsEnabled="False"/>
+                <Button x:Name="PlayerEntityButton" Content="Player" Tag="Player" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,5,0"/>
+                <Button x:Name="CoachEntityButton" Content="Coach" Tag="Coach" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,5,0"/>
+                <Button x:Name="ClubEntityButton" Content="Club" Tag="Club" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}"/>
             </StackPanel>
         </Grid>
 
@@ -82,13 +126,13 @@
 
             <StackPanel Grid.Column="0">
                 <TextBlock Text="FILTER OPTIONS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="8,0,0,9"/>
-                <Button Content="General" Style="{StaticResource FilterCategoryButton}" Background="#211711" BorderBrush="#4A2A1D" Foreground="{StaticResource Atlas.Text}"/>
-                <Button Content="Contract" Style="{StaticResource FilterCategoryButton}"/>
-                <Button Content="Technical / GK" Style="{StaticResource FilterCategoryButton}"/>
-                <Button Content="Mental Attributes" Style="{StaticResource FilterCategoryButton}"/>
-                <Button Content="Physical / Hidden" Style="{StaticResource FilterCategoryButton}"/>
-                <Button Content="Preferred Moves" Style="{StaticResource FilterCategoryButton}"/>
-                <Button Content="Relations" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="GeneralCategoryButton" Content="General" Tag="General" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}" Background="#211711" BorderBrush="#4A2A1D" Foreground="{StaticResource Atlas.Text}"/>
+                <Button x:Name="ContractCategoryButton" Content="Contract" Tag="Contract" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="TechnicalGoalkeepingCategoryButton" Content="Technical / GK" Tag="TechnicalGoalkeeping" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="MentalAttributesCategoryButton" Content="Mental Attributes" Tag="MentalAttributes" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="PhysicalHiddenCategoryButton" Content="Physical / Hidden" Tag="PhysicalHidden" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="PreferredMovesCategoryButton" Content="Preferred Moves" Tag="PreferredMoves" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="RelationsCategoryButton" Content="Relations" Tag="Relations" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Border Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="5" Padding="8" Margin="0,14,0,0">
                     <TextBlock Text="Categories and controls are shown for layout review. They will be enabled only when their field mappings and query handlers are verified." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
                 </Border>
@@ -96,6 +140,7 @@
 
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <Grid>
+                    <Grid x:Name="GeneralPanel">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="10"/>
@@ -225,6 +270,17 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
+                    </Grid>
+                    <ItemsControl x:Name="DynamicCategoryPanels"
+                                  Visibility="Collapsed"
+                                  ItemsSource="{Binding Sections}"
+                                  ItemTemplate="{StaticResource AdvancedSearchSectionTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="2"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
                 </Grid>
             </ScrollViewer>
         </Grid>
@@ -232,7 +288,7 @@
         <DockPanel Grid.Row="3" Margin="0,14,0,0" LastChildFill="False">
             <TextBlock Text="FILTER DEFINITIONS DOCUMENTED · QUERY EXECUTION NOT CONNECTED" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <Button Content="Cancel" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0"/>
+                <Button Content="Cancel" Click="Cancel_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,8,0"/>
                 <Button Content="OK" Style="{StaticResource Atlas.PrimaryButton}" IsEnabled="False" MinWidth="78"/>
             </StackPanel>
         </DockPanel>
