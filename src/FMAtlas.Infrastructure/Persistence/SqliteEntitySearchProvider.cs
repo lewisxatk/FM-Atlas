@@ -32,7 +32,8 @@ public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
         string searchText,
         IReadOnlyCollection<EntityKind>? entityKinds = null,
         int limit = 50,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool includeWomenPlayers = false)
     {
         if (limit is < 1 or > 200)
             throw new ArgumentOutOfRangeException(nameof(limit), "Quick search limit must be between 1 and 200.");
@@ -46,19 +47,35 @@ public sealed class SqliteEntitySearchProvider : IEntitySearchProvider
 
         var kindFilter = kinds is null
             ? string.Empty
-            : $" AND entity_kind IN ({string.Join(", ", kinds.Select((_, index) => $"$kind{index}"))})";
+            : $" AND e.entity_kind IN ({string.Join(", ", kinds.Select((_, index) => $"$kind{index}"))})";
+        var womenFilter = includeWomenPlayers
+            ? string.Empty
+            : """
+              AND (
+                  e.entity_kind <> 'Player'
+                  OR NOT EXISTS (
+                      SELECT 1
+                      FROM field_values AS gender
+                      WHERE gender.entity_kind = e.entity_kind
+                        AND gender.source_id = e.source_id
+                        AND gender.provider_key = e.provider_key
+                        AND gender.field_key = 'gender'
+                        AND LOWER(TRIM(gender.text_value)) IN ('female', 'woman', 'women', 'f')
+                  )
+              )""";
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
-            SELECT entity_kind, source_id, provider_key, display_name
-            FROM entities
-            WHERE display_name IS NOT NULL
-              AND display_name LIKE $pattern ESCAPE '\'
+            SELECT e.entity_kind, e.source_id, e.provider_key, e.display_name
+            FROM entities AS e
+            WHERE e.display_name IS NOT NULL
+              AND e.display_name LIKE $pattern ESCAPE '\'
               {kindFilter}
-            ORDER BY display_name COLLATE NOCASE, entity_kind, provider_key, source_id
+              {womenFilter}
+            ORDER BY e.display_name COLLATE NOCASE, e.entity_kind, e.provider_key, e.source_id
             LIMIT $limit;
             """;
 
