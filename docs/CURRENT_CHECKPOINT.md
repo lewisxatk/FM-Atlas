@@ -1320,3 +1320,14 @@ Safety boundary: no live process writes and no modification of the user's career
 **Latest design review:** `docs/UI_REVIEW_001.md`.  
 **Latest live technical notes:** `research/LIVE_GAME_CONNECTION_001.md`.  
 **Current source branch head at this checkpoint:** see `rebuild/fresh-foundation-001`; no installable package has passed Windows build and tests.
+
+
+
+### Checkpoint 024 — Club linked-person detail cards
+
+- [x] Club profile hydrates the linked Player/Staff search results from the lossless typed snapshot store.
+- [x] Squad rows show available name, primary position, age, team label, CA/PA and UID.
+- [x] Staff rows show available name, primary role, age, nationality, CA/PA and UID.
+- [x] Missing typed snapshots are explicitly labelled; no attributes are inferred.
+- [x] Double-click continues to open the full Player/Staff profile tab.
+- [ ] Runtime validation against a live FM27 Game Pass career remains outstanding, as do Windows build/test and live writing.
