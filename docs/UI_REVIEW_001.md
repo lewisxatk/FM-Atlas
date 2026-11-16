@@ -217,3 +217,14 @@ This is a presentation-layer coverage improvement only. It displays values alrea
 - The main sidebar keeps no Search item; Quick Search remains in the top header and Advanced Search remains a modal dialog.
 
 **Verification update:** latest Windows run #821 (ID `43866844802`) on commit `fa8ebd4d5199ddc82c03512d1e065c04ff8323d8` failed before job steps. Its job response has `steps=null` and no log URL. A retry has been accepted and is currently queued (job `133298049321`); it has not yet produced a Restore/Build/Test result. The static UI check passes: seven XAML files have balanced element structure, all 38 declared UI event handlers resolve, and there are no missing static resource keys. This remains a static check, not a WPF compile or runtime test.
+
+
+## 14. Club membership list presentation
+
+The Club Squads and Staff lists now hydrate every indexed match from the lossless typed snapshot store, rather than showing only a player/staff name and UID:
+- Player rows show name, primary position, age, current-team label where available, CA/PA and UID.
+- Staff rows show name, primary role, age, nationality where present, CA/PA and UID.
+- If an indexed entity has no typed snapshot, the list uses a clear “snapshot not imported” detail instead of inventing attributes.
+- Rows double-click into the existing player or staff profile workspace tab.
+
+This improves the club profile's navigation and data density. It does not add new memory fields or verify the underlying club UID offsets; it presents already imported typed snapshots.
