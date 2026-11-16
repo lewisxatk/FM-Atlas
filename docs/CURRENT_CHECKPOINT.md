@@ -44,6 +44,8 @@ The seven newly uploaded packages have been SHA-256 inventoried and statically i
 - FM View Exporter: GPL-3.0, documents 375 FM27 table columns and 377 Insert Column menu entries; table order is not assumed to equal player-profile attribute order.
 - FM Player Analyzer: GPL-3.0, useful save import, profile, graphics indexing and testing research.
 - Licensing boundaries are documented; no third-party source copied.
+- Official FMRTE 27 player, staff, club, search and edit-history documentation was researched; detailed tab/feature audit committed as `research/FMRTE_FEATURE_AUDIT_001.md`.
+- Player tabs now follow the actual FMRTE 27 section inventory while retaining the user's required top-of-profile tab placement.
 
 ## Architecture decision
 
