@@ -1272,3 +1272,31 @@ Safety boundary: no live process writes and no modification of the user's career
 4. Expand actual club-related source imports (youth intake, board vision, clauses, transfers, wage contributions, kits, affiliations and match preparation) only after their entity structures and relationships are confirmed.
 5. Populate remaining Player/Staff tabs from real source records; current empty states are intentional where the provider does not yet supply those records.
 6. Keep Save Live Changes disabled until a separate writer passes per-field preflight, read-back, conflict and undo tests.
+
+## Checkpoint 024 — Staff and Club profile detail refinement
+
+**Date:** 2026-11-16 UTC
+**Branch:** `rebuild/fresh-foundation-001`
+**Status:** Additional profile summary fields and section data coverage committed; Windows runtime/build verification remains outstanding.
+
+### Work saved
+- Staff profile view model now exposes date of birth, club/team, primary role, unique game ID, wage and contract expiry as presentation properties.
+- Staff profile left rail now displays those identity fields and a separate contract summary while retaining age, CA and PA in the header.
+- Club profile view model now exposes ownership, chairperson and attendance summary values.
+- Club profile left rail now displays ownership, average attendance and chairperson alongside crest, nation/competition and stadium information.
+- Club profile section projector now surfaces all relevant typed field kinds for youth intake, finance, club vision, possible signings, clauses, transfer centre, wage contributions, kits/colours, affiliations, match preparation and stadium.
+- Removed internal fresh-foundation milestone language from the navigation footer.
+- Updated `docs/UI_REVIEW_001.md` to preserve these refinements.
+
+### Safety and verification
+- All changes are display/projection improvements over existing typed record values; no memory offsets, values or importer coverage were invented.
+- No live process write has been performed. Save Live Changes remains disabled.
+- The container has no .NET SDK/MSBuild and cannot compile WPF. The recent Actions job failures have no runner steps/logs, so they cannot be interpreted as compiler results.
+- No screenshot comparison against the user's Windows runtime has yet been possible.
+
+### Next
+1. Restore a working Windows Actions runner and run Release build plus the complete test suite.
+2. Launch on the user's PC and inspect the Dashboard, Advanced Search, Player, Staff and Club tabs at normal scaling.
+3. Compare live records with the user's exact FM27 Game Pass build and a disposable career; promote only independently checked fields from Mapped to ReadVerified.
+4. Continue implementing source-backed club data families and Player/Staff profile history, stats, languages, clauses, vision, transfers and related tabs as their actual save structures are confirmed.
+5. Do not enable live editing until per-field writer, read-back, conflict and undo verification is complete.
