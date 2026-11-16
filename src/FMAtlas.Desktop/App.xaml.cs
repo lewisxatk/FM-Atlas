@@ -40,11 +40,13 @@ public partial class App : System.Windows.Application
 
         var snapshotStore = new SqliteEntityRecordSnapshotStore(databasePath);
         var playerExportImporter = new FMViewExporterCsvImporter(snapshotStore);
+        var liveGameConnector = new WindowsFm27LiveGameConnector(snapshotStore);
 
         var viewModel = new MainWindowViewModel(
             processProbe,
             atlasDatabase,
             entitySearchProvider,
+            liveGameConnector,
             databasePath);
         var window = new MainWindow(viewModel, advancedSearchProvider, snapshotStore, playerExportImporter);
         MainWindow = window;
