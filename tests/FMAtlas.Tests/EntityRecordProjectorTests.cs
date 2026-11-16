@@ -26,9 +26,18 @@ public sealed class EntityRecordProjectorTests
                 ["pace"] = new(16, Evidence),
                 ["finishing"] = new(14, Evidence)
             },
+            HiddenAttributes = new Dictionary<string, SourcedValue<int>>
+            {
+                ["consistency"] = new(17, Evidence)
+            },
             Personality = new Dictionary<string, SourcedValue<int>>
             {
                 ["professionalism"] = new(18, Evidence)
+            },
+            FootRatings = new Dictionary<string, SourcedValue<int>>
+            {
+                ["left_foot"] = new(20, Evidence),
+                ["right_foot"] = new(8, Evidence)
             },
             SeasonStatistics = new Dictionary<string, SourcedValue<decimal>>
             {
@@ -42,7 +51,10 @@ public sealed class EntityRecordProjectorTests
         Assert.Equal("Example", result.DisplayName);
         Assert.Contains(result.Fields, x => x.Key == "current_ability" && x.IntegerValue == 140);
         Assert.Contains(result.Fields, x => x.Key == "attribute_pace" && x.IntegerValue == 16);
+        Assert.Contains(result.Fields, x => x.Key == "attribute_consistency" && x.IntegerValue == 17);
         Assert.Contains(result.Fields, x => x.Key == "personality_professionalism" && x.IntegerValue == 18);
+        Assert.Contains(result.Fields, x => x.Key == "foot_left_foot" && x.IntegerValue == 20);
+        Assert.Contains(result.Fields, x => x.Key == "foot_right_foot" && x.IntegerValue == 8);
         Assert.Contains(result.Fields, x => x.Key == "stat_goals_per_90" && x.DecimalValue == 0.75m);
         Assert.All(result.Fields, x => Assert.True(x.HasValidValueShape()));
         Assert.All(result.Fields, x => Assert.Equal(FieldEvidenceStatus.ReadVerified, x.Provenance.EvidenceStatus));
