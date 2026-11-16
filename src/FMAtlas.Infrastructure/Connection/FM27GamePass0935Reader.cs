@@ -578,6 +578,7 @@ internal sealed class FM27GamePass0935Reader
         var contractType = contractData is null ? (byte?)null : contractData[0xC3];
         var primaryRole = jobCode is byte code ? StaffRoleName(code) : null;
         var clubName = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadContractClubName(contract) : null;
+        var contractClubUid = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadContractClubUid(contract) : null;
 
         var searchIntegers = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         void AddSearchInt(string key, int? value)
@@ -585,6 +586,7 @@ internal sealed class FM27GamePass0935Reader
             if (value is int number)
                 searchIntegers[key] = new SourcedValue<int>(number, evidence);
         }
+        AddSearchInt("club_uid", contractClubUid is uint clubUid && clubUid <= int.MaxValue ? (int)clubUid : null);
         AddSearchInt("home_reputation", U16(0xD4));
         AddSearchInt("current_reputation", U16(0xD6));
         AddSearchInt("world_reputation", U16(0xD8));
@@ -1014,6 +1016,17 @@ internal sealed class FM27GamePass0935Reader
             88 => "Technical Director",
             _ => null
         };
+    }
+
+    private uint? ReadContractClubUid(ulong contract)
+    {
+        var team = SafeReadPointer(contract + 0x10);
+        if (!WindowsProcessMemoryAccessor.IsUserPointer(team))
+            return null;
+        var club = SafeReadPointer(team + 0x30);
+        if (!WindowsProcessMemoryAccessor.IsUserPointer(club))
+            return null;
+        return TryReadUInt32(club + 0x0C);
     }
 
     private string? ReadContractClubName(ulong contract)
