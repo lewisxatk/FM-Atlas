@@ -67,7 +67,7 @@ public partial class App : System.Windows.Application
             entitySearchProvider,
             liveGameConnector,
             databasePath);
-        var window = new MainWindow(viewModel, advancedSearchProvider, snapshotStore, playerExportImporter);
+        var window = new MainWindow(viewModel, advancedSearchProvider, snapshotStore, playerExportImporter, entitySearchProvider);
         MainWindow = window;
         window.Show();
     }
