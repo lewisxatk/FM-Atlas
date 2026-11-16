@@ -329,7 +329,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
         }
 
         var query = new AdvancedSearchQuery(
-            SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic, GetIndexedFieldsFor(SelectedEntity));
+            SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic, GetIndexedFieldsFor(SelectedEntity), _includeWomenPlayers());
         var validation = AdvancedSearchQueryValidator.Validate(query);
         if (!validation.IsValid)
         {
