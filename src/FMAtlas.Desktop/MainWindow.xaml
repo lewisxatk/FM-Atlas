@@ -503,7 +503,7 @@
                                Margin="0,9,0,18"/>
                     <ProgressBar Minimum="0"
                                  Maximum="100"
-                                 Value="{Binding LiveLoadProgress}"
+                                 Value="{Binding LiveLoadProgress, Mode=OneWay}"
                                  Height="5"
                                  Background="#303033"
                                  Foreground="{StaticResource Atlas.Accent}"
