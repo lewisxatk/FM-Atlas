@@ -8,16 +8,18 @@ A clean Windows desktop application for Football Manager 27 editing, save intell
 
 ## Current state
 
-The fresh WPF solution and initial application shell are being established. The first shell includes:
-- compact left navigation (no Search item);
-- top Quick Search placeholder and Advanced Search action;
-- compact Save Atlas / Save Changes controls;
-- prominent Load Game action on the right;
-- black/off-white/orange design tokens;
-- honest disconnected and In Progress states;
-- read-only process presence check only.
+The fresh WPF application now has a functional workspace foundation:
+- compact left navigation for Dashboard, Players, Staff, Clubs, Save Manager and Settings (no Search item);
+- top Quick Search, modal FMRTE-style Advanced Search, Import CSV and prominent Load Game action;
+- closable in-app workspace tabs for Player, Staff, Club and directory views;
+- recently opened profile shortcuts on the dashboard;
+- player profile sections, including Technical / Goalkeeper attribute mode, CA/PA, attributes, positions, preferred moves and source/evidence labels;
+- dedicated Staff and Club profile workspaces with the sections from the FMRTE feature audit;
+- automatic lookup of player portraits and club badges from the standard FM27 graphics folder when a valid `config.xml` mapping exists;
+- a blocking animated live-load panel with stage/progress information;
+- an exact-fingerprint FM27 Game Pass 0.9.2435.0 read-only scanner for Player, Staff and Club snapshots.
 
-No player records, attributes, career data or successful edits are fabricated. The first Load Game action only checks whether the FM process and `game_plugin.dll` can be detected; it does not read memory or load a career.
+**Important current boundary:** the live reader remains externally mapped and has not been validated against a running user's FM27 career. Save Live Changes is still disabled. Several profile sections are structured and searchable but show a clear “not imported” state until their underlying game data is mapped. No current Windows build or in-game runtime test has passed yet.
 
 ## Build on Windows
 
@@ -42,6 +44,7 @@ GitHub Actions runs the same restore/build/test sequence on Windows.
 - `research/RESEARCH_FINDINGS_001.md` — initial technical research evidence.
 - `research/FMRTE_FEATURE_AUDIT_001.md` — official FMRTE 27 player/staff/club tab and tool coverage.
 - `research/FIELD_COVERAGE_LEDGER.md` — attribute groups, field counts and verification status.
+- `docs/UI_REVIEW_001.md` — review of the current shell, Advanced Search, player/staff/club profiles, graphics and outstanding design/build gates.
 
 The historical R7.2.0 source is preserved separately in `recovery/r7.2.0-source-import` and is not the new application's code foundation.
 
