@@ -50,6 +50,7 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         Add(fields, "contract_expires", player.ContractExpires);
         Add(fields, "wage", player.Wage);
         Add(fields, "transfer_value", player.TransferValue);
+        Add(fields, "is_newgen", player.IsNewgen);
 
         AddIntMap(fields, "attribute_", player.Attributes);
         AddIntMap(fields, "attribute_", player.HiddenAttributes);
@@ -58,6 +59,11 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         AddIntMap(fields, "position_", player.PositionRatings);
         AddDecimalMap(fields, "stat_", player.SeasonStatistics);
         AddStringMap(fields, "extra_", player.ExtendedFields);
+        AddIntMap(fields, string.Empty, player.SearchIntegerFields);
+        AddDecimalMap(fields, string.Empty, player.SearchDecimalFields);
+        AddBooleanMap(fields, string.Empty, player.SearchBooleanFields);
+        AddDateMap(fields, string.Empty, player.SearchDateFields);
+        AddStringMap(fields, string.Empty, player.SearchTextFields);
 
         for (var index = 0; index < player.PreferredMoves.Count; index++)
             Add(fields, $"preferred_move_{index:D4}", player.PreferredMoves[index]);
@@ -83,10 +89,16 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         Add(fields, "potential_ability", staff.PotentialAbility);
         Add(fields, "contract_expires", staff.ContractExpires);
         Add(fields, "wage", staff.Wage);
+        Add(fields, "is_newgen", staff.IsNewgen);
 
         AddIntMap(fields, "attribute_", staff.Attributes);
         AddIntMap(fields, "knowledge_", staff.Knowledge);
         AddStringMap(fields, "extra_", staff.ExtendedFields);
+        AddIntMap(fields, string.Empty, staff.SearchIntegerFields);
+        AddDecimalMap(fields, string.Empty, staff.SearchDecimalFields);
+        AddBooleanMap(fields, string.Empty, staff.SearchBooleanFields);
+        AddDateMap(fields, string.Empty, staff.SearchDateFields);
+        AddStringMap(fields, string.Empty, staff.SearchTextFields);
 
         return new EntityRecordProjection(
             staff.Identity,
@@ -110,6 +122,11 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         AddDecimalMap(fields, "finance_", club.Finances);
         AddIntMap(fields, "facility_", club.Facilities);
         AddStringMap(fields, "extra_", club.ExtendedFields);
+        AddIntMap(fields, string.Empty, club.SearchIntegerFields);
+        AddDecimalMap(fields, string.Empty, club.SearchDecimalFields);
+        AddBooleanMap(fields, string.Empty, club.SearchBooleanFields);
+        AddDateMap(fields, string.Empty, club.SearchDateFields);
+        AddStringMap(fields, string.Empty, club.SearchTextFields);
 
         return new EntityRecordProjection(
             club.Identity,
@@ -166,6 +183,34 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         if (value is not null)
             fields.Add(new EntityFieldProjection(
                 key, EntityFieldValueKind.Date, null, null, null, value.Value, null, value.Provenance));
+    }
+
+    private static void Add(
+        ICollection<EntityFieldProjection> fields,
+        string key,
+        SourcedValue<bool>? value)
+    {
+        if (value is not null)
+            fields.Add(new EntityFieldProjection(
+                key, EntityFieldValueKind.Boolean, null, null, null, null, value.Value, value.Provenance));
+    }
+
+    private static void AddBooleanMap(
+        ICollection<EntityFieldProjection> fields,
+        string prefix,
+        IReadOnlyDictionary<string, SourcedValue<bool>> values)
+    {
+        foreach (var (key, value) in values.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+            Add(fields, ComposeKey(prefix, key), value);
+    }
+
+    private static void AddDateMap(
+        ICollection<EntityFieldProjection> fields,
+        string prefix,
+        IReadOnlyDictionary<string, SourcedValue<DateOnly>> values)
+    {
+        foreach (var (key, value) in values.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+            Add(fields, ComposeKey(prefix, key), value);
     }
 
     private static void AddIntMap(
