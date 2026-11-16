@@ -363,3 +363,29 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 **Evidence distinction:** The build is currently an external-reference-only profile with an explicit narrow read-only scan attempt. `CanReadLiveData` remains false until Atlas runtime verification; `CanWriteLiveData` remains false. Imported field values are tagged `LiveGameMemory / Mapped`, not ReadVerified or WriteVerified.
 **Exact-scan restriction:** Although the reference catalogue contains Game Pass 0.9.2409.0, the current live scanner only supports 0.9.2435.0 and rejects the older fingerprint.
 **Detailed record:** `research/LIVE_GAME_CONNECTION_001.md`.
+
+
+
+## UI and profile workspace update — 2026-11-16
+
+- [x] U1 Dashboard uses live career state, imported/live entity counts, real quick actions and truthful write-disabled status.
+- [x] U2 Left navigation remains Dashboard / Players / Staff / Clubs / Save Manager / Settings with no Search item.
+- [x] U3 Quick Search remains global in the top header; Advanced Search is a modal REF-002 workspace.
+- [x] U4 Player, Staff and Club directories open type-matched typed profiles in closable in-app workspace tabs.
+- [x] U5 Recently opened Player/Staff/Club profiles are listed on Dashboard and reopen their existing tab.
+- [x] U6 Player profile FMRTE-audited sections switch content and expose source-backed values / honest empty states.
+- [x] U7 Player profile supports Technical / Goalkeeper attribute catalogue switching and canonical position ordering.
+- [x] U8 Staff profile includes all Staff sections in the FMRTE audit and clearly marks unavailable data.
+- [x] U9 Club profile includes all Club sections in the FMRTE audit and clearly marks unavailable data.
+- [x] U10 Standard FM27 graphics config is indexed read-only; player faces and club badges are resolved by game ID when installed.
+- [x] U11 Replace the internal development checklist dashboard panel with the current career and profile shortcuts.
+- [x] U12 Static XAML tag-stack validation across seven WPF XAML files completed; fixed Staff/Club profile button markup.
+- [ ] U13 Compare desktop screenshots against REF-001, REF-002 and REF-003 at normal Windows scaling.
+- [ ] U14 Add a Settings path selector for non-standard graphics folders.
+- [ ] U15 Populate full club squads, youth intake, board, affiliation, kit, staff and related entity data.
+- [ ] U16 Populate remaining Player/Staff sections (history, bans, proposals, scout info, languages, promises, training ratings and relationships) from verified source records.
+- [ ] U17 Full Windows .NET 8 Release build and all tests against latest branch head.
+- [ ] U18 Real Game Pass read validation against a disposable/current career and independent field-by-field comparison.
+- [ ] U19 Implement separate guarded write primitive and first scalar writes with read-back, conflict handling and undo. Save Live Changes remains disabled until verified.
+
+**Current design audit:** see `docs/UI_REVIEW_001.md`. The current branch has profile/workspace structure and profile section navigation, but the full live editor and all profile data families are not complete.
