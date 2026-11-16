@@ -97,7 +97,9 @@ internal sealed class FM27GamePass0935Reader
     }
 
     public static bool Matches(GameModuleFingerprint fingerprint) =>
-        fingerprint.PeTimestamp == PeTimestamp && fingerprint.SizeOfImage == SizeOfImage;
+        fingerprint.Machine == 0x8664 &&
+        fingerprint.PeTimestamp == PeTimestamp &&
+        fingerprint.SizeOfImage == SizeOfImage;
 
     public string BuildDisplayName => $"FM27 Game Pass {BuildVersion}";
 
