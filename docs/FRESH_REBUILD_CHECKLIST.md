@@ -326,3 +326,17 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 - [x] Re-open the raw branch file and verify all three entity loops and the method return are present.
 - [ ] Compile and test the exact corrected head on a functioning Windows runner.
 - [!] Runs #586/#587 still fail before any runner steps or logs are available.
+
+
+### Live-save priority — latest continuation (16 November 2026)
+
+- [x] L12 Strict scan completeness: player/staff/club pointer entries can no longer be silently skipped. Null identities and recoverable object-read errors abort the full scan with entity kind and address; no partial record set is passed to SQLite.
+- [x] L13a Connector shutdown race: do not dispose the operation semaphore while a load/session check may still release it; disconnect is requested and the in-flight path performs teardown.
+- [~] L4–L8 Session invalidation, load overlay, owned-window blocking and pure write-preflight remain implemented; they are not substitutes for the missing writer.
+- [ ] L10 Exact current branch head still needs successful Windows restore/build/test.
+- [ ] L11 Validate the live mapping against a disposable Game Pass career and independent reference values.
+- [ ] L13 Implement a separate guarded process-memory writer; the existing accessor remains read-only.
+- [ ] L14 First scalar edits, read-back, conflict handling and undo on a disposable career.
+- [ ] L15 Extend live acquisition beyond player/staff/club to the full FM world model.
+
+**Current truthful state:** the FM27 Game Pass 0.9.2435.0 connector can attempt an externally mapped read and index players/staff/clubs. It is not yet independently verified, does not edit the game, and does not cover every data family. The centred animated blocking overlay already locks the main window and all owned search/profile windows for the complete load/index/validation operation.
