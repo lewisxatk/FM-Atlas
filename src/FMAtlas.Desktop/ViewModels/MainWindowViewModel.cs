@@ -397,6 +397,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private async Task LoadLiveGameAsync()
     {
+        var refreshSearchAfterLoad = false;
         IsBusy = true;
         LiveSessionActive = false;
         LiveWritesEnabled = false;
@@ -407,7 +408,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         LastImportStatusText = "Live session loading";
         QuickSearchResults.Clear();
         QuickSearchMessage = "Loading the active FM27 career. Search is paused until the snapshot is verified.";
-        IsQuickSearchOpen = !string.IsNullOrWhiteSpace(QuickSearchText);
+        IsQuickSearchOpen = false;
         IsLiveLoadOverlayVisible = true;
         LiveLoadProgress = 0;
         LiveLoadStage = "CONNECTING TO FOOTBALL MANAGER";
@@ -438,8 +439,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             LastImportStatusText = "Live FM27 player records loaded";
             QuickSearchResults.Clear();
             QuickSearchMessage = "Live FM27 career loaded. Search players, staff and clubs.";
-            if (QuickSearchText.Trim().Length >= 2)
-                ScheduleQuickSearch();
+            refreshSearchAfterLoad = QuickSearchText.Trim().Length >= 2;
         }
         catch (OperationCanceledException)
         {
@@ -475,6 +475,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             IsLiveLoadOverlayVisible = false;
             IsBusy = false;
+            if (refreshSearchAfterLoad)
+                ScheduleQuickSearch();
         }
     }
 
