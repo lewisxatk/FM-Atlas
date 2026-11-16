@@ -8,6 +8,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Search;
+using FMAtlas.Domain.Entities;
 using FMAtlas.Desktop.ViewModels;
 
 namespace FMAtlas.Desktop.Views;
@@ -15,6 +16,8 @@ namespace FMAtlas.Desktop.Views;
 public partial class AdvancedSearchWindow : Window
 {
     private readonly AdvancedSearchWindowViewModel _viewModel;
+
+    public event Action<EntitySearchResult>? ResultOpenRequested;
 
     public AdvancedSearchWindow(IAdvancedSearchProvider searchProvider)
     {
@@ -76,6 +79,14 @@ public partial class AdvancedSearchWindow : Window
     private async void Search_Click(object sender, RoutedEventArgs e)
     {
         await _viewModel.RunSearchAsync();
+    }
+
+    private void ResultsListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (ResultsListBox.SelectedItem is not AdvancedSearchResultViewModel selected)
+            return;
+
+        ResultOpenRequested?.Invoke(selected.Result);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => Close();
