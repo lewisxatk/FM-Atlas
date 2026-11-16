@@ -35,6 +35,18 @@ public sealed class EntityRecordSnapshotStoreTests
                 ["finishing"] = new(17, provenance),
                 ["pace"] = new(16, provenance)
             },
+            HiddenAttributes = new Dictionary<string, SourcedValue<int>>
+            {
+                ["consistency"] = new(13, provenance)
+            },
+            Personality = new Dictionary<string, SourcedValue<int>>
+            {
+                ["professionalism"] = new(18, provenance)
+            },
+            FootRatings = new Dictionary<string, SourcedValue<int>>
+            {
+                ["left_foot"] = new(20, provenance)
+            },
             PreferredMoves = [new SourcedValue<string>("Runs With Ball Often", provenance)]
         };
 
@@ -48,6 +60,9 @@ public sealed class EntityRecordSnapshotStoreTests
         Assert.Equal(21, loaded.Age!.Value);
         Assert.Equal(145, loaded.CurrentAbility!.Value);
         Assert.Equal(17, loaded.Attributes["finishing"].Value);
+        Assert.Equal(13, loaded.HiddenAttributes["consistency"].Value);
+        Assert.Equal(18, loaded.Personality["professionalism"].Value);
+        Assert.Equal(20, loaded.FootRatings["left_foot"].Value);
         Assert.Equal("CareerSave", loaded.Attributes["finishing"].Provenance.Source.ToString());
         Assert.Equal("FM27 fixture", loaded.Attributes["finishing"].Provenance.SourceVersion);
         Assert.Equal("Runs With Ball Often", Assert.Single(loaded.PreferredMoves).Value);
