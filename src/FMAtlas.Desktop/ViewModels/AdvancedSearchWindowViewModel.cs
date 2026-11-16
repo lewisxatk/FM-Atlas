@@ -665,14 +665,6 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     }
 }
 
-public sealed record AdvancedSearchPreset(
-    int Version,
-    string Name,
-    SearchEntityKind Entity,
-    SearchFilterLogic Logic,
-    SearchFilterLogic PositionLogic,
-    IReadOnlyList<SearchFilterCondition> Conditions);
-
 public sealed record AdvancedSearchSectionViewModel(
     string Title,
     string EmptyMessage,
