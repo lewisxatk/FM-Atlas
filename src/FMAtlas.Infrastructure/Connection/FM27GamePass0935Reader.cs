@@ -914,6 +914,42 @@ internal sealed class FM27GamePass0935Reader
         catch { return null; }
     }
 
+    private uint? TryReadUInt32(ulong address)
+    {
+        try { return _memory.ReadUInt32(address); }
+        catch { return null; }
+    }
+
+    private byte? TryReadByte(ulong address)
+    {
+        try { return _memory.ReadByte(address); }
+        catch { return null; }
+    }
+
+    private static void AddUInt32Field(
+        IDictionary<string, SourcedValue<int>> fields,
+        string key,
+        uint? rawValue,
+        FieldProvenance evidence,
+        uint minimum,
+        uint maximum)
+    {
+        if (rawValue is uint value && value >= minimum && value <= maximum && value <= int.MaxValue)
+            fields[key] = new SourcedValue<int>((int)value, evidence);
+    }
+
+    private static void AddFinanceField(
+        IDictionary<string, SourcedValue<decimal>> fields,
+        string key,
+        int? rawValue,
+        FieldProvenance evidence,
+        decimal minimum,
+        decimal maximum)
+    {
+        if (rawValue is int value && value >= minimum && value <= maximum)
+            fields[key] = new SourcedValue<decimal>(value, evidence);
+    }
+
     private ushort? TryReadUInt16(ulong address)
     {
         try { return _memory.ReadUInt16(address); }
