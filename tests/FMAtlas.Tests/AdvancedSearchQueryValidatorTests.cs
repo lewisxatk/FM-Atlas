@@ -28,6 +28,7 @@ public sealed class AdvancedSearchQueryValidatorTests
             [new SearchFilterCondition("current_ability", SearchFilterOperator.Range, Minimum: 150)]);
 
         Assert.True(AdvancedSearchQueryValidator.Validate(query).IsValid);
+        Assert.True(query.CanExecute);
     }
 
     [Fact]
@@ -70,28 +71,62 @@ public sealed class AdvancedSearchQueryValidatorTests
     }
 
     [Fact]
-    public void PreservesExplicitAllAndAnyLogic()
+    public void PreservesExplicitAllAndAnyLogicAndRejectsEmptyQueries()
     {
         var all = new AdvancedSearchQuery(SearchEntityKind.Player, SearchFilterLogic.All, []);
         var any = new AdvancedSearchQuery(SearchEntityKind.Player, SearchFilterLogic.Any, []);
 
         Assert.Equal(SearchFilterLogic.All, all.Logic);
         Assert.Equal(SearchFilterLogic.Any, any.Logic);
-        Assert.True(AdvancedSearchQueryValidator.Validate(all).IsValid);
-        Assert.True(AdvancedSearchQueryValidator.Validate(any).IsValid);
+        Assert.False(AdvancedSearchQueryValidator.Validate(all).IsValid);
+        Assert.False(AdvancedSearchQueryValidator.Validate(any).IsValid);
         Assert.False(all.CanExecute);
         Assert.False(any.CanExecute);
     }
 
     [Fact]
-    public void DocumentedFieldsAreStructurallyValidButNotExecutableYet()
+    public void RejectsDocumentedButUnimplementedFields()
     {
         var query = new AdvancedSearchQuery(
             SearchEntityKind.Player,
             SearchFilterLogic.All,
-            [new SearchFilterCondition("current_ability", SearchFilterOperator.Range, Minimum: 100)]);
+            [new SearchFilterCondition("wonderkid", SearchFilterOperator.IsTrue)]);
 
-        Assert.True(AdvancedSearchQueryValidator.Validate(query).IsValid);
+        Assert.False(AdvancedSearchQueryValidator.Validate(query).IsValid);
         Assert.False(query.CanExecute);
+    }
+
+    [Fact]
+    public void IntegerRangesRequireWholeNumberBoundaries()
+    {
+        var query = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition("age", SearchFilterOperator.Range, Minimum: 18.5m)]);
+
+        Assert.False(AdvancedSearchQueryValidator.Validate(query).IsValid);
+    }
+
+    [Fact]
+    public void DateRangeRequiresValidOrderedBounds()
+    {
+        var valid = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition(
+                "contract_expiry", SearchFilterOperator.Range,
+                DateMinimum: new DateOnly(2027, 1, 1),
+                DateMaximum: new DateOnly(2028, 1, 1))]);
+
+        var invalid = new AdvancedSearchQuery(
+            SearchEntityKind.Player,
+            SearchFilterLogic.All,
+            [new SearchFilterCondition(
+                "contract_expiry", SearchFilterOperator.Range,
+                DateMinimum: new DateOnly(2028, 1, 1),
+                DateMaximum: new DateOnly(2027, 1, 1))]);
+
+        Assert.True(AdvancedSearchQueryValidator.Validate(valid).IsValid);
+        Assert.False(AdvancedSearchQueryValidator.Validate(invalid).IsValid);
     }
 }

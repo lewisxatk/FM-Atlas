@@ -25,17 +25,16 @@ public sealed record SearchFilterCondition(
     decimal? Minimum = null,
     decimal? Maximum = null,
     string? TextValue = null,
-    DateOnly? DateValue = null);
+    DateOnly? DateValue = null,
+    DateOnly? DateMinimum = null,
+    DateOnly? DateMaximum = null);
 
 public sealed record AdvancedSearchQuery(
     SearchEntityKind Entity,
     SearchFilterLogic Logic,
     IReadOnlyList<SearchFilterCondition> Conditions)
 {
-    /// <summary>
-    /// True only when every field has a ready implementation. The current catalogue
-    /// deliberately returns false until real providers and query execution are tested.
-    /// </summary>
+    /// <summary>Indicates that every selected field has a query implementation.</summary>
     public bool CanExecute => Conditions.Count > 0 && Conditions.All(condition =>
         AdvancedSearchQueryValidator.ResolveField(Entity, condition.FieldKey)?.CanExecute == true);
 }
@@ -48,14 +47,18 @@ public sealed record SearchValidationResult(IReadOnlyList<SearchValidationIssue>
 }
 
 /// <summary>
-/// Validates query structure and field/operator compatibility. This does not execute
-/// a query or claim that the source data is available.
+/// Validates query structure, implementation status and field/operator compatibility.
+/// Validation does not itself execute a query.
 /// </summary>
 public static class AdvancedSearchQueryValidator
 {
     public static SearchValidationResult Validate(AdvancedSearchQuery query)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         var issues = new List<SearchValidationIssue>();
+        if (query.Conditions.Count == 0)
+            issues.Add(new SearchValidationIssue(string.Empty, "Add at least one search condition."));
 
         foreach (var condition in query.Conditions)
         {
@@ -63,6 +66,14 @@ public static class AdvancedSearchQueryValidator
             if (field is null)
             {
                 issues.Add(new SearchValidationIssue(condition.FieldKey, "The field is not documented for this entity."));
+                continue;
+            }
+
+            if (!field.CanExecute)
+            {
+                issues.Add(new SearchValidationIssue(
+                    condition.FieldKey,
+                    "This field is documented but its query implementation is still In Progress."));
                 continue;
             }
 
@@ -108,12 +119,34 @@ public static class AdvancedSearchQueryValidator
         {
             case SearchFieldValueKind.IntegerRange:
             case SearchFieldValueKind.DecimalRange:
+                if (condition.Operator != SearchFilterOperator.Range)
+                {
+                    issues.Add(new SearchValidationIssue(field.Key, "This field requires a numeric range operator."));
+                    return;
+                }
+
+                if (condition.Minimum is null && condition.Maximum is null)
+                    issues.Add(new SearchValidationIssue(field.Key, "Enter at least one range boundary."));
+
+                if (condition.Minimum is not null && condition.Maximum is not null &&
+                    condition.Minimum > condition.Maximum)
+                    issues.Add(new SearchValidationIssue(field.Key, "The minimum cannot be greater than the maximum."));
+
+                if (field.ValueKind == SearchFieldValueKind.IntegerRange &&
+                    (condition.Minimum is decimal min && decimal.Truncate(min) != min ||
+                     condition.Maximum is decimal max && decimal.Truncate(max) != max))
+                    issues.Add(new SearchValidationIssue(field.Key, "Integer fields require whole-number boundaries."));
+                break;
+
             case SearchFieldValueKind.PositionRating:
                 if (condition.Operator != SearchFilterOperator.Range)
                 {
                     issues.Add(new SearchValidationIssue(field.Key, "This field requires a numeric range operator."));
                     return;
                 }
+
+                if (string.IsNullOrWhiteSpace(condition.TextValue))
+                    issues.Add(new SearchValidationIssue(field.Key, "Choose a position."));
 
                 if (condition.Minimum is null && condition.Maximum is null)
                     issues.Add(new SearchValidationIssue(field.Key, "Enter at least one range boundary."));
@@ -137,10 +170,24 @@ public static class AdvancedSearchQueryValidator
                 break;
 
             case SearchFieldValueKind.DateRange:
-                if (condition.Operator is not (SearchFilterOperator.Before or SearchFilterOperator.After or SearchFilterOperator.Range))
+                if (condition.Operator is SearchFilterOperator.Before or SearchFilterOperator.After)
+                {
+                    if (condition.DateValue is null)
+                        issues.Add(new SearchValidationIssue(field.Key, "Choose a comparison date."));
+                }
+                else if (condition.Operator == SearchFilterOperator.Range)
+                {
+                    if (condition.DateMinimum is null && condition.DateMaximum is null)
+                        issues.Add(new SearchValidationIssue(field.Key, "Choose at least one date boundary."));
+
+                    if (condition.DateMinimum is not null && condition.DateMaximum is not null &&
+                        condition.DateMinimum > condition.DateMaximum)
+                        issues.Add(new SearchValidationIssue(field.Key, "The start date cannot be after the end date."));
+                }
+                else
+                {
                     issues.Add(new SearchValidationIssue(field.Key, "This field requires a date comparison."));
-                else if (condition.DateValue is null)
-                    issues.Add(new SearchValidationIssue(field.Key, "Choose a date."));
+                }
                 break;
 
             case SearchFieldValueKind.Enum:

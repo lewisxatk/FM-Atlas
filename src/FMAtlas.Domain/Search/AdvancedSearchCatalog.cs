@@ -97,8 +97,8 @@ public static class AdvancedSearchCatalog
         F("eu_nationality", "EU Nationality", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Boolean, Players),
         F("international_caps", "International Caps", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players),
         F("international_goals", "International Goals", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players),
-        F("height_cm", "Height (cm)", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players),
-        F("weight_kg", "Weight (kg)", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Players),
+        F("height_cm", "Height (cm)", AdvancedSearchCategoryKind.General, SearchFieldValueKind.DecimalRange, Players),
+        F("weight_kg", "Weight (kg)", AdvancedSearchCategoryKind.General, SearchFieldValueKind.DecimalRange, Players),
         F("division", "Division", AdvancedSearchCategoryKind.General, SearchFieldValueKind.EntityLookup, Players),
         F("team", "Team / Club", AdvancedSearchCategoryKind.General, SearchFieldValueKind.EntityLookup, PlayersAndCoaches),
         F("wonderkid", "Wonderkid", AdvancedSearchCategoryKind.General, SearchFieldValueKind.Boolean, Players),
@@ -119,8 +119,8 @@ public static class AdvancedSearchCatalog
 
     private static readonly IReadOnlyList<AdvancedSearchFieldDefinition> ContractFields =
     [
-        F("weekly_wage", "Weekly Wage", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.IntegerRange, PlayersAndCoaches),
-        F("transfer_value", "Transfer Value", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.IntegerRange, Players),
+        F("weekly_wage", "Weekly Wage", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, PlayersAndCoaches),
+        F("transfer_value", "Transfer Value", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DecimalRange, Players),
         F("contract_expiry", "Contract Expiry", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.DateRange, PlayersAndCoaches),
         F("contract_status", "Contract Status", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.Enum, Players),
         F("release_clause", "Release Clause", AdvancedSearchCategoryKind.Contract, SearchFieldValueKind.IntegerRange, Players),
@@ -241,6 +241,26 @@ public static class AdvancedSearchCatalog
         string label,
         AdvancedSearchCategoryKind category,
         SearchFieldValueKind valueKind,
-        IReadOnlyList<SearchEntityKind> entities) =>
-        new(key, label, category, valueKind, entities);
+        IReadOnlyList<SearchEntityKind> entities)
+    {
+        // These are the only fields backed by typed records and a tested query
+        // implementation in the initial search provider. All other documented
+        // fields remain visible in the UI but explicitly In Progress.
+        var ready =
+            key is "name" or "age" or "nationality" or "second_nationality" or "team" or
+                "height_cm" or "weight_kg" or "current_ability" or "potential_ability" or
+                "weekly_wage" or "transfer_value" or "contract_expiry" or
+                "position_familiarity" or "preferred_moves" or "club_reputation" ||
+            key.StartsWith("attribute_", StringComparison.OrdinalIgnoreCase) ||
+            key.StartsWith("personality_", StringComparison.OrdinalIgnoreCase);
+
+        return new AdvancedSearchFieldDefinition(
+            key,
+            label,
+            category,
+            valueKind,
+            entities,
+            FieldEvidenceStatus.Documented,
+            ready ? SearchImplementationStatus.Ready : SearchImplementationStatus.InProgress);
+    }
 }

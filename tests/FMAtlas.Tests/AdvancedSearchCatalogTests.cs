@@ -22,15 +22,13 @@ public sealed class AdvancedSearchCatalogTests
     }
 
     [Fact]
-    public void AllSearchFieldsRemainInProgressUntilProvidersAreVerified()
+    public void OnlyFieldsWithAnImplementedStorageMappingAreReady()
     {
-        Assert.NotEmpty(AdvancedSearchCatalog.Fields);
-        Assert.All(AdvancedSearchCatalog.Fields, field =>
-        {
-            Assert.Equal(FieldEvidenceStatus.Documented, field.EvidenceStatus);
-            Assert.Equal(SearchImplementationStatus.InProgress, field.ImplementationStatus);
-            Assert.False(field.CanExecute);
-        });
+        Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "name" && x.CanExecute);
+        Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "age" && x.CanExecute);
+        Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "contract_expiry" && x.CanExecute);
+        Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "wonderkid" && !x.CanExecute);
+        Assert.Contains(AdvancedSearchCatalog.Fields, x => x.Key == "relations" && !x.CanExecute);
     }
 
     [Fact]
@@ -48,9 +46,9 @@ public sealed class AdvancedSearchCatalogTests
         var fields = AdvancedSearchCatalog.GetAttributeFields(
             SearchEntityKind.Player, AdvancedSearchCategoryKind.TechnicalGoalkeeping);
 
-        Assert.Contains(fields, x => x.Key == "attribute_corners");
-        Assert.Contains(fields, x => x.Key == "attribute_aerial_reach");
-        Assert.Contains(fields, x => x.Key == "attribute_first_touch");
+        Assert.Contains(fields, x => x.Key == "attribute_corners" && x.CanExecute);
+        Assert.Contains(fields, x => x.Key == "attribute_aerial_reach" && x.CanExecute);
+        Assert.Contains(fields, x => x.Key == "attribute_first_touch" && x.CanExecute);
         Assert.Equal(fields.Count, fields.Select(x => x.Key).Distinct().Count());
     }
 
@@ -60,8 +58,8 @@ public sealed class AdvancedSearchCatalogTests
         var fields = AdvancedSearchCatalog.GetAttributeFields(
             SearchEntityKind.Player, AdvancedSearchCategoryKind.MentalAttributes);
 
-        Assert.Contains(fields, x => x.Key == "attribute_work_rate");
-        Assert.Contains(fields, x => x.Key == "personality_professionalism");
+        Assert.Contains(fields, x => x.Key == "attribute_work_rate" && x.CanExecute);
+        Assert.Contains(fields, x => x.Key == "personality_professionalism" && x.CanExecute);
         Assert.Contains(fields, x => x.DisplayName == "Personality: Professionalism");
     }
 
@@ -71,8 +69,8 @@ public sealed class AdvancedSearchCatalogTests
         var fields = AdvancedSearchCatalog.GetAttributeFields(
             SearchEntityKind.Player, AdvancedSearchCategoryKind.PhysicalHidden);
 
-        Assert.Contains(fields, x => x.Key == "attribute_pace");
-        Assert.Contains(fields, x => x.Key == "attribute_consistency");
+        Assert.Contains(fields, x => x.Key == "attribute_pace" && x.CanExecute);
+        Assert.Contains(fields, x => x.Key == "attribute_consistency" && x.CanExecute);
         Assert.Equal(fields.Count, fields.Select(x => x.Key).Distinct().Count());
     }
 
