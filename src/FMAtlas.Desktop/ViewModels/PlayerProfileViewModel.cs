@@ -186,7 +186,9 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         ? Evidence(current.Provenance)
         : "No CA value imported.";
     public string PotentialAbilityEvidenceText => Player.PotentialAbility is { } potential
-        ? Evidence(potential.Provenance)
+        ? (potential.Value < 0
+            ? $"FM stores negative PA values as random-potential range markers (raw value {potential.Value}); this is not a fixed 1–200 PA. {Evidence(potential.Provenance)}"
+            : Evidence(potential.Provenance))
         : "No PA value imported.";
     public string NewgenStatusText => Player.IsNewgen?.Value switch
     {
