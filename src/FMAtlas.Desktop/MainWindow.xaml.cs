@@ -400,6 +400,7 @@ public partial class MainWindow : Window
             DataContext = new ClubProfileViewModel(club, logoPath, _advancedSearchProvider)
         };
         view.SquadPlayerOpenRequested += (_, result) => OpenSearchResult(result);
+        view.ClubStaffOpenRequested += (_, result) => OpenSearchResult(result);
         return view;
     }
 
