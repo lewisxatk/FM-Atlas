@@ -24,13 +24,6 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
     private enum DynamicFieldKind { Text, Integer, Decimal, Boolean, Date }
     private sealed record DynamicColumnDefinition(string Key, DynamicFieldKind Kind);
 
-    private static readonly FieldProvenance CsvEvidence = new(
-        DataSourceKind.GameExport,
-        FieldEvidenceStatus.Mapped,
-        SourceVersion: "FM View Exporter CSV",
-        ObservedAtUtc: DateTimeOffset.UtcNow,
-        Description: "Imported from a Football Manager player-list CSV. Field mapping is not a live-memory verification.");
-
     private static readonly IReadOnlyDictionary<string, string> AttributeAliases = BuildAttributeAliases();
 
     private readonly IEntityRecordSnapshotStore _snapshotStore;
@@ -91,6 +84,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         // file updates the same snapshots; a different export cannot overwrite another.
         var providerKey = $"fm27-view-export:{fileHash[..20]}";
         var warnings = new List<string>();
+        var provenance = Createprovenance();
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
         var imported = 0;
         var skipped = 0;
@@ -130,7 +124,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
 
             var record = BuildPlayerRecord(
                 row, headers, headerLookup, dynamicColumns, uid, providerKey, name,
-                warnings, rowIndex + 1, useGermanDecimalSeparator: delimiter == ';');
+                warnings, rowIndex + 1, provenance, useGermanDecimalSeparator: delimiter == ';');
             try
             {
                 await _snapshotStore.SaveSnapshotAsync(record, name, cancellationToken).ConfigureAwait(false);
@@ -157,6 +151,13 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             warnings.AsReadOnly());
     }
 
+    private static FieldProvenance CreateCsvEvidence() => new(
+        DataSourceKind.GameExport,
+        FieldEvidenceStatus.Mapped,
+        SourceVersion: "FM View Exporter CSV",
+        ObservedAtUtc: DateTimeOffset.UtcNow,
+        Description: "Imported from a Football Manager player-list CSV. Field mapping is not a live-memory verification.");
+
     private static PlayerRecord BuildPlayerRecord(
         IReadOnlyList<string> row,
         IReadOnlyList<string> headers,
@@ -167,6 +168,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         string name,
         ICollection<string> warnings,
         int rowNumber,
+        FieldProvenance provenance,
         bool useGermanDecimalSeparator)
     {
         var identity = new EntityIdentity(EntityKind.Player, uid, providerKey);
@@ -205,7 +207,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
                     PlayerAttributeGroupKind.Feet => foot,
                     _ => attributes
                 };
-                target[fieldKey] = new SourcedValue<int>(value, CsvEvidence);
+                target[fieldKey] = new SourcedValue<int>(value, provenance);
             }
         }
 
@@ -218,19 +220,19 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
             switch (definition.Kind)
             {
                 case DynamicFieldKind.Integer when TryInt(raw, out var integer):
-                    dynamicIntegers[definition.Key] = new SourcedValue<int>(integer, CsvEvidence);
+                    dynamicIntegers[definition.Key] = new SourcedValue<int>(integer, provenance);
                     break;
                 case DynamicFieldKind.Decimal when TryDecimalText(raw, useGermanDecimalSeparator, out var decimalValue):
-                    dynamicDecimals[definition.Key] = new SourcedValue<decimal>(decimalValue, CsvEvidence);
+                    dynamicDecimals[definition.Key] = new SourcedValue<decimal>(decimalValue, provenance);
                     break;
                 case DynamicFieldKind.Boolean when TryBoolean(raw, out var boolean):
-                    dynamicBooleans[definition.Key] = new SourcedValue<bool>(boolean, CsvEvidence);
+                    dynamicBooleans[definition.Key] = new SourcedValue<bool>(boolean, provenance);
                     break;
                 case DynamicFieldKind.Date when TryDateText(raw, out var date):
-                    dynamicDates[definition.Key] = new SourcedValue<DateOnly>(date, CsvEvidence);
+                    dynamicDates[definition.Key] = new SourcedValue<DateOnly>(date, provenance);
                     break;
                 default:
-                    dynamicText[definition.Key] = new SourcedValue<string>(raw, CsvEvidence);
+                    dynamicText[definition.Key] = new SourcedValue<string>(raw, provenance);
                     break;
             }
         }
@@ -245,24 +247,24 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         var goals = GetInt(row, FindColumn(headerLookup, "International Goals"));
         return new PlayerRecord(identity)
         {
-            FullName = new SourcedValue<string>(name, CsvEvidence),
-            GameUid = new SourcedValue<string>(uid, CsvEvidence),
-            DateOfBirth = dob is DateOnly birth ? new SourcedValue<DateOnly>(birth, CsvEvidence) : null,
-            Age = age is int playerAge ? new SourcedValue<int>(playerAge, CsvEvidence) : null,
-            Nationality = GetTextAtColumn(row, FindLastColumn(headers, "Nation", "Nationality"), CsvEvidence),
-            SecondNationality = GetText(row, headerLookup, CsvEvidence, "2nd Nat", "Second Nationality"),
-            Gender = GetText(row, headerLookup, CsvEvidence, "Gender"),
-            ClubName = GetText(row, headerLookup, CsvEvidence, "Club"),
-            TeamName = GetText(row, headerLookup, CsvEvidence, "Team"),
-            LeagueName = GetText(row, headerLookup, CsvEvidence, "Division", "League"),
-            PrimaryPosition = GetText(row, headerLookup, CsvEvidence, "Position", "Best Pos"),
-            PreferredFoot = GetText(row, headerLookup, CsvEvidence, "Preferred Foot"),
-            HeightCentimetres = height is decimal cm ? new SourcedValue<decimal>(cm, CsvEvidence) : null,
-            WeightKilograms = weight is decimal kg ? new SourcedValue<decimal>(kg, CsvEvidence) : null,
-            CurrentAbility = ca is int current ? new SourcedValue<int>(current, CsvEvidence) : null,
-            PotentialAbility = pa is int potential ? new SourcedValue<int>(potential, CsvEvidence) : null,
-            InternationalCaps = caps is int internationalCaps ? new SourcedValue<int>(internationalCaps, CsvEvidence) : null,
-            InternationalGoals = goals is int internationalGoals ? new SourcedValue<int>(internationalGoals, CsvEvidence) : null,
+            FullName = new SourcedValue<string>(name, provenance),
+            GameUid = new SourcedValue<string>(uid, provenance),
+            DateOfBirth = dob is DateOnly birth ? new SourcedValue<DateOnly>(birth, provenance) : null,
+            Age = age is int playerAge ? new SourcedValue<int>(playerAge, provenance) : null,
+            Nationality = GetTextAtColumn(row, FindLastColumn(headers, "Nation", "Nationality"), provenance),
+            SecondNationality = GetText(row, headerLookup, provenance, "2nd Nat", "Second Nationality"),
+            Gender = GetText(row, headerLookup, provenance, "Gender"),
+            ClubName = GetText(row, headerLookup, provenance, "Club"),
+            TeamName = GetText(row, headerLookup, provenance, "Team"),
+            LeagueName = GetText(row, headerLookup, provenance, "Division", "League"),
+            PrimaryPosition = GetText(row, headerLookup, provenance, "Position", "Best Pos"),
+            PreferredFoot = GetText(row, headerLookup, provenance, "Preferred Foot"),
+            HeightCentimetres = height is decimal cm ? new SourcedValue<decimal>(cm, provenance) : null,
+            WeightKilograms = weight is decimal kg ? new SourcedValue<decimal>(kg, provenance) : null,
+            CurrentAbility = ca is int current ? new SourcedValue<int>(current, provenance) : null,
+            PotentialAbility = pa is int potential ? new SourcedValue<int>(potential, provenance) : null,
+            InternationalCaps = caps is int internationalCaps ? new SourcedValue<int>(internationalCaps, provenance) : null,
+            InternationalGoals = goals is int internationalGoals ? new SourcedValue<int>(internationalGoals, provenance) : null,
             Attributes = attributes,
             HiddenAttributes = hidden,
             Personality = personality,
