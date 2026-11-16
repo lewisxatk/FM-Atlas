@@ -352,7 +352,10 @@
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <TextBlock Text="{Binding StatusText}" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="2,0,2,6"/>
-                <ListBox Grid.Row="1" ItemsSource="{Binding Results}" Background="Transparent" BorderThickness="0" MaxHeight="160">
+                <ListBox x:Name="ResultsListBox" Grid.Row="1" ItemsSource="{Binding Results}"
+                         MouseDoubleClick="ResultsListBox_MouseDoubleClick"
+                         Background="Transparent" BorderThickness="0" MaxHeight="160"
+                         ToolTip="Double-click a player result to open its local profile snapshot.">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="2,2">
@@ -367,7 +370,7 @@
             </Grid>
         </Border>
         <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
-            <TextBlock Text="READ-ONLY LOCAL INDEX · READY FIELDS ONLY · LIVE CAREER DATA IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
+            <TextBlock Text="READ-ONLY LOCAL INDEX · DOUBLE-CLICK PLAYER TO OPEN PROFILE · LIVE CAREER DATA IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBox x:Name="PresetNameTextBox" Style="{StaticResource FilterValue}" Width="108" Height="29"
                          IsEnabled="True" Text="My search" ToolTip="Name this set of search criteria" Margin="0,0,6,0"/>
