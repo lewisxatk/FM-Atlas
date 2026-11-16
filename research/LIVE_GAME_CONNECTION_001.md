@@ -164,3 +164,21 @@ Next:
 5. Begin the guarded writer only after the read mapping is verified. Keep **Save Live Changes** disabled until the write and read-back/undo tests pass.
 
 **Safety boundary:** no live process writes and no modification of the user's career file have been performed by FM Atlas.
+
+
+## 9. Club membership joins now exposed in Club profiles
+
+The Player and Staff readers now expose the club object's numeric UID as an indexed integer field:
+
+- Player: current team pointer -> club pointer -> UID, indexed as `club_uid`.
+- Staff: contract pointer -> team pointer -> club pointer -> UID, indexed as `club_uid`.
+
+The Club profile uses the existing Advanced Search index to query exact equality against the Club record's numeric source ID:
+- **Squads** queries `SearchEntityKind.Player`.
+- **Staff** queries `SearchEntityKind.Coach` (mapped internally to Staff).
+- Both are limited to 200 matching entities, show a clear empty/error state and open the corresponding full profile on double-click.
+- The query requires a uniquely typed `IntegerRange` `club_uid` field discovered in the current local player/staff index. It does not match on club names.
+
+A regression test inserts Player and Staff records for two different club IDs, then verifies that the Club 77 lookup returns only the Player and Staff records for 77, not the records for 88.
+
+These join fields remain `LiveGameMemory / Mapped`. The SQLite/test verifies batch projection and the exact query behaviour with representative values; only a live comparison against the active FM27 Game Pass career can elevate them to `ReadVerified`.
