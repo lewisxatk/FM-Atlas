@@ -110,7 +110,7 @@
             </Grid>
         </Border>
 
-        <!-- Global header: quick search, advanced search, save actions and prominent Load Game. -->
+        <!-- Global header: quick search, local Atlas save, live-save placeholders and process detection. -->
         <Border Grid.Column="1"
                 Grid.Row="0"
                 Background="#090909"
@@ -145,6 +145,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <Border Grid.Column="0" Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="7" Padding="11,0" Height="37" Margin="0,0,9,0">
@@ -156,16 +157,19 @@
                     <Button Grid.Column="1" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="In Progress — requires a verified search index.">
                         <TextBlock Text="Advanced Search"/>
                     </Button>
-                    <Button Grid.Column="2" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="In Progress — saves the local Atlas database.">
+                    <Button Grid.Column="2" Style="{StaticResource Atlas.ButtonBase}" Command="{Binding SaveAtlasCommand}" Margin="0,0,8,0" Height="37" ToolTip="Creates or verifies the local FM Atlas database.">
                         <TextBlock Text="Save Atlas"/>
                     </Button>
-                    <Button Grid.Column="3" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,10,0" Height="37" ToolTip="In Progress — live career writing is not enabled.">
-                        <TextBlock Text="Save Changes"/>
+                    <Button Grid.Column="3" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="In Progress — reading the active career and player records is not implemented yet.">
+                        <TextBlock Text="Load Live Save"/>
                     </Button>
-                    <Button Grid.Column="4" Style="{StaticResource Atlas.PrimaryButton}" Height="37" MinWidth="118" Command="{Binding LoadGameCommand}">
+                    <Button Grid.Column="4" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="In Progress — writing to the live career is disabled until build and field verification is complete.">
+                        <TextBlock Text="Save Live Save"/>
+                    </Button>
+                    <Button Grid.Column="5" Style="{StaticResource Atlas.PrimaryButton}" Height="37" MinWidth="118" Command="{Binding LoadGameCommand}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="13" Margin="0,0,8,0"/>
-                            <TextBlock Text="Load Game"/>
+                            <TextBlock Text="Detect Game"/>
                         </StackPanel>
                     </Button>
                 </Grid>

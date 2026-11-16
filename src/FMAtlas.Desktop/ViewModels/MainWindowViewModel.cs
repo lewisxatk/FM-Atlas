@@ -10,20 +10,32 @@ namespace FMAtlas.Desktop.ViewModels;
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly IGameProcessProbe _processProbe;
+    private readonly IAtlasDatabase _atlasDatabase;
+    private readonly string _databasePath;
     private string _connectionStatus = "Not connected";
-    private string _connectionDetail = "Load Game checks for the FM process and game module only. Career data loading is still in progress.";
+    private string _connectionDetail = "Detect Game checks for the FM process and game module only. Loading a career is still In Progress.";
     private string _lastAction = "Fresh application foundation";
     private bool _isBusy;
 
-    public MainWindowViewModel(IGameProcessProbe processProbe)
+    public MainWindowViewModel(
+        IGameProcessProbe processProbe,
+        IAtlasDatabase atlasDatabase,
+        string databasePath)
     {
-        _processProbe = processProbe;
+        _processProbe = processProbe ?? throw new ArgumentNullException(nameof(processProbe));
+        _atlasDatabase = atlasDatabase ?? throw new ArgumentNullException(nameof(atlasDatabase));
+        _databasePath = string.IsNullOrWhiteSpace(databasePath)
+            ? throw new ArgumentException("A local database path is required.", nameof(databasePath))
+            : Path.GetFullPath(databasePath);
+
         LoadGameCommand = new AsyncRelayCommand(ProbeGameAsync, () => !IsBusy);
+        SaveAtlasCommand = new AsyncRelayCommand(SaveAtlasAsync, () => !IsBusy);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ICommand LoadGameCommand { get; }
+    public ICommand SaveAtlasCommand { get; }
 
     public string ConnectionStatus
     {
@@ -50,6 +62,30 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetField(ref _isBusy, value))
                 CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    private async Task SaveAtlasAsync()
+    {
+        IsBusy = true;
+        LastAction = "Saving the local FM Atlas database…";
+
+        try
+        {
+            await _atlasDatabase.InitializeAsync();
+            var version = await _atlasDatabase.GetSchemaVersionAsync();
+
+            ConnectionDetail = $"Local Atlas database is ready at {_databasePath}. Schema version {version}. No live career file has been written.";
+            LastAction = "Local Atlas database saved and verified";
+        }
+        catch (Exception ex)
+        {
+            ConnectionDetail = $"The local Atlas database could not be saved: {ex.Message}";
+            LastAction = "Local Atlas save failed";
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
