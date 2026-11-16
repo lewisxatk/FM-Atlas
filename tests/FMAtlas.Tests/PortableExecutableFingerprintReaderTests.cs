@@ -22,7 +22,7 @@ public sealed class PortableExecutableFingerprintReaderTests
             Assert.Equal((ushort)0x8664, fingerprint!.Machine);
             Assert.Equal(0x6AE8CF77u, fingerprint.PeTimestamp);
             Assert.Equal(0x17969000u, fingerprint.SizeOfImage);
-            Assert.Equal(512, fingerprint.FileSize);
+            Assert.Equal(512L, fingerprint.FileSize);
             Assert.Equal("x64", fingerprint.Architecture);
         }
         finally
