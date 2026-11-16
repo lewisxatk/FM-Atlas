@@ -259,3 +259,21 @@ The desktop buttons do not imply that live save loading or writing is already fu
 Latest code/test commit: `46ffc47057336684ae1c2c32bffbf00ae6002587`.  
 Checkpoint documentation commit: `4fdce8dc8dbbe42c76532d67bec67d6ceba837d4`.  
 Current task: resolve hosted-runner/account Actions usage restriction and run the full Windows CI suite.
+
+
+## Update — FM27 player CSV import path for first hands-on testing (2026-11-16)
+
+- [~] M3.5a Add independent FM View Exporter CSV importer for player-list exports. This is an offline export import path, not an offline `.fm` save parser and not a live-memory reader.
+- [~] M3.5b Add **Import CSV** action to the main WPF header and register the importer with the app composition/startup.
+- [~] M3.5c Map stable Unique ID, player name, selected identity/personal/club fields, CA/PA only when explicitly exported, 52-attribute catalogue fields, hidden/personality/foot ratings, and additional dynamic columns.
+- [~] M3.5d Infer extra columns as integer/decimal/Boolean/date only when every populated value fits the type; otherwise retain them as text. Mixed/range/currency values are not coerced.
+- [~] M3.5e Add idempotent file-hash provider namespaces, duplicate UID handling, UTF-8/size/row/column guards, comma and semicolon CSV parsing, and field-level Game Export / Mapped provenance.
+- [~] M3.5f Add importer tests for base player mappings, attribute groups, duplicate Nation headers, typed extra columns, numeric/date/Boolean search, German decimal-comma CSV, duplicate IDs, repeat import, missing UID and malformed quoting.
+- [~] M5.24 Imported player snapshots can be found by Quick Search and Advanced Search and opened in the existing read-only typed player profile.
+- [ ] M8.2 Run full Windows .NET restore/build/xUnit suite for the current importer and UI changes. Source tests are committed but not executed.
+- [ ] M8.3 Produce and inspect a fresh Windows x64 artifact after the current source head passes.
+- [ ] M8.4 User performs first end-to-end test with their own FM27 player CSV and reports any header mismatch.
+
+**Compatibility note:** FM View Exporter's public current documentation lists FM27 Steam on Windows as its supported target; it does not establish Game Pass plugin compatibility. FM Atlas can ingest a compatible CSV from another route if it supplies the required headers. This does not replace or claim completion of the Game Pass live-save reader.
+**Safety boundary:** CSV import reads the selected export and writes only the local Atlas database. It does not read or write FM process memory or modify an FM career file. Imported fields are Game Export / Mapped, not live-memory verified.
+**Current code head:** `3a2cc82006d3b915a7954b24e1e1fe347f3e9a61`. Windows Actions run #425 / `43852668416` failed before runner steps/logs; failed-job retry `133249765674` is still queued at the latest check. Do not mark compile/tests as passing.
