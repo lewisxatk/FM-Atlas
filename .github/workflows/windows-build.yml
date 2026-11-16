@@ -15,8 +15,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
-    timeout-minutes: 20
+    # Pin to a stable supported Windows image instead of following windows-latest.
+    runs-on: windows-2022
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,6 +27,15 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Prepare diagnostics
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/test-results | Out-Null
+          dotnet --info | Tee-Object artifacts/dotnet-info.txt
+          Get-CimInstance Win32_OperatingSystem |
+            Select-Object Caption, Version, BuildNumber, OSArchitecture |
+            Format-List | Out-File artifacts/windows-info.txt
+
       - name: Restore
         run: dotnet restore FMAtlas.sln
 
@@ -33,13 +43,40 @@ jobs:
         run: dotnet build FMAtlas.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test FMAtlas.sln --configuration Release --no-build --verbosity normal
+        run: dotnet test FMAtlas.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=FMAtlas.Tests.trx" --results-directory artifacts/test-results
 
-      - name: Upload desktop build artifact
+      - name: Publish self-contained Windows x64 app
+        run: dotnet publish src/FMAtlas.Desktop/FMAtlas.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/publish
+
+      - name: Verify and package desktop app
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD "artifacts/publish/FMAtlas.exe"
+          if (-not (Test-Path -LiteralPath $exe)) {
+            throw "Publish completed but FMAtlas.exe was not found. No test package will be uploaded."
+          }
+          Compress-Archive -Path "artifacts/publish/*" -DestinationPath "artifacts/FMAtlas-win-x64.zip" -CompressionLevel Optimal -Force
+          Get-FileHash "artifacts/FMAtlas-win-x64.zip" -Algorithm SHA256 |
+            Format-List | Out-File artifacts/package-sha256.txt
+
+      - name: Upload build, test and runtime diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fm-atlas-diagnostics-\${{ github.run_number }}
+          path: |
+            artifacts/dotnet-info.txt
+            artifacts/windows-info.txt
+            artifacts/test-results/**
+            artifacts/package-sha256.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Windows x64 test package
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: fm-atlas-fresh-shell-win-x64
-          path: src/FMAtlas.Desktop/bin/Release/net8.0-windows/
+          name: fm-atlas-win-x64-\${{ github.run_number }}
+          path: artifacts/FMAtlas-win-x64.zip
           if-no-files-found: error
           retention-days: 14
