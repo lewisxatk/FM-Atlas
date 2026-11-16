@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="FM Atlas — Advanced Search"
         Width="850"
-        Height="650"
+        Height="730"
         MinWidth="760"
-        MinHeight="570"
+        MinHeight="660"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Atlas.Canvas}"
         Foreground="{StaticResource Atlas.Text}"
@@ -48,17 +48,27 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding DisplayName}" Style="{StaticResource FilterLabel}" VerticalAlignment="Center"/>
                 <StackPanel x:Name="RangeControls" Grid.Column="1" Orientation="Horizontal">
-                    <TextBox Style="{StaticResource FilterValue}" Width="55"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum value"/>
                     <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="5,0"/>
-                    <TextBox Style="{StaticResource FilterValue}" Width="55"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum value"/>
                 </StackPanel>
-                <CheckBox x:Name="BooleanControl" Grid.Column="1" Content="Yes / No" Foreground="{StaticResource Atlas.Muted}" FontSize="10" IsEnabled="False" Visibility="Collapsed"/>
+                <CheckBox x:Name="BooleanControl" Grid.Column="1" Content="Yes / No" Foreground="{StaticResource Atlas.Muted}" FontSize="10" IsEnabled="{Binding IsEnabled}" Visibility="Collapsed"/>
                 <StackPanel x:Name="DateControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
-                    <TextBox Style="{StaticResource FilterValue}" Width="82"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="82" IsEnabled="{Binding IsEnabled}" Text="{Binding DateMinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Start date, YYYY-MM-DD"/>
                     <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="5,0"/>
-                    <TextBox Style="{StaticResource FilterValue}" Width="82"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="82" IsEnabled="{Binding IsEnabled}" Text="{Binding DateMaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="End date, YYYY-MM-DD"/>
                 </StackPanel>
-                <TextBox x:Name="TextControl" Grid.Column="1" Style="{StaticResource FilterValue}" Visibility="Collapsed"/>
+                <TextBox x:Name="TextControl" Grid.Column="1" Style="{StaticResource FilterValue}" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed"/>
+                <StackPanel x:Name="PositionControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
+                    <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" ToolTip="Position code, for example DR or ST"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="48" Margin="6,0,0,0" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum familiarity"/>
+                    <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="4,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum familiarity"/>
+                </StackPanel>
+                <StackPanel x:Name="TraitControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
+                    <CheckBox Content="Has trait" IsChecked="{Binding IncludeTrait}" IsEnabled="{Binding IsEnabled}" Foreground="{StaticResource Atlas.Muted}" FontSize="9" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="145" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" ToolTip="Preferred move / trait"/>
+                </StackPanel>
                 <DataTemplate.Triggers>
                     <DataTrigger Binding="{Binding ControlKind}" Value="Boolean">
                         <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
@@ -72,6 +82,14 @@
                         <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
                         <Setter TargetName="TextControl" Property="Visibility" Value="Visible"/>
                     </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Position">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="PositionControls" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Trait">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="TraitControls" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
                 </DataTemplate.Triggers>
             </Grid>
         </DataTemplate>
@@ -81,7 +99,6 @@
                     <TextBlock Text="{Binding Title}" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
                     <TextBlock Text="{Binding EmptyMessage}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
                     <ItemsControl ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource AdvancedSearchFieldTemplate}"/>
-                    <TextBlock Text="DOCUMENTED FIELD · QUERY HANDLER IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,8,0,0"/>
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -92,6 +109,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -105,15 +123,23 @@
                 <TextBlock Text="FMRTE-style filter workspace · REF-002" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
             </StackPanel>
             <Border Grid.Column="1" Background="{StaticResource Atlas.AccentSoft}" BorderBrush="#59301E" BorderThickness="1" CornerRadius="5" Padding="9,5" VerticalAlignment="Center">
-                <TextBlock Text="IN PROGRESS · SEARCH PROVIDER NOT CONNECTED" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
+                <TextBlock Text="LOCAL INDEX · SUPPORTED FIELDS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
             </Border>
         </Grid>
 
         <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="PlayerEntityButton" Content="Player" Tag="Player" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,5,0"/>
                 <Button x:Name="CoachEntityButton" Content="Coach" Tag="Coach" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,5,0"/>
                 <Button x:Name="ClubEntityButton" Content="Club" Tag="Club" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="MATCH" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                <ComboBox x:Name="LogicComboBox" Width="145" Height="28" SelectedIndex="0" SelectionChanged="LogicComboBox_SelectionChanged" Background="#171717" Foreground="{StaticResource Atlas.Text}" BorderBrush="{StaticResource Atlas.Border}" FontSize="9">
+                    <ComboBoxItem Content="All conditions"/>
+                    <ComboBoxItem Content="Any condition"/>
+                </ComboBox>
             </StackPanel>
         </Grid>
 
@@ -285,11 +311,29 @@
             </ScrollViewer>
         </Grid>
 
-        <DockPanel Grid.Row="3" Margin="0,14,0,0" LastChildFill="False">
-            <TextBlock Text="FILTER DEFINITIONS DOCUMENTED · QUERY EXECUTION NOT CONNECTED" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
+        <Border Grid.Row="3" Style="{StaticResource FilterPanel}" Margin="0,8,0,0" Padding="8">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <TextBlock Text="{Binding StatusText}" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="2,0,2,6"/>
+                <ListBox Grid.Row="1" ItemsSource="{Binding Results}" Background="Transparent" BorderThickness="0" MaxHeight="92">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="2,2">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource Atlas.Text}" FontSize="10"/>
+                                <TextBlock Grid.Column="1" Text="{Binding EntityType}" Foreground="{StaticResource Atlas.Accent}" FontSize="8" Margin="12,0"/>
+                                <TextBlock Grid.Column="2" Text="{Binding SourceId}" Foreground="{StaticResource Atlas.Subtle}" FontFamily="Consolas" FontSize="8"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+        <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
+            <TextBlock Text="SUPPORTED FIELD MAPPINGS ONLY · OTHER FILTERS IN PROGRESS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <Button Content="Cancel" Click="Cancel_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,8,0"/>
-                <Button Content="OK" Style="{StaticResource Atlas.PrimaryButton}" IsEnabled="False" MinWidth="78"/>
+                <Button Content="Search" Click="Search_Click" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="78"/>
             </StackPanel>
         </DockPanel>
     </Grid>

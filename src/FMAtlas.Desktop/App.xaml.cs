@@ -19,13 +19,14 @@ public partial class App : System.Windows.Application
         var databasePath = Path.Combine(dataDirectory, "atlas.db");
         var atlasDatabase = new AtlasDatabase(databasePath);
         var entitySearchProvider = new SqliteEntitySearchProvider(databasePath);
+        var advancedSearchProvider = new SqliteAdvancedSearchProvider(databasePath);
 
         var viewModel = new MainWindowViewModel(
             processProbe,
             atlasDatabase,
             entitySearchProvider,
             databasePath);
-        var window = new MainWindow(viewModel);
+        var window = new MainWindow(viewModel, advancedSearchProvider);
         MainWindow = window;
         window.Show();
     }

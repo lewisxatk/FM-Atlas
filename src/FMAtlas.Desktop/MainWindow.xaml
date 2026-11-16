@@ -222,7 +222,7 @@
                             </Popup>
                         </Grid>
                     </Border>
-                    <Button Grid.Column="1" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="In Progress — requires a verified search index.">
+                    <Button Grid.Column="1" Style="{StaticResource Atlas.ButtonBase}" Click="AdvancedSearchButton_Click" Margin="0,0,8,0" Height="37" ToolTip="Open the FMRTE-style filter workspace. Only implemented fields can be queried.">
                         <TextBlock Text="Advanced Search"/>
                     </Button>
                     <Button Grid.Column="2" Style="{StaticResource Atlas.ButtonBase}" Command="{Binding SaveAtlasCommand}" Margin="0,0,8,0" Height="37" ToolTip="Creates or verifies the local FM Atlas database.">

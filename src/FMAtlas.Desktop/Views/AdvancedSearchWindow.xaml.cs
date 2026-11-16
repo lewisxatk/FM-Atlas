@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using FMAtlas.Application.Abstractions;
 using FMAtlas.Domain.Search;
 using FMAtlas.Desktop.ViewModels;
 
@@ -10,11 +11,13 @@ public partial class AdvancedSearchWindow : Window
 {
     private readonly AdvancedSearchWindowViewModel _viewModel;
 
-    public AdvancedSearchWindow()
+    public AdvancedSearchWindow(IAdvancedSearchProvider searchProvider)
     {
         InitializeComponent();
-        _viewModel = new AdvancedSearchWindowViewModel();
+        _viewModel = new AdvancedSearchWindowViewModel(searchProvider);
         DataContext = _viewModel;
+        GeneralPanel.Visibility = Visibility.Collapsed;
+        DynamicCategoryPanels.Visibility = Visibility.Visible;
         RefreshSelection();
     }
 
@@ -38,14 +41,25 @@ public partial class AdvancedSearchWindow : Window
         RefreshSelection();
     }
 
+    private void LogicComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_viewModel is null)
+            return;
+
+        _viewModel.SelectedLogic = LogicComboBox.SelectedIndex == 1
+            ? SearchFilterLogic.Any
+            : SearchFilterLogic.All;
+    }
+
+    private async void Search_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.RunSearchAsync();
+    }
+
     private void Cancel_Click(object sender, RoutedEventArgs e) => Close();
 
     private void RefreshSelection()
     {
-        var showStaticGeneral = _viewModel.ShowStaticGeneral;
-        GeneralPanel.Visibility = showStaticGeneral ? Visibility.Visible : Visibility.Collapsed;
-        DynamicCategoryPanels.Visibility = showStaticGeneral ? Visibility.Collapsed : Visibility.Visible;
-
         SetSelected(PlayerEntityButton, _viewModel.SelectedEntity == SearchEntityKind.Player);
         SetSelected(CoachEntityButton, _viewModel.SelectedEntity == SearchEntityKind.Coach);
         SetSelected(ClubEntityButton, _viewModel.SelectedEntity == SearchEntityKind.Club);
