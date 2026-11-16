@@ -23,7 +23,7 @@ public sealed class ProfileSectionTabViewModel : INotifyPropertyChanged
         {
             if (_isSelected == value) return;
             _isSelected = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs());
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
         }
     }
 }
