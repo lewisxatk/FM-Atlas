@@ -42,8 +42,8 @@
             <Border Grid.Column="0" Style="{StaticResource Atlas.ProfilePanel}" Padding="16">
                 <StackPanel>
                     <TextBlock Text="STAFF INFORMATION" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,10"/>
-                    <TextBlock Text="{Binding GenderText, StringFormat=Gender · {0}}" Style="{StaticResource Atlas.ProfileInfoText}"/>
-                    <TextBlock Text="{Binding NationalityText, StringFormat=Nationality · {0}}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    <TextBlock Text="{Binding GenderInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    <TextBlock Text="{Binding NationalityInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
                     <TextBlock Text="{Binding SectionEmptyText}" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" Margin="0,15,0,0"/>
                     <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,15,0,12"/>
                     <TextBlock Text="DATA STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
