@@ -90,7 +90,7 @@ public sealed class AdvancedSearchQueryValidatorTests
         var query = new AdvancedSearchQuery(
             SearchEntityKind.Player,
             SearchFilterLogic.All,
-            [new SearchFilterCondition("relations", SearchFilterOperator.Contains, TextValue: "teammate")]);
+            [new SearchFilterCondition("recommended_ca", SearchFilterOperator.Range, Minimum: 150)]);
 
         Assert.False(AdvancedSearchQueryValidator.Validate(query).IsValid);
         Assert.False(query.CanExecute);
