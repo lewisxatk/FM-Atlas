@@ -207,7 +207,7 @@ public partial class MainWindow
             {
                 bottomStack.Children.Add(WatchedMonoText("SESSION STATUS", 10, true, Teal));
                 bottomStack.Children.Add(Txt("Automatic · read-only", 11, true, Ink));
-                bottomStack.Children.Add(Txt("Live editing remains locked until field-level write certification passes.", 10, false, Muted, wrap: true));
+                bottomStack.Children.Add(Txt("Automatic indexing is read-only. Live Apply is OFF until you explicitly enable it in Editor Studio.", 10, false, Muted, wrap: true));
             }
             else bottomStack.Children.Add(WatchedMonoText("●", 12, true, Teal));
             bottom.Child = bottomStack;
