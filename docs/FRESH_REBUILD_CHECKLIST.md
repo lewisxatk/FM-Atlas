@@ -22,7 +22,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [~] M1.4 fmsave offline save parser coverage study (initial study done; schema/coverage validation still needed).
 - [x] M1.5 FM Player Analyzer parsing/graphics/profile architecture inspected.
 - [~] M1.6 FMRTE feature and workflow inventory (official feature audit 001 committed; full UI/feature audit still required).
-- [x] M1.7 FM27 canonical player attribute catalogue implemented in Domain (52 unique non-foot fields; source order documented; final visual order still provisional).
+- [x] M1.7 FM27 canonical player attribute catalogue implemented in Domain (52 unique standard/hidden non-foot fields, 8 separate personality fields and 2 foot ratings; source order documented; final visual order still provisional).
 - [ ] M1.8 FM27 attribute display order verified against FM27 player profile and FMRTE.
 - [ ] M1.9 Staff and club field catalogue complete.
 - [ ] M1.10 User's Game Pass build/process fingerprint verified on Windows.
@@ -61,10 +61,10 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] M4.2 Left identity/information rail and portrait placeholder created; graphics lookup remains.
 - [ ] M4.3 Player graphics locator.
 - [~] M4.4 Central attribute groups are rendered from the Domain catalogue with empty/unavailable values; real player values and editing remain.
-- [~] M4.5 Names/grouping/source order documented and coded; final FM27/FMRTE visual order verification remains.
+- [~] M4.5 Names/grouping/source order documented and coded; personality is separate from hidden attributes; final FM27/FMRTE visual order verification remains.
 - [ ] M4.6 CA and PA display.
 - [ ] M4.7 Right-side grounded information panels.
-- [~] M4.8 Compact top-of-profile FMRTE-style section tabs added; they remain disabled until a real player record is loaded and section navigation is connected.
+- [~] M4.8 Compact top-of-profile FMRTE-style section tabs added (including Personality, Hidden, Staff, Clone Center and Role Attributes); they remain disabled until a real player record is loaded and section navigation is connected.
 - [ ] M4.8a Information and complete attribute view.
 - [ ] M4.8b Contract.
 - [ ] M4.8c Stats (read-only, real save data).
@@ -87,7 +87,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [~] M5.4 General filter layout shell and documented field schema added; query execution not connected.
 - [~] M5.5 Contract fields documented in search schema; filter controls/query not implemented.
 - [~] M5.6 Technical/GK attribute fields generated from the Domain catalogue; UI/query not implemented.
-- [~] M5.7 Mental attribute fields generated from the Domain catalogue; UI/query not implemented.
+- [~] M5.7 Mental and separate personality fields generated from the Domain catalogue; UI/query not implemented.
 - [~] M5.8 Physical/Hidden attribute fields generated from the Domain catalogue; UI/query not implemented.
 - [~] M5.9 Preferred Moves field documented in schema; UI/query not implemented.
 - [~] M5.10 Relations field documented in schema; UI/query not implemented.
@@ -141,7 +141,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [-] M12 Wyscout/StatsBomb-inspired Moneyball/per-90/percentile analytics.
 
 ## Current status
-- [x] Approved design references REF-001 to REF-004 documented.
+- [x] Approved design references REF-001 to REF-010 documented.
 - [x] Fresh rebuild product scope and milestones documented.
 - [x] Interruption-safe continuity procedure documented.
 - [x] Recovery branch/source inventory checked.
@@ -150,7 +150,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] FMRTE 27 feature audit and field coverage ledger committed.
 - [x] Clean WPF solution and initial shell source committed.
 - [x] FM27 player attribute catalogue and domain tests committed; Windows CI run 43787875022 passed.
-- [~] REF-002 advanced-search dialog shell and documented search schema committed; latest CI verification pending.
+- [~] REF-002 advanced-search dialog shell, documented field schema and typed filter model committed; latest code after personality/build-profile additions still needs Windows CI.
 - [~] REF-004 player profile workspace shell committed; latest Windows CI runs 43788055915 and related runs pending at checkpoint time.
 - [x] Windows CI build and three unit tests passed.
 - [x] Windows shell build artifact uploaded and inspected.
