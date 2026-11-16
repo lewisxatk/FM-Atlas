@@ -389,3 +389,15 @@ Current task: resolve hosted-runner/account Actions usage restriction and run th
 - [ ] U19 Implement separate guarded write primitive and first scalar writes with read-back, conflict handling and undo. Save Live Changes remains disabled until verified.
 
 **Current design audit:** see `docs/UI_REVIEW_001.md`. The current branch has profile/workspace structure and profile section navigation, but the full live editor and all profile data families are not complete.
+
+
+
+### Club profile live membership links — 2026-11-16
+
+- [x] C1 Player reader projects the current club UID into `PlayerRecord.SearchIntegerFields["club_uid"]`.
+- [x] C2 Staff reader projects the contract club UID into `StaffRecord.SearchIntegerFields["club_uid"]`.
+- [x] C3 Club profile Squads tab queries exact player membership by numeric club UID.
+- [x] C4 Club profile Staff tab queries exact staff membership by numeric club UID.
+- [x] C5 Squad/staff list entries open the matching full profile in the main workspace.
+- [x] C6 Add regression coverage for both Player and Staff membership joins (club 77 includes linked records and excludes club 88).
+- [ ] C7 Verify both pointer relationships against a live disposable/current Game Pass career; evidence remains Mapped.
