@@ -36,6 +36,7 @@ public sealed class GameBuildProfileCatalogTests
         Assert.All(GameBuildProfileCatalog.Profiles, profile =>
         {
             Assert.Equal(GameBuildEvidenceStatus.ExternalReferenceOnly, profile.EvidenceStatus);
+            Assert.True(profile.CanAttemptReadOnlyScan);
             Assert.False(profile.CanReadLiveData);
             Assert.False(profile.CanWriteLiveData);
         });
