@@ -10,6 +10,8 @@ namespace FMAtlas.Domain.Staff;
 public sealed record StaffRecord(EntityIdentity Identity) : IEntityRecord
 {
     public SourcedValue<string>? FullName { get; init; }
+    public SourcedValue<string>? GameUid { get; init; }
+    public SourcedValue<string>? Gender { get; init; }
     public SourcedValue<DateOnly>? DateOfBirth { get; init; }
     public SourcedValue<int>? Age { get; init; }
     public SourcedValue<string>? Nationality { get; init; }
