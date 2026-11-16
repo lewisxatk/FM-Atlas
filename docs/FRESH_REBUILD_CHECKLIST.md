@@ -214,3 +214,19 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 
 **Latest code before this documentation update:** `e63dc6ee62063c2046ab5f7f28d13c905b9d1d81`.  
 **Latest code is not build-verified:** GitHub Actions jobs terminate before runner allocation; the local environment has no .NET SDK.
+
+
+## Update — checkpoint 013 (2026-11-16)
+
+- [~] M2.11 Local SQLite database initialisation and **Save Atlas** command wired into the desktop header; local path is under LocalApplicationData.
+- [~] M3.2 Process detection remains separate from career loading and is labelled **Detect Game**.
+- [~] M3.3 **Load Live Save** action is present but disabled/In Progress until a verified career identity and read-only importer are implemented.
+- [~] M6.1–M6.9 **Save Live Save** action is present but disabled/In Progress until build-specific mappings, guarded writes, read-back and rollback are proven.
+- [ ] M3.4 Read-only live career acquisition and save identity provider.
+- [ ] M3.5 Offline save import and record mapping.
+- [ ] M4.6 CA/PA values connected to a real PlayerRecord.
+- [ ] M4.7 Full attribute/profile data binding.
+- [ ] M4.3b Bind graphics locator to the player portrait slot.
+- [ ] M5.1 Wire Quick Search input/results to IEntitySearchProvider.
+
+The desktop buttons do not imply that live save loading or writing is already functional. Only local Atlas database initialisation is currently wired.
