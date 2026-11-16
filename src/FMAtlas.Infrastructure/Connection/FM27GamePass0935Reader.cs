@@ -564,16 +564,27 @@ internal sealed class FM27GamePass0935Reader
         var uid = BitConverter.ToUInt32(data, 0x0C);
         if (uid == 0)
             return null;
+
         var name = ReadFmString(BitConverter.ToUInt64(data, 0xC0));
         if (string.IsNullOrWhiteSpace(name))
             return null;
+
         var shortName = ReadFmString(BitConverter.ToUInt64(data, 0xC8));
         var nation = ReadNationName(BitConverter.ToUInt64(data, 0xE8));
+        var womenFlag = data[0xB9];
         var info = SafeReadPointer(checked(address + 0x100));
-        var founded = info == 0 ? null : TryReadUInt16(info + 0xD8);
+        var finance = SafeReadPointer(checked(address + 0x150));
+        var teams = BitConverter.ToUInt64(data, 0x18);
+        var seniorTeam = SafeReadPointer(teams);
 
+        var founded = info == 0 ? null : TryReadUInt16(info + 0xD8);
         var facilities = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
-        var indexedFields = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+        var indexedIntegers = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+        var indexedBooleans = new Dictionary<string, SourcedValue<bool>>(StringComparer.OrdinalIgnoreCase);
+        var indexedText = new Dictionary<string, SourcedValue<string>>(StringComparer.OrdinalIgnoreCase);
+        var indexedDecimals = new Dictionary<string, SourcedValue<decimal>>(StringComparer.OrdinalIgnoreCase);
+        var finances = new Dictionary<string, SourcedValue<decimal>>(StringComparer.OrdinalIgnoreCase);
+
         if (info != 0)
         {
             AddFacility(facilities, "training_facilities", info + 0x120, evidence);
@@ -581,10 +592,85 @@ internal sealed class FM27GamePass0935Reader
             AddFacility(facilities, "youth_coaching", info + 0x12C, evidence);
             AddFacility(facilities, "youth_recruitment", info + 0x12D, evidence);
 
-            AddFacility(indexedFields, "club_training_facilities", info + 0x120, evidence);
-            AddFacility(indexedFields, "club_youth_facilities", info + 0x12B, evidence);
-            AddFacility(indexedFields, "club_youth_coaching", info + 0x12C, evidence);
-            AddFacility(indexedFields, "club_youth_recruitment", info + 0x12D, evidence);
+            AddFacility(indexedIntegers, "club_training_facilities", info + 0x120, evidence);
+            AddFacility(indexedIntegers, "club_youth_facilities", info + 0x12B, evidence);
+            AddFacility(indexedIntegers, "club_youth_coaching", info + 0x12C, evidence);
+            AddFacility(indexedIntegers, "club_youth_recruitment", info + 0x12D, evidence);
+
+            AddUInt32Field(indexedIntegers, "club_season_tickets", TryReadUInt32(info + 0xC0), evidence, 0, 100_000_000);
+            AddUInt32Field(indexedIntegers, "club_social_followers", TryReadUInt32(info + 0xF8), evidence, 0, 2_000_000_000);
+
+            var supporterMixKeys = new[]
+            {
+                "supporter_mix_hardcore", "supporter_mix_core", "supporter_mix_family",
+                "supporter_mix_fair_weather", "supporter_mix_corporate", "supporter_mix_casual"
+            };
+            var supporterTraitKeys = new[]
+            {
+                "supporter_trait_loyalty", "supporter_trait_passion", "supporter_trait_patience",
+                "supporter_trait_affluence", "supporter_trait_temperament", "supporter_trait_expectations"
+            };
+            try
+            {
+                var mix = _memory.ReadBytes(info + 0x106, 6);
+                for (var index = 0; index < supporterMixKeys.Length; index++)
+                    if (mix[index] <= 100)
+                        indexedIntegers[supporterMixKeys[index]] = new SourcedValue<int>(mix[index], evidence);
+            }
+            catch (Win32Exception) { }
+
+            try
+            {
+                var traits = _memory.ReadBytes(info + 0x114, 6);
+                for (var index = 0; index < supporterTraitKeys.Length; index++)
+                    if (traits[index] is >= 1 and <= 20)
+                        indexedIntegers[supporterTraitKeys[index]] = new SourcedValue<int>(traits[index], evidence);
+            }
+            catch (Win32Exception) { }
+        }
+
+        var reputation = seniorTeam == 0 ? null : TryReadUInt16(seniorTeam + 0xA8);
+        if (reputation is ushort clubReputation && clubReputation <= 10_000)
+            indexedIntegers["club_reputation"] = new SourcedValue<int>(clubReputation, evidence);
+
+        string? competitionName = null;
+        if (seniorTeam != 0)
+        {
+            var competition = SafeReadPointer(seniorTeam + 0x50);
+            if (competition != 0)
+            {
+                var competitionUid = TryReadUInt32(competition + 0x0C);
+                competitionName = ReadFmString(SafeReadPointer(competition + 0x40));
+                AddUInt32Field(indexedIntegers, "competition_uid", competitionUid, evidence, 1, int.MaxValue);
+            }
+
+            var stadium = SafeReadPointer(seniorTeam + 0x78);
+            if (stadium != 0)
+            {
+                var stadiumName = ReadFmString(SafeReadPointer(stadium + 0x40));
+                if (stadiumName is not null)
+                    indexedText["stadium_name"] = new SourcedValue<string>(stadiumName, evidence);
+
+                AddUInt32Field(indexedIntegers, "stadium_capacity", TryReadUInt32(stadium + 0x7C), evidence, 0, 2_000_000);
+                AddUInt32Field(indexedIntegers, "stadium_seating", TryReadUInt32(stadium + 0x80), evidence, 0, 2_000_000);
+                AddUInt32Field(indexedIntegers, "stadium_used", TryReadUInt32(stadium + 0x84), evidence, 0, 2_000_000);
+                AddUInt32Field(indexedIntegers, "stadium_expansion", TryReadUInt32(stadium + 0x8C), evidence, 0, 2_000_000);
+            }
+        }
+
+        if (womenFlag is 0 or 1)
+            indexedBooleans["club_is_women"] = new SourcedValue<bool>(womenFlag == 1, evidence);
+
+        if (finance != 0)
+        {
+            AddFinanceField(finances, "balance", TryReadInt32(finance + 0x0C), evidence, -100_000_000_000m, 100_000_000_000m);
+            AddFinanceField(finances, "transfer_budget", TryReadInt32(finance + 0x7C4), evidence, 0, 100_000_000_000m);
+            AddFinanceField(finances, "total_wage_budget", TryReadInt32(finance + 0x808), evidence, 0, 10_000_000_000m);
+            AddFinanceField(finances, "wage_budget", TryReadInt32(finance + 0x814), evidence, 0, 10_000_000_000m);
+
+            var corporate = TryReadByte(finance + 0x8A9);
+            if (corporate is byte rating and >= 1 and <= 20)
+                indexedIntegers["club_corporate_facilities"] = new SourcedValue<int>(rating, evidence);
         }
 
         return new ClubRecord(new EntityIdentity(EntityKind.Club, uid.ToString(CultureInfo.InvariantCulture), _providerKey))
@@ -592,9 +678,17 @@ internal sealed class FM27GamePass0935Reader
             Name = new SourcedValue<string>(name, evidence),
             ShortName = shortName is not null ? new SourcedValue<string>(shortName, evidence) : null,
             NationName = nation is not null ? new SourcedValue<string>(nation, evidence) : null,
+            CompetitionName = competitionName is not null ? new SourcedValue<string>(competitionName, evidence) : null,
+            StadiumName = indexedText.TryGetValue("stadium_name", out var stadiumValue) ? stadiumValue : null,
+            StadiumCapacity = indexedIntegers.TryGetValue("stadium_capacity", out var capacityValue) ? capacityValue : null,
             FoundedYear = founded is ushort year and >= 1800 and <= 2100 ? new SourcedValue<int>(year, evidence) : null,
+            Reputation = reputation is ushort reputationValue and <= 10_000 ? new SourcedValue<int>(reputationValue, evidence) : null,
             Facilities = facilities,
-            SearchIntegerFields = indexedFields
+            Finances = finances,
+            SearchIntegerFields = indexedIntegers,
+            SearchDecimalFields = indexedDecimals,
+            SearchBooleanFields = indexedBooleans,
+            SearchTextFields = indexedText
         };
     }
 
