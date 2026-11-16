@@ -20,6 +20,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     private SearchEntityKind _selectedEntity = SearchEntityKind.Player;
     private AdvancedSearchCategoryKind _selectedCategory = AdvancedSearchCategoryKind.General;
     private SearchFilterLogic _selectedLogic = SearchFilterLogic.All;
+    private SearchFilterLogic _selectedPositionLogic = SearchFilterLogic.All;
     private string _statusText = "Enter criteria in supported fields, then run the search.";
     private bool _isBusy;
 
@@ -51,6 +52,12 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     {
         get => _selectedLogic;
         set => SetField(ref _selectedLogic, value);
+    }
+
+    public SearchFilterLogic SelectedPositionLogic
+    {
+        get => _selectedPositionLogic;
+        set => SetField(ref _selectedPositionLogic, value);
     }
 
     public string StatusText
@@ -90,6 +97,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
 
         Results.Clear();
         SelectedLogic = SearchFilterLogic.All;
+        SelectedPositionLogic = SearchFilterLogic.All;
         StatusText = "Filters cleared for the selected entity.";
     }
 
@@ -125,7 +133,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        var query = new AdvancedSearchQuery(SelectedEntity, SelectedLogic, conditions);
+        var query = new AdvancedSearchQuery(SelectedEntity, SelectedLogic, conditions, SelectedPositionLogic);
         var validation = AdvancedSearchQueryValidator.Validate(query);
         if (!validation.IsValid)
         {
