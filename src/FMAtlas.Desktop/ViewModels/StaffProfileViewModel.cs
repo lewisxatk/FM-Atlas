@@ -67,6 +67,12 @@ public sealed class StaffProfileViewModel : INotifyPropertyChanged
     public string NationalityText => Format(Staff.Nationality?.Value);
     public string GenderInfoText => $"Gender · {GenderText}";
     public string NationalityInfoText => $"Nationality · {NationalityText}";
+    public string DateOfBirthInfoText => $"Date of birth · {Format(Staff.DateOfBirth?.Value)}";
+    public string ClubInfoText => $"Club / Team · {Format(Staff.ClubName?.Value)}";
+    public string RoleInfoText => $"Primary role · {Format(Staff.PrimaryRole?.Value)}";
+    public string UniqueIdInfoText => $"Unique ID · {Format(Staff.GameUid?.Value ?? Staff.Identity.SourceId)}";
+    public string WageInfoText => $"Wage · {Format(Staff.Wage?.Value)}";
+    public string ContractExpiryInfoText => $"Contract expiry · {Format(Staff.ContractExpires?.Value)}";
     public string CaText => Format(Staff.CurrentAbility?.Value);
     public string PaText => Format(Staff.PotentialAbility?.Value);
 
