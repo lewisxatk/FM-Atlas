@@ -11,6 +11,7 @@ public partial class MainWindow : Window
 {
     private readonly IAdvancedSearchProvider _advancedSearchProvider;
     private readonly IEntityRecordSnapshotStore _snapshotStore;
+    private readonly MainWindowViewModel _mainWindowViewModel;
     private readonly Dictionary<string, Window> _openPlayerProfiles = new(StringComparer.Ordinal);
     private AdvancedSearchWindow? _advancedSearchWindow;
 
@@ -21,6 +22,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        _mainWindowViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _advancedSearchProvider = advancedSearchProvider ?? throw new ArgumentNullException(nameof(advancedSearchProvider));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
     }
@@ -38,7 +40,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var searchWindow = new AdvancedSearchWindow(_advancedSearchProvider)
+        var searchWindow = new AdvancedSearchWindow(_advancedSearchProvider, () => _mainWindowViewModel.IncludeWomenPlayers)
         {
             Owner = this
         };
