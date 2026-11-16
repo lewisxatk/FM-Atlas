@@ -59,6 +59,34 @@ jobs:
           Compress-Archive -Path artifacts/publish/* -DestinationPath artifacts/FMAtlas-win-x64.zip -Force
           Get-FileHash artifacts/FMAtlas-win-x64.zip -Algorithm SHA256 | Format-List | Out-File artifacts/package-sha256.txt
 
+      - name: Smoke test WPF application startup
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD "artifacts/publish/FMAtlas.exe"
+          $log = Join-Path $PWD "artifacts/wpf-startup-smoke.txt"
+          $process = $null
+          try {
+            $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+            Start-Sleep -Seconds 8
+            $process.Refresh()
+            if ($process.HasExited) {
+              throw "FMAtlas.exe exited during startup smoke test with exit code $($process.ExitCode)."
+            }
+            "PASS: FMAtlas.exe remained running for 8 seconds on the Windows runner (PID $($process.Id))." | Set-Content -Path $log
+          }
+          catch {
+            "FAIL: $($_.Exception.Message)" | Set-Content -Path $log
+            throw
+          }
+          finally {
+            if ($null -ne $process) {
+              $process.Refresh()
+              if (-not $process.HasExited) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              }
+            }
+          }
+
       - name: Upload build, test and Windows diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -69,6 +97,7 @@ jobs:
             artifacts/runner-info.txt
             artifacts/test-results/**
             artifacts/package-sha256.txt
+            artifacts/wpf-startup-smoke.txt
           if-no-files-found: warn
           retention-days: 14
 
