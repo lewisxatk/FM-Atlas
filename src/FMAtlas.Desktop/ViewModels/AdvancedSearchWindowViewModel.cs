@@ -75,6 +75,7 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
     public void SelectEntity(SearchEntityKind entity)
     {
         SelectedEntity = entity;
+        SelectedPositionLogic = SearchFilterLogic.All;
         RebuildSections();
         Results.Clear();
         StatusText = "Entity changed. Review the filters and run the search.";
