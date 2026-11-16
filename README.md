@@ -66,3 +66,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Build-Test-Package.ps1
 It performs .NET restore, Release build, the full solution test suite and a Windows x64 desktop publish. It stops immediately on a failed step and does not create a package unless restore, build and tests have passed. The timestamped output is placed under `artifacts\`. The package is framework-dependent and requires the .NET 8 Windows Desktop Runtime.
 
 Do not use an older artifact after changing source; build and test the exact branch head you intend to try.
+
+
+## FM27 Game Pass live connection (read-only first pass)
+
+The **Load Game** button now has an exact-build live connection path for FM27 Game Pass package **0.9.2435.0**. It checks the x64 `game_plugin.dll` fingerprint, opens a read-only process handle, reads the live Player/Staff/Club lists, imports typed snapshots into SQLite and makes the records available to Quick Search and Advanced Search. Other Game Pass/Steam builds are rejected by this scanner until a separate profile and verification exist.
+
+During loading, a centered animated progress panel blocks the workspace and owned search/profile windows. It reports the current scan/index stage and returns control after success or failure. The connector monitors FM's save-generation counter and removes the active live snapshot when the process closes, the career is switched, or the live read stops validating.
+
+**Important:** this is a read-only implementation, not a completed live editor. The process accessor has no write operation and **Save Live Changes** remains disabled until field-by-field write/read-back/undo checks pass on a disposable career. The build profile is still externally referenced rather than Atlas-read-verified; the live scanner has not yet passed a Windows build or in-game test. See `research/LIVE_GAME_CONNECTION_001.md` for fields, profile fingerprint, safety boundaries and outstanding verification.
