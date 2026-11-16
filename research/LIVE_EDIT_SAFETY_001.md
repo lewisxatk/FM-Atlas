@@ -146,3 +146,8 @@ Added `tests/FMAtlas.Tests/LiveEditWritePreflightTests.cs` for the positive path
 - Windows Actions runs #563/#564 for recent source heads failed before any job steps were created (`steps=null`, no log URL). They provide no compiler or test output.
 - The local tool environment does not have the .NET SDK or Windows, so no successful build, process read or real-game comparison has been performed in this session.
 - No live write has been attempted.
+
+
+### Session-monitor failure containment
+
+A further hardening change broadens live-session monitor exception handling. A lost process handle, unexpected memory-read error or local snapshot-store cleanup error must not escape the WPF dispatcher timer as an unhandled UI exception. Session invalidation now always closes the process handle, attempts provider cleanup with a non-cancelled token, and includes any cleanup failure in the connection status. A cleanup failure is not described as successful deletion.
