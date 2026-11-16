@@ -32,7 +32,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
     private readonly IEntityRecordBatchSnapshotStore _snapshotStore;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private LiveSession? _session;
-    private bool _disconnectRequested;
+    private volatile bool _disconnectRequested;
     private bool _disposed;
 
     public WindowsFm27LiveGameConnector(IEntityRecordBatchSnapshotStore snapshotStore)
@@ -61,8 +61,17 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
         {
             var previousSession = _session;
             DisconnectCore();
-            if (previousSession is not null)
-                await _snapshotStore.DeleteProviderAsync(previousSession.ProviderKey, cancellationToken).ConfigureAwait(false);
+
+            // A live provider is a disposable snapshot, never a fallback cache.
+            // Clear it before scanning so a failed/cancelled reload cannot leave the
+            // previous career visible as if it were still the active save.
+            await _snapshotStore.DeleteProviderAsync(LiveProviderKey, CancellationToken.None).ConfigureAwait(false);
+            if (previousSession is not null &&
+                !string.Equals(previousSession.ProviderKey, LiveProviderKey, StringComparison.Ordinal))
+            {
+                await _snapshotStore.DeleteProviderAsync(previousSession.ProviderKey, CancellationToken.None).ConfigureAwait(false);
+            }
+
             _disconnectRequested = false;
             progress?.Report(new LiveGameLoadProgress(2, "Finding Football Manager", "Looking for the running FM27 Game Pass process."));
 
@@ -87,14 +96,11 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 cancellationToken).ConfigureAwait(false);
             if (generationAfterImport != candidate.SaveGeneration || emptyAfterImport)
             {
-                await _snapshotStore.DeleteProviderAsync(candidate.ProviderKey, cancellationToken).ConfigureAwait(false);
                 throw new InvalidOperationException("Football Manager changed or unloaded the career while FM Atlas was importing it. Nothing from that partial session has been kept. Load the career fully, then press Load Game again.");
             }
 
             if (_disconnectRequested)
             {
-                await _snapshotStore.DeleteProviderAsync(candidate.ProviderKey, cancellationToken).ConfigureAwait(false);
-                DisconnectSession(candidate);
                 throw new OperationCanceledException("FM Atlas was asked to disconnect while loading.");
             }
 
@@ -114,10 +120,28 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 LiveWritesEnabled: false,
                 Message: "Live FM27 data has been read and indexed. The current build is read-only in FM Atlas until our own field-by-field write verification is complete.");
         }
-        catch
+        catch (Exception loadException)
         {
             if (candidate is not null)
+            {
+                try
+                {
+                    // Cleanup must not inherit a cancelled load token. If this fails,
+                    // surface both errors rather than silently leaving stale live rows.
+                    await _snapshotStore.DeleteProviderAsync(candidate.ProviderKey, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception cleanupException)
+                {
+                    DisconnectSession(candidate);
+                    throw new AggregateException(
+                        "The live load failed and FM Atlas could not remove its temporary live snapshot. Do not use live search until the database has been repaired or the app has restarted successfully.",
+                        loadException,
+                        cleanupException);
+                }
+
                 DisconnectSession(candidate);
+            }
+
             throw;
         }
         finally
