@@ -418,7 +418,7 @@ internal sealed class FM27GamePass0935Reader
     private StaffRecord? ReadStaff(ulong address, FieldProvenance evidence, DateOnly inGameDate)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "staff object");
-        // A single object read also covers the human-manager person-block shift (+0x340).
+        // One bulk read covers the person fields and the human-manager +0x340 shift.
         var data = _memory.ReadBytes(address, 0x4F0);
         var shift = FindStaffPersonShift(address, data);
         if (shift is null)
@@ -454,11 +454,19 @@ internal sealed class FM27GamePass0935Reader
             var raw = B(fieldOffset);
             if (raw > 100)
                 continue;
-            var value = (raw + 2) / 5;
-            attributes[key] = new SourcedValue<int>(value, evidence);
+            var value = Math.Clamp((raw + 2) / 5, 1, 20);
             if (key.StartsWith("knowledge_", StringComparison.Ordinal))
                 knowledge[key["knowledge_".Length..]] = new SourcedValue<int>(value, evidence);
+            else
+                attributes[key] = new SourcedValue<int>(value, evidence);
         }
+
+        var workingWithYoungsters = B(0x1C);
+        if (workingWithYoungsters is >= 1 and <= 20)
+            attributes["attribute_working_with_youngsters"] = new SourcedValue<int>(workingWithYoungsters, evidence);
+        var authority = B(0x14);
+        if (authority is >= 1 and <= 20)
+            attributes["attribute_authority"] = new SourcedValue<int>(authority, evidence);
 
         var personality = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < PersonalityKeys.Length; index++)
@@ -469,9 +477,44 @@ internal sealed class FM27GamePass0935Reader
         }
 
         var contract = U64(0x1A8, offset);
-        var wage = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? TryReadInt32(contract + 0x20) : null;
-        var contractExpiry = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadFmDateSafe(contract + 0x48) : null;
-        var club = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadContractClubName(contract) : null;
+        byte[]? contractData = null;
+        if (WindowsProcessMemoryAccessor.IsUserPointer(contract))
+        {
+            try { contractData = _memory.ReadBytes(contract, 0xC8); }
+            catch (Win32Exception) { }
+        }
+
+        var wage = contractData is null ? (int?)null : BitConverter.ToInt32(contractData, 0x20);
+        var contractSigned = contractData is null
+            ? null
+            : MakeFmDate(BitConverter.ToUInt16(contractData, 0x44), BitConverter.ToUInt16(contractData, 0x46));
+        var contractExpiry = contractData is null
+            ? null
+            : MakeFmDate(BitConverter.ToUInt16(contractData, 0x48), BitConverter.ToUInt16(contractData, 0x4A));
+        var contractJoined = contractData is null
+            ? null
+            : MakeFmDate(BitConverter.ToUInt16(contractData, 0x4C), BitConverter.ToUInt16(contractData, 0x4E));
+        var jobCode = contractData is null ? (byte?)null : contractData[0x26];
+        var contractType = contractData is null ? (byte?)null : contractData[0xC3];
+        var primaryRole = jobCode is byte code ? StaffRoleName(code) : null;
+
+        var searchIntegers = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
+        void AddSearchInt(string key, int? value)
+        {
+            if (value is int number)
+                searchIntegers[key] = new SourcedValue<int>(number, evidence);
+        }
+        AddSearchInt("home_reputation", U16(0xD4));
+        AddSearchInt("current_reputation", U16(0xD6));
+        AddSearchInt("world_reputation", U16(0xD8));
+        AddSearchInt("job_code", jobCode);
+        AddSearchInt("contract_type", contractType);
+
+        var searchDates = new Dictionary<string, SourcedValue<DateOnly>>(StringComparer.OrdinalIgnoreCase);
+        if (contractSigned is DateOnly signed)
+            searchDates["contract_signed"] = new SourcedValue<DateOnly>(signed, evidence);
+        if (contractJoined is DateOnly joined)
+            searchDates["contract_joined"] = new SourcedValue<DateOnly>(joined, evidence);
 
         var currentAbility = U16(0xDA);
         var potentialAbility = U16(0xDC);
@@ -483,14 +526,17 @@ internal sealed class FM27GamePass0935Reader
             DateOfBirth = dateOfBirth is DateOnly dob ? new SourcedValue<DateOnly>(dob, evidence) : null,
             Age = age is int staffAge ? new SourcedValue<int>(staffAge, evidence) : null,
             Nationality = nationality is not null ? new SourcedValue<string>(nationality, evidence) : null,
-            ClubName = club is not null ? new SourcedValue<string>(club, evidence) : null,
+            ClubName = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadContractClubName(contract) is string club ? new SourcedValue<string>(club, evidence) : null : null,
+            PrimaryRole = primaryRole is not null ? new SourcedValue<string>(primaryRole, evidence) : null,
             CurrentAbility = currentAbility is > 0 and <= 200 ? new SourcedValue<int>(currentAbility, evidence) : null,
             PotentialAbility = potentialAbility is > 0 and <= 200 ? new SourcedValue<int>(potentialAbility, evidence) : null,
             ContractExpires = contractExpiry is DateOnly expiry ? new SourcedValue<DateOnly>(expiry, evidence) : null,
             Wage = wage is int staffWage and >= 0 ? new SourcedValue<decimal>(staffWage, evidence) : null,
             Attributes = attributes,
             Knowledge = knowledge,
-            Personality = personality
+            Personality = personality,
+            SearchIntegerFields = searchIntegers,
+            SearchDateFields = searchDates
         };
     }
 
