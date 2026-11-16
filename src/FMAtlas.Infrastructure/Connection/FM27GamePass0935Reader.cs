@@ -75,6 +75,29 @@ internal sealed class FM27GamePass0935Reader
     private static readonly string[] PositionKeys =
         ["gk", "sw", "dl", "dc", "dr", "dm", "ml", "mc", "mr", "aml", "amc", "amr", "st", "wbl", "wbr"];
 
+    private static readonly string[] PreferredMoveNames =
+    [
+        "Runs with ball down left", "Runs with ball down right", "Runs with ball through centre",
+        "Gets into opposition area", "Moves into channels", "Gets forward whenever possible",
+        "Plays short simple passes", "Tries killer balls often", "Shoots from distance", "Shoots with power",
+        "Places shots", "Curls ball", "Likes to round keeper", "Likes to try to beat offside trap",
+        "Uses outside of foot", "Marks opponent tightly", "Winds up opponents", "Argues with officials",
+        "Plays with back to goal", "Comes deep to get ball", "Plays one-twos", "Likes to lob keeper",
+        "Dictates tempo", "Attempts overhead kicks", "Looks for pass rather than attempting to score",
+        "Plays no through balls", "Stops play", "Knocks ball past opponent",
+        "Moves ball to right foot before dribble attempt", "Moves ball to left foot before dribble attempt",
+        "Dwells on ball", "Arrives late in opponents' area", "Tries to play way out of trouble",
+        "Stays back at all times", "Avoids using weaker foot", "Tries tricks", "Tries long range free kicks",
+        "Dives into tackles", "Does not dive into tackles", "Cuts inside", "Hugs line", "Gets crowd going",
+        "Tries first time shots", "Tries long range passes", "Likes ball played into feet",
+        "Hits free kicks with power", "Likes to beat man repeatedly", "Likes to switch ball to other flank",
+        "Will retire at top", "Will play football as long as possible", "Possesses long flat throw",
+        "Runs with ball often", "Runs with ball rarely", "Attempts to develop weaker foot", "Static target man",
+        "Uses long throw to start counter attacks", "Refrains from taking long shots",
+        "Cuts inside from left wing", "Cuts inside from right wing", "Crosses early",
+        "Brings ball out of defence", "Plays ball with feet"
+    ];
+
     private static readonly string[] PersonalityKeys =
         ["adaptability", "ambition", "loyalty", "pressure", "professionalism", "sportsmanship", "temperament", "controversy"];
 
@@ -186,50 +209,7 @@ internal sealed class FM27GamePass0935Reader
             {
                 var staff = ReadStaff(address, evidence, inGameDate);
                 if (staff is not null)
-                    records.Add(staff);
-            }
-            catch (Exception ex) when (IsRecoverableEntityReadException(ex))
-            {
-            }
-
-            processed++;
-            if (processed % 250 == 0 || processed == playerPointers.Length + staffPointers.Length)
-            {
-                var percent = 67 + (int)(16.0 * (processed - playerPointers.Length) / Math.Max(1, total - playerPointers.Length));
-                progress?.Report(new LiveGameLoadProgress(percent, "Reading staff", $"Read {processed - playerPointers.Length:N0} of {staffPointers.Length:N0} staff entries."));
-            }
-        }
-
-        var staffCount = records.Count - playerCount;
-        progress?.Report(new LiveGameLoadProgress(84, "Reading clubs", $"Preparing {clubPointers.Length:N0} club records."));
-        foreach (var address in clubPointers)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                var club = ReadClub(address, evidence);
-                if (club is not null)
-                    records.Add(club);
-            }
-            catch (Exception ex) when (IsRecoverableEntityReadException(ex))
-            {
-            }
-
-            processed++;
-            if (processed % 250 == 0 || processed == total)
-            {
-                var percent = 84 + (int)(11.0 * (processed - playerPointers.Length - staffPointers.Length) / Math.Max(1, clubPointers.Length));
-                progress?.Report(new LiveGameLoadProgress(percent, "Reading clubs", $"Read {processed - playerPointers.Length - staffPointers.Length:N0} of {clubPointers.Length:N0} club entries."));
-            }
-        }
-
-        var clubCount = records.Count - playerCount - staffCount;
-        progress?.Report(new LiveGameLoadProgress(96, "Indexing live data", $"Preparing {records.Count:N0} records for the local search index."));
-        _ = clubCount;
-        return records;
-    }
-
-    private PlayerRecord? ReadPlayer(ulong address, FieldProvenance evidence, DateOnly inGameDate)
+                 private PlayerRecord? ReadPlayer(ulong address, FieldProvenance evidence, DateOnly inGameDate)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "player object");
         // One contiguous object read supplies the identity, attributes, ability, contracts
@@ -299,6 +279,14 @@ internal sealed class FM27GamePass0935Reader
             var rating = B(0x2F8 + (ulong)index, offset);
             if (rating is >= 1 and <= 20)
                 personality[PersonalityKeys[index]] = new SourcedValue<int>(rating, evidence);
+        }
+
+        var preferredMoves = new List<SourcedValue<string>>();
+        var traitMask = U64(0x348, offset);
+        for (var bit = 0; bit < PreferredMoveNames.Length; bit++)
+        {
+            if ((traitMask & (1UL << bit)) != 0)
+                preferredMoves.Add(new SourcedValue<string>(PreferredMoveNames[bit], evidence));
         }
 
         var contract = U64(0x330, offset);
@@ -389,6 +377,34 @@ internal sealed class FM27GamePass0935Reader
             FullName = new SourcedValue<string>(displayName, evidence),
             GameUid = new SourcedValue<string>(uid.ToString(CultureInfo.InvariantCulture), evidence),
             DateOfBirth = dateOfBirth is DateOnly dob ? new SourcedValue<DateOnly>(dob, evidence) : null,
+            Age = age is int playerAge ? new SourcedValue<int>(playerAge, evidence) : null,
+            Nationality = nationality is not null ? new SourcedValue<string>(nationality, evidence) : null,
+            CityOfBirth = cityOfBirth is not null ? new SourcedValue<string>(cityOfBirth, evidence) : null,
+            Gender = new SourcedValue<string>((genderFlags & 0x10) != 0 ? "Female" : "Male", evidence),
+            ClubName = club is not null ? new SourcedValue<string>(club, evidence) : null,
+            PrimaryPosition = positionName is not null ? new SourcedValue<string>(positionName, evidence) : null,
+            HeightCentimetres = height is > 0 and < 300 ? new SourcedValue<decimal>(height, evidence) : null,
+            CurrentAbility = currentAbility is > 0 and <= 200 ? new SourcedValue<int>(currentAbility, evidence) : null,
+            PotentialAbility = rawPotential is > 0 and <= 200 ? new SourcedValue<int>(rawPotential, evidence) : null,
+            InternationalCaps = new SourcedValue<int>(caps, evidence),
+            InternationalGoals = new SourcedValue<int>(goals, evidence),
+            ContractExpires = contractExpiry is DateOnly expiry ? new SourcedValue<DateOnly>(expiry, evidence) : null,
+            Wage = wage is int playerWage and >= 0 ? new SourcedValue<decimal>(playerWage, evidence) : null,
+            TransferValue = transferValue >= 0 ? new SourcedValue<decimal>(transferValue, evidence) : null,
+            Attributes = attributes,
+            HiddenAttributes = hidden,
+            Personality = personality,
+            FootRatings = feet,
+            PositionRatings = positions,
+            PreferredMoves = preferredMoves.AsReadOnly(),
+            SearchIntegerFields = searchIntegers,
+            SearchBooleanFields = searchBooleans,
+            SearchDateFields = searchDates,
+            IsNewgen = new SourcedValue<bool>((madeByGameFlags & 0x08) != 0, evidence)
+        };
+    }
+
+? new SourcedValue<DateOnly>(dob, evidence) : null,
             Age = age is int playerAge ? new SourcedValue<int>(playerAge, evidence) : null,
             Nationality = nationality is not null ? new SourcedValue<string>(nationality, evidence) : null,
             CityOfBirth = cityOfBirth is not null ? new SourcedValue<string>(cityOfBirth, evidence) : null,
