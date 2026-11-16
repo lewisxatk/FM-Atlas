@@ -144,38 +144,58 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
                 SectionDescription = "Youth intake candidates and attributes when present in the loaded career.";
                 AddMap("youth_intake", Club.SearchTextFields);
                 AddMap("youth", Club.SearchTextFields);
+                AddMap("intake", Club.SearchTextFields);
+                AddMap("youth", Club.SearchIntegerFields);
                 AddMap("intake", Club.SearchIntegerFields);
+                AddMap("youth", Club.SearchDecimalFields);
+                AddMap("intake", Club.SearchDateFields);
+                AddMap("youth", Club.SearchBooleanFields);
                 break;
             case "Finances":
                 SectionDescription = "Club balance, budgets, loans, debt and sponsorship values supplied by the save.";
                 AddMap("", Club.Finances);
-                AddMap("finance", Club.SearchDecimalFields);
-                AddMap("debt", Club.SearchDecimalFields);
-                AddMap("loan", Club.SearchDecimalFields);
-                AddMap("sponsor", Club.SearchDecimalFields);
+                foreach (var pair in Club.SearchDecimalFields.Where(pair => !Club.Finances.ContainsKey(pair.Key)))
+                    Add(Humanise(pair.Key), FormatObject(pair.Value.Value), pair.Value.Provenance);
                 break;
             case "Club Vision":
                 SectionDescription = "Club culture, board expectations and dated vision objectives.";
                 AddMap("vision", Club.SearchTextFields);
                 AddMap("culture", Club.SearchTextFields);
+                AddMap("objective", Club.SearchTextFields);
                 AddMap("vision", Club.SearchDateFields);
+                AddMap("objective", Club.SearchDateFields);
+                AddMap("vision", Club.SearchIntegerFields);
+                AddMap("objective", Club.SearchIntegerFields);
+                AddMap("vision", Club.SearchBooleanFields);
+                AddMap("objective", Club.SearchBooleanFields);
                 break;
             case "Possible Signings":
                 SectionDescription = "Players the club is interested in signing.";
                 AddMap("possible_signing", Club.SearchTextFields);
                 AddMap("signing", Club.SearchTextFields);
+                AddMap("signing", Club.SearchIntegerFields);
+                AddMap("signing", Club.SearchDecimalFields);
+                AddMap("signing", Club.SearchDateFields);
                 break;
             case "Player Clauses":
                 SectionDescription = "Clauses attached to existing player contracts.";
                 AddMap("clause", Club.SearchTextFields);
                 AddMap("clause", Club.SearchDecimalFields);
                 AddMap("clause", Club.SearchDateFields);
+                AddMap("clause", Club.SearchIntegerFields);
+                AddMap("clause", Club.SearchBooleanFields);
                 break;
             case "Transfer Center":
                 SectionDescription = "Existing incoming and outgoing transfer proposals.";
                 AddMap("transfer", Club.SearchTextFields);
                 AddMap("offer", Club.SearchTextFields);
                 AddMap("transfer", Club.SearchDecimalFields);
+                AddMap("offer", Club.SearchDecimalFields);
+                AddMap("transfer", Club.SearchDateFields);
+                AddMap("offer", Club.SearchDateFields);
+                AddMap("transfer", Club.SearchIntegerFields);
+                AddMap("offer", Club.SearchIntegerFields);
+                AddMap("transfer", Club.SearchBooleanFields);
                 break;
             case "Staff":
                 SectionDescription = "Staff attached to this club by the current contract’s numeric club ID in the loaded career.";
@@ -185,26 +205,40 @@ public sealed class ClubProfileViewModel : INotifyPropertyChanged
                 SectionDescription = "Wage contributions and shared salary terms where supported.";
                 AddMap("wage_contribution", Club.SearchDecimalFields);
                 AddMap("wage_contribution", Club.SearchTextFields);
+                AddMap("wage_contribution", Club.SearchIntegerFields);
+                AddMap("wage_contribution", Club.SearchBooleanFields);
                 break;
             case "Kits & Colours":
                 SectionDescription = "Home, away and alternate kit colours and kit details.";
                 AddMap("kit", Club.SearchTextFields);
                 AddMap("colour", Club.SearchTextFields);
+                AddMap("kit", Club.SearchIntegerFields);
+                AddMap("colour", Club.SearchIntegerFields);
+                AddMap("kit", Club.SearchBooleanFields);
                 break;
             case "Affiliations":
                 SectionDescription = "Parent, feeder and other club affiliations.";
                 AddMap("affiliation", Club.SearchTextFields);
+                AddMap("affiliation", Club.SearchIntegerFields);
+                AddMap("affiliation", Club.SearchBooleanFields);
+                AddMap("affiliation", Club.SearchDateFields);
                 break;
             case "Match Preparation":
                 SectionDescription = "Tactical familiarity and match-preparation information, when exposed by the save.";
                 AddMap("match_preparation", Club.SearchTextFields);
                 AddMap("tactical_familiarity", Club.SearchIntegerFields);
+                AddMap("match_preparation", Club.SearchIntegerFields);
+                AddMap("match_preparation", Club.SearchDecimalFields);
+                AddMap("match_preparation", Club.SearchBooleanFields);
                 break;
             case "Stadium":
                 SectionDescription = "Ground name, capacity, seating and attendance details.";
                 Add("Stadium", Club.StadiumName?.Value, Club.StadiumName?.Provenance);
                 Add("Capacity", Format(Club.StadiumCapacity?.Value), Club.StadiumCapacity?.Provenance);
                 AddMap("stadium", Club.SearchIntegerFields);
+                AddMap("stadium", Club.SearchTextFields);
+                AddMap("stadium", Club.SearchDecimalFields);
+                AddMap("stadium", Club.SearchDateFields);
                 break;
         }
 
