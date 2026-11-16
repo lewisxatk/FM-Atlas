@@ -87,6 +87,7 @@ public partial class AdvancedSearchWindow : Window
             return;
 
         ResultOpenRequested?.Invoke(selected.Result);
+        Close();
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => Close();
