@@ -444,6 +444,7 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             normalised.StartsWith("knowledge_", StringComparison.OrdinalIgnoreCase) ||
             normalised.StartsWith("facility_", StringComparison.OrdinalIgnoreCase) ||
             normalised.StartsWith("finance_", StringComparison.OrdinalIgnoreCase) ||
+            normalised.StartsWith("role_preference_", StringComparison.OrdinalIgnoreCase) ||
             normalised is "is_newgen" or "wonderkid" or "eu_nationality" or
                 "left_foot" or "right_foot" or "preferred_foot" or
                 "international_caps" or "international_goals" or "continent" or
@@ -484,6 +485,23 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             "club_junior_coaching" => ["facility_junior_coaching"],
             "club_medical_facilities" => ["facility_medical"],
             "club_sports_science_facilities" => ["facility_sports_science"],
+            "club_corporate_facilities" => ["facility_corporate"],
+            "club_youth_coaching" => ["facility_youth_coaching"],
+            "club_youth_importance" => ["facility_youth_importance"],
+            "club_minimum_attendance" => ["minimum_attendance"],
+            "club_maximum_attendance" => ["maximum_attendance"],
+            "club_ownership_type" => ["ownership_type"],
+            "club_chairperson_title" => ["chairperson_title"],
+            "club_first_team_reputation" => ["first_team_reputation"],
+            "club_reserve_team_reputation" => ["reserve_team_reputation"],
+            "club_youth_team_reputation" => ["youth_team_reputation"],
+            "club_transfer_budget_season" => ["finance_transfer_budget_season"],
+            "club_transfer_budget_remaining" => ["finance_transfer_budget_remaining"],
+            "club_wage_used" => ["finance_wage_used"],
+            "club_max_wage" => ["finance_max_wage"],
+            "club_transfer_revenue_percentage" => ["finance_transfer_revenue_percentage"],
+            "club_total_debt" => ["finance_total_debt"],
+            "club_monthly_debt_repayments" => ["finance_monthly_debt_repayments"],
             "club_balance" => ["finance_balance"],
             "club_debt" => ["finance_debt"],
             "club_transfer_budget" => ["finance_transfer_budget"],
