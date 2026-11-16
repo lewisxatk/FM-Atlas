@@ -903,3 +903,75 @@ The actual output will depend on the columns included in the selected export. No
 6. Keep `Load Live Save` and `Save Live Save` disabled until build-specific read/write, save-generation, read-back and disposable-career verification gates pass.
 
 **Preservation:** The work remains on `rebuild/fresh-foundation-001`. No changes to `main` or the historical R7.2.0 recovery branch.
+
+
+---
+
+## Checkpoint 018 — CSV importer hardening and local Windows test/package handoff
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Latest source-hardening commit:** `1e74762531c2d74ad7b576c466b0ead754a3e25c`  
+**Latest continuity/checklist sync:** `4872b9d7ce0bfa4b88af29ec9d20b59106d67f2b`  
+**Status:** CSV import, UI wiring, regression source tests and local Windows build handoff are committed. None of the new C# changes have been compiled/tested in this tool runtime or a verified Windows runner yet.
+
+### Additional hardening after checkpoint 017
+
+1. Changed the importer to create a fresh `FieldProvenance` timestamp for each import execution, rather than using a class-load-time timestamp.
+2. Added an end-to-end regression test proving that an explicitly exported `Gender` value is projected to `field_values.gender` and then obeys the global **Include women** setting in Quick Search (OFF excludes explicit female; ON includes her).
+3. Added `scripts/Build-Test-Package.ps1` for local Windows validation:
+   - requires Windows 10/11 and a .NET 8 SDK;
+   - restores the solution;
+   - builds the Release solution;
+   - runs the full test suite;
+   - publishes the Windows x64 desktop app;
+   - checks that `FMAtlas.exe` exists;
+   - creates a timestamped ZIP only if every prior step passes.
+4. Added README instructions for running the script from the repository root:
+   `powershell -ExecutionPolicy Bypass -File .\scripts\Build-Test-Package.ps1`.
+5. The script does not delete previous artifacts. New output is placed in a uniquely timestamped `artifacts` subfolder.
+
+### Source/test files added or changed
+
+- `src/FMAtlas.Application/Abstractions/IPlayerExportImporter.cs`
+- `src/FMAtlas.Application/Models/PlayerExportImportResult.cs`
+- `src/FMAtlas.Infrastructure/Import/FMViewExporterCsvImporter.cs`
+- `src/FMAtlas.Desktop/MainWindow.xaml`
+- `src/FMAtlas.Desktop/MainWindow.xaml.cs`
+- `src/FMAtlas.Desktop/App.xaml.cs`
+- `src/FMAtlas.Desktop/ViewModels/MainWindowViewModel.cs`
+- `tests/FMAtlas.Tests/FMViewExporterCsvImporterTests.cs`
+- `scripts/Build-Test-Package.ps1`
+- `research/CSV_IMPORT_001.md`
+- README, master plan, checklist and continuity checkpoint updates.
+
+The CSV importer test file now contains seven test cases. They cover fixed player mappings, attributes/provenance, duplicated Nation headers, dynamic typed columns and Advanced Search, gender toggle integration, German decimal-comma parsing, duplicate IDs/idempotence, missing Unique ID and malformed CSV. (The full count is seven test methods; the first method includes both text and numeric additional-column searches.)
+
+### Verification status
+
+- Local tool container check: `dotnet` is not installed, so no local restore/build/test can run here.
+- Last retrievable GitHub Actions run snapshot: **FM Atlas Windows Build**, run #425, ID `43852668416`. The job ended in failure without steps or a log URL. A retry was accepted; that retry also ended with no steps and no downloadable log object.
+- Commit-specific status queries after that run returned no status checks, and the Actions run helper only returns pull-request-triggered runs. Therefore there is no confirmed Windows CI result for the later push commits.
+- No new test ZIP was created. Do not install or describe this source head as test-ready until the local script or Windows CI passes.
+
+### First test handoff
+
+On Windows, update the checkout to the latest `rebuild/fresh-foundation-001` branch head and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Build-Test-Package.ps1
+```
+
+Only when the script reports that restore, build and tests passed should the timestamped ZIP under `artifacts` be used for the first app test.
+
+When a compatible UTF-8 FM27 player CSV is available:
+1. Open FM Atlas.
+2. Select **Import CSV**.
+3. Choose a CSV containing `Player` or `Name` and `Unique ID`.
+4. Find imported players with Quick Search / Advanced Search.
+5. Use **Indexed Fields** in Advanced Search to query extra columns.
+6. Double-click a Player search result to open its read-only typed snapshot profile.
+
+**Game Pass caveat:** the currently documented FM View Exporter build targets Steam/Windows; Game Pass plugin support is not established. FM Atlas imports a compatible CSV from any exporter, but its importer does not make the exporter Game Pass-compatible. This CSV route is separate from the still-incomplete Game Pass live-save reader.
+
+**Safety boundary unchanged:** no live process-memory read/write and no career-file modification. `Load Live Save` and `Save Live Save` remain disabled. Historical recovery and `main` remain untouched.
