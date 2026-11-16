@@ -165,6 +165,14 @@ public sealed class LiveMemoryWriteGateTests
     }
 
     [Fact]
+    public void GamePass0932435FullReleaseProfileIsRegisteredForTheCorroboratedObjectLayout()
+    {
+        var profile = Fm27BuildProfiles.Match(0x17969000, 0x6AE8CF77);
+        Assert.NotNull(profile);
+        Assert.Equal("gamepass-0.9.2435.0", profile!.Id);
+    }
+
+    [Fact]
     public void GamePass2493426FingerprintMatchesTheRegisteredLiveProfile()
     {
         var profile = Fm27BuildProfiles.Match(0x175DA000, 0x6AE563A1);
