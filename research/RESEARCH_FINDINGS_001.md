@@ -303,3 +303,28 @@ FM Atlas now has a reference-only build registry based on FMLibreEditor's publis
 - 0.9.2409.0: PE timestamp `0x6AE563A1`, image size `0x175DA000`.
 
 The registry explicitly marks both profiles `ExternalReferenceOnly`; neither permits Atlas live reads or writes. The new PE reader extracts only static on-disk module metadata. A match is a candidate identification, not proof of compatibility. The user's installed package must be fingerprinted and then independently verified before any memory read is enabled.
+
+
+## 14. Independent graphics locator and local database foundations
+
+### Graphics reference findings
+
+The user-supplied FM Player Analyzer 2.2.3 source archive was inspected for its graphics-index format. Relevant source files are recorded in `research/GRAPHICS_REVERSE_ENGINEERING_001.md`. The archive is GPL-3.0 and is not copied into FM Atlas.
+
+FM Atlas's independent implementation recognises standard portrait, club-logo and nation-logo config targets, resolves paths relative to config.xml, supports numeric and r- player UIDs, ignores unrelated icon targets and rejects mappings that escape the selected graphics root. It is read-only and has synthetic tests. It has not yet been run against the user's Windows graphics folders.
+
+### Provenance-aware records
+
+New typed PlayerRecord, StaffRecord and ClubRecord domain models use SourcedValue<T> with FieldProvenance. A field's data source is stored separately from its evidence status. A documented mapping is not a verified read, and a read-verified live value is not writable.
+
+### Local database schema
+
+Schema version 1 now defines:
+- provider-scoped entity identity;
+- source catalogue and build/save provenance;
+- typed field values with per-field source/evidence;
+- entity relationships;
+- graphics asset mappings;
+- migration history and search-oriented indexes.
+
+This is a schema migration only. Record repositories, imports, persistent graphics cache and executable advanced search remain outstanding. Windows CI is required before the migration and tests can be called verified.
