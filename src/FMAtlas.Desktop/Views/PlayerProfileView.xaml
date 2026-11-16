@@ -99,11 +99,11 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0">
                             <TextBlock Text="CA" FontSize="9" Foreground="{StaticResource Atlas.Muted}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="{Binding CurrentAbilityText}" FontFamily="Consolas" FontSize="18" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding CurrentAbilityText}" ToolTip="{Binding CurrentAbilityEvidenceText}" FontFamily="Consolas" FontSize="18" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Margin="12,0,0,0">
                             <TextBlock Text="PA" FontSize="9" Foreground="{StaticResource Atlas.Muted}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="{Binding PotentialAbilityText}" FontFamily="Consolas" FontSize="18" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding PotentialAbilityText}" ToolTip="{Binding PotentialAbilityEvidenceText}" FontFamily="Consolas" FontSize="18" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Grid>
 
