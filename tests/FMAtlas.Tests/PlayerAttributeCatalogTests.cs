@@ -55,6 +55,23 @@ public sealed class PlayerAttributeCatalogTests
     }
 
     [Fact]
+    public void PersonalityHasEightSeparateFieldsInFMStorageOrder()
+    {
+        Assert.Equal(new[]
+        {
+            "adaptability", "ambition", "loyalty", "pressure",
+            "professionalism", "sportsmanship", "temperament", "controversy"
+        }, PlayerAttributeCatalog.PersonalityAttributes.Select(x => x.Key));
+
+        Assert.Contains(PlayerAttributeCatalog.GetProfileGroups(false),
+            x => x.Kind == PlayerAttributeGroupKind.Personality);
+        Assert.Contains(PlayerAttributeCatalog.GetProfileGroups(true),
+            x => x.Kind == PlayerAttributeGroupKind.Personality);
+        Assert.Equal(PlayerAttributeGroupKind.Personality,
+            PlayerAttributeCatalog.PersonalityAttributes[4].Group);
+    }
+
+    [Fact]
     public void FootRatingsAreSeparateFromThe52NonFootAttributes()
     {
         Assert.Equal(2, PlayerAttributeCatalog.FootAttributes.Count);
