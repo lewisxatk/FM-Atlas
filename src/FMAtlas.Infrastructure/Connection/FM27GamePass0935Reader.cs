@@ -61,13 +61,13 @@ internal sealed class FM27GamePass0935Reader
     private static readonly (string Key, ulong Offset)[] StaffAttributeOffsets =
     [
         ("attribute_goalkeeping", 0x2B), ("knowledge_judging_ability", 0x2C),
-        ("knowledge_judging_potential", 0x2D), ("knowledge_people_management", 0x2E),
-        ("attribute_motivating", 0x2F), ("knowledge_physiotherapy", 0x30),
+        ("knowledge_judging_potential", 0x2D), ("attribute_people_management", 0x2E),
+        ("attribute_motivating", 0x2F), ("attribute_physiotherapy", 0x30),
         ("knowledge_tactical_knowledge", 0x31), ("attribute_attacking", 0x32),
         ("attribute_defending", 0x33), ("attribute_fitness", 0x34),
         ("attribute_possession", 0x35), ("attribute_technical", 0x36),
         ("attribute_tactical", 0x37), ("knowledge_data_analysis", 0x3C),
-        ("knowledge_sports_science", 0x3F), ("knowledge_negotiating", 0x41),
+        ("attribute_sports_science", 0x3F), ("knowledge_negotiating", 0x41),
         ("knowledge_judging_staff", 0x42), ("attribute_set_pieces", 0x43),
         ("attribute_determination", 0x1D)
     ];
