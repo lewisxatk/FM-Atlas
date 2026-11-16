@@ -393,6 +393,7 @@ public partial class MainWindow : Window
             OpenSearchResult(managerResult);
 
             ClubRecord? club = null;
+            var clubOpened = false;
             if (manager.SearchIntegerFields.TryGetValue("club_uid", out var clubUid) && clubUid.Value > 0)
             {
                 var clubIdentity = new EntityIdentity(
@@ -402,18 +403,42 @@ public partial class MainWindow : Window
                 club = await _snapshotStore.GetSnapshotAsync<ClubRecord>(clubIdentity);
                 if (club is not null)
                 {
-                    var clubResult = new EntitySearchResult(
+                    OpenSearchResult(new EntitySearchResult(
                         clubIdentity,
-                        club.Name?.Value ?? manager.ClubName?.Value ?? "Current Club");
-                    OpenSearchResult(clubResult);
+                        club.Name?.Value ?? manager.ClubName?.Value ?? "Current Club"));
+                    clubOpened = true;
+                }
+            }
+
+            // Some staff contracts expose the club name even when the mapped UID
+            // is absent. Resolve only a unique exact-name match; never guess from
+            // a partial or ambiguous Quick Search result.
+            var managerClubName = manager.ClubName?.Value?.Trim();
+            if (club is null && !string.IsNullOrWhiteSpace(managerClubName))
+            {
+                var candidates = await _entitySearchProvider.QuickSearchAsync(
+                    managerClubName, [EntityKind.Club], limit: 10, includeWomenPlayers: true);
+                var exactMatches = candidates.Where(candidate =>
+                    string.Equals(candidate.DisplayName.Trim(), managerClubName, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (exactMatches.Length == 1)
+                {
+                    club = await _snapshotStore.GetSnapshotAsync<ClubRecord>(exactMatches[0].Identity);
+                    if (club is not null)
+                    {
+                        OpenSearchResult(exactMatches[0]);
+                        clubOpened = true;
+                    }
                 }
             }
 
             var managerName = manager.FullName?.Value ?? managerResult.DisplayName;
-            var clubName = club?.Name?.Value ?? manager.ClubName?.Value ?? "Not available";
-            var nationName = club?.NationName?.Value ?? "Not available";
+            var clubName = club?.Name?.Value ?? managerClubName ?? "Not available";
+            var clubNation = club?.NationName?.Value ?? "Not available";
+            var managerNationality = manager.Nationality?.Value ?? "Not available";
+            var clubProfileStatus = clubOpened ? "Club profile opened." : "Club profile could not be linked with certainty.";
             OpenInformationTab("My Career",
-                $"Human manager: {managerName}\nCurrent club: {clubName}\nNation: {nationName}\n\nThe manager and club profiles have been opened where their linked records were available. A complete nation profile is not part of the current live importer; the nation is shown as a name from the club record only.");
+                $"Human manager: {managerName}\nCurrent club: {clubName}\nClub nation: {clubNation}\nManager nationality: {managerNationality}\n\n{clubProfileStatus} A full Nation profile is not yet included in the live importer; the club nation is shown as source-backed text from the club record.");
         }
         catch (Exception exception)
         {
