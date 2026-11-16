@@ -138,9 +138,20 @@ public sealed class EntityRecordSnapshotStoreTests
         var store = new SqliteEntityRecordSnapshotStore(path);
         var identity = new EntityIdentity(EntityKind.Player, "9", "test");
 
-        await store.SaveSnapshotAsync(new PlayerRecord(identity), null);
-        await store.DeleteSnapshotAsync<PlayerRecord>(identity);
+        var provenance = new FieldProvenance(DataSourceKind.CareerSave, FieldEvidenceStatus.Documented);
+        await store.SaveSnapshotAsync(
+            new PlayerRecord(identity) { FullName = new SourcedValue<string>("Delete Me", provenance) },
+            "Delete Me");
 
+        await using (var beforeDelete = new SqliteConnection($"Data Source={path}"))
+        {
+            await beforeDelete.OpenAsync();
+            await using var count = beforeDelete.CreateCommand();
+            count.CommandText = "SELECT COUNT(*) FROM field_values WHERE source_id = '9' AND provider_key = 'test';";
+            Assert.Equal(1L, await count.ExecuteScalarAsync());
+        }
+
+        await store.DeleteSnapshotAsync<PlayerRecord>(identity);
         Assert.Null(await store.GetSnapshotAsync<PlayerRecord>(identity));
 
         await using var connection = new SqliteConnection($"Data Source={path}");
@@ -148,6 +159,10 @@ public sealed class EntityRecordSnapshotStoreTests
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM entities WHERE source_id = '9' AND provider_key = 'test';";
         Assert.Equal(1L, await command.ExecuteScalarAsync());
+
+        await using var indexCount = connection.CreateCommand();
+        indexCount.CommandText = "SELECT COUNT(*) FROM field_values WHERE source_id = '9' AND provider_key = 'test';";
+        Assert.Equal(0L, await indexCount.ExecuteScalarAsync());
     }
 
     [Fact]
