@@ -271,7 +271,7 @@ public static class AdvancedSearchCatalog
             F("club_medical_facilities", "Medical Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20),
             F("club_sports_science_facilities", "Sports Science Facilities", AdvancedSearchCategoryKind.General, SearchFieldValueKind.IntegerRange, Clubs, 0, 20)
         });
-        fields.AddRange(PlayerPositions.Select(position => F(
+        fields.AddRange(Positions.Select(position => F(
             $"position_{position.Key}", $"{position.Label} Rating", AdvancedSearchCategoryKind.General,
             SearchFieldValueKind.IntegerRange, Players, 0, 20)));
         fields.AddRange(StaffRolePreferences.Select(role => F(
