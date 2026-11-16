@@ -432,3 +432,71 @@ A failed-job rerun was attempted and produced the same pre-runner failure. This 
 ### Uncommitted changes
 
 None known. All code and research above are committed. Re-read the branch head and this checkpoint before the next work unit.
+
+
+---
+
+## Checkpoint 011 — versioned typed record snapshot persistence
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Head before this checkpoint update:** `aae269ec2cb6dc96a645183684ec8d8d3ffb3fc9`  
+**Status:** Code committed. Windows Actions continues to fail before allocating a runner; no .NET build or xUnit result is available for these latest commits.
+
+### Work saved
+
+1. **SQLite schema upgraded from version 1 to version 2**:
+   - Added `entity_record_snapshots`.
+   - Existing version 1 databases have an explicit migration path to version 2.
+   - Migration history and PRAGMA user_version are updated transactionally.
+   - Existing schema versions newer than the application are rejected rather than downgraded.
+
+2. **Typed entity record contract**:
+   - Added `IEntityRecord`, implemented by PlayerRecord, StaffRecord and ClubRecord.
+   - Snapshot store obtains its key from the record's own EntityIdentity; callers cannot accidentally supply a mismatched entity ID separately.
+
+3. **SQLite typed snapshot store**:
+   - Added `IEntityRecordSnapshotStore` and `SqliteEntityRecordSnapshotStore`.
+   - Serialises the typed record as versioned JSON.
+   - Preserves sourced values, dictionaries and per-field provenance.
+   - Uses entity kind + provider key + source ID + record type as the key.
+   - Saves entity row and snapshot in one transaction.
+   - Upserts display name without erasing an existing name when a later snapshot supplies null.
+   - Supports typed load and snapshot deletion without deleting the underlying entity.
+
+4. **Tests added/updated**:
+   - Schema version 2 and table creation.
+   - Idempotent migration history.
+   - Upgrade from an existing version 1 schema.
+   - Foreign key setting.
+   - Player snapshot round-trip and provenance preservation.
+   - Game Pass/Steam provider ID collision isolation.
+   - Staff and club snapshot round-trips.
+   - Snapshot deletion and invalid identity rejection.
+
+### Verification
+
+- The schema DDL and foreign-key relationships were smoke-checked independently with the local SQLite engine. This is an SQL-level check, not a .NET compile or test run.
+- Latest relevant Windows Actions runs continue to fail with job `steps=null` and no runner/log allocation. This does not establish a C# build failure, but it also means the new C# code remains unverified.
+- Last verified Windows build remains the earlier fallback artifact from commit `fbe36400` / run [43788503042](https://github.com/lewisxatk/FM-Atlas/actions/runs/43788503042). It predates these changes.
+
+### Remaining limitations
+
+- The snapshot store is lossless persistence only; it does not yet populate the normalised `field_values` projection.
+- There is no Player/Staff/Club query repository or executable Advanced Search provider yet.
+- No user career has been imported and no live process memory has been read.
+- Graphics indexing has not been tested against the user's actual graphics directory.
+- No live writes are implemented or enabled.
+
+### Next exact actions
+
+1. Resolve the GitHub Actions runner allocation issue and run restore/build/tests on Windows; fix only errors produced by a real compiler/test run.
+2. Add typed record-to-field projection/import in the same database transaction as snapshot persistence.
+3. Add indexed player/staff/club repositories for Quick Search and Advanced Search.
+4. Connect player profile tabs to loaded PlayerRecord values and connect the graphics locator to the portrait slot.
+5. Continue read-only Game Pass fingerprint and career identity research. Keep write operations disabled.
+
+### Preservation
+
+- All source and documentation changes are committed; no uncommitted changes are known.
+- Re-read this checkpoint, the master checklist and branch head after any interruption.
