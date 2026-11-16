@@ -7,6 +7,8 @@
 **Architecture:** [Architecture Decision](./ARCHITECTURE_DECISION.md)  
 **Research inventory:** [Uploaded Research Inventory](../research/UPLOADED_RESEARCH_INVENTORY.md)  
 **Research findings:** [Research Findings 001](../research/RESEARCH_FINDINGS_001.md)  
+**Field coverage:** [Field Coverage Ledger](../research/FIELD_COVERAGE_LEDGER.md)  
+**FMRTE parity:** [FMRTE Feature Audit 001](../research/FMRTE_FEATURE_AUDIT_001.md)  
 **Continuity authority:** [Session Continuity](./SESSION_CONTINUITY.md)
 
 ## 1. Product decision
