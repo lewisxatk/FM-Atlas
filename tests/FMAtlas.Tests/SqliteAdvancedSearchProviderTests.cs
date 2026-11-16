@@ -429,6 +429,59 @@ public sealed class SqliteAdvancedSearchProviderTests
         Assert.Equal("scout", Assert.Single(await new SqliteAdvancedSearchProvider(path).ExecuteAsync(query)).Identity.SourceId);
     }
 
+    [Fact]
+    public async Task EveryFieldMarkedReadyHasAnExecutableSqliteMapping()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+        var provider = new SqliteAdvancedSearchProvider(path);
+
+        foreach (var entity in Enum.GetValues<SearchEntityKind>())
+        {
+            var fields = AdvancedSearchCatalog.Categories
+                .SelectMany(category =>
+                    AdvancedSearchCatalog.GetFields(entity, category.Kind)
+                        .Concat(AdvancedSearchCatalog.GetAttributeFields(entity, category.Kind)))
+                .Where(field => field.CanExecute)
+                .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToArray();
+
+            foreach (var field in fields)
+            {
+                var condition = field.ValueKind switch
+                {
+                    SearchFieldValueKind.IntegerRange or SearchFieldValueKind.DecimalRange =>
+                        new SearchFilterCondition(field.Key, SearchFilterOperator.Range,
+                            Minimum: field.MinimumAllowed ?? 0m),
+                    SearchFieldValueKind.PositionRating =>
+                        new SearchFilterCondition(field.Key, SearchFilterOperator.Range,
+                            Minimum: field.MinimumAllowed ?? 0m, TextValue: "dr"),
+                    SearchFieldValueKind.Boolean =>
+                        new SearchFilterCondition(field.Key, SearchFilterOperator.IsTrue),
+                    SearchFieldValueKind.DateRange =>
+                        new SearchFilterCondition(field.Key, SearchFilterOperator.Range,
+                            DateMinimum: new DateOnly(2026, 1, 1)),
+                    SearchFieldValueKind.Enum =>
+                        new SearchFilterCondition(field.Key, SearchFilterOperator.Equals, TextValue: "test"),
+                    SearchFieldValueKind.TraitSelector =>
+                        new SearchFilterCondition(field.Key, SearchFilterOperator.HasTrait, TextValue: "test"),
+                    SearchFieldValueKind.Text or SearchFieldValueKind.EntityLookup =>
+                        new SearchFilterCondition(field.Key, SearchFilterOperator.Contains, TextValue: "test"),
+                    _ => throw new InvalidOperationException($"No test condition for {field.ValueKind}.")
+                };
+
+                var query = new AdvancedSearchQuery(
+                    entity,
+                    SearchFilterLogic.All,
+                    [condition]);
+
+                await provider.ExecuteAsync(query);
+            }
+        }
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =
