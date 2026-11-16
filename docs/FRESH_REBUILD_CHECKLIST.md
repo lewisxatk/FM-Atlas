@@ -31,7 +31,8 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 
 ## M2 — Fresh application foundation
 - [x] M2.1 New clean solution and project boundaries created (Domain, Application, Infrastructure, Desktop, Tests).
-- [x] M2.2 Windows GitHub Actions restore/build/test passed on Windows Server 2025 with .NET SDK 8.0.428; build 0 warnings/0 errors; 3 unit tests passed. See run 43787424965. Artifact upload workflow is pending separately.
+- [x] M2.2 Windows GitHub Actions restore/build/test passed on Windows Server 2025 with .NET SDK 8.0.428; build 0 warnings/0 errors; 3 unit tests passed. See run 43787424965.
+- [x] M2.2a Windows x64 shell artifact uploaded and verified (run 43787554512; artifact 14191091352; SHA-256 recorded in CURRENT_CHECKPOINT.md).
 - [~] M2.3 Initial application shell created against REF-001 composition; visual comparison not yet performed.
 - [~] M2.4 Watched visual tokens (black/off-white/orange) added; font/spacing polish and screenshot comparison remain.
 - [x] M2.5 Compact left navigation has no Search item.
@@ -149,4 +150,5 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] FMRTE 27 feature audit and field coverage ledger committed.
 - [x] Clean WPF solution and initial shell source committed.
 - [x] Windows CI build and three unit tests passed.
-- [~] Windows build artifact upload workflow running; desktop runtime and visual comparison still pending.
+- [x] Windows shell build artifact uploaded and inspected.
+- [~] User-side launch and visual comparison still pending.
