@@ -95,3 +95,9 @@ When a compatible FM27 player-list CSV is available, the user can:
 6. use the Indexed Fields category to search additional columns.
 
 This is an offline/export-backed test route. **Load Live Save** and **Save Live Save** remain separate and disabled until the Game Pass process reader and field-level safety verification are complete.
+
+
+## 7. Follow-up hardening
+
+- Provenance timestamps are now created per import run, rather than once when the importer class is first loaded.
+- Added an integration regression test proving that an explicit `Gender` column in an import flows into the existing global Include women Quick Search filter. The test checks the default OFF behaviour and ON behaviour.
