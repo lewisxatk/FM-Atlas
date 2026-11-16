@@ -998,3 +998,57 @@ When a compatible UTF-8 FM27 player CSV is available:
 - Zero-player imports display a “No players imported” status rather than a misleading plural success message.
 
 **Verification:** These source/tests remain unexecuted. The local tool environment has no .NET SDK. The last observed hosted runner run #451 (ID `43853394674`) failed before any steps/logs and its retry failed the same way. Later push commits do not currently have a retrievable status result from the available connector response. No Windows test package exists yet.
+
+
+---
+
+## Checkpoint 020 — live-session lifecycle, interaction lock and write-safety groundwork
+
+**Date:** 2026-11-16 UTC  
+**Branch:** `rebuild/fresh-foundation-001`  
+**Checkpoint base before this work:** `2d2287e37848fd71e64b0d62aa7a121ca6e49f48`  
+**Source commits from this pass:** `193859ea7ccffdb12cb45f453ad7b0efb3609a66`, `1602bcc712a72a9036d48d5bbc1013eb7f91c52d`, `cee4ac85e9a92a6fbbf186b3832e624e0fbd5a10`, `7c421c4babd913b5e22a4f2764751d7eb12df946`, `eace4973c61fd968089b97c90e58fccc73a8ce8f`, `f216c3a3d32696711366f2815903605a2c0cb7d3`.  
+**Status:** Read-only live connector exists for exact Game Pass 0.9.2435.0 reference. This pass hardens lifecycle and loading UX, adds a pure fail-closed write preflight policy and tests, and documents the write architecture. It does not enable live writes.
+
+### Live-session safety changes
+
+1. Every live load now clears the previous live provider before scanning. A failed/cancelled scan cannot leave the previous career appearing to be the current live dataset.
+2. If the connector fails after it has persisted a candidate snapshot, it deletes that provider using a non-cancelled cleanup token before closing the process handle. Cleanup failure is surfaced alongside the original load failure.
+3. The disconnect-request flag is volatile across the UI and background scan continuations.
+4. The main view model clears live counts, live import dashboard labels and Quick Search results before loading and on failed/cancelled loads.
+5. The main loading overlay already had a rotating spinner, progress bar, stage/detail text, hit-test blocking and keyboard focus. This pass additionally disables every owned top-level window while loading, including Advanced Search and Player Profile windows, and re-enables them after the overlay closes.
+
+### Write-safety groundwork
+
+1. Added `src/FMAtlas.Application/LiveEditing/LiveEditWritePreflight.cs`.
+2. It requires connected session, unchanged process ID, exact build fingerprint, unchanged save-generation marker, verified target identity, per-field `LiveGameMemory / WriteVerified` evidence for the exact build, expected-old-value match, valid range, proposed value in range and safe writable memory region.
+3. Added `tests/FMAtlas.Tests/LiveEditWritePreflightTests.cs` covering allowed context and fail-closed conditions.
+4. Added `research/LIVE_EDIT_SAFETY_001.md` documenting external write-safety research and FM Atlas implementation boundaries.
+
+### External reverse-engineering research
+
+Re-opened FMLibreEditor 0.9.2435.0 recon, exact build profile, edit-field/write logic, session save-generation logic and Windows memory API. Findings: the external editor checks target identity, field range and plausible old value, pointer class/relationships, save-generation, safe writable region and read-back. It uses a sticky save-changed lock until a fresh recheck. Its GPL-3.0 source remains research-only; no code was copied.
+
+### Current live-read coverage and limits
+
+- The current connector imports Player, Staff and Club records only.
+- It is not yet a complete model of every FM world entity/data family.
+- The connector uses an externally documented 0.9.2435.0 layout and tags values `Mapped`; this is not FM Atlas field-by-field read verification on the user's machine.
+- No field is marked `WriteVerified`; no Windows process write accessor or live write operation is enabled.
+- `Save Atlas` saves the local Atlas database. `Save Live Changes` remains disabled and is not equivalent to saving the FM career.
+
+### Verification
+
+- Latest observed branch head during this checkpoint: `eace4973c61fd968089b97c90e58fccc73a8ce8f`.
+- Windows Actions runs #563/#564 (IDs `43858378079` / `43858387390`) failed with no job steps (`steps=null`) and no log URL. No compiler or test output was produced.
+- Local runtime has no .NET SDK and is not Windows. New C# changes are committed but not compiled/tested here.
+- No real FM process read or write test has been performed in this pass.
+
+### Next work
+
+1. Run successful Windows restore/build/tests on exact branch head.
+2. Build a disposable-career read-verification harness for player/staff/club fields and object relationships.
+3. Add strict scan completeness diagnostics; do not report partial entity reads as a complete career load.
+4. Implement a separate safe Windows write primitive and first scalar field only after read evidence is independently verified.
+5. Add conflict detection, read-back, rollback and undo tests on a disposable career.
+6. Expand data providers to all requested world-data families before claiming full coverage.
