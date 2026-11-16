@@ -218,6 +218,7 @@ public partial class AdvancedSearchWindow : Window
         SetSelected(GeneralCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.General);
         SetSelected(ContractCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.Contract);
         SetSelected(TechnicalGoalkeepingCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.TechnicalGoalkeeping);
+        SetSelected(GoalkeepingCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.Goalkeeping);
         SetSelected(MentalAttributesCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.MentalAttributes);
         SetSelected(PhysicalHiddenCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.PhysicalHidden);
         SetSelected(PreferredMovesCategoryButton, _viewModel.SelectedCategory == AdvancedSearchCategoryKind.PreferredMoves);
