@@ -497,6 +497,7 @@ internal sealed class FM27GamePass0935Reader
         var jobCode = contractData is null ? (byte?)null : contractData[0x26];
         var contractType = contractData is null ? (byte?)null : contractData[0xC3];
         var primaryRole = jobCode is byte code ? StaffRoleName(code) : null;
+        var clubName = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadContractClubName(contract) : null;
 
         var searchIntegers = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
         void AddSearchInt(string key, int? value)
@@ -526,7 +527,7 @@ internal sealed class FM27GamePass0935Reader
             DateOfBirth = dateOfBirth is DateOnly dob ? new SourcedValue<DateOnly>(dob, evidence) : null,
             Age = age is int staffAge ? new SourcedValue<int>(staffAge, evidence) : null,
             Nationality = nationality is not null ? new SourcedValue<string>(nationality, evidence) : null,
-            ClubName = WindowsProcessMemoryAccessor.IsUserPointer(contract) ? ReadContractClubName(contract) is string club ? new SourcedValue<string>(club, evidence) : null : null,
+            ClubName = clubName is not null ? new SourcedValue<string>(clubName, evidence) : null,
             PrimaryRole = primaryRole is not null ? new SourcedValue<string>(primaryRole, evidence) : null,
             CurrentAbility = currentAbility is > 0 and <= 200 ? new SourcedValue<int>(currentAbility, evidence) : null,
             PotentialAbility = potentialAbility is > 0 and <= 200 ? new SourcedValue<int>(potentialAbility, evidence) : null,
@@ -693,6 +694,41 @@ internal sealed class FM27GamePass0935Reader
         if (!WindowsProcessMemoryAccessor.IsUserPointer(club))
             return null;
         return ReadFmString(SafeReadPointer(club + 0xC0));
+    }
+
+    private static string? StaffRoleName(byte code)
+    {
+        var baseCode = code > 1 && code % 2 == 1 ? code - 1 : code;
+        return baseCode switch
+        {
+            1 => "Player",
+            2 => "Coach",
+            4 => "Chairperson",
+            6 => "Director",
+            10 => "Director of Football",
+            12 => "Physio",
+            14 => "Scout",
+            16 => "Manager",
+            20 => "Assistant Coach",
+            22 => "Set Piece Coach",
+            26 => "Fitness Coach",
+            34 => "Goalkeeping Coach",
+            38 => "Chief Doctor",
+            40 => "Head of Sports Science",
+            44 => "Chief Scout",
+            46 => "Doctor",
+            48 => "Sports Scientist",
+            50 => "Head Physio",
+            58 => "Recruitment Analyst",
+            60 => "Performance Analyst",
+            62 => "Head Performance Analyst",
+            64 => "Head of Youth Development",
+            66 => "Owner",
+            70 => "President",
+            86 => "Loan Manager",
+            88 => "Technical Director",
+            _ => null
+        };
     }
 
     private string? ReadContractClubName(ulong contract)
