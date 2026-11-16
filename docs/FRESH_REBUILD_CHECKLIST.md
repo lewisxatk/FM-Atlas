@@ -30,15 +30,15 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] M1.12 Fresh architecture decision documented.
 
 ## M2 — Fresh application foundation
-- [ ] M2.1 New clean solution and project boundaries.
-- [ ] M2.2 Windows build pipeline and automated tests.
-- [ ] M2.3 Approved application shell and REF-001 layout.
-- [ ] M2.4 Watched visual language REF-003.
-- [ ] M2.5 Compact left navigation (no Search item).
-- [ ] M2.6 Top Quick Search.
-- [ ] M2.7 Top Advanced Search action.
-- [ ] M2.8 Prominent right-side Load Game action.
-- [ ] M2.9 Compact save actions.
+- [x] M2.1 New clean solution and project boundaries created (Domain, Application, Infrastructure, Desktop, Tests).
+- [~] M2.2 Windows build pipeline and automated tests created; first CI run/build result not yet verified.
+- [~] M2.3 Initial application shell created against REF-001 composition; visual comparison not yet performed.
+- [~] M2.4 Watched visual tokens (black/off-white/orange) added; font/spacing polish and screenshot comparison remain.
+- [x] M2.5 Compact left navigation has no Search item.
+- [~] M2.6 Top Quick Search placeholder added; actual search is intentionally disabled until real data/index exists.
+- [~] M2.7 Top Advanced Search action placed; intentionally disabled until query service/dialog exists.
+- [~] M2.8 Prominent right-side Load Game button added; currently performs process/module presence check only, not career loading.
+- [~] M2.9 Compact Save Atlas / Save Changes controls placed; intentionally disabled until persistence/live writer exist.
 - [ ] M2.10 Workspace/player tabs.
 - [ ] M2.11 Settings, logs, diagnostics and local persistence.
 - [ ] M2.12 Windows desktop resize/accessibility tests.
@@ -60,7 +60,7 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [ ] M4.2 Left identity and information rail.
 - [ ] M4.3 Player graphics locator.
 - [ ] M4.4 Central attribute display.
-- [ ] [ ] M4.5 Verified FM attribute names/grouping/order.
+- [ ] M4.5 Verified FM attribute names/grouping/order.
 - [ ] M4.6 CA and PA display.
 - [ ] M4.7 Right-side grounded information panels.
 - [ ] M4.8 Compact player tabs.
@@ -128,4 +128,6 @@ Legend: [ ] Not started · [~] In progress · [x] Completed with evidence · [!]
 - [x] Recovery branch/source inventory checked.
 - [x] Uploaded research package inventory and first research findings committed.
 - [x] Architecture decision documented.
-- [ ] New application source code has not yet been created.
+- [x] Clean WPF solution and initial shell source committed.
+- [x] Windows CI workflow and initial unit-test project committed.
+- [ ] Windows CI/build result and visual screenshot comparison still required.
