@@ -32,12 +32,25 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Content="{Binding}"
+                            <Button Content="{Binding Name}"
                                     Command="{Binding DataContext.SelectSectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding}"
+                                    CommandParameter="{Binding Name}"
                                     IsEnabled="{Binding DataContext.HasPlayer, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     Style="{StaticResource Atlas.ProfileTabButton}"
-                                    Margin="0,0,5,0"/>
+                                    Margin="0,0,5,0">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource Atlas.AccentSoft}"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
