@@ -368,9 +368,9 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
         ref int nextParameter)
     {
         var alias = $"f{conditionIndex}";
-        var keyParameters = fieldKeys
-            .Select(key => AddParameter(parameters, ref nextParameter, key))
-            .ToArray();
+        var keyParameters = new List<string>(fieldKeys.Count);
+        foreach (var key in fieldKeys)
+            keyParameters.Add(AddParameter(parameters, ref nextParameter, key));
 
         var predicate = valueKind switch
         {
@@ -508,8 +508,9 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider, IInd
         ref int nextParameter)
     {
         var alias = $"missing{conditionIndex}";
-        var keyParameters = fieldKeys.Select(key =>
-            AddParameter(parameters, ref nextParameter, key)).ToArray();
+        var keyParameters = new List<string>(fieldKeys.Count);
+        foreach (var key in fieldKeys)
+            keyParameters.Add(AddParameter(parameters, ref nextParameter, key));
 
         return $"""
             NOT EXISTS (
