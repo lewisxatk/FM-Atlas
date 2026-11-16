@@ -8,6 +8,7 @@ using FMAtlas.Domain.Entities;
 using FMAtlas.Domain.Players;
 using FMAtlas.Domain.Staff;
 using FMAtlas.Domain.Clubs;
+using FMAtlas.Domain.Search;
 using FMAtlas.Desktop.ViewModels;
 using FMAtlas.Desktop.Views;
 
@@ -45,6 +46,15 @@ public partial class MainWindow : Window
                               key.Contains("|live-fm27-gamepass-", StringComparison.OrdinalIgnoreCase))
                 .ToArray();
             foreach (var key in staleKeys)
+                CloseWorkspaceTab(key);
+        };
+        _mainWindowViewModel.LiveDataLoaded += (_, _) =>
+        {
+            // Directories opened before a career load may have cached an empty result set.
+            var staleDirectories = _openWorkspaceTabs.Keys
+                .Where(key => key.StartsWith("directory|", StringComparison.Ordinal))
+                .ToArray();
+            foreach (var key in staleDirectories)
                 CloseWorkspaceTab(key);
         };
 
@@ -315,6 +325,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (destination == "My Career")
+        {
+            _ = OpenMyCareerAsync();
+            return;
+        }
+
         if (destination == "Save Manager")
         {
             OpenInformationTab("Save Manager",
@@ -326,6 +342,83 @@ public partial class MainWindow : Window
         {
             OpenInformationTab("Settings",
                 "The global Include women preference is saved locally. Additional application, data-source and appearance settings are still being implemented.");
+        }
+    }
+
+    private async Task OpenMyCareerAsync()
+    {
+        if (!_mainWindowViewModel.LiveSessionActive)
+        {
+            OpenInformationTab("My Career", "Load an FM27 career first. FM Atlas will then look for the dedicated human-manager record and follow its current-club link. A nation name is shown only when the club record provides one.");
+            return;
+        }
+
+        try
+        {
+            if (_advancedSearchProvider is not IIndexedAdvancedSearchFieldProvider indexedProvider)
+            {
+                OpenInformationTab("My Career", "The current index cannot inspect the human-manager marker.");
+                return;
+            }
+
+            var fields = await indexedProvider.GetIndexedFieldsAsync(SearchEntityKind.Coach);
+            if (!fields.Any(field => string.Equals(field.Key, "is_human_manager", StringComparison.OrdinalIgnoreCase)))
+            {
+                OpenInformationTab("My Career", "The supported live snapshot does not contain the dedicated human-manager marker. FM Atlas will not guess from staff job titles.");
+                return;
+            }
+
+            var query = new AdvancedSearchQuery(
+                SearchEntityKind.Coach,
+                SearchFilterLogic.All,
+                [new SearchFilterCondition("is_human_manager", SearchFilterOperator.IsTrue)],
+                IndexedFields: fields);
+            var matches = await _advancedSearchProvider.ExecuteAsync(query, limit: 5);
+
+            if (matches.Count != 1)
+            {
+                OpenInformationTab("My Career", matches.Count == 0
+                    ? "No dedicated human-manager record was found in this career snapshot."
+                    : $"There are {matches.Count} possible human-manager records. FM Atlas has not selected one automatically.");
+                return;
+            }
+
+            var managerResult = matches[0];
+            var manager = await _snapshotStore.GetSnapshotAsync<StaffRecord>(managerResult.Identity);
+            if (manager is null)
+            {
+                OpenInformationTab("My Career", "The manager search result exists, but the typed staff record is unavailable.");
+                return;
+            }
+
+            OpenSearchResult(managerResult);
+
+            ClubRecord? club = null;
+            if (manager.SearchIntegerFields.TryGetValue("club_uid", out var clubUid) && clubUid.Value > 0)
+            {
+                var clubIdentity = new EntityIdentity(
+                    EntityKind.Club,
+                    clubUid.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    managerResult.Identity.ProviderKey);
+                club = await _snapshotStore.GetSnapshotAsync<ClubRecord>(clubIdentity);
+                if (club is not null)
+                {
+                    var clubResult = new EntitySearchResult(
+                        clubIdentity,
+                        club.Name?.Value ?? manager.ClubName?.Value ?? "Current Club");
+                    OpenSearchResult(clubResult);
+                }
+            }
+
+            var managerName = manager.FullName?.Value ?? managerResult.DisplayName;
+            var clubName = club?.Name?.Value ?? manager.ClubName?.Value ?? "Not available";
+            var nationName = club?.NationName?.Value ?? "Not available";
+            OpenInformationTab("My Career",
+                $"Human manager: {managerName}\nCurrent club: {clubName}\nNation: {nationName}\n\nThe manager and club profiles have been opened where their linked records were available. A complete nation profile is not part of the current live importer; the nation is shown as a name from the club record only.");
+        }
+        catch (Exception exception)
+        {
+            OpenInformationTab("My Career", $"Could not build the career summary: {exception.Message}");
         }
     }
 
