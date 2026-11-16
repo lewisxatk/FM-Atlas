@@ -104,7 +104,9 @@
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock Text="{Binding DisplayName}" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                            <TextBlock Text="{Binding Identity.SourceId}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding DetailText}" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding RatingsText}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding Result.Identity.SourceId}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <TextBlock Grid.Column="1" Text="OPEN PLAYER ↗" FontSize="8" Foreground="{StaticResource Atlas.Accent}" VerticalAlignment="Center"/>
                                     </Grid>
@@ -134,7 +136,9 @@
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock Text="{Binding DisplayName}" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                            <TextBlock Text="{Binding Identity.SourceId}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding DetailText}" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding RatingsText}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding Result.Identity.SourceId}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <TextBlock Grid.Column="1" Text="OPEN STAFF ↗" FontSize="8" Foreground="{StaticResource Atlas.Accent}" VerticalAlignment="Center"/>
                                     </Grid>
