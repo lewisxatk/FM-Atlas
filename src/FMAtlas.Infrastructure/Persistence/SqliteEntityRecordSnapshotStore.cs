@@ -1,15 +1,17 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Data.Sqlite;
 using FMAtlas.Application.Abstractions;
+using FMAtlas.Domain.Data;
 using FMAtlas.Domain.Entities;
 
 namespace FMAtlas.Infrastructure.Persistence;
 
 /// <summary>
-/// Persists typed domain snapshots as versioned JSON while preserving the
-/// original SourcedValue provenance on each field. The normalised field_values
-/// projection is populated by a later indexing service.
+/// Persists typed domain snapshots as versioned JSON and refreshes the normalised
+/// searchable field projection in the same transaction. Each projected field keeps
+/// its own source and evidence metadata.
 /// </summary>
 public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
 {
@@ -18,8 +20,11 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
     private readonly string _connectionString;
+    private readonly IEntityRecordProjector _projector;
 
-    public SqliteEntityRecordSnapshotStore(string databasePath)
+    public SqliteEntityRecordSnapshotStore(
+        string databasePath,
+        IEntityRecordProjector? projector = null)
     {
         if (string.IsNullOrWhiteSpace(databasePath))
             throw new ArgumentException("A database file path is required.", nameof(databasePath));
@@ -32,6 +37,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
             Pooling = true
         };
         _connectionString = builder.ToString();
+        _projector = projector ?? new FMAtlas.Application.Projection.EntityRecordProjector();
     }
 
     public async Task SaveSnapshotAsync<TRecord>(
@@ -41,12 +47,21 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         where TRecord : class, IEntityRecord
     {
         ArgumentNullException.ThrowIfNull(record);
-        var identity = record.Identity;
+
+        var projection = _projector.Project(record);
+        var identity = projection.Identity;
         ValidateIdentity(identity);
 
         var recordType = GetRecordType<TRecord>();
         var payload = JsonSerializer.Serialize(record, JsonOptions);
         var savedAt = DateTimeOffset.UtcNow.ToString("O");
+        var effectiveDisplayName = displayName ?? projection.DisplayName;
+
+        foreach (var field in projection.Fields)
+        {
+            if (string.IsNullOrWhiteSpace(field.Key) || !field.HasValidValueShape())
+                throw new InvalidOperationException($"Projected field '{field.Key}' has an invalid value shape.");
+        }
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
@@ -70,7 +85,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
             ("$kind", identity.Kind.ToString()),
             ("$sourceId", identity.SourceId),
             ("$provider", identity.ProviderKey),
-            ("$displayName", (object?)displayName ?? DBNull.Value),
+            ("$displayName", (object?)effectiveDisplayName ?? DBNull.Value),
             ("$savedAt", savedAt))
             .ConfigureAwait(false);
 
@@ -97,6 +112,56 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
             ("$payload", payload),
             ("$savedAt", savedAt))
             .ConfigureAwait(false);
+
+        await ExecuteAsync(
+            connection,
+            transaction,
+            """
+            DELETE FROM field_values
+            WHERE entity_kind = $kind AND source_id = $sourceId AND provider_key = $provider;
+            """,
+            cancellationToken,
+            ("$kind", identity.Kind.ToString()),
+            ("$sourceId", identity.SourceId),
+            ("$provider", identity.ProviderKey))
+            .ConfigureAwait(false);
+
+        foreach (var field in projection.Fields)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                INSERT INTO field_values(
+                    entity_kind, source_id, provider_key, field_key, value_kind,
+                    text_value, integer_value, decimal_value, date_value,
+                    source_kind, evidence_status, source_version,
+                    target_build_fingerprint, observed_at_utc)
+                VALUES (
+                    $kind, $sourceId, $provider, $fieldKey, $valueKind,
+                    $textValue, $integerValue, $decimalValue, $dateValue,
+                    $sourceKind, $evidenceStatus, $sourceVersion,
+                    $targetBuildFingerprint, $observedAtUtc);
+                """,
+                cancellationToken,
+                ("$kind", identity.Kind.ToString()),
+                ("$sourceId", identity.SourceId),
+                ("$provider", identity.ProviderKey),
+                ("$fieldKey", field.Key),
+                ("$valueKind", field.ValueKind.ToString()),
+                ("$textValue", (object?)field.TextValue ?? DBNull.Value),
+                ("$integerValue", (object?)(field.IntegerValue ?? (field.BooleanValue is bool flag ? (flag ? 1L : 0L) : null)) ?? DBNull.Value),
+                ("$decimalValue", (object?)(field.DecimalValue is decimal amount ? Convert.ToDouble(amount, CultureInfo.InvariantCulture) : null) ?? DBNull.Value),
+                ("$dateValue", (object?)field.DateValue?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value),
+                ("$sourceKind", field.Provenance.Source.ToString()),
+                ("$evidenceStatus", field.Provenance.EvidenceStatus.ToString()),
+                ("$sourceVersion", (object?)field.Provenance.SourceVersion ?? DBNull.Value),
+                ("$targetBuildFingerprint", (object?)field.Provenance.TargetBuildFingerprint ?? DBNull.Value),
+                ("$observedAtUtc", (object?)field.Provenance.ObservedAtUtc?.ToString("O") ?? DBNull.Value))
+                .ConfigureAwait(false);
+        }
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
