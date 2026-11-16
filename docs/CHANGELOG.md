@@ -54,3 +54,4 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Corrected an invalid WPF Border child structure found during final XAML source audit.
 - Build status remains unverified: the latest Windows Actions run failed before runner allocation (runner_id=0, no steps and no job logs). No current Windows artifact was produced. This is not a diagnosed compilation error and must not be reported as a successful build.
 - Live FM27 import, live newgen classification, Relations traversal, Recommended CA and live-save writing remain outstanding; live-save actions stay disabled.
+- Implemented the Relations query path over the existing `entity_relationships` table, including incoming/outgoing links and search by relationship kind or related entity name; added a provenance-backed SQLite relationship store and tests. The FM27 importer still needs to populate relationship rows.
