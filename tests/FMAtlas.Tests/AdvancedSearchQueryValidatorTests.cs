@@ -157,6 +157,37 @@ public sealed class AdvancedSearchQueryValidatorTests
     }
 
     [Fact]
+    public void SavedSearchPresetRoundTripsAllCriteriaAndMatchingModes()
+    {
+        var preset = new AdvancedSearchPreset(
+            Version: 1,
+            Name: "Creative right winger",
+            Entity: SearchEntityKind.Player,
+            Logic: SearchFilterLogic.All,
+            PositionLogic: SearchFilterLogic.Any,
+            Conditions:
+            [
+                new SearchFilterCondition("attribute_dribbling", SearchFilterOperator.Range, Minimum: 12),
+                new SearchFilterCondition("position_amr", SearchFilterOperator.Range, Minimum: 15),
+                new SearchFilterCondition("is_newgen", SearchFilterOperator.IsTrue),
+                new SearchFilterCondition("contract_expiry", SearchFilterOperator.Range,
+                    DateMinimum: new DateOnly(2027, 1, 1))
+            ]);
+
+        var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+        options.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        var json = System.Text.Json.JsonSerializer.Serialize(preset, options);
+        var restored = System.Text.Json.JsonSerializer.Deserialize<AdvancedSearchPreset>(json, options);
+
+        Assert.NotNull(restored);
+        Assert.Equal(preset.Name, restored.Name);
+        Assert.Equal(preset.Entity, restored.Entity);
+        Assert.Equal(preset.Logic, restored.Logic);
+        Assert.Equal(preset.PositionLogic, restored.PositionLogic);
+        Assert.Equal(preset.Conditions, restored.Conditions);
+    }
+
+    [Fact]
     public void DateRangeRequiresValidOrderedBounds()
     {
         var valid = new AdvancedSearchQuery(
