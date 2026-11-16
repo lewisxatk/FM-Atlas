@@ -43,6 +43,8 @@ The original image uploads are attached to the conversation as:
 - `IMG_8152.png` — REF-003
 - `IMG_8153.png` — REF-004
 
+REF-005 to REF-010 are image assets bundled inside the user's original FMRTE 27.0.1 build 12 ZIP, not separately uploaded image files. Their archive paths are the stable source references; the ZIP remains in the user's FMATLAS Library.
+
 The screenshots have been inspected in the conversation. This GitHub document records their identities and interpretation; the binary image files have **not** been committed to the repository in this change. Keep the original uploads unchanged and add the actual image binaries to a repository asset folder when a binary-capable transfer is available.
 
 ## New reference intake
