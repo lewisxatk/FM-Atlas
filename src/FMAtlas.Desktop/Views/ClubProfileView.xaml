@@ -108,8 +108,38 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        <ListBox x:Name="ClubStaffListBox"
+                                 ItemsSource="{Binding ClubStaff}"
+                                 Visibility="{Binding IsStaffSection, Converter={StaticResource Atlas.BooleanToVisibility}}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 MouseDoubleClick="ClubStaffListBox_MouseDoubleClick">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="10,9"/>
+                                    <Setter Property="Margin" Value="0,0,0,5"/>
+                                    <Setter Property="Background" Value="{StaticResource Atlas.SurfaceRaised}"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+                                    <Setter Property="BorderThickness" Value="1"/>
+                                    <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
+                                            <TextBlock Text="{Binding Identity.SourceId}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="OPEN STAFF ↗" FontSize="8" Foreground="{StaticResource Atlas.Accent}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                         <ItemsControl ItemsSource="{Binding SectionRows}"
-                                      Visibility="{Binding IsNotSquadsSection, Converter={StaticResource Atlas.BooleanToVisibility}}">
+                                      Visibility="{Binding IsOtherProfileSection, Converter={StaticResource Atlas.BooleanToVisibility}}">
                             <ItemsControl.ItemTemplate><DataTemplate>
                                 <Border BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="5,11">
                                     <Grid>
