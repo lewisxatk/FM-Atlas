@@ -18,6 +18,7 @@ namespace FMAtlas.Infrastructure.Connection;
 internal sealed class FM27GamePass0935Reader
 {
     private const string BuildVersion = "0.9.2435.0";
+    public const string BuildVersionForProvider = BuildVersion;
     private const uint PeTimestamp = 0x6AE8CF77;
     private const uint SizeOfImage = 0x17969000;
     private const ulong PlayersArrayRva = 0x53B7DE0;
