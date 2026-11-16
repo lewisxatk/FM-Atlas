@@ -58,7 +58,7 @@ public static class PlayerAttributeCatalog
         A("dribbling", "Dribbling", PlayerAttributeGroupKind.Technical, 2),
         A("finishing", "Finishing", PlayerAttributeGroupKind.Technical, 3),
         A("first_touch", "First Touch", PlayerAttributeGroupKind.Technical, 4),
-        A("free_kicks", "Free Kicks", PlayerAttributeGroupKind.Technical, 5),
+        A("free_kicks", "Free Kick Taking", PlayerAttributeGroupKind.Technical, 5),
         A("heading", "Heading", PlayerAttributeGroupKind.Technical, 6),
         A("long_shots", "Long Shots", PlayerAttributeGroupKind.Technical, 7),
         A("long_throws", "Long Throws", PlayerAttributeGroupKind.Technical, 8),
@@ -80,7 +80,7 @@ public static class PlayerAttributeCatalog
         A("kicking", "Kicking", PlayerAttributeGroupKind.Goalkeeping, 6),
         A("one_on_ones", "One on Ones", PlayerAttributeGroupKind.Goalkeeping, 7),
         A("passing", "Passing", PlayerAttributeGroupKind.Goalkeeping, 8),
-        A("punching", "Punching", PlayerAttributeGroupKind.Goalkeeping, 9),
+        A("punching", "Punching (Tendency)", PlayerAttributeGroupKind.Goalkeeping, 9),
         A("reflexes", "Reflexes", PlayerAttributeGroupKind.Goalkeeping, 10),
         A("rushing_out", "Rushing Out (Tendency)", PlayerAttributeGroupKind.Goalkeeping, 11),
         A("throwing", "Throwing", PlayerAttributeGroupKind.Goalkeeping, 12)
@@ -163,7 +163,7 @@ public static class PlayerAttributeCatalog
         G(PlayerAttributeGroupKind.Feet, "Feet", Feet)
     ];
 
-    /// <summary>Unique non-foot fields across all player profile groups (52).</summary>
+    /// <summary>52 unique non-foot standard/hidden fields; personality ratings are catalogued separately.</summary>
     public static IReadOnlyList<PlayerAttributeDefinition> AllUniqueNonFootAttributes { get; } =
         BuildUnique(Technical, Goalkeeping, Mental, Physical, Hidden);
 
