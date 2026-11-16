@@ -213,8 +213,13 @@ public sealed class AdvancedSearchWindowViewModel : INotifyPropertyChanged
                 => "REPUTATION",
             AdvancedSearchCategoryKind.General when key is "current_ability" or "potential_ability" or "ability_difference" or "recommended_ca"
                 => "ABILITY",
-            AdvancedSearchCategoryKind.General when key == "position_familiarity"
+            AdvancedSearchCategoryKind.General when key == "position_familiarity" ||
+                key.StartsWith("position_", StringComparison.OrdinalIgnoreCase)
                 => "PLAYER POSITIONS",
+            AdvancedSearchCategoryKind.General when key is "left_foot" or "right_foot"
+                => "FOOT RATINGS",
+            AdvancedSearchCategoryKind.General when key is "is_newgen" or "wonderkid"
+                => "PLAYER ORIGIN / DEVELOPMENT",
             AdvancedSearchCategoryKind.General when key is "division" or "team" or "training_status_club" or "training_status_nation"
                 => "TEAM / DIVISION / TRAINING",
             AdvancedSearchCategoryKind.General when key.StartsWith("club_", StringComparison.OrdinalIgnoreCase)
