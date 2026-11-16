@@ -126,7 +126,9 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
                 continue;
             }
 
-            var record = BuildPlayerRecord(row, headers, headerLookup, dynamicColumns, uid, providerKey, name, warnings, rowIndex + 1);
+            var record = BuildPlayerRecord(
+                row, headers, headerLookup, dynamicColumns, uid, providerKey, name,
+                warnings, rowIndex + 1, useGermanDecimalSeparator: delimiter == ';');
             try
             {
                 await _snapshotStore.SaveSnapshotAsync(record, name, cancellationToken).ConfigureAwait(false);
@@ -163,7 +165,8 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         string providerKey,
         string name,
         ICollection<string> warnings,
-        int rowNumber)
+        int rowNumber,
+        bool useGermanDecimalSeparator)
     {
         var identity = new EntityIdentity(EntityKind.Player, uid, providerKey);
         var attributes = new Dictionary<string, SourcedValue<int>>(StringComparer.OrdinalIgnoreCase);
@@ -211,8 +214,8 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         }
 
         var dob = GetDate(row, FindColumn(headerLookup, "Date of Birth", "DOB", "Birth Date"));
-        var height = GetDecimal(row, FindColumn(headerLookup, "Height", "Height (cm)"), allowCentimetres: true);
-        var weight = GetDecimal(row, FindColumn(headerLookup, "Weight", "Weight (kg)"));
+        var height = GetDecimal(row, FindColumn(headerLookup, "Height", "Height (cm)"), useGermanDecimalSeparator, allowCentimetres: true);
+        var weight = GetDecimal(row, FindColumn(headerLookup, "Weight", "Weight (kg)"), useGermanDecimalSeparator);
         var age = GetInt(row, FindColumn(headerLookup, "Age"));
         var ca = GetInt(row, FindColumn(headerLookup, "CA", "Current Ability"));
         var pa = GetInt(row, FindColumn(headerLookup, "PA", "Potential Ability"));
@@ -373,7 +376,7 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
                 : null;
     }
 
-    private static decimal? GetDecimal(IReadOnlyList<string> row, int index, bool allowCentimetres = false)
+    private static decimal? GetDecimal(IReadOnlyList<string> row, int index, bool useGermanDecimalSeparator, bool allowCentimetres = false)
     {
         var value = GetCell(row, index).Trim();
         if (value.Length == 0)
@@ -382,10 +385,17 @@ public sealed class FMViewExporterCsvImporter : IPlayerExportImporter
         if (allowCentimetres && value.EndsWith("cm", StringComparison.OrdinalIgnoreCase))
             value = value[..^2].Trim();
 
-        if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed))
+        var preferredCulture = useGermanDecimalSeparator
+            ? CultureInfo.GetCultureInfo("de-DE")
+            : CultureInfo.InvariantCulture;
+        var fallbackCulture = useGermanDecimalSeparator
+            ? CultureInfo.InvariantCulture
+            : CultureInfo.GetCultureInfo("de-DE");
+
+        if (decimal.TryParse(value, NumberStyles.Number, preferredCulture, out var parsed))
             return parsed;
 
-        return decimal.TryParse(value, NumberStyles.Number, CultureInfo.GetCultureInfo("de-DE"), out parsed)
+        return decimal.TryParse(value, NumberStyles.Number, fallbackCulture, out parsed)
             ? parsed
             : null;
     }
