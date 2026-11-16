@@ -41,9 +41,8 @@ public partial class MainWindow : Window
 
             var isLoading = _mainWindowViewModel.IsLiveLoadOverlayVisible;
 
-            // Advanced Search and player profiles are separate owned windows. The
-            // in-window overlay alone cannot block those windows, so disable every
-            // owned workspace until the live snapshot is complete or rejected.
+            // Advanced Search is a separate modal window. The in-window overlay
+            // also blocks workspace tabs while a live snapshot is being replaced.
             foreach (Window ownedWindow in OwnedWindows)
                 ownedWindow.IsEnabled = !isLoading;
             WorkspaceTabControl.IsEnabled = !isLoading;
@@ -132,8 +131,8 @@ public partial class MainWindow : Window
 
     private void AdvancedSearchButton_Click(object sender, RoutedEventArgs e)
     {
-        // Advanced Search is a workspace, not a modal dialog: keep the main Atlas
-        // window usable while the user builds and reviews a filter query.
+        // REF-002 specifies Advanced Search as a centred modal dialog over the
+        // current workspace. Its own search state remains local until the user runs it.
         if (_advancedSearchWindow is { } openWindow)
         {
             if (openWindow.WindowState == WindowState.Minimized)
