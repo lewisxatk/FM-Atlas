@@ -395,10 +395,12 @@ public partial class MainWindow : Window
         var logoPath = uint.TryParse(identity.SourceId, out var clubId)
             ? _graphicsLocator.FindClubLogo(clubId)?.ImagePath
             : null;
-        return new ClubProfileView
+        var view = new ClubProfileView
         {
             DataContext = new ClubProfileViewModel(club, logoPath, _advancedSearchProvider)
         };
+        view.SquadPlayerOpenRequested += (_, result) => OpenSearchResult(result);
+        return view;
     }
 
     private async Task EnsureGraphicsIndexReadyAsync()
