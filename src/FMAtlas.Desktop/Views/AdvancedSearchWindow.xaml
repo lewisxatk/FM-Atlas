@@ -113,7 +113,7 @@
                 </DataTemplate.Triggers>
         </DataTemplate>
         <DataTemplate x:Key="AdvancedSearchSectionTemplate">
-            <Border Style="{StaticResource FilterPanel}" Margin="0,0,9,9">
+            <Border Style="{StaticResource FilterPanel}" Width="420" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,9,9">
                 <StackPanel>
                     <TextBlock Text="{Binding Title}" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
                     <TextBlock Text="{Binding EmptyMessage}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
@@ -340,7 +340,7 @@
                                   ItemTemplate="{StaticResource AdvancedSearchSectionTemplate}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <UniformGrid Columns="2"/>
+                                <WrapPanel Orientation="Horizontal"/>
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
