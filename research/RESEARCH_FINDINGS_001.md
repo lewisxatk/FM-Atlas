@@ -170,3 +170,84 @@ Licence: GPL-3.0. Public schema research only; no plugin code copied.
 | Staff/club editing | Some public tools advertise support | Map each field, storefront and build independently. |
 | Graphics | config.xml approach documented and tested in FMPA | Validate the user's actual graphics folder/config pack. |
 | Player profile sub-tabs | Feature benchmark from FMRTE/TalentSeer | Complete FMRTE player feature audit and match approved REF-004 layout. |
+
+
+## 9. Follow-up source inspection — FMLibreEditor Game Pass build and FMSuperScout field layout
+
+Additional exact source files inspected after the first research pass:
+
+- [FMLibreEditor FM27 Game Pass 0.9.2435.0 recon](https://github.com/tozmoz/FMLibreEditor/blob/main/docs/recon/fm27-gamepass-0.9.2435.md)
+- [FMLibreEditor player attribute groups](https://github.com/tozmoz/FMLibreEditor/blob/main/app/src/playerAttributes.ts)
+- [FMLibreEditor probe entry point](https://github.com/tozmoz/FMLibreEditor/blob/main/crates/fmlibre-probe/src/main.rs)
+- [FMSuperScout Fields.cs](https://github.com/mavarobli/FMSuperScout/blob/main/core/Fields.cs)
+- [FMSuperScout external scanner](https://github.com/mavarobli/FMSuperScout/blob/main/scanner/Program.cs)
+
+### FMLibreEditor Game Pass 0.9.2435.0
+
+The recon note is explicitly for package:
+`SportsInteractive.FootballManager27_0.9.2435.0_x64__5w3tn6tb6stnm`.
+
+It records:
+- `game_plugin.dll` image size `0x17969000` and link timestamp `0x6AE8CF77` for 0.9.2435.0.
+- Earlier 0.9.2409.0 had image size `0x175DA000` and timestamp `0x6AE563A1`.
+- Several static pointers moved by approximately `0x2CC000`, and not all relative distances stayed identical.
+- The authors report that player/staff/club object layouts and a set of 220 witnesses did not move between those two specific Game Pass builds.
+- The same save was read after loading on both builds; the note records detailed comparison counts and a small number of changed/normalised values.
+
+FM Atlas consequence: a module fingerprint is not enough to hardcode old static addresses. Build identification and pointer discovery/calibration must be separate. The user's installed package must be identified before any profile is considered applicable. This evidence does not prove that the user's current installation is 0.9.2435.0.
+
+### FMSuperScout memory layout source
+
+The inspected `Fields.cs` documents:
+- a version-specific `Fields` profile, with FM27 27.0 derived from FM26 and a specific manager-offset change;
+- CA/PA and reputation values as 16-bit fields in its documented layout;
+- 15 player position bytes;
+- a 55-byte raw player-attribute block, with the listed attribute values stored multiplied by five;
+- separate hidden-attribute offsets and separate left/right foot offsets;
+- eight personality bytes in the person block;
+- separate player and staff attribute blocks;
+- club/team/contract relationships and selected transfer-deal structures.
+
+The source comments state which observations were checked against the author's running FM27 27.0 build. This is valuable independent research, but it is not an FM Atlas mapping and is not permission to write those offsets into the user's game. The 55-byte storage block is not a UI attribute count and not the FM profile display order.
+
+The FMSuperScout external scanner explicitly describes itself as read-only and uses a separate process to inspect the game. It also distinguishes access-denied/elevated-process conditions from the game not running. FM Atlas should preserve that diagnostic distinction in its own connection UX.
+
+### Attribute catalogue interpretation
+
+FMLibreEditor's `playerAttributes.ts` explicitly describes its arrays as the order FM lists them, by group. This is the current best source for the initial profile display catalogue:
+- Technical: 14
+- Mental: 14
+- Physical: 8
+- Goalkeeping: 13
+- Hidden: 5
+- Feet: 2
+
+First Touch and Passing occur in both Technical and Goalkeeping. Across all profile groups this produces 52 unique non-foot attributes. The final visual order remains provisional until checked against the user's FM27 profile and FMRTE.
+
+### TalentSeer uploaded user guide
+
+The uploaded `TalentSeer-27.1.2-win-x64.zip` contains a README, compiled executable and third-party notices, not source code. Its README claims:
+- live FM27 reading and editing;
+- player and staff tabs, shortlists, stacked filters and saved searches;
+- a wide player profile with FM-style attribute columns, positions/roles, contract and potential;
+- attribute and personality rules;
+- clubs/Club Centre, squad view, Best XI, comparison, transfer/contract and injury information;
+- a potential projection/outlook formula explicitly described by the product as Talent Seer's estimate, not Football Manager's own development.
+
+These are claims in the vendor/user guide, not independently tested behaviour or knowledge of its private implementation. They are useful feature-discovery references only. FM Atlas must not present TalentSeer's estimates as official FM values or copy its proprietary formulas.
+
+## 10. Fresh domain catalogue implementation
+
+FM Atlas now contains `src/FMAtlas.Domain/Players/PlayerAttributeCatalog.cs`:
+- stable string keys and display labels;
+- group membership and within-group order;
+- separate outfield and goalkeeper profile group sets;
+- shared First Touch and Passing definitions;
+- five hidden fields kept separate;
+- left/right foot kept separate from the 52 unique non-foot fields;
+- evidence status defaulted to `Documented`;
+- no memory offsets or write permissions embedded in the domain catalogue.
+
+Tests were added in `tests/FMAtlas.Tests/PlayerAttributeCatalogTests.cs` for unique field count, group overlap, outfield/goalkeeper group selection, hidden/feet separation, technical order and key lookup.
+
+This catalogue is a documented schema foundation only. It does not prove live reads, field-level memory mapping, write support or final visual ordering.
