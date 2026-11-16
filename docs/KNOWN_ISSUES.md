@@ -6,9 +6,10 @@
 
 ## Critical — Windows build is not yet verified
 
-- The latest two Windows Actions jobs on commit `e5fe8aa5dc1d7920c06cba4e30df243bc29574e0` failed with `runner_id=0`, no runner name and an empty step list.
-- No Restore, Build or Test step ran. These workflow failures are runner-allocation failures, not compiler diagnostics.
-- This update pins CI to the explicitly supported `windows-2022` label and makes CI publish a self-contained test ZIP only after the restore/build/test gate passes.
+- The latest Windows Actions runs on the current source head `4da2a118335fe6ec8269955196d30dc888ccd197` are `43873330030` (attempt 2, rerun) and `43873318965` (attempt 1); both failed before a runner executed any steps.
+- The latest retried job `133320130953` returned an empty step list. No Restore, Build or Test step ran. These are runner-allocation failures, not compiler diagnostics.
+- CI is pinned to `windows-2022` and is configured to publish a self-contained test ZIP only after the restore/build/test gate passes; pinning the runner label did not resolve the current allocation failure.
+- No verified Windows test ZIP has been produced for the current source head.
 - No local Windows/.NET SDK/MSBuild environment is available in the authoring session to replace the Windows CI compile or launch test.
 
 ## Live FM27 connection — read-only, not yet user-verified

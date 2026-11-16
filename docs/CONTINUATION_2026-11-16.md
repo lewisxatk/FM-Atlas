@@ -3,7 +3,8 @@
 ## Source of truth
 - Repository: `lewisxatk/FM-Atlas`
 - Active branch: `rebuild/fresh-foundation-001`
-- Base checkpoint for this follow-up: `e5fe8aa5dc1d7920c06cba4e30df243bc29574e0`
+- Current source head: `4da2a118335fe6ec8269955196d30dc888ccd197`
+- Previous implementation checkpoint: `e5fe8aa5dc1d7920c06cba4e30df243bc29574e0`
 - Draft PR: #10; do not merge until Windows build, tests and runtime acceptance pass.
 - `main` remains untouched by rebuild work.
 
@@ -14,11 +15,11 @@ The connector reads Player, Staff and Club snapshots into a disposable SQLite li
 
 The current profiles intentionally show Not Imported / Unknown / In Progress for data families not supplied by the importer. Newgen provenance is not populated and must remain Unknown. The full Football Manager world model is not yet imported.
 
-## Latest CI evidence before this update
-- Runs 43871064257 and 43871053277 both ended before any job steps.
-- Their jobs report `runner_id=0`, empty runner names and empty `steps=[]`.
-- No Restore, Build or Test ran. Do not describe those runs as compiler failures or successful verification.
-- The source-authoring environment does not have Windows/.NET SDK/MSBuild, so a Windows build and WPF launch are still outstanding.
+## Latest CI evidence
+- Runs `43873330030` (attempt 2, rerun) and `43873318965` (attempt 1) target current source head `4da2a118335fe6ec8269955196d30dc888ccd197`.
+- Latest retry job `133320130953` returned an empty step list; no runner steps were executed.
+- The workflow is pinned to `windows-2022`, but runner allocation still fails before checkout/restore/build/test.
+- No verified Windows test ZIP exists for the current head. The source-authoring environment has no Windows/.NET SDK/MSBuild, so a Windows build and WPF launch remain outstanding.
 
 ## Changes in this follow-up
 - Pin Windows CI to the supported Windows Server 2022 hosted runner instead of following `windows-latest`.
@@ -55,3 +56,9 @@ Apply the approved Watched.Earth-inspired black/charcoal/off-white/orange visual
 - Save Atlas refers only to local Atlas SQLite state.
 - Never test destructive operations on the user's only career save.
 - Do not merge PR #10 or mark the app release-ready before Windows and Game Pass acceptance.
+
+
+## Latest retry outcome
+- Retried the newest failed CI job for current head `4da2a118335fe6ec8269955196d30dc888ccd197`.
+- GitHub accepted the retry, but attempt 2 again failed before runner allocation; the job exposed no steps.
+- Use the local Windows PowerShell package script as the next build route if hosted Actions continues to fail. Attach its per-step logs and TRX test result to the next report.
