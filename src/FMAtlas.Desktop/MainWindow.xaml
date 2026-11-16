@@ -153,7 +153,6 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <Border Grid.Column="0" Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="7" Padding="11,0" Height="37" Margin="0,0,9,0">
@@ -239,16 +238,13 @@
                     <Button Grid.Column="3" Style="{StaticResource Atlas.ButtonBase}" Command="{Binding SaveAtlasCommand}" Margin="0,0,8,0" Height="37" ToolTip="Creates or verifies the local FM Atlas database.">
                         <TextBlock Text="Save Atlas"/>
                     </Button>
-                    <Button Grid.Column="4" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="In Progress — reading the active career and player records is not implemented yet.">
-                        <TextBlock Text="Load Live Save"/>
+                    <Button Grid.Column="4" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="Read-only live session. Editing and saving remain locked until FM Atlas independently verifies every write field, read-back and undo path.">
+                        <TextBlock Text="Save Live Changes"/>
                     </Button>
-                    <Button Grid.Column="5" Style="{StaticResource Atlas.ButtonBase}" IsEnabled="False" Margin="0,0,8,0" Height="37" ToolTip="In Progress — writing to the live career is disabled until build and field verification is complete.">
-                        <TextBlock Text="Save Live Save"/>
-                    </Button>
-                    <Button Grid.Column="6" Style="{StaticResource Atlas.PrimaryButton}" Height="37" MinWidth="118" Command="{Binding LoadGameCommand}">
+                    <Button Grid.Column="5" Style="{StaticResource Atlas.PrimaryButton}" Height="37" MinWidth="132" Command="{Binding LoadGameCommand}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="13" Margin="0,0,8,0"/>
-                            <TextBlock Text="Detect Game"/>
+                            <TextBlock Text="Load Game"/>
                         </StackPanel>
                     </Button>
                 </Grid>
@@ -283,13 +279,13 @@
                     <Border Style="{StaticResource Atlas.Card}" Margin="0,0,9,0">
                         <StackPanel>
                             <TextBlock Text="ACTIVE CAREER" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
-                            <TextBlock Text="No career loaded" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,13,0,3"/>
-                            <TextBlock Text="Live data import · In Progress" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
+                            <TextBlock Text="{Binding ConnectionStatus}" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,13,0,3"/>
+                            <TextBlock Text="{Binding ConnectionDetail}" FontSize="10" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" MaxHeight="38"/>
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Atlas.Card}" Margin="0,0,9,0">
                         <StackPanel>
-                            <TextBlock Text="LATEST PLAYER IMPORT" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
+                            <TextBlock Text="LIVE / LATEST PLAYER IMPORT" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
                             <TextBlock Text="{Binding LastImportCountText}" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,9,0,3"/>
                             <TextBlock Text="{Binding LastImportStatusText}" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
                         </StackPanel>
@@ -356,5 +352,100 @@
                 <TextBlock Text="{Binding LastAction}" FontSize="10" Foreground="{StaticResource Atlas.Subtle}" Margin="2,15,0,0"/>
             </StackPanel>
         </ScrollViewer>
+        <!-- Blocking live-load overlay: captures mouse and keyboard focus while the snapshot is built. -->
+        <Grid x:Name="LiveLoadOverlay"
+              Grid.RowSpan="2"
+              Grid.ColumnSpan="2"
+              Panel.ZIndex="1000"
+              Background="#D608090B"
+              Visibility="{Binding IsLiveLoadOverlayVisible, Converter={StaticResource Atlas.BooleanToVisibility}}"
+              IsHitTestVisible="True"
+              Focusable="True"
+              KeyboardNavigation.TabNavigation="Cycle">
+            <Border Width="456"
+                    MaxWidth="92%"
+                    Background="#111214"
+                    BorderBrush="#4A3025"
+                    BorderThickness="1"
+                    CornerRadius="15"
+                    Padding="30,27"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="34" ShadowDepth="0" Opacity="0.55" Color="#000000"/>
+                </Border.Effect>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Border Width="28" Height="28" CornerRadius="7" Background="#21140F" BorderBrush="#4B281B" BorderThickness="1">
+                            <TextBlock Text="FM" Foreground="{StaticResource Atlas.Accent}" FontFamily="Georgia" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Margin="9,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="FM ATLAS" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Atlas.Text}"/>
+                            <TextBlock Text="LIVE CAREER CONNECTION" FontSize="8" Foreground="{StaticResource Atlas.Muted}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Grid Width="66" Height="66" Margin="0,25,0,17" HorizontalAlignment="Center">
+                        <Ellipse Stroke="#343536" StrokeThickness="4" Opacity="0.8"/>
+                        <Ellipse x:Name="LoadSpinner"
+                                 Stroke="{StaticResource Atlas.Accent}"
+                                 StrokeThickness="4"
+                                 StrokeDashArray="1.6 2.9"
+                                 StrokeDashCap="Round"
+                                 RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <RotateTransform/>
+                            </Ellipse.RenderTransform>
+                            <Ellipse.Triggers>
+                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="LoadSpinner"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                             From="0" To="360" Duration="0:0:1.15"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Ellipse.Triggers>
+                        </Ellipse>
+                        <TextBlock Text="FM" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <TextBlock Text="{Binding LiveLoadStage}"
+                               FontSize="10"
+                               FontWeight="Bold"
+                               CharacterSpacing="90"
+                               Foreground="{StaticResource Atlas.Accent}"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"/>
+                    <TextBlock Text="{Binding LiveLoadDetail}"
+                               FontSize="12"
+                               Foreground="{StaticResource Atlas.Text}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               Margin="0,9,0,18"/>
+                    <ProgressBar Minimum="0"
+                                 Maximum="100"
+                                 Value="{Binding LiveLoadProgress}"
+                                 Height="5"
+                                 Background="#303033"
+                                 Foreground="{StaticResource Atlas.Accent}"
+                                 BorderThickness="0"/>
+                    <TextBlock Text="{Binding LiveLoadProgress, StringFormat={}{0}%}"
+                               FontFamily="Consolas"
+                               FontSize="10"
+                               Foreground="{StaticResource Atlas.Muted}"
+                               HorizontalAlignment="Center"
+                               Margin="0,9,0,0"/>
+                    <TextBlock Text="FM Atlas is reading your active career. The main workspace is temporarily locked to prevent incomplete results or accidental actions."
+                               FontSize="9"
+                               Foreground="{StaticResource Atlas.Subtle}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               Margin="0,17,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
