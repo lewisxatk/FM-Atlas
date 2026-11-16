@@ -238,3 +238,21 @@ A read-only FM player-list CSV import is now implemented as an interim way to te
 Detailed input contract and test coverage: `research/CSV_IMPORT_001.md`.
 
 The CSV importer tests are committed but remain unexecuted until Windows CI or a Windows .NET 8 environment can run them. A successful compile/test and a fresh artifact are required before calling the update test-ready.
+
+
+## 11. Live Game Pass connection and loader implementation
+
+The current implementation adds a first read-only FM27 Game Pass live data path, documented in `research/LIVE_GAME_CONNECTION_001.md`.
+
+- Main **Load Game** action checks the exact x64 build fingerprint and the running career.
+- Current scanner target is only Game Pass 0.9.2435.0; known older Game Pass 0.9.2409.0 remains unsupported by the scanner and is rejected.
+- Player, Staff and Club pointer arrays are read from the exact-build profile, converted into typed Atlas records, and batch-indexed in SQLite.
+- Searchable dynamic typed fields preserve provenance. Additional player and club fields become available in Advanced Search Indexed Fields.
+- A save-generation check invalidates the transient live provider if the current career changes, FM exits, the player array goes empty or the read probe stops validating.
+- The centred animated loading overlay blocks the main workspace and owned search/profile windows while the asynchronous scan and SQLite import runs.
+
+**Read/write status is distinct:** ExternalReferenceOnly plus an exact scanner allows a read-only probe attempt; it is not an Atlas-verified read and never allows writes. The live process accessor has read methods only. The Save Live Changes control remains disabled until actual per-field write/read-back/undo verification has passed on a disposable career.
+
+The live connection is a snapshot import, not a live-updating data mirror. Reload with **Load Game** to refresh while the same career is active.
+
+No Windows build or in-game runtime test has passed for this source head yet. The first release gate is a Windows .NET 8 restore/build/test, then a live Game Pass 0.9.2435.0 comparison against the game's UI. Only after that should the build profile become AtlasReadVerified; only after a separate write/undo campaign may any fields become AtlasWriteVerified.
