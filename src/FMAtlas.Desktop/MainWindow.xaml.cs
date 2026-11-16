@@ -390,6 +390,15 @@ public partial class MainWindow : Window
         WorkspaceTabControl.Items.Remove(tab);
     }
 
+    private void QuickSearchPopup_Closed(object? sender, EventArgs e)
+    {
+        // Popup.IsOpen is intentionally OneWay because the view-model property is
+        // read-only to the view. Keep the view-model state in sync when the user
+        // dismisses the popup by clicking elsewhere.
+        if (_mainWindowViewModel.IsQuickSearchOpen)
+            _mainWindowViewModel.CloseQuickSearch();
+    }
+
     private void QuickSearchResults_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (QuickSearchResultsListBox.SelectedItem is QuickSearchResultViewModel result)
