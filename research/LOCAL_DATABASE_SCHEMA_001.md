@@ -1,6 +1,6 @@
 # FM Atlas — Local Database Schema 001
 
-**Status:** Initial SQLite migration implemented; repository persistence is not yet implemented.
+**Status:** SQLite schema version 2 implemented; typed snapshot persistence added. Normalised field projection and query repositories remain outstanding.
 
 ## Purpose
 
@@ -30,3 +30,18 @@ Create a local store for imported player, staff and club records without conflat
 Schema version 1 is applied transactionally and recorded both in SQLite PRAGMA user_version and atlas_schema_migrations.
 
 The initial schema is infrastructure only. Player/staff/club repositories, transaction-level imports, typed serialization and indexed queries remain separate tasks.
+
+
+## Version 2 — typed record snapshots
+
+Version 2 adds entity_record_snapshots:
+- Provider-scoped typed record snapshots are stored as JSON.
+- Snapshot identity includes entity kind, provider key, source ID and record type.
+- Snapshot schema version and saved timestamp are recorded.
+- Snapshot data preserves the typed record and SourcedValue provenance.
+- Entity row and snapshot are upserted in one transaction.
+- The v1-to-v2 upgrade is explicit and transactional.
+
+The JSON snapshot layer is a lossless import/cache foundation, not the search index. The importer must also project supported fields into field_values for fast Quick Search and Advanced Search. Keep the original snapshot so future projection changes can be rebuilt without re-reading the career.
+
+The application refuses to downgrade a database whose PRAGMA user_version is newer than its supported schema.
