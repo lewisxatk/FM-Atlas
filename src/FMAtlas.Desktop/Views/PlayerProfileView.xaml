@@ -16,7 +16,7 @@
         <!-- Open-player tabs are distinct from the selected player's own sections. -->
         <Border Grid.Row="0" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,9">
             <DockPanel LastChildFill="True">
-                <TextBlock DockPanel.Dock="Left" Text="OPEN PLAYERS" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <TextBlock DockPanel.Dock="Left" Text="PLAYER WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,16,0"/>
                 <TextBlock Text="{Binding PlayerTitle}" FontSize="11" Foreground="{StaticResource Atlas.Muted}" VerticalAlignment="Center"/>
             </DockPanel>
         </Border>
@@ -44,7 +44,7 @@
             </ScrollViewer>
         </Border>
 
-        <Grid Grid.Row="2" Margin="0,14,0,0">
+        <Grid Grid.Row="2" Margin="0,14,0,0" Visibility="{Binding IsInformationSection, Converter={StaticResource Atlas.BooleanToVisibility}}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="226"/>
                 <ColumnDefinition Width="14"/>
@@ -211,5 +211,56 @@
                 </Border>
             </StackPanel>
         </Grid>
+        <Border Grid.Row="2"
+                Margin="0,14,0,0"
+                Background="{StaticResource Atlas.Panel}"
+                BorderBrush="{StaticResource Atlas.Border}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="20">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedSection}" Value="Information">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                    <TextBlock Text="{Binding SelectedSection}" FontFamily="Georgia" FontSize="25" Foreground="{StaticResource Atlas.Text}"/>
+                    <TextBlock Text="{Binding SectionDescription}" FontSize="11" Foreground="{StaticResource Atlas.Muted}" Margin="0,5,0,0"/>
+                </StackPanel>
+                <Grid>
+                    <ItemsControl ItemsSource="{Binding SelectedSectionRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="5,11">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="250"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="220"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="11" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="11" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding EvidenceText}" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding SectionEmptyText}"
+                               Visibility="{Binding SectionEmptyText, Converter={StaticResource Atlas.StringToVisibility}}"
+                               FontSize="12"
+                               Foreground="{StaticResource Atlas.Muted}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Top"
+                               Margin="4,8,4,0"/>
+                </Grid>
+            </DockPanel>
+        </Border>
     </Grid>
 </UserControl>
