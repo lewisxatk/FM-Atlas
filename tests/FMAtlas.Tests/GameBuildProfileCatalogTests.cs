@@ -36,9 +36,12 @@ public sealed class GameBuildProfileCatalogTests
         Assert.All(GameBuildProfileCatalog.Profiles, profile =>
         {
             Assert.Equal(GameBuildEvidenceStatus.ExternalReferenceOnly, profile.EvidenceStatus);
-            Assert.True(profile.CanAttemptReadOnlyScan);
             Assert.False(profile.CanReadLiveData);
             Assert.False(profile.CanWriteLiveData);
         });
+        Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>
+            profile.PackageVersion == "0.9.2435.0" && profile.CanAttemptReadOnlyScan);
+        Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>
+            profile.PackageVersion == "0.9.2409.0" && !profile.CanAttemptReadOnlyScan);
     }
 }
