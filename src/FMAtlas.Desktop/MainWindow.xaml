@@ -273,7 +273,7 @@
                         <StackPanel>
                             <TextBlock Text="GAME CONNECTION" FontSize="9" Foreground="{StaticResource Atlas.Muted}"/>
                             <TextBlock Text="{Binding ConnectionStatus}" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" Margin="0,13,0,3"/>
-                            <TextBlock Text="Windows process check only" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
+                            <TextBlock Text="Live career session · exact build only" FontSize="10" Foreground="{StaticResource Atlas.Subtle}"/>
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Atlas.Card}" Margin="0,0,9,0">
@@ -312,7 +312,7 @@
                                 <TextBlock Grid.Column="1" Text="01 / 04" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
                             </Grid>
                             <TextBlock Text="A clean start." FontFamily="Georgia" FontSize="25" Foreground="{StaticResource Atlas.Text}"/>
-                            <TextBlock Text="Connect to your running FM27 career to begin loading real player, staff and club information. Nothing is shown until it has been read and verified."
+                            <TextBlock Text="Load Game checks the exact FM27 Game Pass package, reads the active player, staff and club lists, then indexes the snapshot for search. Data is currently mapped as read-only; live editing stays locked until field-level write and read-back checks pass."
                                        TextWrapping="Wrap" FontSize="12" LineHeight="19" Foreground="{StaticResource Atlas.Muted}" Margin="0,9,12,18"/>
                             <Border Background="#17110E" BorderBrush="#3A251A" BorderThickness="1" CornerRadius="7" Padding="12">
                                 <StackPanel>
@@ -332,18 +332,18 @@
                             </StackPanel>
                             <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,13"/>
                             <StackPanel Margin="0,0,0,13">
-                                <TextBlock Text="02  ·  Live save connection" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                <TextBlock Text="In Progress" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
+                                <TextBlock Text="02  ·  Game Pass live connection" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
+                                <TextBlock Text="Exact-build read-only scanner implemented · first runtime verification outstanding" FontSize="10" TextWrapping="Wrap" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
                             </StackPanel>
                             <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,13"/>
                             <StackPanel Margin="0,0,0,13">
-                                <TextBlock Text="03  ·  Player data and editor" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                <TextBlock Text="Not started" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
+                                <TextBlock Text="03  ·  Player data, search and profile" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
+                                <TextBlock Text="Typed live fields and search indexing implemented · editing still locked" FontSize="10" TextWrapping="Wrap" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
                             </StackPanel>
                             <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,13"/>
                             <StackPanel>
-                                <TextBlock Text="04  ·  Staff, clubs and advanced search" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
-                                <TextBlock Text="Not started" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
+                                <TextBlock Text="04  ·  Staff, clubs and wider data" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
+                                <TextBlock Text="Initial live record mapping implemented · remaining fields and validation continue" FontSize="10" TextWrapping="Wrap" Foreground="{StaticResource Atlas.Muted}" Margin="18,4,0,0"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
