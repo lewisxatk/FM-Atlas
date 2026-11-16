@@ -172,7 +172,7 @@ public sealed class EntityRecordProjector : IEntityRecordProjector
         IReadOnlyDictionary<string, SourcedValue<int>> values)
     {
         foreach (var (key, value) in values.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
-            Add(fields, prefix + key, value);
+            Add(fields, ComposeKey(prefix, key), value);
     }
 
     private static void AddDecimalMap(
