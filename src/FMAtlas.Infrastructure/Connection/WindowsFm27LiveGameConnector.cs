@@ -281,8 +281,14 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
 
             if (session.Process.HasExited)
             {
-                await InvalidateSessionAsync(session, "Football Manager closed. Live records have been removed from the active search index.", cancellationToken).ConfigureAwait(false);
-                return new LiveGameSessionStatus(false, true, null, "Football Manager closed. Press Load Game after restarting the game and loading a career.");
+                var cleanupFailure = await InvalidateSessionAsync(
+                    session,
+                    "Football Manager closed.",
+                    CancellationToken.None).ConfigureAwait(false);
+                var message = "Football Manager closed. Press Load Game after restarting the game and loading a career.";
+                if (cleanupFailure is not null)
+                    message += $" Live snapshot cleanup also failed: {cleanupFailure}";
+                return new LiveGameSessionStatus(false, true, null, message);
             }
 
             try
@@ -291,23 +297,41 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 var empty = await Task.Run(() => session.Reader.IsPlayerArrayEmpty(), cancellationToken).ConfigureAwait(false);
                 if (generation != session.SaveGeneration || empty)
                 {
-                    await InvalidateSessionAsync(session, "FM27 loaded another save or returned to its main menu. Old live data has been removed from search.", cancellationToken).ConfigureAwait(false);
-                    return new LiveGameSessionStatus(false, true, generation, "The active FM27 save changed. Press Load Game to read the new career.");
+                    var cleanupFailure = await InvalidateSessionAsync(
+                        session,
+                        "FM27 loaded another save or returned to its main menu.",
+                        CancellationToken.None).ConfigureAwait(false);
+                    var message = "The active FM27 save changed. Press Load Game to read the new career.";
+                    if (cleanupFailure is not null)
+                        message += $" Live snapshot cleanup also failed: {cleanupFailure}";
+                    return new LiveGameSessionStatus(false, true, generation, message);
                 }
 
                 if (_disconnectRequested)
                 {
-                    await InvalidateSessionAsync(session, "FM Atlas is closing the live session.", cancellationToken).ConfigureAwait(false);
+                    var cleanupFailure = await InvalidateSessionAsync(
+                        session,
+                        "FM Atlas is closing the live session.",
+                        CancellationToken.None).ConfigureAwait(false);
                     _disconnectRequested = false;
-                    return new LiveGameSessionStatus(false, false, null, "The live FM27 session has been disconnected.");
+                    var message = "The live FM27 session has been disconnected.";
+                    if (cleanupFailure is not null)
+                        message += $" Live snapshot cleanup also failed: {cleanupFailure}";
+                    return new LiveGameSessionStatus(false, false, null, message);
                 }
 
                 return new LiveGameSessionStatus(true, false, generation, "The same FM27 career is still loaded.");
             }
-            catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or InvalidDataException)
+            catch (Exception exception)
             {
-                await InvalidateSessionAsync(session, "FM Atlas lost its safe connection to the active game. Live data has been removed from search.", cancellationToken).ConfigureAwait(false);
-                return new LiveGameSessionStatus(false, true, null, $"The live session could not be verified: {exception.Message}. Press Load Game to reconnect.");
+                var cleanupFailure = await InvalidateSessionAsync(
+                    session,
+                    "FM Atlas lost its safe connection to the active game.",
+                    CancellationToken.None).ConfigureAwait(false);
+                var message = $"The live session could not be verified: {exception.Message}. Press Load Game to reconnect.";
+                if (cleanupFailure is not null)
+                    message += $" Live snapshot cleanup also failed: {cleanupFailure}";
+                return new LiveGameSessionStatus(false, true, null, message);
             }
         }
         finally
@@ -316,14 +340,19 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
         }
     }
 
-    private async Task InvalidateSessionAsync(
+    private async Task<string?> InvalidateSessionAsync(
         LiveSession session,
         string reason,
         CancellationToken cancellationToken)
     {
+        string? cleanupFailure = null;
         try
         {
             await _snapshotStore.DeleteProviderAsync(session.ProviderKey, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            cleanupFailure = exception.Message;
         }
         finally
         {
@@ -331,7 +360,10 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 _session = null;
             DisconnectSession(session);
         }
-        _ = reason;
+
+        return cleanupFailure is null
+            ? null
+            : $"{reason} {cleanupFailure}";
     }
 
     public void Disconnect()
