@@ -242,3 +242,122 @@ A screen is not complete because it looks similar. It must also display real inf
 ## 11. Current implementation status
 
 Everything in this document is a **design/product requirement**, not a statement that the feature has been implemented. The reference set is approved as the current direction; development remains gated until the existing source/recovery baseline and technical architecture have been audited.
+
+
+## 12. Full-screen player profile — REF-004
+
+**Controlling reference:** `IMG_8153.png` (REF-004), a Profiler Football club-intelligence/player profile screen showing Lamine Yamal.  
+**Status:** Approved player-profile layout and interaction direction; not implemented.
+
+### Overall presentation
+
+- A player profile opens as a **full-screen workspace** within the FM Atlas main application, not as a small modal or narrow side drawer.
+- The selected player's profile is shown in a dedicated application tab.
+- When multiple players are opened, each player gets a separate tab at the top of the workspace. Tabs must make it easy to switch between open players and close them without losing the underlying search results.
+- Keep the global application shell and global top actions consistent with the approved main application design. The player tabs belong at the top of the player workspace beneath/within the application header, not as a replacement for global navigation.
+- The screenshot is a layout and information-density reference. Its third-party ratings, percentile values, xPerf scores, charts and reliability indicators are not automatically FM game attributes and must not be invented or presented as official FM data.
+
+### Three-column profile composition
+
+#### Left: player identity and core information
+
+A persistent left-hand information column contains:
+- Player photograph, if available.
+- Player full name.
+- Known name / display name where applicable.
+- Age and date of birth.
+- Nationality and second nationality.
+- Club and team.
+- League and competition.
+- Primary position and other positions.
+- Preferred foot.
+- Height and weight.
+- Player ID and other useful identity metadata where appropriate.
+- Additional compact information groups such as contract or market information where supported.
+
+**Graphics locator:** Resolve the player's face from the user's installed Football Manager graphics using player ID and supported config mappings. If a face is not found, show a deliberate neutral placeholder; do not substitute an unrelated player's image. Keep graphics lookup/cache separate from the core player record.
+
+The screenshot's identity rail is visually distinct but compact. It should not consume so much width that the central attributes become cramped.
+
+#### Centre: FM attributes
+
+The central area is the main player-editor workspace.
+
+- Display the full applicable Football Manager attribute set.
+- Use the same attribute names, grouping, order and conventions as Football Manager/FMRTE for the selected game version.
+- Preserve the familiar technical, mental and physical groupings and goalkeeper attributes where applicable.
+- Display the real current values from the selected live save/data source.
+- Make supported editable fields directly editable in a consistent manner.
+- Show CA and PA clearly in the appropriate ability area.
+- Distinguish editable, read-only, unavailable and unverified fields.
+- Make unsaved changes obvious.
+- Support applying and undoing edits through the validated editing service only.
+
+**Ordering requirement:** The attribute list must be derived from a verified FM27 field/attribute catalogue and match the game's/FMRTE's ordering. Do not invent a new ordering or alphabetise the attributes. Record the canonical ordered list in a versioned schema document and test the rendered sequence against it.
+
+#### Right: supplementary intelligence
+
+The reference includes a right-hand column for compact performance/intelligence panels. FM Atlas may use this area for information that is genuinely available from the selected save, such as:
+- Verified season statistics.
+- Appearances and minutes.
+- Goals, assists and other recorded match statistics.
+- Fitness/availability information.
+- Position/role suitability when the calculation is documented.
+- Historical or trend information where the save contains it.
+
+Third-party-style scores, percentiles, xPerf and reliability measures may only be implemented later if their data source and calculation are explicit. Do not fill this column with invented values. If data is unavailable, use a clear unavailable state or omit the panel.
+
+### Compact player sub-tabs
+
+Each player profile needs its own compact row of small, clearly labelled tabs/buttons, following the FMRTE-style workflow requested by the user. These are within the player's profile and must not be confused with the global application navigation.
+
+Required player areas to provide, where supported:
+- **Overview** — identity, summary and key ability information.
+- **Attributes** — complete FM attribute list and editing.
+- **Contract** — contract details and supported editable fields.
+- **Positions** — position familiarity and ratings.
+- **Preferred Moves / Traits** — player traits and supported editing.
+- **Season Stats** — season-by-season and current-season statistics available in the loaded save.
+- **History** — career history, transfers and development history where available.
+- **Personality / Hidden** — supported personality and hidden fields, with provenance and write support clearly indicated.
+- **Relationships** — supported relationships.
+- **Other information** — additional FMRTE-style player information discovered during feature research, grouped logically rather than crammed into the overview.
+
+The user explicitly wants the tabs to expose the kinds of information and editable player fields available in FMRTE. The list above is a baseline, not a reason to omit other verified FMRTE player-profile sections discovered during research.
+
+### Editing behaviour
+
+- Each tab shows its own relevant information.
+- Fields that are supported for editing can be changed in place or through a clear edit state.
+- Read-only fields must look read-only.
+- Unsupported fields must not pretend to be editable.
+- Changes are staged and clearly marked before application.
+- Save/apply controls use the approved compact FMRTE-inspired button style.
+- Apply writes only through the guarded live-editing service.
+- Read-back verifies the result.
+- Undo is available only where a safe prior value and supported rollback exist.
+- Switching player tabs must not silently discard pending edits; warn or preserve staged changes.
+
+### Multi-player tab behaviour
+
+- Opening a player from Quick Search or Advanced Search opens that player's profile in a new workspace tab.
+- Opening an already-open player should focus the existing tab rather than create duplicates.
+- Multiple player tabs can remain open simultaneously.
+- Closing a tab with unsaved changes requires a clear save/apply, discard or cancel decision.
+- Search results and active filters should remain available when navigating back to the search workspace.
+
+### Acceptance criteria
+
+- [ ] Profile fills the available application workspace.
+- [ ] Player identity rail appears on the left.
+- [ ] Correct player face is resolved from installed graphics when available.
+- [ ] Centre shows the complete supported FM attribute set in verified FM/FMRTE order.
+- [ ] CA and PA display correctly.
+- [ ] Compact player sub-tabs appear at the top of the profile.
+- [ ] Contract, positions, preferred moves/traits, season statistics, history, personality/hidden information and other supported FMRTE-style areas are accessible.
+- [ ] Each supported editable field is connected to the correct data mapping and editing service.
+- [ ] Right-side intelligence only displays grounded data/calculations.
+- [ ] Multiple player profiles can be open in separate tabs.
+- [ ] Unsaved changes are protected when switching or closing tabs.
+- [ ] Profile layout is visually compared against REF-004 at a desktop resolution.
+- [ ] No placeholder or third-party example metrics are misrepresented as Football Manager data.
