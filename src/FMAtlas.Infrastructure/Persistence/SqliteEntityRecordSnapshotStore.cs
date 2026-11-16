@@ -298,6 +298,26 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task DeleteProviderAsync(
+        string providerKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(providerKey))
+            throw new ArgumentException("A provider key is required.", nameof(providerKey));
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, null, "PRAGMA foreign_keys = ON;", cancellationToken).ConfigureAwait(false);
+        await using var transaction = connection.BeginTransaction();
+        await ExecuteAsync(
+            connection,
+            transaction,
+            "DELETE FROM entities WHERE provider_key = $provider;",
+            cancellationToken,
+            ("$provider", providerKey)).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<TRecord?> GetSnapshotAsync<TRecord>(
         EntityIdentity identity,
         CancellationToken cancellationToken = default)
