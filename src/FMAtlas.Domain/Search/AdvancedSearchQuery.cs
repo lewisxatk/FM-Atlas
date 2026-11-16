@@ -35,7 +35,8 @@ public sealed record AdvancedSearchQuery(
     SearchFilterLogic Logic,
     IReadOnlyList<SearchFilterCondition> Conditions,
     SearchFilterLogic PositionLogic = SearchFilterLogic.All,
-    IReadOnlyList<AdvancedSearchFieldDefinition>? IndexedFields = null)
+    IReadOnlyList<AdvancedSearchFieldDefinition>? IndexedFields = null,
+    bool IncludeWomenPlayers = false)
 {
     /// <summary>Indicates that every selected field has a query implementation.</summary>
     public bool CanExecute => Conditions.Count > 0 && Conditions.All(condition =>
