@@ -66,24 +66,49 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
             ("$limit", limit)
         };
         var nextParameter = 0;
-        var predicates = new List<string>(query.Conditions.Count);
+        var builtPredicates = new List<(string Predicate, bool IsPosition)>(query.Conditions.Count);
 
         for (var index = 0; index < query.Conditions.Count; index++)
         {
-            predicates.Add(BuildCondition(
-                query.Entity,
-                query.Conditions[index],
-                index,
-                parameters,
-                ref nextParameter));
+            var condition = query.Conditions[index];
+            builtPredicates.Add((
+                BuildCondition(query.Entity, condition, index, parameters, ref nextParameter),
+                IsPositionCondition(condition.FieldKey)));
         }
 
+        var predicates = builtPredicates.Select(item => item.Predicate).ToArray();
         var logic = query.Logic == SearchFilterLogic.All ? " AND " : " OR ";
+        string criteriaPredicate;
+
+        var positionPredicates = builtPredicates.Where(item => item.IsPosition)
+            .Select(item => item.Predicate).ToArray();
+        var otherPredicates = builtPredicates.Where(item => !item.IsPosition)
+            .Select(item => item.Predicate).ToArray();
+
+        if (query.PositionLogic == SearchFilterLogic.Any && positionPredicates.Length > 1)
+        {
+            var positionGroup = $"({string.Join(" OR ", positionPredicates)})";
+            if (otherPredicates.Length == 0)
+            {
+                criteriaPredicate = positionGroup;
+            }
+            else
+            {
+                var otherGroup = $"({string.Join(logic, otherPredicates)})";
+                var outerLogic = query.Logic == SearchFilterLogic.All ? " AND " : " OR ";
+                criteriaPredicate = $"{otherGroup}{outerLogic}{positionGroup}";
+            }
+        }
+        else
+        {
+            criteriaPredicate = string.Join(logic, predicates);
+        }
+
         var sql = $"""
             SELECT e.entity_kind, e.source_id, e.provider_key, e.display_name
             FROM entities AS e
             WHERE e.entity_kind = $entityKind
-              AND ({string.Join(logic, predicates)})
+              AND ({criteriaPredicate})
             ORDER BY e.display_name COLLATE NOCASE, e.provider_key, e.source_id
             LIMIT $limit;
             """;
@@ -110,6 +135,9 @@ public sealed class SqliteAdvancedSearchProvider : IAdvancedSearchProvider
 
         return results.AsReadOnly();
     }
+
+    private static bool IsPositionCondition(string fieldKey) =>
+        fieldKey.StartsWith("position_", StringComparison.OrdinalIgnoreCase);
 
     private static string BuildCondition(
         SearchEntityKind entity,
