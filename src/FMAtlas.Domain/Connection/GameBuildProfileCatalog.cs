@@ -22,10 +22,17 @@ public sealed record GameBuildProfile(
     GameBuildEvidenceStatus EvidenceStatus,
     string EvidenceSource)
 {
-    /// <summary>Whether a scanner may attempt an explicitly read-only probe for this exact build.</summary>
-    public bool CanAttemptReadOnlyScan => EvidenceStatus is GameBuildEvidenceStatus.ExternalReferenceOnly
-        or GameBuildEvidenceStatus.AtlasReadVerified
-        or GameBuildEvidenceStatus.AtlasWriteVerified;
+    /// <summary>True only when FM Atlas currently contains a scanner for this exact package build.</summary>
+    public bool HasReadOnlyScanner => Id == "fm27-gamepass-0.9.2435.0";
+
+    /// <summary>
+    /// Whether the existing exact-build scanner may attempt a read-only probe. This is
+    /// not the same as AtlasReadVerified and never authorizes a process-memory write.
+    /// </summary>
+    public bool CanAttemptReadOnlyScan =>
+        HasReadOnlyScanner && EvidenceStatus is GameBuildEvidenceStatus.ExternalReferenceOnly
+            or GameBuildEvidenceStatus.AtlasReadVerified
+            or GameBuildEvidenceStatus.AtlasWriteVerified;
 
     /// <summary>True only after FM Atlas has independently verified the read mapping on this build.</summary>
     public bool CanReadLiveData => EvidenceStatus is GameBuildEvidenceStatus.AtlasReadVerified
