@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.IO;
 using System.Text;
@@ -48,7 +49,7 @@ public partial class AdvancedSearchWindow : Window
 
     private void PositionButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || string.IsNullOrWhiteSpace(button.Tag?.ToString()))
+        if (sender is not ToggleButton button || string.IsNullOrWhiteSpace(button.Tag?.ToString()))
             return;
 
         _viewModel.TogglePosition(button.Tag.ToString()!);
@@ -246,9 +247,10 @@ public partial class AdvancedSearchWindow : Window
         if (PositionButtonsCanvas is null)
             return;
 
-        foreach (var button in PositionButtonsCanvas.Children.OfType<Button>())
+        foreach (var button in PositionButtonsCanvas.Children.OfType<ToggleButton>())
         {
             var selected = _viewModel.IsPositionSelected(button.Tag?.ToString() ?? string.Empty);
+            button.IsChecked = selected;
             button.Background = selected
                 ? new SolidColorBrush(Color.FromRgb(0xD8, 0x78, 0x3C))
                 : new SolidColorBrush(Color.FromRgb(0x50, 0x58, 0x61));

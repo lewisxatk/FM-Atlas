@@ -203,6 +203,32 @@ public sealed class SqliteEntitySearchProviderTests
         Assert.Equal("Mohamed Salah", result.DisplayName);
     }
 
+    [Fact]
+    public async Task QuickSearchFallsBackToProjectedFullNameWhenEntityDisplayNameIsBlank()
+    {
+        using var temp = new TemporaryDirectory();
+        var path = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(path).InitializeAsync();
+
+        var identity = new EntityIdentity(EntityKind.Player, "salah-fallback", "live-test");
+        var player = new PlayerRecord(identity)
+        {
+            SearchTextFields = new Dictionary<string, SourcedValue<string>>
+            {
+                ["full_name"] = new("Mohamed Salah", Evidence)
+            }
+        };
+
+        await new SqliteEntityRecordSnapshotStore(path).SaveSnapshotAsync(player, displayName: null);
+
+        var results = await new SqliteEntitySearchProvider(path).QuickSearchAsync(
+            "Salah", [EntityKind.Player], limit: 200);
+
+        var result = Assert.Single(results);
+        Assert.Equal(identity, result.Identity);
+        Assert.Equal("Mohamed Salah", result.DisplayName);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =
