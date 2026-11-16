@@ -488,8 +488,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             LivePlayerCount = result.PlayersImported;
             LiveStaffCount = result.StaffImported;
             LiveClubCount = result.ClubsImported;
-            ConnectionStatus = $"FM27 connected · PID {result.ProcessId}";
-            ConnectionDetail = $"{result.BuildName}. {result.PlayersImported:N0} players, {result.StaffImported:N0} staff and {result.ClubsImported:N0} clubs loaded from the active career. Live writing remains disabled pending FM Atlas verification.";
+            ConnectionStatus = $"FM27 connected · READ ONLY · PID {result.ProcessId}";
+            ConnectionDetail = $"{result.BuildName}. {result.PlayersImported:N0} players, {result.StaffImported:N0} staff and {result.ClubsImported:N0} clubs loaded. {result.Message}";
             LastAction = $"Loaded {result.PlayersImported:N0} players, {result.StaffImported:N0} staff and {result.ClubsImported:N0} clubs from FM27.";
             LastImportCountText = result.PlayersImported.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
             LastImportStatusText = "Live FM27 player records loaded";
