@@ -50,32 +50,32 @@
 
                 <StackPanel Grid.Row="2">
                     <TextBlock Text="WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" Margin="9,0,0,10"/>
-                    <Button Style="{StaticResource Atlas.NavButton}" Background="#1B1511" BorderBrush="#352219" Margin="0,0,0,4">
+                    <Button Style="{StaticResource Atlas.NavButton}" Background="#1B1511" BorderBrush="#352219" Margin="0,0,0,4" Tag="Dashboard" Click="NavigationButton_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Accent}" FontSize="14" Width="25"/>
                             <TextBlock Text="Dashboard" Foreground="{StaticResource Atlas.Text}" FontSize="12"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource Atlas.NavButton}" IsEnabled="False" Margin="0,0,0,4" ToolTip="In Progress — waiting for the live data provider.">
+                    <Button Style="{StaticResource Atlas.NavButton}" Margin="0,0,0,4" Tag="Players" Click="NavigationButton_Click" ToolTip="Browse player records from the active career or imported data.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
                             <TextBlock Text="Players" FontSize="12"/>
                             <TextBlock Text="IN PROGRESS" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="10,0,0,0"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource Atlas.NavButton}" IsEnabled="False" Margin="0,0,0,4" ToolTip="In Progress — staff data provider not implemented.">
+                    <Button Style="{StaticResource Atlas.NavButton}" Margin="0,0,0,4" Tag="Staff" Click="NavigationButton_Click" ToolTip="Browse staff and coach records.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
                             <TextBlock Text="Staff" FontSize="12"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource Atlas.NavButton}" IsEnabled="False" Margin="0,0,0,4" ToolTip="In Progress — club data provider not implemented.">
+                    <Button Style="{StaticResource Atlas.NavButton}" Margin="0,0,0,4" Tag="Clubs" Click="NavigationButton_Click" ToolTip="Browse club records and full club profiles.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
                             <TextBlock Text="Clubs" FontSize="12"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource Atlas.NavButton}" IsEnabled="False" Margin="0,0,0,4" ToolTip="In Progress — save manager not implemented.">
+                    <Button Style="{StaticResource Atlas.NavButton}" Margin="0,0,0,4" Tag="Save Manager" Click="NavigationButton_Click" ToolTip="Open the local save/data workspace.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
                             <TextBlock Text="Save Manager" FontSize="12"/>
@@ -99,7 +99,7 @@
 
                 <StackPanel Grid.Row="4">
                     <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,0,0,12"/>
-                    <Button Style="{StaticResource Atlas.NavButton}" IsEnabled="False" ToolTip="In Progress — settings are not implemented yet.">
+                    <Button Style="{StaticResource Atlas.NavButton}" Tag="Settings" Click="NavigationButton_Click" ToolTip="Open FM Atlas settings and data preferences.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
                             <TextBlock Text="Settings" FontSize="12"/>
@@ -252,7 +252,47 @@
         </Border>
 
         <!-- Main dashboard. All values are real application states, not demo data. -->
-        <ScrollViewer Grid.Column="1" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <TabControl x:Name="WorkspaceTabControl"
+                    Grid.Column="1"
+                    Grid.Row="1"
+                    Background="{StaticResource Atlas.Canvas}"
+                    BorderThickness="0"
+                    Padding="0">
+            <TabControl.ItemContainerStyle>
+                <Style TargetType="TabItem">
+                    <Setter Property="Foreground" Value="{StaticResource Atlas.Muted}"/>
+                    <Setter Property="Background" Value="{StaticResource Atlas.Surface}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+                    <Setter Property="Padding" Value="12,7"/>
+                    <Setter Property="Margin" Value="0,0,4,0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TabItem">
+                                <Border x:Name="TabBorder"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6,6,0,0"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource Atlas.AccentSoft}"/>
+                                        <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TabControl.ItemContainerStyle>
+            <TabItem Header="Dashboard">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="26,25,26,28">
                 <Grid Margin="0,0,0,19">
                     <Grid.ColumnDefinitions>
@@ -352,6 +392,8 @@
                 <TextBlock Text="{Binding LastAction}" FontSize="10" Foreground="{StaticResource Atlas.Subtle}" Margin="2,15,0,0"/>
             </StackPanel>
         </ScrollViewer>
+            </TabItem>
+        </TabControl>
         <!-- Blocking live-load overlay: captures mouse and keyboard focus while the snapshot is built. -->
         <Grid x:Name="LiveLoadOverlay"
               Grid.RowSpan="2"
