@@ -243,7 +243,7 @@ internal sealed class FM27GamePass0935Reader
         var nationality = ReadNationName(U64(0x2F0, offset));
         var (secondNationality, relationSearchText) = ReadPlayerRelations(U64(0x300, offset), evidence);
         var cityOfBirth = ReadCityName(U64(0x308, offset));
-        var teamInfo = ReadPlayerTeam(U64(0x130), evidence);
+        var teamInfo = ReadPlayerTeam(U64(0x130));
         var genderFlags = B(0x2A1, offset);
         var madeByGameFlags = B(0x2A0, offset);
 
@@ -887,9 +887,7 @@ internal sealed class FM27GamePass0935Reader
         return ReadFmString(SafeReadPointer(city + 0x18));
     }
 
-    private (string? ClubName, string? LeagueName, string? TeamKind) ReadPlayerTeam(
-        ulong team,
-        FieldProvenance evidence)
+    private (string? ClubName, string? LeagueName, string? TeamKind) ReadPlayerTeam(ulong team)
     {
         if (!WindowsProcessMemoryAccessor.IsUserPointer(team))
             return (null, null, null);
@@ -899,7 +897,6 @@ internal sealed class FM27GamePass0935Reader
         var leagueName = competition == 0 ? null : ReadFmString(SafeReadPointer(competition + 0x40));
 
         var kind = TryReadByte(team + 0x28);
-        var ageLimit = TryReadByte(team + 0x2C);
         var teamKind = kind switch
         {
             0 => "First Team",
