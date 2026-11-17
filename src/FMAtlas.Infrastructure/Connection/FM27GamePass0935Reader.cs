@@ -223,7 +223,8 @@ internal sealed class FM27GamePass0935Reader
             if (player is null)
             {
                 playerSkipped++;
-                NoteFailure("Player", address, null);
+                if (failures.Count < 8)
+                    NoteFailure("Player", address, null);
             }
             else
             {
@@ -259,7 +260,8 @@ internal sealed class FM27GamePass0935Reader
             if (staff is null)
             {
                 staffSkipped++;
-                NoteFailure("Staff", address, null);
+                if (failures.Count < 8)
+                    NoteFailure("Staff", address, null);
             }
             else
             {
@@ -295,7 +297,8 @@ internal sealed class FM27GamePass0935Reader
             if (club is null)
             {
                 clubSkipped++;
-                NoteFailure("Club", address, null);
+                if (failures.Count < 8)
+                    NoteFailure("Club", address, null);
             }
             else
             {

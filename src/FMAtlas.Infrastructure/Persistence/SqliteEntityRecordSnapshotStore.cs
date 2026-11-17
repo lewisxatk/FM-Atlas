@@ -387,6 +387,24 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         progress?.Report(100);
     }
 
+    private static object?[] BuildFieldValueRow(EntityIdentity identity, EntityFieldProjection field) =>
+    [
+        identity.Kind.ToString(),
+        identity.SourceId,
+        identity.ProviderKey,
+        field.Key,
+        field.ValueKind.ToString(),
+        (object?)field.TextValue ?? DBNull.Value,
+        (object?)(field.IntegerValue ?? (field.BooleanValue is bool flag ? (flag ? 1L : 0L) : null)) ?? DBNull.Value,
+        (object?)(field.DecimalValue is decimal amount ? Convert.ToDouble(amount, CultureInfo.InvariantCulture) : null) ?? DBNull.Value,
+        (object?)field.DateValue?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value,
+        field.Provenance.Source.ToString(),
+        field.Provenance.EvidenceStatus.ToString(),
+        (object?)field.Provenance.SourceVersion ?? DBNull.Value,
+        (object?)field.Provenance.TargetBuildFingerprint ?? DBNull.Value,
+        (object?)field.Provenance.ObservedAtUtc?.ToString("O") ?? DBNull.Value
+    ];
+
     public async Task DeleteProviderAsync(
         string providerKey,
         CancellationToken cancellationToken = default)
