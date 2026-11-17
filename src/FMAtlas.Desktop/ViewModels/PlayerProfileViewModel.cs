@@ -3,7 +3,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using FMAtlas.Domain.Data;
 using FMAtlas.Domain.Players;
 
@@ -18,10 +20,24 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     private static readonly string[] CanonicalPositionOrder =
         ["GK", "SW", "DL", "DC", "DR", "DM", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST", "WBL", "WBR"];
 
+    // Full-back view, with the tiles at the actual FM positions rather than
+    // decorative circles. The displayed value is FM's 1–20 familiarity rating.
+    private static readonly (string Position, double Left, double Top)[] PositionPitchLayout =
+    [
+        ("ST", 81, 0),
+        ("AML", 0, 30), ("AMC", 81, 30), ("AMR", 162, 30),
+        ("ML", 0, 60), ("MC", 81, 60), ("MR", 162, 60),
+        ("WBL", 0, 90), ("DM", 81, 90), ("WBR", 162, 90),
+        ("DL", 0, 120), ("DC", 81, 120), ("DR", 162, 120),
+        ("SW", 81, 150),
+        ("GK", 81, 180)
+    ];
+
     private string _selectedSection = "Information";
     private readonly ObservableCollection<ProfileValueRowViewModel> _selectedSectionRows = [];
     private string _sectionDescription = "Player information and the full supported FM attribute set.";
     private string _sectionEmptyText = string.Empty;
+    private string _selectedPositionDetail = "Select a position to inspect its FM familiarity rating.";
     private readonly string? _portraitImagePath;
     private bool _isGoalkeepingAttributeMode;
 
@@ -79,6 +95,28 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
         PreferredMoves = new ObservableCollection<string>(
             player.PreferredMoves.Select(move => move.Value));
 
+        var ratingsByPosition = player.PositionRatings.ToDictionary(
+            pair => pair.Key.ToUpperInvariant(), pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        PositionPitchTiles = new ObservableCollection<PlayerPositionTileViewModel>(
+            PositionPitchLayout.Select(position =>
+            {
+                ratingsByPosition.TryGetValue(position.Position, out var value);
+                return new PlayerPositionTileViewModel(position.Position, value, position.Left, position.Top);
+            }));
+
+        SelectPositionCommand = new ProfileSectionCommand(parameter =>
+        {
+            if (parameter is not PlayerPositionTileViewModel selected)
+                return;
+
+            foreach (var tile in PositionPitchTiles)
+                tile.IsSelected = ReferenceEquals(tile, selected);
+
+            SelectedPositionDetail = selected.Rating is int rating
+                ? $"{selected.Position}: {rating}/20 · {selected.TierText}. {selected.EvidenceText}"
+                : $"{selected.Position}: no position-familiarity rating was imported for this player.";
+        });
+
         SelectAttributeModeCommand = new ProfileSectionCommand(mode =>
         {
             if (mode is string name && name is "Technical" or "Goalkeeping")
@@ -89,6 +127,11 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
             if (section is string name && Sections.Any(tab => tab.Name == name))
                 SelectedSection = name;
         });
+        var primaryPosition = player.PrimaryPosition?.Value?.ToUpperInvariant();
+        var primaryTile = PositionPitchTiles.FirstOrDefault(tile => tile.Position == primaryPosition);
+        if (primaryTile is not null)
+            SelectPositionCommand.Execute(primaryTile);
+
         UpdateSelectedSectionRows();
     }
 
@@ -101,9 +144,22 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
     public ObservableCollection<PlayerAttributeGroupViewModel> AttributeGroups { get; }
     public ObservableCollection<ProfileValueRowViewModel> SeasonStatistics { get; }
     public ObservableCollection<ProfileValueRowViewModel> PositionRatings { get; }
+    public ObservableCollection<PlayerPositionTileViewModel> PositionPitchTiles { get; }
     public ObservableCollection<string> PreferredMoves { get; }
     public ICommand SelectSectionCommand { get; }
     public ICommand SelectAttributeModeCommand { get; }
+    public ICommand SelectPositionCommand { get; }
+    public string SelectedPositionDetail
+    {
+        get => _selectedPositionDetail;
+        private set
+        {
+            if (_selectedPositionDetail == value)
+                return;
+            _selectedPositionDetail = value;
+            OnPropertyChanged();
+        }
+    }
     public bool IsGoalkeepingAttributeMode
     {
         get => _isGoalkeepingAttributeMode;
@@ -410,6 +466,77 @@ public sealed class PlayerProfileViewModel : INotifyPropertyChanged
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+}
+
+public sealed class PlayerPositionTileViewModel : INotifyPropertyChanged
+{
+    private bool _isSelected;
+
+    public PlayerPositionTileViewModel(
+        string position,
+        SourcedValue<int>? rating,
+        double left,
+        double top)
+    {
+        Position = position;
+        Rating = rating?.Value;
+        EvidenceText = rating is null
+            ? "No position familiarity was imported."
+            : $"{rating.Provenance.Source} · {rating.Provenance.EvidenceStatus}";
+        Left = left;
+        Top = top;
+        (TierText, Fill) = Rating switch
+        {
+            >= 18 and <= 20 => ("Natural", CreateBrush(0x2E, 0x7C, 0x57)),
+            >= 15 and <= 17 => ("Accomplished", CreateBrush(0x3C, 0x74, 0x86)),
+            >= 12 and <= 14 => ("Competent", CreateBrush(0x60, 0x75, 0x89)),
+            >= 9 and <= 11 => ("Unconvincing", CreateBrush(0x91, 0x7A, 0x42)),
+            >= 5 and <= 8 => ("Awkward", CreateBrush(0x9D, 0x63, 0x3A)),
+            >= 1 and <= 4 => ("Makeshift", CreateBrush(0x91, 0x47, 0x49)),
+            _ => ("Not rated", CreateBrush(0x4B, 0x52, 0x5A))
+        };
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Position { get; }
+    public int? Rating { get; }
+    public string RatingText => Rating?.ToString(CultureInfo.InvariantCulture) ?? "—";
+    public string TierText { get; }
+    public string EvidenceText { get; }
+    public double Left { get; }
+    public double Top { get; }
+    public Brush Fill { get; }
+    public Brush TextBrush { get; } = Brushes.WhiteSmoke;
+    public string ToolTip => Rating is int rating
+        ? $"{Position}: {rating}/20 · {TierText}. {EvidenceText}"
+        : $"{Position}: not rated. {EvidenceText}";
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value)
+                return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BorderBrush)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BorderThickness)));
+        }
+    }
+
+    public Brush BorderBrush => IsSelected
+        ? CreateBrush(0xF1, 0xA0, 0x64)
+        : CreateBrush(0x83, 0x8B, 0x94);
+    public Thickness BorderThickness => IsSelected ? new Thickness(2) : new Thickness(1);
+
+    private static SolidColorBrush CreateBrush(byte red, byte green, byte blue)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(red, green, blue));
+        brush.Freeze();
+        return brush;
+    }
 }
 
 public sealed class OpenPlayerTabViewModel
