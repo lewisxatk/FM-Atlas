@@ -233,7 +233,7 @@ internal sealed class FM27GamePass0935Reader
             processed++;
             if (processed % 100 == 0 || processed == playerPointers.Length)
             {
-                var percent = 18 + (int)(48.0 * processed / total);
+                var percent = 18 + (int)(48.0 * processed / Math.Max(1, playerPointers.Length));
                 progress?.Report(new LiveGameLoadProgress(percent, "Reading players",
                     $"Read {processed:N0} of {playerPointers.Length:N0} entries · kept {playerRead:N0} · skipped {playerSkipped:N0}."));
             }
@@ -268,7 +268,7 @@ internal sealed class FM27GamePass0935Reader
             processed++;
             if (processed % 100 == 0 || processed == playerPointers.Length + staffPointers.Length)
             {
-                var percent = 67 + (int)(16.0 * (processed - staffStart) / Math.Max(1, total - playerPointers.Length));
+                var percent = 67 + (int)(16.0 * (processed - staffStart) / Math.Max(1, staffPointers.Length));
                 progress?.Report(new LiveGameLoadProgress(percent, "Reading staff",
                     $"Read {processed - playerPointers.Length:N0} of {staffPointers.Length:N0} entries · kept {staffRead:N0} · skipped {staffSkipped:N0}."));
             }
