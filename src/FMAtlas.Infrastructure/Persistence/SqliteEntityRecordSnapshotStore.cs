@@ -326,16 +326,6 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                     await deleteFieldsCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
 
-                foreach (var field in record.Projection.Fields)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    pendingFieldRows.Add(BuildFieldValueRow(identity, field));
-                    if (pendingFieldRows.Count == FieldBatchSize)
-                    {
-                        fieldBatchCommand.Execute(pendingFieldRows);
-                        pendingFieldRows.Clear();
-                    }
-                }
             }
 
             if (prepared.Count == RecordBatchSize)
@@ -351,6 +341,23 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                     connection, transaction, SnapshotInsertSql, SnapshotConflictSql, snapshotRows.Count, 7);
                 partialEntityCommand.Execute(entityRows);
                 partialSnapshotCommand.Execute(snapshotRows);
+            }
+
+            // Entity rows must exist before field_values are inserted because the
+            // field projection is protected by a foreign key to entities.
+            foreach (var record in prepared)
+            {
+                var identity = record.Projection.Identity;
+                foreach (var field in record.Projection.Fields)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    pendingFieldRows.Add(BuildFieldValueRow(identity, field));
+                    if (pendingFieldRows.Count == FieldBatchSize)
+                    {
+                        fieldBatchCommand.Execute(pendingFieldRows);
+                        pendingFieldRows.Clear();
+                    }
+                }
             }
 
             processed += prepared.Count;
