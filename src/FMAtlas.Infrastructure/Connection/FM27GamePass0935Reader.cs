@@ -946,7 +946,9 @@ internal sealed class FM27GamePass0935Reader
             }
         }
 
-        return bestScore >= 2 ? bestShift : null;
+        // Keep staff with a valid UID even when a name patch leaves every
+        // string pointer empty. ReadStaff falls back to the UID for display.
+        return bestScore > 0 ? bestShift : null;
     }
 
     private (string? SecondNationality, Dictionary<string, SourcedValue<string>> SearchFields) ReadPlayerRelations(
