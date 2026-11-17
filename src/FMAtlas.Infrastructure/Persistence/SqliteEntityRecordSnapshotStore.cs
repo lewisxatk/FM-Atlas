@@ -177,7 +177,6 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         ArgumentNullException.ThrowIfNull(records);
 
         const int RecordBatchSize = 50;
-        const int FieldBatchSize = 60; // 60 × 14 parameters stays below SQLite's historic 999-variable limit.
 
         using var enumerator = records.GetEnumerator();
         var hasRecord = enumerator.MoveNext();
@@ -192,6 +191,8 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
         await ExecuteAsync(connection, null, "PRAGMA foreign_keys = ON;", cancellationToken).ConfigureAwait(false);
+        var maximumSqlParameters = await ReadMaximumSqlParameterCountAsync(connection, cancellationToken).ConfigureAwait(false);
+        var fieldBatchSize = Math.Max(1, Math.Min(1000, maximumSqlParameters / 14));
         await using var transaction = connection.BeginTransaction();
 
         // Delete the old provider inside the same transaction as its replacement.
@@ -204,6 +205,15 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
             deleteProviderCommand.Parameters.AddWithValue("$provider", replacementProviderKey!);
             await deleteProviderCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
+
+        // Avoid maintaining secondary B-tree indexes for every inserted field row.
+        // They are rebuilt once from the completed batch before commit, inside the
+        // same transaction so failures restore the original indexes automatically.
+        await ExecuteAsync(connection, transaction, "DROP INDEX IF EXISTS idx_entities_name;", cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, transaction, "DROP INDEX IF EXISTS idx_entities_provider;", cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, transaction, "DROP INDEX IF EXISTS idx_field_values_key_integer;", cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, transaction, "DROP INDEX IF EXISTS idx_field_values_key_decimal;", cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, transaction, "DROP INDEX IF EXISTS idx_record_snapshots_saved;", cancellationToken).ConfigureAwait(false);
 
         const string EntityInsertSql = """
             INSERT INTO entities(entity_kind, source_id, provider_key, display_name, imported_at_utc)
@@ -243,7 +253,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         using var snapshotBatchCommand = new BulkInsertCommand(
             connection, transaction, SnapshotInsertSql, SnapshotConflictSql, RecordBatchSize, 7);
         using var fieldBatchCommand = new BulkInsertCommand(
-            connection, transaction, FieldInsertSql, string.Empty, FieldBatchSize, 14);
+            connection, transaction, FieldInsertSql, string.Empty, fieldBatchSize, 14);
 
         await using var deleteFieldsCommand = connection.CreateCommand();
         deleteFieldsCommand.Transaction = transaction;
@@ -253,7 +263,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         deleteFieldsCommand.Parameters.Add("$provider", SqliteType.Text);
         deleteFieldsCommand.Prepare();
 
-        var pendingFieldRows = new List<object?[]>(FieldBatchSize);
+        var pendingFieldRows = new List<object?[]>(fieldBatchSize);
         var processed = 0;
         progress?.Report(0);
 
@@ -349,7 +359,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     pendingFieldRows.Add(BuildFieldValueRow(identity, field));
-                    if (pendingFieldRows.Count == FieldBatchSize)
+                    if (pendingFieldRows.Count == fieldBatchSize)
                     {
                         fieldBatchCommand.Execute(pendingFieldRows);
                         pendingFieldRows.Clear();
@@ -383,8 +393,52 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         if (beforeCommit is not null)
             await beforeCommit(cancellationToken).ConfigureAwait(false);
 
+        await ExecuteAsync(connection, transaction,
+            "CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(entity_kind, display_name COLLATE NOCASE);",
+            cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, transaction,
+            "CREATE INDEX IF NOT EXISTS idx_entities_provider ON entities(provider_key, entity_kind);",
+            cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, transaction,
+            "CREATE INDEX IF NOT EXISTS idx_field_values_key_integer ON field_values(field_key, integer_value);",
+            cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, transaction,
+            "CREATE INDEX IF NOT EXISTS idx_field_values_key_decimal ON field_values(field_key, decimal_value);",
+            cancellationToken).ConfigureAwait(false);
+        await ExecuteAsync(connection, transaction,
+            "CREATE INDEX IF NOT EXISTS idx_record_snapshots_saved ON entity_record_snapshots(saved_at_utc);",
+            cancellationToken).ConfigureAwait(false);
+
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(100);
+    }
+
+    private static async Task<int> ReadMaximumSqlParameterCountAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
+    {
+        // SQLite uses 999 when no MAX_VARIABLE_NUMBER compile option is set.
+        // Read the actual bundled limit so large multi-row inserts remain portable.
+        const int fallback = 999;
+        var maximum = fallback;
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA compile_options;";
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        const string prefix = "MAX_VARIABLE_NUMBER=";
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var option = reader.GetString(0);
+            if (option.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(option.AsSpan(prefix.Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) &&
+                parsed > 0)
+            {
+                maximum = parsed;
+                break;
+            }
+        }
+
+        return maximum;
     }
 
     private static object?[] BuildFieldValueRow(EntityIdentity identity, EntityFieldProjection field) =>

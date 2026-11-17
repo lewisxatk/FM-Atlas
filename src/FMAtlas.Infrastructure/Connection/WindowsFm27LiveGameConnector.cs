@@ -117,6 +117,10 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 "Reading and indexing the active career",
                 $"Streaming up to {work.ExpectedRecordCount:N0} player, staff and club entries in bounded batches."));
 
+            var importStopwatch = Stopwatch.StartNew();
+            using var atlasProcess = Process.GetCurrentProcess();
+            var workingSetBeforeImport = atlasProcess.WorkingSet64;
+
             var validationAccumulator = new FM27LiveScanValidator.StreamingAccumulator();
             var validatedRecords = ValidateAsRead(work.Records, validationAccumulator, cancellationToken);
             FM27LiveScanValidationResult? validation = null;
@@ -149,6 +153,10 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                     WriteDiagnostic($"Streaming validation passed: {validation.Summary}; " +
                         $"memoryReads={work.Session.Memory.ReadOperations}; bytesRead={work.Session.Memory.BytesRead}; " +
                         $"warnings={validation.Warnings.Count}.");
+                    WriteDiagnostic($"Pre-commit performance: elapsed={importStopwatch.Elapsed}; " +
+                        $"workingSetMB={atlasProcess.WorkingSet64 / (1024d * 1024d):N0}; " +
+                        $"workingSetBeforeMB={workingSetBeforeImport / (1024d * 1024d):N0}; " +
+                        $"managedHeapMB={GC.GetTotalMemory(forceFullCollection: false) / (1024d * 1024d):N0}.");
                     foreach (var sample in readSummary.FailureSamples)
                         WriteDiagnostic($"Skipped entity sample: {sample}");
 
@@ -178,6 +186,12 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
 
             if (_disconnectRequested)
                 throw new OperationCanceledException("FM Atlas was asked to disconnect while loading.");
+
+            importStopwatch.Stop();
+            WriteDiagnostic($"Live import committed: elapsed={importStopwatch.Elapsed}; " +
+                $"workingSetMB={atlasProcess.WorkingSet64 / (1024d * 1024d):N0}; " +
+                $"managedHeapMB={GC.GetTotalMemory(forceFullCollection: false) / (1024d * 1024d):N0}; " +
+                $"players={validation.Players}; staff={validation.Staff}; clubs={validation.Clubs}.");
 
             _session = candidate;
             candidate = null;
