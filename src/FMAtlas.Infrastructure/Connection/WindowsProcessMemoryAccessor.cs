@@ -69,16 +69,32 @@ internal sealed class WindowsProcessMemoryAccessor : IDisposable
 
     public byte[] ReadBytes(ulong address, int length)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         if (length < 0 || length > 16 * 1024 * 1024)
             throw new ArgumentOutOfRangeException(nameof(length), "Memory read length is outside the safe limit.");
+
+        var buffer = new byte[length];
+        ReadBytes(address, buffer);
+        return buffer;
+    }
+
+    /// <summary>
+    /// Reads a full target range into a caller-owned buffer. Sequential live scans reuse
+    /// object buffers instead of allocating a new array for every player and staff row.
+    /// The committed/readable-page checks still run for every requested range.
+    /// </summary>
+    public void ReadBytes(ulong address, byte[] buffer)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(buffer);
+        var length = buffer.Length;
+        if (length > 16 * 1024 * 1024)
+            throw new ArgumentOutOfRangeException(nameof(buffer), "Memory read length is outside the safe limit.");
         if (length == 0)
-            return [];
+            return;
 
         ValidateUserRange(address, length);
         EnsureReadableRange(address, length);
 
-        var buffer = new byte[length];
         Interlocked.Increment(ref _readOperations);
         var ok = ReadProcessMemory(_handle, new IntPtr(unchecked((long)address)),
             buffer, (nuint)length, out var bytesRead);
@@ -90,7 +106,6 @@ internal sealed class WindowsProcessMemoryAccessor : IDisposable
         }
 
         Interlocked.Add(ref _bytesRead, (long)bytesRead);
-        return buffer;
     }
 
     public byte ReadByte(ulong address) => ReadBytes(address, 1)[0];

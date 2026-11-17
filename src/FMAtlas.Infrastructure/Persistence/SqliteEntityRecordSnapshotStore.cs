@@ -174,6 +174,8 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         if (records.Count == 0)
             return;
 
+        // Project and serialise before opening the write transaction. The database
+        // transaction then uses four prepared commands reused for every entity/field.
         var prepared = new List<(EntityRecordProjection Projection, string RecordType, string Payload, string SavedAt)>(records.Count);
         foreach (var record in records)
         {
@@ -200,98 +202,136 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         await ExecuteAsync(connection, null, "PRAGMA foreign_keys = ON;", cancellationToken).ConfigureAwait(false);
         await using var transaction = connection.BeginTransaction();
 
+        await using var entityCommand = connection.CreateCommand();
+        entityCommand.Transaction = transaction;
+        entityCommand.CommandText = """
+            INSERT INTO entities(entity_kind, source_id, provider_key, display_name, imported_at_utc)
+            VALUES ($kind, $sourceId, $provider, $displayName, $savedAt)
+            ON CONFLICT(entity_kind, provider_key, source_id)
+            DO UPDATE SET
+                display_name = COALESCE(excluded.display_name, entities.display_name),
+                imported_at_utc = excluded.imported_at_utc;
+            """;
+        entityCommand.Parameters.Add("$kind", SqliteType.Text);
+        entityCommand.Parameters.Add("$sourceId", SqliteType.Text);
+        entityCommand.Parameters.Add("$provider", SqliteType.Text);
+        entityCommand.Parameters.Add("$displayName", SqliteType.Text);
+        entityCommand.Parameters.Add("$savedAt", SqliteType.Text);
+        entityCommand.Prepare();
+
+        await using var snapshotCommand = connection.CreateCommand();
+        snapshotCommand.Transaction = transaction;
+        snapshotCommand.CommandText = """
+            INSERT INTO entity_record_snapshots(
+                entity_kind, source_id, provider_key, record_type,
+                snapshot_schema_version, payload_json, saved_at_utc)
+            VALUES ($kind, $sourceId, $provider, $recordType, $schemaVersion, $payload, $savedAt)
+            ON CONFLICT(entity_kind, provider_key, source_id, record_type)
+            DO UPDATE SET
+                snapshot_schema_version = excluded.snapshot_schema_version,
+                payload_json = excluded.payload_json,
+                saved_at_utc = excluded.saved_at_utc;
+            """;
+        snapshotCommand.Parameters.Add("$kind", SqliteType.Text);
+        snapshotCommand.Parameters.Add("$sourceId", SqliteType.Text);
+        snapshotCommand.Parameters.Add("$provider", SqliteType.Text);
+        snapshotCommand.Parameters.Add("$recordType", SqliteType.Text);
+        snapshotCommand.Parameters.Add("$schemaVersion", SqliteType.Integer);
+        snapshotCommand.Parameters.Add("$payload", SqliteType.Text);
+        snapshotCommand.Parameters.Add("$savedAt", SqliteType.Text);
+        snapshotCommand.Prepare();
+
+        await using var deleteFieldsCommand = connection.CreateCommand();
+        deleteFieldsCommand.Transaction = transaction;
+        deleteFieldsCommand.CommandText = """
+            DELETE FROM field_values
+            WHERE entity_kind = $kind AND source_id = $sourceId AND provider_key = $provider;
+            """;
+        deleteFieldsCommand.Parameters.Add("$kind", SqliteType.Text);
+        deleteFieldsCommand.Parameters.Add("$sourceId", SqliteType.Text);
+        deleteFieldsCommand.Parameters.Add("$provider", SqliteType.Text);
+        deleteFieldsCommand.Prepare();
+
+        await using var fieldCommand = connection.CreateCommand();
+        fieldCommand.Transaction = transaction;
+        fieldCommand.CommandText = """
+            INSERT INTO field_values(
+                entity_kind, source_id, provider_key, field_key, value_kind,
+                text_value, integer_value, decimal_value, date_value,
+                source_kind, evidence_status, source_version,
+                target_build_fingerprint, observed_at_utc)
+            VALUES (
+                $kind, $sourceId, $provider, $fieldKey, $valueKind,
+                $textValue, $integerValue, $decimalValue, $dateValue,
+                $sourceKind, $evidenceStatus, $sourceVersion,
+                $targetBuildFingerprint, $observedAtUtc);
+            """;
+        fieldCommand.Parameters.Add("$kind", SqliteType.Text);
+        fieldCommand.Parameters.Add("$sourceId", SqliteType.Text);
+        fieldCommand.Parameters.Add("$provider", SqliteType.Text);
+        fieldCommand.Parameters.Add("$fieldKey", SqliteType.Text);
+        fieldCommand.Parameters.Add("$valueKind", SqliteType.Text);
+        fieldCommand.Parameters.Add("$textValue", SqliteType.Text);
+        fieldCommand.Parameters.Add("$integerValue", SqliteType.Integer);
+        fieldCommand.Parameters.Add("$decimalValue", SqliteType.Real);
+        fieldCommand.Parameters.Add("$dateValue", SqliteType.Text);
+        fieldCommand.Parameters.Add("$sourceKind", SqliteType.Text);
+        fieldCommand.Parameters.Add("$evidenceStatus", SqliteType.Text);
+        fieldCommand.Parameters.Add("$sourceVersion", SqliteType.Text);
+        fieldCommand.Parameters.Add("$targetBuildFingerprint", SqliteType.Text);
+        fieldCommand.Parameters.Add("$observedAtUtc", SqliteType.Text);
+        fieldCommand.Prepare();
+
         foreach (var (projection, recordType, payload, savedAt) in prepared)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var identity = projection.Identity;
+            var kind = identity.Kind.ToString();
 
-            await ExecuteAsync(
-                connection,
-                transaction,
-                """
-                INSERT INTO entities(entity_kind, source_id, provider_key, display_name, imported_at_utc)
-                VALUES ($kind, $sourceId, $provider, $displayName, $savedAt)
-                ON CONFLICT(entity_kind, provider_key, source_id)
-                DO UPDATE SET
-                    display_name = COALESCE(excluded.display_name, entities.display_name),
-                    imported_at_utc = excluded.imported_at_utc;
-                """,
-                cancellationToken,
-                ("$kind", identity.Kind.ToString()),
-                ("$sourceId", identity.SourceId),
-                ("$provider", identity.ProviderKey),
-                ("$displayName", (object?)projection.DisplayName ?? DBNull.Value),
-                ("$savedAt", savedAt)).ConfigureAwait(false);
+            entityCommand.Parameters["$kind"].Value = kind;
+            entityCommand.Parameters["$sourceId"].Value = identity.SourceId;
+            entityCommand.Parameters["$provider"].Value = identity.ProviderKey;
+            entityCommand.Parameters["$displayName"].Value = (object?)projection.DisplayName ?? DBNull.Value;
+            entityCommand.Parameters["$savedAt"].Value = savedAt;
+            await entityCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
-            await ExecuteAsync(
-                connection,
-                transaction,
-                """
-                INSERT INTO entity_record_snapshots(
-                    entity_kind, source_id, provider_key, record_type,
-                    snapshot_schema_version, payload_json, saved_at_utc)
-                VALUES ($kind, $sourceId, $provider, $recordType, $schemaVersion, $payload, $savedAt)
-                ON CONFLICT(entity_kind, provider_key, source_id, record_type)
-                DO UPDATE SET
-                    snapshot_schema_version = excluded.snapshot_schema_version,
-                    payload_json = excluded.payload_json,
-                    saved_at_utc = excluded.saved_at_utc;
-                """,
-                cancellationToken,
-                ("$kind", identity.Kind.ToString()),
-                ("$sourceId", identity.SourceId),
-                ("$provider", identity.ProviderKey),
-                ("$recordType", recordType),
-                ("$schemaVersion", SnapshotSchemaVersion),
-                ("$payload", payload),
-                ("$savedAt", savedAt)).ConfigureAwait(false);
+            snapshotCommand.Parameters["$kind"].Value = kind;
+            snapshotCommand.Parameters["$sourceId"].Value = identity.SourceId;
+            snapshotCommand.Parameters["$provider"].Value = identity.ProviderKey;
+            snapshotCommand.Parameters["$recordType"].Value = recordType;
+            snapshotCommand.Parameters["$schemaVersion"].Value = SnapshotSchemaVersion;
+            snapshotCommand.Parameters["$payload"].Value = payload;
+            snapshotCommand.Parameters["$savedAt"].Value = savedAt;
+            await snapshotCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
-            await ExecuteAsync(
-                connection,
-                transaction,
-                """
-                DELETE FROM field_values
-                WHERE entity_kind = $kind AND source_id = $sourceId AND provider_key = $provider;
-                """,
-                cancellationToken,
-                ("$kind", identity.Kind.ToString()),
-                ("$sourceId", identity.SourceId),
-                ("$provider", identity.ProviderKey)).ConfigureAwait(false);
+            deleteFieldsCommand.Parameters["$kind"].Value = kind;
+            deleteFieldsCommand.Parameters["$sourceId"].Value = identity.SourceId;
+            deleteFieldsCommand.Parameters["$provider"].Value = identity.ProviderKey;
+            await deleteFieldsCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
             foreach (var field in projection.Fields)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await ExecuteAsync(
-                    connection,
-                    transaction,
-                    """
-                    INSERT INTO field_values(
-                        entity_kind, source_id, provider_key, field_key, value_kind,
-                        text_value, integer_value, decimal_value, date_value,
-                        source_kind, evidence_status, source_version,
-                        target_build_fingerprint, observed_at_utc)
-                    VALUES (
-                        $kind, $sourceId, $provider, $fieldKey, $valueKind,
-                        $textValue, $integerValue, $decimalValue, $dateValue,
-                        $sourceKind, $evidenceStatus, $sourceVersion,
-                        $targetBuildFingerprint, $observedAtUtc);
-                    """,
-                    cancellationToken,
-                    ("$kind", identity.Kind.ToString()),
-                    ("$sourceId", identity.SourceId),
-                    ("$provider", identity.ProviderKey),
-                    ("$fieldKey", field.Key),
-                    ("$valueKind", field.ValueKind.ToString()),
-                    ("$textValue", (object?)field.TextValue ?? DBNull.Value),
-                    ("$integerValue", (object?)(field.IntegerValue ?? (field.BooleanValue is bool flag ? (flag ? 1L : 0L) : null)) ?? DBNull.Value),
-                    ("$decimalValue", (object?)(field.DecimalValue is decimal amount ? Convert.ToDouble(amount, CultureInfo.InvariantCulture) : null) ?? DBNull.Value),
-                    ("$dateValue", (object?)field.DateValue?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value),
-                    ("$sourceKind", field.Provenance.Source.ToString()),
-                    ("$evidenceStatus", field.Provenance.EvidenceStatus.ToString()),
-                    ("$sourceVersion", (object?)field.Provenance.SourceVersion ?? DBNull.Value),
-                    ("$targetBuildFingerprint", (object?)field.Provenance.TargetBuildFingerprint ?? DBNull.Value),
-                    ("$observedAtUtc", (object?)field.Provenance.ObservedAtUtc?.ToString("O") ?? DBNull.Value))
-                    .ConfigureAwait(false);
+                fieldCommand.Parameters["$kind"].Value = kind;
+                fieldCommand.Parameters["$sourceId"].Value = identity.SourceId;
+                fieldCommand.Parameters["$provider"].Value = identity.ProviderKey;
+                fieldCommand.Parameters["$fieldKey"].Value = field.Key;
+                fieldCommand.Parameters["$valueKind"].Value = field.ValueKind.ToString();
+                fieldCommand.Parameters["$textValue"].Value = (object?)field.TextValue ?? DBNull.Value;
+                fieldCommand.Parameters["$integerValue"].Value =
+                    (object?)(field.IntegerValue ?? (field.BooleanValue is bool flag ? (flag ? 1L : 0L) : null)) ?? DBNull.Value;
+                fieldCommand.Parameters["$decimalValue"].Value =
+                    (object?)(field.DecimalValue is decimal amount ? Convert.ToDouble(amount, CultureInfo.InvariantCulture) : null) ?? DBNull.Value;
+                fieldCommand.Parameters["$dateValue"].Value =
+                    (object?)field.DateValue?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value;
+                fieldCommand.Parameters["$sourceKind"].Value = field.Provenance.Source.ToString();
+                fieldCommand.Parameters["$evidenceStatus"].Value = field.Provenance.EvidenceStatus.ToString();
+                fieldCommand.Parameters["$sourceVersion"].Value = (object?)field.Provenance.SourceVersion ?? DBNull.Value;
+                fieldCommand.Parameters["$targetBuildFingerprint"].Value =
+                    (object?)field.Provenance.TargetBuildFingerprint ?? DBNull.Value;
+                fieldCommand.Parameters["$observedAtUtc"].Value =
+                    (object?)field.Provenance.ObservedAtUtc?.ToString("O") ?? DBNull.Value;
+                await fieldCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
         }
 

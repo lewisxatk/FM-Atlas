@@ -25,11 +25,48 @@ public sealed record FM27LiveScanValidationResult(
         $"{PlayersWithTwentyInAtLeastOnePosition:N0} have a 20-rated natural position.";
 }
 
+public sealed record FM27LiveReadSummary(
+    int PlayerPointers, int PlayersRead, int PlayersSkipped,
+    int StaffPointers, int StaffRead, int StaffSkipped,
+    int ClubPointers, int ClubsRead, int ClubsSkipped,
+    IReadOnlyList<string> FailureSamples)
+{
+    public string Summary =>
+        $"Players {PlayersRead:N0}/{PlayerPointers:N0} (skipped {PlayersSkipped:N0}); " +
+        $"staff {StaffRead:N0}/{StaffPointers:N0} (skipped {StaffSkipped:N0}); " +
+        $"clubs {ClubsRead:N0}/{ClubPointers:N0} (skipped {ClubsSkipped:N0}).";
+
+    public IReadOnlyList<string> CoverageWarnings
+    {
+        get
+        {
+            var warnings = new List<string>();
+        if (readSummary is not null)
+        {
+            ValidateReadCoverage("players", readSummary.PlayerPointers, readSummary.PlayersRead, 0.90);
+            ValidateReadCoverage("staff", readSummary.StaffPointers, readSummary.StaffRead, 0.90);
+            ValidateReadCoverage("clubs", readSummary.ClubPointers, readSummary.ClubsRead, 0.90);
+            warnings.AddRange(readSummary.CoverageWarnings);
+        }
+            AddWarning("players", PlayerPointers, PlayersRead, PlayersSkipped);
+            AddWarning("staff", StaffPointers, StaffRead, StaffSkipped);
+            AddWarning("clubs", ClubPointers, ClubsRead, ClubsSkipped);
+            return warnings.AsReadOnly();
+
+            void AddWarning(string name, int pointers, int read, int skipped)
+            {
+                if (pointers > 0 && skipped > 0)
+                    warnings.Add($"FM27 {name}: {read:N0} of {pointers:N0} entries were readable; {skipped:N0} entries were skipped.");
+            }
+        }
+    }
+}
+
 public static class FM27LiveScanValidator
 {
     private const string ExpectedProvider = WindowsFm27LiveGameConnector.LiveProviderKey;
 
-    public static FM27LiveScanValidationResult Validate(IReadOnlyList<IEntityRecord> records)
+    public static FM27LiveScanValidationResult Validate(IReadOnlyList<IEntityRecord> records, FM27LiveReadSummary? readSummary = null)
     {
         ArgumentNullException.ThrowIfNull(records);
 
@@ -104,6 +141,16 @@ public static class FM27LiveScanValidator
             playersWithPositions.Length,
             playersWithNaturalPosition,
             warnings.AsReadOnly());
+    }
+
+    private static void ValidateReadCoverage(string entity, int pointers, int read, double minimum)
+    {
+        if (pointers <= 0 || read / (double)pointers < minimum)
+        {
+            var percentage = pointers <= 0 ? 0 : read / (double)pointers * 100d;
+            throw new InvalidDataException(
+                $"Only {read:N0} of {pointers:N0} {entity} entries passed the individual read checks ({percentage:0.0}%). The scan was discarded instead of indexing an incomplete or mismatched career.");
+        }
     }
 
     private static void ValidateIdentity(IEnumerable<EntityIdentity> identities, EntityKind expectedKind)

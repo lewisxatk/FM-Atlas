@@ -130,6 +130,55 @@ public sealed class FM27LiveScanValidatorTests
         Assert.Contains("Current Ability", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void AcceptsSmallNumberOfUnreadableEntitiesAndReportsThem()
+    {
+        var records = new FMAtlas.Domain.Entities.IEntityRecord[]
+        {
+            Player("1001", 150),
+            Player("1002", 110),
+            Player("1003", 80),
+            Player("1004", 90),
+            Staff("2001", 140),
+            Staff("2002", 90),
+            Club("3001")
+        };
+        var readSummary = new FM27LiveReadSummary(
+            PlayerPointers: 100, PlayersRead: 97, PlayersSkipped: 3,
+            StaffPointers: 20, StaffRead: 19, StaffSkipped: 1,
+            ClubPointers: 10, ClubsRead: 10, ClubsSkipped: 0,
+            FailureSamples: ["Player 0x1234: unreadable page"]);
+
+        var result = FM27LiveScanValidator.Validate(records, readSummary);
+
+        Assert.Contains(result.Warnings, warning => warning.Contains("3 entries were skipped"));
+        Assert.Single(readSummary.FailureSamples);
+    }
+
+    [Fact]
+    public void RejectsLargeNumberOfUnreadablePlayerEntries()
+    {
+        var records = new FMAtlas.Domain.Entities.IEntityRecord[]
+        {
+            Player("1001", 150),
+            Player("1002", 110),
+            Player("1003", 80),
+            Player("1004", 90),
+            Staff("2001", 140),
+            Staff("2002", 90),
+            Club("3001")
+        };
+        var readSummary = new FM27LiveReadSummary(
+            PlayerPointers: 100, PlayersRead: 80, PlayersSkipped: 20,
+            StaffPointers: 20, StaffRead: 19, StaffSkipped: 1,
+            ClubPointers: 10, ClubsRead: 10, ClubsSkipped: 0,
+            FailureSamples: []);
+
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, readSummary));
+
+        Assert.Contains("80 of 100 players", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static PlayerRecord Player(
         string uid,
         int? currentAbility,

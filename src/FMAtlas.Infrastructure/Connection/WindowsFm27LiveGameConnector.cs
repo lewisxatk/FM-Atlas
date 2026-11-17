@@ -277,7 +277,12 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 var records = reader.ReadAllRecords(progress, cancellationToken);
                 progress?.Report(new LiveGameLoadProgress(92, "Validating the live layout",
                     "Checking entity identities, CA values, position ratings and player-to-club links before importing."));
-                var validation = FM27LiveScanValidator.Validate(records);
+                var readSummary = reader.LastReadSummary
+                    ?? throw new InvalidDataException("The live reader did not produce an entity-read summary.");
+                WriteDiagnostic($"Entity read summary: {readSummary.Summary}");
+                foreach (var sample in readSummary.FailureSamples)
+                    WriteDiagnostic($"Skipped entity sample: {sample}");
+                var validation = FM27LiveScanValidator.Validate(records, readSummary);
                 WriteDiagnostic($"Layout validation passed: {validation.Summary}; warnings={validation.Warnings.Count}.");
                 cancellationToken.ThrowIfCancellationRequested();
                 if (session.Process.HasExited)

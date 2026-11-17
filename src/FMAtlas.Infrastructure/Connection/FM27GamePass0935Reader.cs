@@ -107,6 +107,13 @@ internal sealed class FM27GamePass0935Reader
     private readonly string _providerKey;
     private readonly Dictionary<ulong, string?> _strings = [];
     private readonly Dictionary<ulong, string?> _nameEntries = [];
+    private readonly Dictionary<ulong, ulong?> _playerPersonShifts = [];
+    private readonly Dictionary<ulong, ulong?> _staffPersonShifts = [];
+    private readonly Dictionary<ulong, (string? ClubName, string? LeagueName, string? TeamKind, uint? ClubUid)> _teamInfo = [];
+    private readonly Dictionary<ulong, string?> _nationNames = [];
+    private readonly Dictionary<ulong, string?> _cityNames = [];
+
+    public FM27LiveReadSummary? LastReadSummary { get; private set; }
 
     public FM27GamePass0935Reader(
         WindowsProcessMemoryAccessor memory,
@@ -166,6 +173,12 @@ internal sealed class FM27GamePass0935Reader
         var inGameDate = ReadInGameDate();
         var records = new List<IEntityRecord>(playerPointers.Length + staffPointers.Length + clubPointers.Length);
 
+        // Reuse object buffers. A single stale/retiring FM object no longer discards
+        // an entire career snapshot; each skipped record is counted and audited.
+        var playerBuffer = new byte[0x4C0];
+        var staffBuffer = new byte[0x4F0];
+        var clubBuffer = new byte[0xF0];
+        var contractBuffer = new byte[0xC8];
         var evidence = new FieldProvenance(
             DataSourceKind.LiveGameMemory,
             FieldEvidenceStatus.Mapped,
@@ -174,102 +187,158 @@ internal sealed class FM27GamePass0935Reader
             ObservedAtUtc: DateTimeOffset.UtcNow,
             Description: "Read from the externally mapped FM27 Game Pass 0.9.2435.0 layout. FM Atlas has not yet independently verified edit/write behaviour.");
 
+        var playerRead = 0;
+        var staffRead = 0;
+        var clubRead = 0;
+        var playerSkipped = 0;
+        var staffSkipped = 0;
+        var clubSkipped = 0;
+        var failures = new List<string>(capacity: 8);
         var processed = 0;
         var total = Math.Max(1, playerPointers.Length + staffPointers.Length + clubPointers.Length);
 
-        progress?.Report(new LiveGameLoadProgress(18, "Reading players", $"Preparing {playerPointers.Length:N0} player records."));
+        void NoteFailure(string entity, ulong address, Exception? exception)
+        {
+            if (failures.Count >= 8)
+                return;
+            var reason = exception is null ? "no usable identity/name block" : $"{exception.GetType().Name}: {exception.Message}";
+            failures.Add($"{entity} 0x{address:X}: {reason}");
+        }
+
+        progress?.Report(new LiveGameLoadProgress(18, "Reading players",
+            $"Preparing {playerPointers.Length:N0} player entries; caching FM classes, shared teams and nations."));
         foreach (var address in playerPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var player = ReadPlayer(address, evidence, inGameDate);
+                var player = ReadPlayer(address, evidence, inGameDate, playerBuffer, contractBuffer);
                 if (player is null)
-                    throw new InvalidDataException("The player object did not contain a verifiable FM player identity.");
-                records.Add(player);
+                {
+                    playerSkipped++;
+                    NoteFailure("Player", address, null);
+                }
+                else
+                {
+                    records.Add(player);
+                    playerRead++;
+                }
             }
-            catch (Exception ex) when (IsRecoverableEntityReadException(ex))
+            catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                throw new InvalidDataException(
-                    $"FM Atlas could not fully read player object 0x{address:X}. The live scan has been stopped; no partial career snapshot will be indexed.",
-                    ex);
+                playerSkipped++;
+                NoteFailure("Player", address, exception);
             }
 
             processed++;
-            if (processed % 250 == 0 || processed == playerPointers.Length)
+            if (processed % 100 == 0 || processed == playerPointers.Length)
             {
                 var percent = 18 + (int)(48.0 * processed / total);
-                progress?.Report(new LiveGameLoadProgress(percent, "Reading players", $"Read {processed:N0} of {playerPointers.Length:N0} player entries."));
+                progress?.Report(new LiveGameLoadProgress(percent, "Reading players",
+                    $"Read {processed:N0} of {playerPointers.Length:N0} entries · kept {playerRead:N0} · skipped {playerSkipped:N0}."));
             }
         }
 
-        var playerCount = records.Count;
-        progress?.Report(new LiveGameLoadProgress(67, "Reading staff", $"Preparing {staffPointers.Length:N0} staff records."));
+        var staffStart = processed;
+        progress?.Report(new LiveGameLoadProgress(67, "Reading staff",
+            $"Preparing {staffPointers.Length:N0} staff entries."));
         foreach (var address in staffPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var staff = ReadStaff(address, evidence, inGameDate);
+                var staff = ReadStaff(address, evidence, inGameDate, staffBuffer, contractBuffer);
                 if (staff is null)
-                    throw new InvalidDataException("The staff object did not contain a verifiable FM staff identity.");
-                records.Add(staff);
+                {
+                    staffSkipped++;
+                    NoteFailure("Staff", address, null);
+                }
+                else
+                {
+                    records.Add(staff);
+                    staffRead++;
+                }
             }
-            catch (Exception ex) when (IsRecoverableEntityReadException(ex))
+            catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                throw new InvalidDataException(
-                    $"FM Atlas could not fully read staff object 0x{address:X}. The live scan has been stopped; no partial career snapshot will be indexed.",
-                    ex);
+                staffSkipped++;
+                NoteFailure("Staff", address, exception);
             }
 
             processed++;
-            if (processed % 250 == 0 || processed == playerPointers.Length + staffPointers.Length)
+            if (processed % 100 == 0 || processed == playerPointers.Length + staffPointers.Length)
             {
-                var percent = 67 + (int)(16.0 * (processed - playerPointers.Length) / Math.Max(1, total - playerPointers.Length));
-                progress?.Report(new LiveGameLoadProgress(percent, "Reading staff", $"Read {processed - playerPointers.Length:N0} of {staffPointers.Length:N0} staff entries."));
+                var percent = 67 + (int)(16.0 * (processed - staffStart) / Math.Max(1, total - playerPointers.Length));
+                progress?.Report(new LiveGameLoadProgress(percent, "Reading staff",
+                    $"Read {processed - playerPointers.Length:N0} of {staffPointers.Length:N0} entries · kept {staffRead:N0} · skipped {staffSkipped:N0}."));
             }
         }
 
-        var staffCount = records.Count - playerCount;
-        progress?.Report(new LiveGameLoadProgress(84, "Reading clubs", $"Preparing {clubPointers.Length:N0} club records."));
+        var clubStart = processed;
+        progress?.Report(new LiveGameLoadProgress(84, "Reading clubs",
+            $"Preparing {clubPointers.Length:N0} club entries."));
         foreach (var address in clubPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var club = ReadClub(address, evidence);
+                var club = ReadClub(address, evidence, clubBuffer);
                 if (club is null)
-                    throw new InvalidDataException("The club object did not contain a verifiable FM club identity.");
-                records.Add(club);
+                {
+                    clubSkipped++;
+                    NoteFailure("Club", address, null);
+                }
+                else
+                {
+                    records.Add(club);
+                    clubRead++;
+                }
             }
-            catch (Exception ex) when (IsRecoverableEntityReadException(ex))
+            catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                throw new InvalidDataException(
-                    $"FM Atlas could not fully read club object 0x{address:X}. The live scan has been stopped; no partial career snapshot will be indexed.",
-                    ex);
+                clubSkipped++;
+                NoteFailure("Club", address, exception);
             }
 
             processed++;
-            if (processed % 250 == 0 || processed == total)
+            if (processed % 100 == 0 || processed == total)
             {
-                var percent = 84 + (int)(11.0 * (processed - playerPointers.Length - staffPointers.Length) / Math.Max(1, clubPointers.Length));
-                progress?.Report(new LiveGameLoadProgress(percent, "Reading clubs", $"Read {processed - playerPointers.Length - staffPointers.Length:N0} of {clubPointers.Length:N0} club entries."));
+                var percent = 84 + (int)(11.0 * (processed - clubStart) / Math.Max(1, clubPointers.Length));
+                progress?.Report(new LiveGameLoadProgress(percent, "Reading clubs",
+                    $"Read {processed - playerPointers.Length - staffPointers.Length:N0} of {clubPointers.Length:N0} entries · kept {clubRead:N0} · skipped {clubSkipped:N0}."));
             }
         }
 
-        var clubCount = records.Count - playerCount - staffCount;
-        progress?.Report(new LiveGameLoadProgress(96, "Indexing live data", $"Preparing {records.Count:N0} records for the local search index."));
-        _ = clubCount;
+        LastReadSummary = new FM27LiveReadSummary(
+            playerPointers.Length, playerRead, playerSkipped,
+            staffPointers.Length, staffRead, staffSkipped,
+            clubPointers.Length, clubRead, clubSkipped,
+            failures.AsReadOnly());
+
+        progress?.Report(new LiveGameLoadProgress(96, "Preparing live index",
+            $"{records.Count:N0} usable records collected. {LastReadSummary.Summary}"));
         return records;
     }
 
-    private PlayerRecord? ReadPlayer(ulong address, FieldProvenance evidence, DateOnly inGameDate)
+    private PlayerRecord? ReadPlayer(
+        ulong address,
+        FieldProvenance evidence,
+        DateOnly inGameDate,
+        byte[] data,
+        byte[] contractBuffer)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "player object");
-        // One contiguous object read supplies the identity, attributes, ability, contracts
+        // One contiguous object read supplies identity, attributes, ability, contracts
         // and shifted person-block fields, including the player-coach +0xF8 variant.
-        var data = _memory.ReadBytes(address, 0x4C0);
-        var shift = FindPlayerPersonShift(address, data);
+        _memory.ReadBytes(address, data);
+        var objectClass = BitConverter.ToUInt64(data, 0);
+        if (!WindowsProcessMemoryAccessor.IsUserPointer(objectClass))
+            return null;
+        if (!_playerPersonShifts.TryGetValue(objectClass, out var shift))
+        {
+            shift = FindPlayerPersonShift(address, data);
+            _playerPersonShifts[objectClass] = shift;
+        }
         if (shift is null)
             return null;
         var offset = shift.Value;
@@ -348,8 +417,15 @@ internal sealed class FM27GamePass0935Reader
         byte[]? contractData = null;
         if (WindowsProcessMemoryAccessor.IsUserPointer(contract))
         {
-            try { contractData = _memory.ReadBytes(contract, 0xC8); }
-            catch (Win32Exception) { }
+            try
+            {
+                _memory.ReadBytes(contract, contractBuffer);
+                contractData = contractBuffer;
+            }
+            catch (Exception exception) when (IsRecoverableEntityReadException(exception))
+            {
+                // Contract data is optional for a searchable player record.
+            }
         }
 
         var wage = contractData is null ? (int?)null : BitConverter.ToInt32(contractData, 0x20);
@@ -471,12 +547,23 @@ internal sealed class FM27GamePass0935Reader
         };
     }
 
-    private StaffRecord? ReadStaff(ulong address, FieldProvenance evidence, DateOnly inGameDate)
+    private StaffRecord? ReadStaff(
+        ulong address,
+        FieldProvenance evidence,
+        DateOnly inGameDate,
+        byte[] data,
+        byte[] contractBuffer)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "staff object");
-        // One bulk read covers the person fields and the human-manager +0x340 shift.
-        var data = _memory.ReadBytes(address, 0x4F0);
-        var shift = FindStaffPersonShift(address, data);
+        _memory.ReadBytes(address, data);
+        var objectClass = BitConverter.ToUInt64(data, 0);
+        if (!WindowsProcessMemoryAccessor.IsUserPointer(objectClass))
+            return null;
+        if (!_staffPersonShifts.TryGetValue(objectClass, out var shift))
+        {
+            shift = FindStaffPersonShift(address, data);
+            _staffPersonShifts[objectClass] = shift;
+        }
         if (shift is null)
             return null;
         var offset = shift.Value;
@@ -536,8 +623,15 @@ internal sealed class FM27GamePass0935Reader
         byte[]? contractData = null;
         if (WindowsProcessMemoryAccessor.IsUserPointer(contract))
         {
-            try { contractData = _memory.ReadBytes(contract, 0xC8); }
-            catch (Win32Exception) { }
+            try
+            {
+                _memory.ReadBytes(contract, contractBuffer);
+                contractData = contractBuffer;
+            }
+            catch (Exception exception) when (IsRecoverableEntityReadException(exception))
+            {
+                // Free agents and partly mapped contracts are still searchable staff records.
+            }
         }
 
         var wage = contractData is null ? (int?)null : BitConverter.ToInt32(contractData, 0x20);
@@ -603,10 +697,10 @@ internal sealed class FM27GamePass0935Reader
         };
     }
 
-    private ClubRecord? ReadClub(ulong address, FieldProvenance evidence)
+    private ClubRecord? ReadClub(ulong address, FieldProvenance evidence, byte[] data)
     {
         WindowsProcessMemoryAccessor.ValidateUserPointer(address, "club object");
-        var data = _memory.ReadBytes(address, 0xF0);
+        _memory.ReadBytes(address, data);
         var uid = BitConverter.ToUInt32(data, 0x0C);
         if (uid == 0)
             return null;
@@ -929,20 +1023,32 @@ internal sealed class FM27GamePass0935Reader
     {
         if (!WindowsProcessMemoryAccessor.IsUserPointer(nation))
             return null;
-        return ReadFmString(SafeReadPointer(nation + 0x18));
+        if (_nationNames.TryGetValue(nation, out var cached))
+            return cached;
+
+        var name = ReadFmString(SafeReadPointer(nation + 0x18));
+        _nationNames[nation] = name;
+        return name;
     }
 
     private string? ReadCityName(ulong city)
     {
         if (!WindowsProcessMemoryAccessor.IsUserPointer(city))
             return null;
-        return ReadFmString(SafeReadPointer(city + 0x18));
+        if (_cityNames.TryGetValue(city, out var cached))
+            return cached;
+
+        var name = ReadFmString(SafeReadPointer(city + 0x18));
+        _cityNames[city] = name;
+        return name;
     }
 
     private (string? ClubName, string? LeagueName, string? TeamKind, uint? ClubUid) ReadPlayerTeam(ulong team)
     {
         if (!WindowsProcessMemoryAccessor.IsUserPointer(team))
             return (null, null, null, null);
+        if (_teamInfo.TryGetValue(team, out var cached))
+            return cached;
 
         var clubObject = SafeReadPointer(team + 0x30);
         var clubName = clubObject == 0 ? null : ReadFmString(SafeReadPointer(clubObject + 0xC0));
@@ -959,7 +1065,9 @@ internal sealed class FM27GamePass0935Reader
             _ => null
         };
 
-        return (clubName, leagueName, teamKind, clubUid);
+        var result = (clubName, leagueName, teamKind, clubUid);
+        _teamInfo[team] = result;
+        return result;
     }
 
     private string? ReadPlayerClubName(ulong team)
@@ -1010,23 +1118,13 @@ internal sealed class FM27GamePass0935Reader
     private uint? ReadContractClubUid(ulong contract)
     {
         var team = SafeReadPointer(contract + 0x10);
-        if (!WindowsProcessMemoryAccessor.IsUserPointer(team))
-            return null;
-        var club = SafeReadPointer(team + 0x30);
-        if (!WindowsProcessMemoryAccessor.IsUserPointer(club))
-            return null;
-        return TryReadUInt32(club + 0x0C);
+        return ReadPlayerTeam(team).ClubUid;
     }
 
     private string? ReadContractClubName(ulong contract)
     {
         var team = SafeReadPointer(contract + 0x10);
-        if (!WindowsProcessMemoryAccessor.IsUserPointer(team))
-            return null;
-        var club = SafeReadPointer(team + 0x30);
-        if (!WindowsProcessMemoryAccessor.IsUserPointer(club))
-            return null;
-        return ReadFmString(SafeReadPointer(club + 0xC0));
+        return ReadPlayerTeam(team).ClubName;
     }
 
     private string? ReadNameEntry(ulong entry)
