@@ -267,8 +267,11 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             if (initial.Staff == 0 || initial.Clubs == 0)
                 throw new InvalidDataException("FM27's player list was found, but the staff or club list is still empty. The career may still be loading; wait and try again.");
 
+            // Pointer-array sizes are only an early structural probe, not verified entity totals.
+            // Keep them out of user-facing counts; publish totals only after records are read,
+            // validated and successfully imported into the active career snapshot.
             progress?.Report(new LiveGameLoadProgress(16, "Reading the active career",
-                $"Found {initial.Players:N0} player pointers, {initial.Staff:N0} staff pointers and {initial.Clubs:N0} club pointers."));
+                "Career data structures detected. Discovering player, staff and club records…"));
 
             var session = new LiveSession(
                 gameProcess,
