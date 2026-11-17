@@ -111,20 +111,23 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 $"saveGeneration={work.Session.SaveGeneration}; {work.Validation.Summary}");
 
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(new LiveGameLoadProgress(96, "Building the search index",
-                $"Saving {work.Records.Count:N0} player, staff and club records in one local database transaction."));
+            progress?.Report(new LiveGameLoadProgress(94, "Indexing the active career",
+                $"Writing {work.Records.Count:N0} player, staff and club records and their searchable fields."));
 
-            await _snapshotStore.DeleteProviderAsync(work.Session.ProviderKey, cancellationToken).ConfigureAwait(false);
             var saveProgress = new Progress<int>(percent =>
             {
                 var safePercent = Math.Clamp(percent, 0, 100);
-                var overallPercent = 96 + Math.Min(3, safePercent * 3 / 100);
+                var overallPercent = 94 + Math.Min(5, safePercent * 5 / 100);
                 progress?.Report(new LiveGameLoadProgress(
                     overallPercent,
-                    "Building the search index",
-                    $"Preparing and writing {work.Records.Count:N0} live records to SQLite · {safePercent}%"));
+                    "Indexing the active career",
+                    $"Indexed and saved {safePercent}% of {work.Records.Count:N0} live records"));
             });
-            await _snapshotStore.SaveSnapshotsAsync(work.Records, cancellationToken, saveProgress).ConfigureAwait(false);
+            await _snapshotStore.SaveSnapshotsAsync(
+                work.Records,
+                cancellationToken,
+                saveProgress,
+                replaceProvider: true).ConfigureAwait(false);
 
             // The game could load another save while SQLite was being populated. Do not leave those rows searchable.
             var generationAfterImport = await Task.Run(

@@ -169,35 +169,23 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
     public async Task SaveSnapshotsAsync(
         IReadOnlyCollection<IEntityRecord> records,
         CancellationToken cancellationToken = default,
-        IProgress<int>? progress = null)
+        IProgress<int>? progress = null,
+        bool replaceProvider = false)
     {
         ArgumentNullException.ThrowIfNull(records);
         if (records.Count == 0)
             return;
 
-        // Project and serialise before opening the write transaction. The database
-        // transaction then uses four prepared commands reused for every entity/field.
-        var prepared = new List<(EntityRecordProjection Projection, string RecordType, string Payload, string SavedAt)>(records.Count);
-        foreach (var record in records)
+        const int RecordBatchSize = 100;
+        const int FieldBatchSize = 60; // 60 × 14 parameters stays below SQLite's historic 999-variable limit.
+
+        string? replacementProviderKey = null;
+        if (replaceProvider)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ArgumentNullException.ThrowIfNull(record);
-
-            var projection = _projector.Project(record);
-            ValidateIdentity(projection.Identity);
-            foreach (var field in projection.Fields)
-            {
-                if (string.IsNullOrWhiteSpace(field.Key) || !field.HasValidValueShape())
-                    throw new InvalidOperationException($"Projected field '{field.Key}' has an invalid value shape.");
-            }
-
-            prepared.Add((
-                projection,
-                record.GetType().FullName ?? record.GetType().Name,
-                JsonSerializer.Serialize(record, record.GetType(), JsonOptions),
-                DateTimeOffset.UtcNow.ToString("O")));
-            if (prepared.Count % 250 == 0 || prepared.Count == records.Count)
-                progress?.Report(Math.Clamp((int)(prepared.Count * 20L / records.Count), 0, 20));
+            var first = records.FirstOrDefault()
+                ?? throw new ArgumentException("The batch cannot contain a null record.", nameof(records));
+            ValidateIdentity(first.Identity);
+            replacementProviderKey = first.Identity.ProviderKey;
         }
 
         await using var connection = new SqliteConnection(_connectionString);
@@ -205,147 +193,200 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         await ExecuteAsync(connection, null, "PRAGMA foreign_keys = ON;", cancellationToken).ConfigureAwait(false);
         await using var transaction = connection.BeginTransaction();
 
-        await using var entityCommand = connection.CreateCommand();
-        entityCommand.Transaction = transaction;
-        entityCommand.CommandText = """
+        // A provider replacement is atomic: the old provider rows are removed inside
+        // the same transaction that writes the new snapshot and index.
+        if (replaceProvider)
+        {
+            await using var deleteProviderCommand = connection.CreateCommand();
+            deleteProviderCommand.Transaction = transaction;
+            deleteProviderCommand.CommandText = "DELETE FROM entities WHERE provider_key = $provider;";
+            deleteProviderCommand.Parameters.AddWithValue("$provider", replacementProviderKey!);
+            await deleteProviderCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        const string EntityInsertSql = """
             INSERT INTO entities(entity_kind, source_id, provider_key, display_name, imported_at_utc)
-            VALUES ($kind, $sourceId, $provider, $displayName, $savedAt)
+            """;
+        const string EntityConflictSql = """
             ON CONFLICT(entity_kind, provider_key, source_id)
             DO UPDATE SET
                 display_name = COALESCE(excluded.display_name, entities.display_name),
                 imported_at_utc = excluded.imported_at_utc;
             """;
-        entityCommand.Parameters.Add("$kind", SqliteType.Text);
-        entityCommand.Parameters.Add("$sourceId", SqliteType.Text);
-        entityCommand.Parameters.Add("$provider", SqliteType.Text);
-        entityCommand.Parameters.Add("$displayName", SqliteType.Text);
-        entityCommand.Parameters.Add("$savedAt", SqliteType.Text);
-        entityCommand.Prepare();
-
-        await using var snapshotCommand = connection.CreateCommand();
-        snapshotCommand.Transaction = transaction;
-        snapshotCommand.CommandText = """
+        const string SnapshotInsertSql = """
             INSERT INTO entity_record_snapshots(
                 entity_kind, source_id, provider_key, record_type,
                 snapshot_schema_version, payload_json, saved_at_utc)
-            VALUES ($kind, $sourceId, $provider, $recordType, $schemaVersion, $payload, $savedAt)
+            """;
+        const string SnapshotConflictSql = """
             ON CONFLICT(entity_kind, provider_key, source_id, record_type)
             DO UPDATE SET
                 snapshot_schema_version = excluded.snapshot_schema_version,
                 payload_json = excluded.payload_json,
                 saved_at_utc = excluded.saved_at_utc;
             """;
-        snapshotCommand.Parameters.Add("$kind", SqliteType.Text);
-        snapshotCommand.Parameters.Add("$sourceId", SqliteType.Text);
-        snapshotCommand.Parameters.Add("$provider", SqliteType.Text);
-        snapshotCommand.Parameters.Add("$recordType", SqliteType.Text);
-        snapshotCommand.Parameters.Add("$schemaVersion", SqliteType.Integer);
-        snapshotCommand.Parameters.Add("$payload", SqliteType.Text);
-        snapshotCommand.Parameters.Add("$savedAt", SqliteType.Text);
-        snapshotCommand.Prepare();
-
-        await using var deleteFieldsCommand = connection.CreateCommand();
-        deleteFieldsCommand.Transaction = transaction;
-        deleteFieldsCommand.CommandText = """
-            DELETE FROM field_values
-            WHERE entity_kind = $kind AND source_id = $sourceId AND provider_key = $provider;
-            """;
-        deleteFieldsCommand.Parameters.Add("$kind", SqliteType.Text);
-        deleteFieldsCommand.Parameters.Add("$sourceId", SqliteType.Text);
-        deleteFieldsCommand.Parameters.Add("$provider", SqliteType.Text);
-        deleteFieldsCommand.Prepare();
-
-        await using var fieldCommand = connection.CreateCommand();
-        fieldCommand.Transaction = transaction;
-        fieldCommand.CommandText = """
+        const string FieldInsertSql = """
             INSERT INTO field_values(
                 entity_kind, source_id, provider_key, field_key, value_kind,
                 text_value, integer_value, decimal_value, date_value,
                 source_kind, evidence_status, source_version,
                 target_build_fingerprint, observed_at_utc)
-            VALUES (
-                $kind, $sourceId, $provider, $fieldKey, $valueKind,
-                $textValue, $integerValue, $decimalValue, $dateValue,
-                $sourceKind, $evidenceStatus, $sourceVersion,
-                $targetBuildFingerprint, $observedAtUtc);
             """;
-        fieldCommand.Parameters.Add("$kind", SqliteType.Text);
-        fieldCommand.Parameters.Add("$sourceId", SqliteType.Text);
-        fieldCommand.Parameters.Add("$provider", SqliteType.Text);
-        fieldCommand.Parameters.Add("$fieldKey", SqliteType.Text);
-        fieldCommand.Parameters.Add("$valueKind", SqliteType.Text);
-        fieldCommand.Parameters.Add("$textValue", SqliteType.Text);
-        fieldCommand.Parameters.Add("$integerValue", SqliteType.Integer);
-        fieldCommand.Parameters.Add("$decimalValue", SqliteType.Real);
-        fieldCommand.Parameters.Add("$dateValue", SqliteType.Text);
-        fieldCommand.Parameters.Add("$sourceKind", SqliteType.Text);
-        fieldCommand.Parameters.Add("$evidenceStatus", SqliteType.Text);
-        fieldCommand.Parameters.Add("$sourceVersion", SqliteType.Text);
-        fieldCommand.Parameters.Add("$targetBuildFingerprint", SqliteType.Text);
-        fieldCommand.Parameters.Add("$observedAtUtc", SqliteType.Text);
-        fieldCommand.Prepare();
+        const string DeleteFieldsSql = """
+            DELETE FROM field_values
+            WHERE entity_kind = $kind AND source_id = $sourceId AND provider_key = $provider;
+            """;
 
-        var persisted = 0;
-        foreach (var (projection, recordType, payload, savedAt) in prepared)
+        using var entityBatchCommand = new BulkInsertCommand(
+            connection, transaction, EntityInsertSql, EntityConflictSql, RecordBatchSize, 5);
+        using var snapshotBatchCommand = new BulkInsertCommand(
+            connection, transaction, SnapshotInsertSql, SnapshotConflictSql, RecordBatchSize, 7);
+        using var fieldBatchCommand = new BulkInsertCommand(
+            connection, transaction, FieldInsertSql, string.Empty, FieldBatchSize, 14);
+
+        await using var deleteFieldsCommand = connection.CreateCommand();
+        deleteFieldsCommand.Transaction = transaction;
+        deleteFieldsCommand.CommandText = DeleteFieldsSql;
+        deleteFieldsCommand.Parameters.Add("$kind", SqliteType.Text);
+        deleteFieldsCommand.Parameters.Add("$sourceId", SqliteType.Text);
+        deleteFieldsCommand.Parameters.Add("$provider", SqliteType.Text);
+        deleteFieldsCommand.Prepare();
+
+        var pendingFieldRows = new List<object?[]>(FieldBatchSize);
+        using var enumerator = records.GetEnumerator();
+        var processed = 0;
+
+        while (processed < records.Count)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var identity = projection.Identity;
-            var kind = identity.Kind.ToString();
+            var batchSize = Math.Min(RecordBatchSize, records.Count - processed);
+            var prepared = new List<(EntityRecordProjection Projection, string RecordType, string Payload, string SavedAt)>(batchSize);
 
-            entityCommand.Parameters["$kind"].Value = kind;
-            entityCommand.Parameters["$sourceId"].Value = identity.SourceId;
-            entityCommand.Parameters["$provider"].Value = identity.ProviderKey;
-            entityCommand.Parameters["$displayName"].Value = (object?)projection.DisplayName ?? DBNull.Value;
-            entityCommand.Parameters["$savedAt"].Value = savedAt;
-            await entityCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-            snapshotCommand.Parameters["$kind"].Value = kind;
-            snapshotCommand.Parameters["$sourceId"].Value = identity.SourceId;
-            snapshotCommand.Parameters["$provider"].Value = identity.ProviderKey;
-            snapshotCommand.Parameters["$recordType"].Value = recordType;
-            snapshotCommand.Parameters["$schemaVersion"].Value = SnapshotSchemaVersion;
-            snapshotCommand.Parameters["$payload"].Value = payload;
-            snapshotCommand.Parameters["$savedAt"].Value = savedAt;
-            await snapshotCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-            deleteFieldsCommand.Parameters["$kind"].Value = kind;
-            deleteFieldsCommand.Parameters["$sourceId"].Value = identity.SourceId;
-            deleteFieldsCommand.Parameters["$provider"].Value = identity.ProviderKey;
-            await deleteFieldsCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-            foreach (var field in projection.Fields)
+            for (var index = 0; index < batchSize; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                fieldCommand.Parameters["$kind"].Value = kind;
-                fieldCommand.Parameters["$sourceId"].Value = identity.SourceId;
-                fieldCommand.Parameters["$provider"].Value = identity.ProviderKey;
-                fieldCommand.Parameters["$fieldKey"].Value = field.Key;
-                fieldCommand.Parameters["$valueKind"].Value = field.ValueKind.ToString();
-                fieldCommand.Parameters["$textValue"].Value = (object?)field.TextValue ?? DBNull.Value;
-                fieldCommand.Parameters["$integerValue"].Value =
-                    (object?)(field.IntegerValue ?? (field.BooleanValue is bool flag ? (flag ? 1L : 0L) : null)) ?? DBNull.Value;
-                fieldCommand.Parameters["$decimalValue"].Value =
-                    (object?)(field.DecimalValue is decimal amount ? Convert.ToDouble(amount, CultureInfo.InvariantCulture) : null) ?? DBNull.Value;
-                fieldCommand.Parameters["$dateValue"].Value =
-                    (object?)field.DateValue?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value;
-                fieldCommand.Parameters["$sourceKind"].Value = field.Provenance.Source.ToString();
-                fieldCommand.Parameters["$evidenceStatus"].Value = field.Provenance.EvidenceStatus.ToString();
-                fieldCommand.Parameters["$sourceVersion"].Value = (object?)field.Provenance.SourceVersion ?? DBNull.Value;
-                fieldCommand.Parameters["$targetBuildFingerprint"].Value =
-                    (object?)field.Provenance.TargetBuildFingerprint ?? DBNull.Value;
-                fieldCommand.Parameters["$observedAtUtc"].Value =
-                    (object?)field.Provenance.ObservedAtUtc?.ToString("O") ?? DBNull.Value;
-                await fieldCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                if (!enumerator.MoveNext())
+                    throw new InvalidOperationException("The record collection changed while it was being imported.");
+
+                var record = enumerator.Current
+                    ?? throw new ArgumentException("The batch cannot contain a null record.", nameof(records));
+                var projection = _projector.Project(record);
+                ValidateIdentity(projection.Identity);
+
+                if (replaceProvider &&
+                    !string.Equals(projection.Identity.ProviderKey, replacementProviderKey, StringComparison.Ordinal))
+                {
+                    throw new ArgumentException(
+                        "A provider-replacement batch must contain records from exactly one provider.",
+                        nameof(records));
+                }
+
+                foreach (var field in projection.Fields)
+                {
+                    if (string.IsNullOrWhiteSpace(field.Key) || !field.HasValidValueShape())
+                        throw new InvalidOperationException($"Projected field '{field.Key}' has an invalid value shape.");
+                }
+
+                prepared.Add((
+                    projection,
+                    record.GetType().FullName ?? record.GetType().Name,
+                    JsonSerializer.Serialize(record, record.GetType(), JsonOptions),
+                    DateTimeOffset.UtcNow.ToString("O")));
             }
 
-            persisted++;
-            if (persisted % 100 == 0 || persisted == prepared.Count)
-                progress?.Report(20 + Math.Clamp((int)(persisted * 80L / prepared.Count), 0, 80));
+            var entityRows = new List<object?[]>(prepared.Count);
+            var snapshotRows = new List<object?[]>(prepared.Count);
+            foreach (var record in prepared)
+            {
+                var identity = record.Projection.Identity;
+                entityRows.Add([
+                    identity.Kind.ToString(),
+                    identity.SourceId,
+                    identity.ProviderKey,
+                    (object?)record.Projection.DisplayName ?? DBNull.Value,
+                    record.SavedAt
+                ]);
+                snapshotRows.Add([
+                    identity.Kind.ToString(),
+                    identity.SourceId,
+                    identity.ProviderKey,
+                    record.RecordType,
+                    SnapshotSchemaVersion,
+                    record.Payload,
+                    record.SavedAt
+                ]);
+
+                // Normal upserts replace a record's previous projection. A provider
+                // replacement has already cleared every field row once inside this transaction.
+                if (!replaceProvider)
+                {
+                    deleteFieldsCommand.Parameters["$kind"].Value = identity.Kind.ToString();
+                    deleteFieldsCommand.Parameters["$sourceId"].Value = identity.SourceId;
+                    deleteFieldsCommand.Parameters["$provider"].Value = identity.ProviderKey;
+                    await deleteFieldsCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                foreach (var field in record.Projection.Fields)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    pendingFieldRows.Add(BuildFieldValueRow(identity, field));
+                    if (pendingFieldRows.Count == FieldBatchSize)
+                    {
+                        fieldBatchCommand.Execute(pendingFieldRows);
+                        pendingFieldRows.Clear();
+                    }
+                }
+            }
+
+            if (prepared.Count == RecordBatchSize)
+            {
+                entityBatchCommand.Execute(entityRows);
+                snapshotBatchCommand.Execute(snapshotRows);
+            }
+            else
+            {
+                using var partialEntityCommand = new BulkInsertCommand(
+                    connection, transaction, EntityInsertSql, EntityConflictSql, entityRows.Count, 5);
+                using var partialSnapshotCommand = new BulkInsertCommand(
+                    connection, transaction, SnapshotInsertSql, SnapshotConflictSql, snapshotRows.Count, 7);
+                partialEntityCommand.Execute(entityRows);
+                partialSnapshotCommand.Execute(snapshotRows);
+            }
+
+            processed += prepared.Count;
+            // Report completed records, not the old two-stage 0–20 / 20–100 sub-scale.
+            // Keep 100% for after the final field batch and transaction commit.
+            progress?.Report(Math.Min(99, Math.Clamp((int)(processed * 100L / records.Count), 0, 99)));
+        }
+
+        if (pendingFieldRows.Count > 0)
+        {
+            using var partialFieldCommand = new BulkInsertCommand(
+                connection, transaction, FieldInsertSql, string.Empty, pendingFieldRows.Count, 14);
+            partialFieldCommand.Execute(pendingFieldRows);
         }
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(100);
     }
+
+    private static object?[] BuildFieldValueRow(EntityIdentity identity, EntityFieldProjection field) =>
+    [
+        identity.Kind.ToString(),
+        identity.SourceId,
+        identity.ProviderKey,
+        field.Key,
+        field.ValueKind.ToString(),
+        (object?)field.TextValue ?? DBNull.Value,
+        (object?)(field.IntegerValue ?? (field.BooleanValue is bool flag ? (flag ? 1L : 0L) : null)) ?? DBNull.Value,
+        (object?)(field.DecimalValue is decimal amount ? Convert.ToDouble(amount, CultureInfo.InvariantCulture) : null) ?? DBNull.Value,
+        (object?)field.DateValue?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value,
+        field.Provenance.Source.ToString(),
+        field.Provenance.EvidenceStatus.ToString(),
+        (object?)field.Provenance.SourceVersion ?? DBNull.Value,
+        (object?)field.Provenance.TargetBuildFingerprint ?? DBNull.Value,
+        (object?)field.Provenance.ObservedAtUtc?.ToString("O") ?? DBNull.Value
+    ];
 
     public async Task DeleteProviderAsync(
         string providerKey,
@@ -477,6 +518,78 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
 
     private static string GetRecordType<TRecord>() =>
         typeof(TRecord).FullName ?? typeof(TRecord).Name;
+
+    /// <summary>
+    /// Reuses one prepared multi-row INSERT statement. Batches of 60 field rows use
+    /// 840 bind parameters, safely below SQLite's historical 999 parameter limit.
+    /// </summary>
+    private sealed class BulkInsertCommand : IDisposable
+    {
+        private readonly SqliteCommand _command;
+        private readonly SqliteParameter[,] _parameters;
+        private readonly int _rowCount;
+        private readonly int _columnCount;
+
+        public BulkInsertCommand(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string insertSql,
+            string conflictSql,
+            int rowCount,
+            int columnCount)
+        {
+            if (rowCount <= 0)
+                throw new ArgumentOutOfRangeException(nameof(rowCount));
+            if (columnCount <= 0)
+                throw new ArgumentOutOfRangeException(nameof(columnCount));
+
+            _rowCount = rowCount;
+            _columnCount = columnCount;
+            _parameters = new SqliteParameter[rowCount, columnCount];
+            _command = connection.CreateCommand();
+            _command.Transaction = transaction;
+
+            var valueRows = new string[rowCount];
+            for (var row = 0; row < rowCount; row++)
+            {
+                var parameterNames = new string[columnCount];
+                for (var column = 0; column < columnCount; column++)
+                {
+                    var parameter = new SqliteParameter
+                    {
+                        ParameterName = $"$p{row}_{column}"
+                    };
+                    _parameters[row, column] = parameter;
+                    _command.Parameters.Add(parameter);
+                    parameterNames[column] = parameter.ParameterName;
+                }
+
+                valueRows[row] = $"({string.Join(", ", parameterNames)})";
+            }
+
+            _command.CommandText = $"{insertSql} VALUES {string.Join(", ", valueRows)} {conflictSql}";
+            _command.Prepare();
+        }
+
+        public void Execute(IReadOnlyList<object?[]> rows)
+        {
+            if (rows.Count != _rowCount)
+                throw new ArgumentException($"This prepared command expects exactly {_rowCount} rows.", nameof(rows));
+
+            for (var row = 0; row < _rowCount; row++)
+            {
+                if (rows[row].Length != _columnCount)
+                    throw new ArgumentException($"Bulk row {row} must contain exactly {_columnCount} values.", nameof(rows));
+
+                for (var column = 0; column < _columnCount; column++)
+                    _parameters[row, column].Value = rows[row][column] ?? DBNull.Value;
+            }
+
+            _command.ExecuteNonQuery();
+        }
+
+        public void Dispose() => _command.Dispose();
+    }
 
     private static JsonSerializerOptions CreateJsonOptions()
     {

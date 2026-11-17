@@ -311,6 +311,53 @@ public sealed class LiveGameBatchImportTests
         Assert.Empty(results);
     }
 
+    [Fact]
+    public async Task ProviderReplacementRemovesStaleLiveRowsAndPreservesOtherProviders()
+    {
+        using var temp = new TemporaryDirectory();
+        var databasePath = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(databasePath).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(databasePath);
+        var batch = (IEntityRecordBatchSnapshotStore)store;
+        const string liveProvider = "live-fm27-gamepass-test";
+        const string csvProvider = "fm27-view-export:provider-test";
+
+        IEntityRecord[] initial =
+        [
+            new PlayerRecord(new EntityIdentity(EntityKind.Player, "old-live-player", liveProvider))
+            {
+                FullName = new SourcedValue<string>("Stale Live Player", LiveEvidence)
+            },
+            new PlayerRecord(new EntityIdentity(EntityKind.Player, "csv-player", csvProvider))
+            {
+                FullName = new SourcedValue<string>("Preserved CSV Player", new FieldProvenance(
+                    DataSourceKind.GameExport, FieldEvidenceStatus.Mapped))
+            }
+        ];
+        await batch.SaveSnapshotsAsync(initial);
+
+        IEntityRecord[] refreshed =
+        [
+            new PlayerRecord(new EntityIdentity(EntityKind.Player, "new-live-player", liveProvider))
+            {
+                FullName = new SourcedValue<string>("Current Live Player", LiveEvidence),
+                CurrentAbility = new SourcedValue<int>(150, LiveEvidence),
+                PotentialAbility = new SourcedValue<int>(185, LiveEvidence)
+            }
+        ];
+        await batch.SaveSnapshotsAsync(refreshed, replaceProvider: true);
+
+        var search = new SqliteEntitySearchProvider(databasePath);
+        Assert.Empty(await search.QuickSearchAsync("Stale Live"));
+        Assert.Single(await search.QuickSearchAsync("Current Live"));
+        Assert.Single(await search.QuickSearchAsync("Preserved CSV"));
+
+        var snapshot = await store.GetSnapshotAsync<PlayerRecord>(
+            new EntityIdentity(EntityKind.Player, "new-live-player", liveProvider));
+        Assert.Equal(150, snapshot?.CurrentAbility?.Value);
+        Assert.Equal(185, snapshot?.PotentialAbility?.Value);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =
