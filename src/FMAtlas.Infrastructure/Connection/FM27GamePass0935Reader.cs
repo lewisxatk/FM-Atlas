@@ -211,20 +211,20 @@ internal sealed class FM27GamePass0935Reader
         {
             cancellationToken.ThrowIfCancellationRequested();
             PlayerRecord? player = null;
+            Exception? readFailure = null;
             try
             {
                 player = ReadPlayer(address, evidence, inGameDate, playerBuffer, contractBuffer);
             }
             catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                NoteFailure("Player", address, exception);
+                readFailure = exception;
             }
 
             if (player is null)
             {
                 playerSkipped++;
-                if (failures.Count < 8)
-                    NoteFailure("Player", address, null);
+                NoteFailure("Player", address, readFailure);
             }
             else
             {
@@ -248,20 +248,20 @@ internal sealed class FM27GamePass0935Reader
         {
             cancellationToken.ThrowIfCancellationRequested();
             StaffRecord? staff = null;
+            Exception? readFailure = null;
             try
             {
                 staff = ReadStaff(address, evidence, inGameDate, staffBuffer, contractBuffer);
             }
             catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                NoteFailure("Staff", address, exception);
+                readFailure = exception;
             }
 
             if (staff is null)
             {
                 staffSkipped++;
-                if (failures.Count < 8)
-                    NoteFailure("Staff", address, null);
+                NoteFailure("Staff", address, readFailure);
             }
             else
             {
@@ -285,20 +285,20 @@ internal sealed class FM27GamePass0935Reader
         {
             cancellationToken.ThrowIfCancellationRequested();
             ClubRecord? club = null;
+            Exception? readFailure = null;
             try
             {
                 club = ReadClub(address, evidence, clubBuffer);
             }
             catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                NoteFailure("Club", address, exception);
+                readFailure = exception;
             }
 
             if (club is null)
             {
                 clubSkipped++;
-                if (failures.Count < 8)
-                    NoteFailure("Club", address, null);
+                NoteFailure("Club", address, readFailure);
             }
             else
             {

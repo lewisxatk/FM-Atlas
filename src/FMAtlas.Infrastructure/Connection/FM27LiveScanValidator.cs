@@ -69,7 +69,8 @@ public static class FM27LiveScanValidator
         private readonly HashSet<string> _playerIds = new(StringComparer.Ordinal);
         private readonly HashSet<string> _staffIds = new(StringComparer.Ordinal);
         private readonly HashSet<string> _clubIds = new(StringComparer.Ordinal);
-        private readonly HashSet<string> _playerClubReferences = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> _playerClubReferenceCounts = new(StringComparer.Ordinal);
+        private int _playerClubReferenceCount;
 
         private int _players;
         private int _staff;
@@ -100,7 +101,11 @@ public static class FM27LiveScanValidator
                             _playersWithTwentyPositions++;
                     }
                     if (player.SearchIntegerFields.TryGetValue("club_uid", out var clubUid))
-                        _playerClubReferences.Add(clubUid.Value.ToString(CultureInfo.InvariantCulture));
+                    {
+                        var key = clubUid.Value.ToString(CultureInfo.InvariantCulture);
+                        _playerClubReferenceCounts[key] = _playerClubReferenceCounts.GetValueOrDefault(key) + 1;
+                        _playerClubReferenceCount++;
+                    }
 
                     ValidatePlayerRanges(player);
                     break;
@@ -152,13 +157,15 @@ public static class FM27LiveScanValidator
             RequireCoverage(_staffWithCa, _staff, 0.50,
                 "Staff Current Ability values did not validate for enough records.");
 
-            if (_playerClubReferences.Count >= 100)
+            if (_playerClubReferenceCount >= 100)
             {
-                var linked = _playerClubReferences.Count(_clubIds.Contains);
-                var coverage = linked / (double)_playerClubReferences.Count;
+                var linked = _playerClubReferenceCounts
+                    .Where(pair => _clubIds.Contains(pair.Key))
+                    .Sum(pair => pair.Value);
+                var coverage = linked / (double)_playerClubReferenceCount;
                 if (coverage < 0.75)
                     throw new InvalidDataException(
-                        $"Player-to-club identity validation failed ({linked:N0} of {_playerClubReferences.Count:N0} club links matched the imported club list). The scan was discarded.");
+                        $"Player-to-club identity validation failed ({linked:N0} of {_playerClubReferenceCount:N0} club links matched the imported club list). The scan was discarded.");
             }
             else
             {

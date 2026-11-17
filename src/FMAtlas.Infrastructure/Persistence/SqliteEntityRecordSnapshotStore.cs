@@ -388,11 +388,9 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
             partialFieldCommand.Execute(pendingFieldRows);
         }
 
-        // The caller validates the completed stream and rechecks the active save while
-        // the transaction is still open. Any failure here rolls every row back.
-        if (beforeCommit is not null)
-            await beforeCommit(cancellationToken).ConfigureAwait(false);
-
+        // Rebuild secondary indexes once, after the bulk insert, rather than
+        // maintaining them for every field row. This is still part of the transaction.
+        progress?.Report(99);
         await ExecuteAsync(connection, transaction,
             "CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(entity_kind, display_name COLLATE NOCASE);",
             cancellationToken).ConfigureAwait(false);
@@ -408,6 +406,11 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         await ExecuteAsync(connection, transaction,
             "CREATE INDEX IF NOT EXISTS idx_record_snapshots_saved ON entity_record_snapshots(saved_at_utc);",
             cancellationToken).ConfigureAwait(false);
+
+        // Do final validation and active-save recheck after the potentially long index
+        // build, immediately before commit. A changed career still rolls everything back.
+        if (beforeCommit is not null)
+            await beforeCommit(cancellationToken).ConfigureAwait(false);
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(100);
