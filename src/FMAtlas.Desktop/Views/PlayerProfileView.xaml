@@ -6,6 +6,42 @@
              FontFamily="Segoe UI"
              UseLayoutRounding="True"
              SnapsToDevicePixels="True">
+    <UserControl.Resources>
+        <Style x:Key="PlayerPositionTileButton" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{Binding Fill}"/>
+            <Setter Property="Foreground" Value="{Binding TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{Binding BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="{Binding BorderThickness}"/>
+            <Setter Property="Padding" Value="1"/>
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="TileSurface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TileSurface" Property="Opacity" Value="0.82"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TileSurface" Property="Opacity" Value="0.68"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="TileSurface" Property="Opacity" Value="0.42"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     <Grid Margin="20,16,20,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -230,21 +266,48 @@
                         <TextBlock Text="{Binding SeasonStatisticsEmptyText}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15" Margin="0,0,0,10">
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="12" Margin="0,0,0,10">
                     <StackPanel>
-                        <TextBlock Text="POSITIONS &amp; SUITABILITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
-                        <ItemsControl ItemsSource="{Binding PositionRatings}" Margin="0,10,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,2" ToolTip="{Binding EvidenceText}">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding DisplayName}" FontSize="10" Foreground="{StaticResource Atlas.Muted}"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource Atlas.Text}"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="{Binding PositionRatingsEmptyText}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                        <TextBlock Text="POSITIONS &amp; FAMILIARITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <Border Background="#142019" BorderBrush="#385541" BorderThickness="1" CornerRadius="5" Padding="5" Margin="0,9,0,0">
+                            <Grid Width="216" Height="206">
+                                <Rectangle Stroke="#52745A" StrokeThickness="1"/>
+                                <Line X1="0" Y1="103" X2="216" Y2="103" Stroke="#52745A" StrokeThickness="1"/>
+                                <Ellipse Width="38" Height="38" Stroke="#52745A" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Rectangle Width="72" Height="24" Stroke="#52745A" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Rectangle Width="72" Height="24" Stroke="#52745A" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+                                <ItemsControl ItemsSource="{Binding PositionPitchTiles}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><Canvas Width="216" Height="206"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding Left}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Top}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ToggleButton Width="54" Height="26"
+                                                          Style="{StaticResource PlayerPositionTileButton}"
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          Command="{Binding DataContext.SelectPositionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                          CommandParameter="{Binding}"
+                                                          ToolTip="{Binding ToolTip}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Position}" FontSize="9" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding RatingText}" FontFamily="Consolas" FontSize="9" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </ToggleButton>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                        <TextBlock Text="{Binding SelectedPositionDetail}" FontSize="9" Foreground="{StaticResource Atlas.Text}" TextWrapping="Wrap" Margin="0,8,0,7"/>
+                        <TextBlock Text="18–20 Natural  ·  15–17 Accomplished  ·  12–14 Competent" FontSize="8" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                        <TextBlock Text="9–11 Unconvincing  ·  5–8 Awkward  ·  1–4 Makeshift" FontSize="8" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                        <TextBlock Text="Colour represents FM's 1–20 position familiarity, not a scout role rating." FontSize="8" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15">
