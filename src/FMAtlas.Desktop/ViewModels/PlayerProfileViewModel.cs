@@ -485,7 +485,7 @@ public sealed class PlayerPositionTileViewModel : INotifyPropertyChanged
             : $"{rating.Provenance.Source} · {rating.Provenance.EvidenceStatus}";
         Left = left;
         Top = top;
-        (TierText, Fill) = Rating switch
+        var presentation = Rating switch
         {
             >= 18 and <= 20 => ("Natural", CreateBrush(0x2E, 0x7C, 0x57)),
             >= 15 and <= 17 => ("Accomplished", CreateBrush(0x3C, 0x74, 0x86)),
@@ -495,6 +495,8 @@ public sealed class PlayerPositionTileViewModel : INotifyPropertyChanged
             >= 1 and <= 4 => ("Makeshift", CreateBrush(0x91, 0x47, 0x49)),
             _ => ("Not rated", CreateBrush(0x4B, 0x52, 0x5A))
         };
+        TierText = presentation.Item1;
+        Fill = presentation.Item2;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
