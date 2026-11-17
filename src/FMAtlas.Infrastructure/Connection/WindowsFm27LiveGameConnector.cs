@@ -332,7 +332,6 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 initial.Players,
                 initial.Staff,
                 initial.Clubs);
-            }
         }
         catch
         {
