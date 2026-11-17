@@ -337,10 +337,12 @@ internal sealed class FM27GamePass0935Reader
         if (!_playerPersonShifts.TryGetValue(objectClass, out var shift))
         {
             shift = FindPlayerPersonShift(address, data);
+            // Do not cache an unresolved class: its first array member may be a
+            // placeholder. A later member of the same class may expose the UID.
+            if (shift is null)
+                return null;
             _playerPersonShifts[objectClass] = shift;
         }
-        if (shift is null)
-            return null;
         var offset = shift.Value;
 
         byte B(ulong field, ulong personShift = 0) => data[checked((int)(field + personShift))];
@@ -562,10 +564,11 @@ internal sealed class FM27GamePass0935Reader
         if (!_staffPersonShifts.TryGetValue(objectClass, out var shift))
         {
             shift = FindStaffPersonShift(address, data);
+            // A null/empty object must not poison the class-level shift cache.
+            if (shift is null)
+                return null;
             _staffPersonShifts[objectClass] = shift;
         }
-        if (shift is null)
-            return null;
         var offset = shift.Value;
 
         byte B(ulong field, ulong personShift = 0) => data[checked((int)(field + personShift))];
@@ -909,7 +912,9 @@ internal sealed class FM27GamePass0935Reader
             }
         }
 
-        return bestScore >= 2 ? bestShift : null;
+        // UID is sufficient to retain the record. Names can be absent on
+        // name-patched saves; ReadPlayer supplies a UID fallback for display.
+        return bestScore > 0 ? bestShift : null;
     }
 
     private ulong? FindStaffPersonShift(ulong address, byte[] data)
