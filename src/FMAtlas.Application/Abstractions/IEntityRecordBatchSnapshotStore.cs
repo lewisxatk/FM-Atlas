@@ -9,10 +9,12 @@ namespace FMAtlas.Application.Abstractions;
 public interface IEntityRecordBatchSnapshotStore
 {
     Task SaveSnapshotsAsync(
-        IReadOnlyCollection<IEntityRecord> records,
+        IEnumerable<IEntityRecord> records,
         CancellationToken cancellationToken = default,
         IProgress<int>? progress = null,
-        bool replaceProvider = false);
+        bool replaceProvider = false,
+        Func<CancellationToken, Task>? beforeCommit = null,
+        int? expectedRecordCount = null);
 
     Task DeleteProviderAsync(
         string providerKey,

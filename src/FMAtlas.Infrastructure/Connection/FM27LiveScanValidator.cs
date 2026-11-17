@@ -1,3 +1,4 @@
+using System.Globalization;
 using FMAtlas.Domain.Clubs;
 using FMAtlas.Domain.Entities;
 using FMAtlas.Domain.Players;
@@ -59,88 +60,149 @@ public static class FM27LiveScanValidator
 {
     private const string ExpectedProvider = WindowsFm27LiveGameConnector.LiveProviderKey;
 
-    public static FM27LiveScanValidationResult Validate(IReadOnlyList<IEntityRecord> records, FM27LiveReadSummary? readSummary = null)
+    /// <summary>
+    /// Collects only counts and compact identity sets while records stream through the importer.
+    /// It never materialises a second copy of the player/staff/club object graph.
+    /// </summary>
+    public sealed class StreamingAccumulator
+    {
+        private readonly HashSet<string> _playerIds = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _staffIds = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _clubIds = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _playerClubReferences = new(StringComparer.Ordinal);
+
+        private int _players;
+        private int _staff;
+        private int _clubs;
+        private int _playersWithCa;
+        private int _playersWithPositions;
+        private int _playersWithTwentyPositions;
+        private int _staffWithCa;
+
+        public void Add(IEntityRecord record)
+        {
+            ArgumentNullException.ThrowIfNull(record);
+
+            switch (record)
+            {
+                case PlayerRecord player:
+                    ValidateIdentity(player.Identity, EntityKind.Player, _playerIds);
+                    if (string.IsNullOrWhiteSpace(player.FullName?.Value))
+                        throw new InvalidDataException("At least one player record has no usable name. The live layout has not passed validation.");
+
+                    _players++;
+                    if (player.CurrentAbility?.Value is >= 1 and <= 200)
+                        _playersWithCa++;
+                    if (player.PositionRatings.Count > 0)
+                    {
+                        _playersWithPositions++;
+                        if (player.PositionRatings.Values.Any(value => value.Value == 20))
+                            _playersWithTwentyPositions++;
+                    }
+                    if (player.SearchIntegerFields.TryGetValue("club_uid", out var clubUid))
+                        _playerClubReferences.Add(clubUid.Value.ToString(CultureInfo.InvariantCulture));
+
+                    ValidatePlayerRanges(player);
+                    break;
+
+                case StaffRecord staff:
+                    ValidateIdentity(staff.Identity, EntityKind.Staff, _staffIds);
+                    if (string.IsNullOrWhiteSpace(staff.FullName?.Value))
+                        throw new InvalidDataException("At least one staff record has no usable name. The live layout has not passed validation.");
+
+                    _staff++;
+                    if (staff.CurrentAbility?.Value is >= 1 and <= 200)
+                        _staffWithCa++;
+                    ValidateStaffRanges(staff);
+                    break;
+
+                case ClubRecord club:
+                    ValidateIdentity(club.Identity, EntityKind.Club, _clubIds);
+                    if (string.IsNullOrWhiteSpace(club.Name?.Value))
+                        throw new InvalidDataException("At least one club record has no usable name. The live layout has not passed validation.");
+                    _clubs++;
+                    break;
+
+                default:
+                    throw new InvalidDataException($"Unexpected live record type {record.GetType().Name}; only player, staff and club records are supported.");
+            }
+        }
+
+        public FM27LiveScanValidationResult Complete(FM27LiveReadSummary? readSummary = null)
+        {
+            var warnings = new List<string>();
+            if (readSummary is not null)
+            {
+                ValidateReadCoverage("players", readSummary.PlayerPointers, readSummary.PlayersRead, 0.90);
+                ValidateReadCoverage("staff", readSummary.StaffPointers, readSummary.StaffRead, 0.90);
+                ValidateReadCoverage("clubs", readSummary.ClubPointers, readSummary.ClubsRead, 0.90);
+                warnings.AddRange(readSummary.CoverageWarnings);
+            }
+
+            if (_players == 0 || _staff == 0 || _clubs == 0)
+                throw new InvalidDataException(
+                    $"The scan did not produce all three required entity families (players {_players:N0}, staff {_staff:N0}, clubs {_clubs:N0}). Nothing has been imported.");
+
+            RequireCoverage(_playersWithCa, _players, 0.70,
+                "Current Ability values did not validate for enough players.");
+            RequireCoverage(_playersWithPositions, _players, 0.70,
+                "Position ratings were missing from too many player records.");
+            RequireCoverage(_playersWithTwentyPositions, _playersWithPositions, 0.80,
+                "The natural-position sanity check failed: too few players have a 20-rated position.");
+            RequireCoverage(_staffWithCa, _staff, 0.50,
+                "Staff Current Ability values did not validate for enough records.");
+
+            if (_playerClubReferences.Count >= 100)
+            {
+                var linked = _playerClubReferences.Count(_clubIds.Contains);
+                var coverage = linked / (double)_playerClubReferences.Count;
+                if (coverage < 0.75)
+                    throw new InvalidDataException(
+                        $"Player-to-club identity validation failed ({linked:N0} of {_playerClubReferences.Count:N0} club links matched the imported club list). The scan was discarded.");
+            }
+            else
+            {
+                warnings.Add("Too few player-to-club links were present for a meaningful cross-check.");
+            }
+
+            return new FM27LiveScanValidationResult(
+                _players,
+                _staff,
+                _clubs,
+                _playersWithCa,
+                _playersWithPositions,
+                _playersWithTwentyPositions,
+                warnings.AsReadOnly());
+        }
+    }
+
+    public static FM27LiveScanValidationResult Validate(
+        IEnumerable<IEntityRecord> records,
+        FM27LiveReadSummary? readSummary = null)
     {
         ArgumentNullException.ThrowIfNull(records);
+        var accumulator = new StreamingAccumulator();
+        foreach (var record in records)
+            accumulator.Add(record);
+        return accumulator.Complete(readSummary);
+    }
 
-        var players = records.OfType<PlayerRecord>().ToArray();
-        var staff = records.OfType<StaffRecord>().ToArray();
-        var clubs = records.OfType<ClubRecord>().ToArray();
-        var warnings = new List<string>();
-        if (readSummary is not null)
+    private static void ValidateIdentity(
+        EntityIdentity identity,
+        EntityKind expectedKind,
+        HashSet<string> seen)
+    {
+        if (identity.Kind != expectedKind ||
+            !identity.IsUsable ||
+            !string.Equals(identity.ProviderKey, ExpectedProvider, StringComparison.Ordinal))
         {
-            ValidateReadCoverage("players", readSummary.PlayerPointers, readSummary.PlayersRead, 0.90);
-            ValidateReadCoverage("staff", readSummary.StaffPointers, readSummary.StaffRead, 0.90);
-            ValidateReadCoverage("clubs", readSummary.ClubPointers, readSummary.ClubsRead, 0.90);
-            warnings.AddRange(readSummary.CoverageWarnings);
-        }
-
-        if (players.Length == 0 || staff.Length == 0 || clubs.Length == 0)
             throw new InvalidDataException(
-                $"The scan did not produce all three required entity families (players {players.Length:N0}, staff {staff.Length:N0}, clubs {clubs.Length:N0}). Nothing has been imported.");
-
-        ValidateIdentity(players.Select(record => record.Identity), EntityKind.Player);
-        ValidateIdentity(staff.Select(record => record.Identity), EntityKind.Staff);
-        ValidateIdentity(clubs.Select(record => record.Identity), EntityKind.Club);
-
-        if (players.Any(record => string.IsNullOrWhiteSpace(record.FullName?.Value)))
-            throw new InvalidDataException("At least one player record has no usable name. The live layout has not passed validation.");
-        if (staff.Any(record => string.IsNullOrWhiteSpace(record.FullName?.Value)))
-            throw new InvalidDataException("At least one staff record has no usable name. The live layout has not passed validation.");
-        if (clubs.Any(record => string.IsNullOrWhiteSpace(record.Name?.Value)))
-            throw new InvalidDataException("At least one club record has no usable name. The live layout has not passed validation.");
-
-        var playersWithCa = players.Count(record =>
-            record.CurrentAbility?.Value is >= 1 and <= 200);
-        RequireCoverage(playersWithCa, players.Length, 0.70,
-            "Current Ability values did not validate for enough players.");
-
-        var playersWithPositions = players
-            .Where(record => record.PositionRatings.Count > 0)
-            .ToArray();
-        RequireCoverage(playersWithPositions.Length, players.Length, 0.70,
-            "Position ratings were missing from too many player records.");
-
-        var playersWithNaturalPosition = playersWithPositions.Count(record =>
-            record.PositionRatings.Values.Any(value => value.Value == 20));
-        RequireCoverage(playersWithNaturalPosition, playersWithPositions.Length, 0.80,
-            "The natural-position sanity check failed: too few players have a 20-rated position.");
-
-        var staffWithCa = staff.Count(record =>
-            record.CurrentAbility?.Value is >= 1 and <= 200);
-        RequireCoverage(staffWithCa, staff.Length, 0.50,
-            "Staff Current Ability values did not validate for enough records.");
-
-        var clubIds = clubs.Select(record => record.Identity.SourceId)
-            .ToHashSet(StringComparer.Ordinal);
-        var playerClubReferences = players
-            .Select(record => record.SearchIntegerFields.TryGetValue("club_uid", out var uid) ? uid.Value.ToString() : null)
-            .OfType<string>()
-            .ToArray();
-
-        if (playerClubReferences.Length >= 100)
-        {
-            var linked = playerClubReferences.Count(value => clubIds.Contains(value));
-            var coverage = linked / (double)playerClubReferences.Length;
-            if (coverage < 0.75)
-                throw new InvalidDataException(
-                    $"Player-to-club identity validation failed ({linked:N0} of {playerClubReferences.Length:N0} club links matched the imported club list). The scan was discarded.");
-        }
-        else
-        {
-            warnings.Add("Too few player-to-club links were present for a meaningful cross-check.");
+                $"The {expectedKind} records contained an invalid or unexpected source identity. Nothing has been imported.");
         }
 
-        ValidateValueRanges(players, staff);
-
-        return new FM27LiveScanValidationResult(
-            players.Length,
-            staff.Length,
-            clubs.Length,
-            playersWithCa,
-            playersWithPositions.Length,
-            playersWithNaturalPosition,
-            warnings.AsReadOnly());
+        if (!seen.Add(identity.SourceId))
+            throw new InvalidDataException(
+                $"The {expectedKind} array contained a duplicate entity identity. The scan was discarded.");
     }
 
     private static void ValidateReadCoverage(string entity, int pointers, int read, double minimum)
@@ -153,25 +215,6 @@ public static class FM27LiveScanValidator
         }
     }
 
-    private static void ValidateIdentity(IEnumerable<EntityIdentity> identities, EntityKind expectedKind)
-    {
-        var values = identities.ToArray();
-        if (values.Any(identity =>
-                identity.Kind != expectedKind ||
-                !identity.IsUsable ||
-                !string.Equals(identity.ProviderKey, ExpectedProvider, StringComparison.Ordinal)))
-        {
-            throw new InvalidDataException(
-                $"The {expectedKind} records contained an invalid or unexpected source identity. Nothing has been imported.");
-        }
-
-        var duplicate = values.GroupBy(identity => identity.SourceId, StringComparer.Ordinal)
-            .FirstOrDefault(group => group.Count() > 1);
-        if (duplicate is not null)
-            throw new InvalidDataException(
-                $"The {expectedKind} array contained a duplicate entity identity. The scan was discarded.");
-    }
-
     private static void RequireCoverage(int observed, int total, double minimum, string message)
     {
         if (total <= 0 || observed / (double)total < minimum)
@@ -182,34 +225,29 @@ public static class FM27LiveScanValidator
         }
     }
 
-    private static void ValidateValueRanges(
-        IEnumerable<PlayerRecord> players,
-        IEnumerable<StaffRecord> staff)
+    private static void ValidatePlayerRanges(PlayerRecord player)
     {
-        foreach (var player in players)
+        if (player.CurrentAbility is { Value: < 1 or > 200 } ||
+            player.PotentialAbility is { Value: < -200 or > 200 } ||
+            player.Attributes.Values.Any(value => value.Value is < 1 or > 20) ||
+            player.HiddenAttributes.Values.Any(value => value.Value is < 1 or > 20) ||
+            player.Personality.Values.Any(value => value.Value is < 1 or > 20) ||
+            player.FootRatings.Values.Any(value => value.Value is < 1 or > 20) ||
+            player.PositionRatings.Values.Any(value => value.Value is < 1 or > 20))
         {
-            if (player.CurrentAbility is { Value: < 1 or > 200 } ||
-                player.PotentialAbility is { Value: < -200 or > 200 } ||
-                player.Attributes.Values.Any(value => value.Value is < 1 or > 20) ||
-                player.HiddenAttributes.Values.Any(value => value.Value is < 1 or > 20) ||
-                player.Personality.Values.Any(value => value.Value is < 1 or > 20) ||
-                player.FootRatings.Values.Any(value => value.Value is < 1 or > 20) ||
-                player.PositionRatings.Values.Any(value => value.Value is < 1 or > 20))
-            {
-                throw new InvalidDataException("A player value fell outside its expected FM range. The scan was discarded.");
-            }
+            throw new InvalidDataException("A player value fell outside its expected FM range. The scan was discarded.");
         }
+    }
 
-        foreach (var member in staff)
+    private static void ValidateStaffRanges(StaffRecord staff)
+    {
+        if (staff.CurrentAbility is { Value: < 1 or > 200 } ||
+            staff.PotentialAbility is { Value: < 1 or > 200 } ||
+            staff.Attributes.Values.Any(value => value.Value is < 1 or > 20) ||
+            staff.Knowledge.Values.Any(value => value.Value is < 1 or > 20) ||
+            staff.Personality.Values.Any(value => value.Value is < 1 or > 20))
         {
-            if (member.CurrentAbility is { Value: < 1 or > 200 } ||
-                member.PotentialAbility is { Value: < 1 or > 200 } ||
-                member.Attributes.Values.Any(value => value.Value is < 1 or > 20) ||
-                member.Knowledge.Values.Any(value => value.Value is < 1 or > 20) ||
-                member.Personality.Values.Any(value => value.Value is < 1 or > 20))
-            {
-                throw new InvalidDataException("A staff value fell outside its expected FM range. The scan was discarded.");
-            }
+            throw new InvalidDataException("A staff value fell outside its expected FM range. The live scan was discarded.");
         }
     }
 }

@@ -17,6 +17,32 @@ public sealed class FM27LiveScanValidatorTests
         TargetBuildFingerprint: "PE:6AE8CF77:17969000");
 
     [Fact]
+    public void StreamingValidatorConsumesTheSnapshotOnceWithoutMaterialisingRecordArrays()
+    {
+        var enumerationCount = 0;
+        IEnumerable<FMAtlas.Domain.Entities.IEntityRecord> SinglePass()
+        {
+            if (++enumerationCount > 1)
+                throw new InvalidOperationException("The validator must support a single-pass source.");
+
+            yield return Player("1001", 150);
+            yield return Player("1002", 110);
+            yield return Player("1003", 80);
+            yield return Player("1004", 90);
+            yield return Staff("2001", 140);
+            yield return Staff("2002", 90);
+            yield return Club("3001");
+        }
+
+        var result = FM27LiveScanValidator.Validate(SinglePass());
+
+        Assert.Equal(1, enumerationCount);
+        Assert.Equal(4, result.Players);
+        Assert.Equal(2, result.Staff);
+        Assert.Equal(1, result.Clubs);
+    }
+
+    [Fact]
     public void AcceptsAConsistentPlayerStaffAndClubSnapshot()
     {
         var records = new FMAtlas.Domain.Entities.IEntityRecord[]

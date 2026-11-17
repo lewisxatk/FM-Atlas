@@ -167,34 +167,35 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
     }
 
     public async Task SaveSnapshotsAsync(
-        IReadOnlyCollection<IEntityRecord> records,
+        IEnumerable<IEntityRecord> records,
         CancellationToken cancellationToken = default,
         IProgress<int>? progress = null,
-        bool replaceProvider = false)
+        bool replaceProvider = false,
+        Func<CancellationToken, Task>? beforeCommit = null,
+        int? expectedRecordCount = null)
     {
         ArgumentNullException.ThrowIfNull(records);
-        if (records.Count == 0)
-            return;
 
-        const int RecordBatchSize = 100;
+        const int RecordBatchSize = 50;
         const int FieldBatchSize = 60; // 60 × 14 parameters stays below SQLite's historic 999-variable limit.
 
-        string? replacementProviderKey = null;
-        if (replaceProvider)
-        {
-            var first = records.FirstOrDefault()
-                ?? throw new ArgumentException("The batch cannot contain a null record.", nameof(records));
-            ValidateIdentity(first.Identity);
-            replacementProviderKey = first.Identity.ProviderKey;
-        }
+        using var enumerator = records.GetEnumerator();
+        var hasRecord = enumerator.MoveNext();
+        if (!hasRecord)
+            throw new InvalidDataException("The live record stream was empty. No index was written.");
+
+        var firstRecord = enumerator.Current
+            ?? throw new InvalidDataException("The live record stream contained a null record.");
+        ValidateIdentity(firstRecord.Identity);
+        var replacementProviderKey = replaceProvider ? firstRecord.Identity.ProviderKey : null;
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
         await ExecuteAsync(connection, null, "PRAGMA foreign_keys = ON;", cancellationToken).ConfigureAwait(false);
         await using var transaction = connection.BeginTransaction();
 
-        // A provider replacement is atomic: the old provider rows are removed inside
-        // the same transaction that writes the new snapshot and index.
+        // Delete the old provider inside the same transaction as its replacement.
+        // A failed or rejected stream therefore cannot leave a half-written index.
         if (replaceProvider)
         {
             await using var deleteProviderCommand = connection.CreateCommand();
@@ -253,31 +254,28 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         deleteFieldsCommand.Prepare();
 
         var pendingFieldRows = new List<object?[]>(FieldBatchSize);
-        using var enumerator = records.GetEnumerator();
         var processed = 0;
+        progress?.Report(0);
 
-        while (processed < records.Count)
+        while (hasRecord)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var batchSize = Math.Min(RecordBatchSize, records.Count - processed);
-            var prepared = new List<(EntityRecordProjection Projection, string RecordType, string Payload, string SavedAt)>(batchSize);
+            var prepared = new List<(EntityRecordProjection Projection, string RecordType, string Payload, string SavedAt)>(RecordBatchSize);
 
-            for (var index = 0; index < batchSize; index++)
+            while (hasRecord && prepared.Count < RecordBatchSize)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!enumerator.MoveNext())
-                    throw new InvalidOperationException("The record collection changed while it was being imported.");
-
                 var record = enumerator.Current
-                    ?? throw new ArgumentException("The batch cannot contain a null record.", nameof(records));
+                    ?? throw new InvalidDataException("The live record stream contained a null record.");
                 var projection = _projector.Project(record);
-                ValidateIdentity(projection.Identity);
+                var identity = projection.Identity;
+                ValidateIdentity(identity);
 
                 if (replaceProvider &&
-                    !string.Equals(projection.Identity.ProviderKey, replacementProviderKey, StringComparison.Ordinal))
+                    !string.Equals(identity.ProviderKey, replacementProviderKey, StringComparison.Ordinal))
                 {
                     throw new ArgumentException(
-                        "A provider-replacement batch must contain records from exactly one provider.",
+                        "A provider-replacement stream must contain records from exactly one provider.",
                         nameof(records));
                 }
 
@@ -292,6 +290,8 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                     record.GetType().FullName ?? record.GetType().Name,
                     JsonSerializer.Serialize(record, record.GetType(), JsonOptions),
                     DateTimeOffset.UtcNow.ToString("O")));
+
+                hasRecord = enumerator.MoveNext();
             }
 
             var entityRows = new List<object?[]>(prepared.Count);
@@ -316,8 +316,6 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                     record.SavedAt
                 ]);
 
-                // Normal upserts replace a record's previous projection. A provider
-                // replacement has already cleared every field row once inside this transaction.
                 if (!replaceProvider)
                 {
                     deleteFieldsCommand.Parameters["$kind"].Value = identity.Kind.ToString();
@@ -325,9 +323,10 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                     deleteFieldsCommand.Parameters["$provider"].Value = identity.ProviderKey;
                     await deleteFieldsCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
-
             }
 
+            // Entity rows must exist before field_values are inserted because the
+            // field projection is protected by a foreign key to entities.
             if (prepared.Count == RecordBatchSize)
             {
                 entityBatchCommand.Execute(entityRows);
@@ -343,8 +342,6 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                 partialSnapshotCommand.Execute(snapshotRows);
             }
 
-            // Entity rows must exist before field_values are inserted because the
-            // field projection is protected by a foreign key to entities.
             foreach (var record in prepared)
             {
                 var identity = record.Projection.Identity;
@@ -361,9 +358,17 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
             }
 
             processed += prepared.Count;
-            // Report completed records, not the old two-stage 0–20 / 20–100 sub-scale.
-            // Keep 100% for after the final field batch and transaction commit.
-            progress?.Report(Math.Min(99, Math.Clamp((int)(processed * 100L / records.Count), 0, 99)));
+            if (expectedRecordCount is > 0)
+            {
+                // Ceiling makes the first completed batch visible instead of leaving the
+                // UI stuck at 0% until the career is several hundred records in.
+                var percent = (int)Math.Ceiling(processed * 100d / expectedRecordCount.Value);
+                progress?.Report(Math.Clamp(percent, 1, 99));
+            }
+            else
+            {
+                progress?.Report(1);
+            }
         }
 
         if (pendingFieldRows.Count > 0)
@@ -373,27 +378,14 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
             partialFieldCommand.Execute(pendingFieldRows);
         }
 
+        // The caller validates the completed stream and rechecks the active save while
+        // the transaction is still open. Any failure here rolls every row back.
+        if (beforeCommit is not null)
+            await beforeCommit(cancellationToken).ConfigureAwait(false);
+
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         progress?.Report(100);
     }
-
-    private static object?[] BuildFieldValueRow(EntityIdentity identity, EntityFieldProjection field) =>
-    [
-        identity.Kind.ToString(),
-        identity.SourceId,
-        identity.ProviderKey,
-        field.Key,
-        field.ValueKind.ToString(),
-        (object?)field.TextValue ?? DBNull.Value,
-        (object?)(field.IntegerValue ?? (field.BooleanValue is bool flag ? (flag ? 1L : 0L) : null)) ?? DBNull.Value,
-        (object?)(field.DecimalValue is decimal amount ? Convert.ToDouble(amount, CultureInfo.InvariantCulture) : null) ?? DBNull.Value,
-        (object?)field.DateValue?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value,
-        field.Provenance.Source.ToString(),
-        field.Provenance.EvidenceStatus.ToString(),
-        (object?)field.Provenance.SourceVersion ?? DBNull.Value,
-        (object?)field.Provenance.TargetBuildFingerprint ?? DBNull.Value,
-        (object?)field.Provenance.ObservedAtUtc?.ToString("O") ?? DBNull.Value
-    ];
 
     public async Task DeleteProviderAsync(
         string providerKey,

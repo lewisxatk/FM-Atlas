@@ -163,18 +163,18 @@ internal sealed class FM27GamePass0935Reader
         catch { return true; }
     }
 
-    public IReadOnlyList<IEntityRecord> ReadAllRecords(
+    public IEnumerable<IEntityRecord> EnumerateRecords(
         IProgress<LiveGameLoadProgress>? progress,
         CancellationToken cancellationToken)
     {
+        LastReadSummary = null;
         var playerPointers = ReadArray(PlayersArrayRva, "players");
         var staffPointers = ReadArray(StaffArrayRva, "staff");
         var clubPointers = ReadArray(ClubsArrayRva, "clubs");
         var inGameDate = ReadInGameDate();
-        var records = new List<IEntityRecord>(playerPointers.Length + staffPointers.Length + clubPointers.Length);
 
-        // Reuse object buffers. A single stale/retiring FM object no longer discards
-        // an entire career snapshot; each skipped record is counted and audited.
+        // Reuse object buffers. Records are yielded directly into the transactional
+        // importer; the whole career is never retained as a managed object graph.
         var playerBuffer = new byte[0x4C0];
         var staffBuffer = new byte[0x4F0];
         var clubBuffer = new byte[0xF0];
@@ -210,24 +210,26 @@ internal sealed class FM27GamePass0935Reader
         foreach (var address in playerPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            PlayerRecord? player = null;
             try
             {
-                var player = ReadPlayer(address, evidence, inGameDate, playerBuffer, contractBuffer);
-                if (player is null)
-                {
-                    playerSkipped++;
-                    NoteFailure("Player", address, null);
-                }
-                else
-                {
-                    records.Add(player);
-                    playerRead++;
-                }
+                player = ReadPlayer(address, evidence, inGameDate, playerBuffer, contractBuffer);
             }
             catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                playerSkipped++;
                 NoteFailure("Player", address, exception);
+            }
+
+            if (player is null)
+            {
+                playerSkipped++;
+                if (failures.Count == 0)
+                    NoteFailure("Player", address, null);
+            }
+            else
+            {
+                playerRead++;
+                yield return player;
             }
 
             processed++;
@@ -245,24 +247,26 @@ internal sealed class FM27GamePass0935Reader
         foreach (var address in staffPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            StaffRecord? staff = null;
             try
             {
-                var staff = ReadStaff(address, evidence, inGameDate, staffBuffer, contractBuffer);
-                if (staff is null)
-                {
-                    staffSkipped++;
-                    NoteFailure("Staff", address, null);
-                }
-                else
-                {
-                    records.Add(staff);
-                    staffRead++;
-                }
+                staff = ReadStaff(address, evidence, inGameDate, staffBuffer, contractBuffer);
             }
             catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                staffSkipped++;
                 NoteFailure("Staff", address, exception);
+            }
+
+            if (staff is null)
+            {
+                staffSkipped++;
+                if (failures.Count == 0)
+                    NoteFailure("Staff", address, null);
+            }
+            else
+            {
+                staffRead++;
+                yield return staff;
             }
 
             processed++;
@@ -280,24 +284,26 @@ internal sealed class FM27GamePass0935Reader
         foreach (var address in clubPointers)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ClubRecord? club = null;
             try
             {
-                var club = ReadClub(address, evidence, clubBuffer);
-                if (club is null)
-                {
-                    clubSkipped++;
-                    NoteFailure("Club", address, null);
-                }
-                else
-                {
-                    records.Add(club);
-                    clubRead++;
-                }
+                club = ReadClub(address, evidence, clubBuffer);
             }
             catch (Exception exception) when (IsRecoverableEntityReadException(exception))
             {
-                clubSkipped++;
                 NoteFailure("Club", address, exception);
+            }
+
+            if (club is null)
+            {
+                clubSkipped++;
+                if (failures.Count == 0)
+                    NoteFailure("Club", address, null);
+            }
+            else
+            {
+                clubRead++;
+                yield return club;
             }
 
             processed++;
@@ -316,8 +322,7 @@ internal sealed class FM27GamePass0935Reader
             failures.AsReadOnly());
 
         progress?.Report(new LiveGameLoadProgress(96, "Preparing live index",
-            $"{records.Count:N0} usable records collected. {LastReadSummary.Summary}"));
-        return records;
+            $"{playerRead + staffRead + clubRead:N0} usable records collected. {LastReadSummary.Summary}"));
     }
 
     private PlayerRecord? ReadPlayer(

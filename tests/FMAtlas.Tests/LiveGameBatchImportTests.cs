@@ -358,6 +358,74 @@ public sealed class LiveGameBatchImportTests
         Assert.Equal(185, snapshot?.PotentialAbility?.Value);
     }
 
+    [Fact]
+    public async Task BatchImporterConsumesSinglePassStreamAndRunsPreCommitCheck()
+    {
+        using var temp = new TemporaryDirectory();
+        var databasePath = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(databasePath).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(databasePath);
+
+        var enumerations = 0;
+        var beforeCommitCalled = false;
+        IEnumerable<IEntityRecord> SinglePassRecords()
+        {
+            if (++enumerations != 1)
+                throw new InvalidOperationException("The source stream must not be enumerated twice.");
+
+            yield return new PlayerRecord(new EntityIdentity(
+                EntityKind.Player, "stream-player", "stream-provider"))
+            {
+                FullName = new SourcedValue<string>("Stream Player", LiveEvidence),
+                CurrentAbility = new SourcedValue<int>(143, LiveEvidence)
+            };
+        }
+
+        await store.SaveSnapshotsAsync(
+            SinglePassRecords(),
+            replaceProvider: true,
+            beforeCommit: _ =>
+            {
+                beforeCommitCalled = true;
+                return Task.CompletedTask;
+            },
+            expectedRecordCount: 1);
+
+        Assert.Equal(1, enumerations);
+        Assert.True(beforeCommitCalled);
+        Assert.Single(await new SqliteEntitySearchProvider(databasePath).QuickSearchAsync("Stream Player"));
+    }
+
+    [Fact]
+    public async Task PreCommitValidationFailureRollsBackTheEntireStream()
+    {
+        using var temp = new TemporaryDirectory();
+        var databasePath = Path.Combine(temp.Root, "atlas.db");
+        await new AtlasDatabase(databasePath).InitializeAsync();
+        var store = new SqliteEntityRecordSnapshotStore(databasePath);
+
+        IEnumerable<IEntityRecord> Stream()
+        {
+            for (var index = 0; index < 150; index++)
+            {
+                yield return new PlayerRecord(new EntityIdentity(
+                    EntityKind.Player, $"rollback-{index}", "stream-provider"))
+                {
+                    FullName = new SourcedValue<string>($"Rollback Player {index}", LiveEvidence)
+                };
+            }
+        }
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            store.SaveSnapshotsAsync(
+                Stream(),
+                replaceProvider: true,
+                beforeCommit: _ => throw new InvalidDataException("Streaming validation rejected the career."),
+                expectedRecordCount: 150));
+
+        Assert.Empty(await new SqliteEntitySearchProvider(databasePath).QuickSearchAsync("Rollback Player"));
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Root { get; } =

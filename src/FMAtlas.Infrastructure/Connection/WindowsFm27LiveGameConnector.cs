@@ -25,11 +25,13 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
 
     private sealed record ScanWork(
         LiveSession Session,
-        IReadOnlyList<FMAtlas.Domain.Entities.IEntityRecord> Records,
-        int Players,
-        int Staff,
-        int Clubs,
-        FM27LiveScanValidationResult Validation);
+        IEnumerable<FMAtlas.Domain.Entities.IEntityRecord> Records,
+        int PlayerPointers,
+        int StaffPointers,
+        int ClubPointers)
+    {
+        public int ExpectedRecordCount => checked(PlayerPointers + StaffPointers + ClubPointers);
+    }
 
     private readonly IEntityRecordBatchSnapshotStore _snapshotStore;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -106,61 +108,92 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 () => ScanLiveGame(progress, cancellationToken),
                 cancellationToken).ConfigureAwait(false);
             candidate = work.Session;
-            WriteDiagnostic($"Read-only scan passed layout checks: players={work.Players}; staff={work.Staff}; clubs={work.Clubs}; " +
-                $"memoryReads={work.Session.Memory.ReadOperations}; bytesRead={work.Session.Memory.BytesRead}; " +
-                $"saveGeneration={work.Session.SaveGeneration}; {work.Validation.Summary}");
+            WriteDiagnostic($"Live read-only session prepared: pointerEntries={work.ExpectedRecordCount}; " +
+                $"saveGeneration={work.Session.SaveGeneration}; build={work.Session.BuildName}.");
 
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(new LiveGameLoadProgress(94, "Indexing the active career",
-                $"Writing {work.Records.Count:N0} player, staff and club records and their searchable fields."));
+            progress?.Report(new LiveGameLoadProgress(
+                16,
+                "Reading and indexing the active career",
+                $"Streaming up to {work.ExpectedRecordCount:N0} player, staff and club entries in bounded batches."));
+
+            var validationAccumulator = new FM27LiveScanValidator.StreamingAccumulator();
+            var validatedRecords = ValidateAsRead(work.Records, validationAccumulator, cancellationToken);
+            FM27LiveScanValidationResult? validation = null;
+            FM27LiveReadSummary? readSummary = null;
 
             var saveProgress = new Progress<int>(percent =>
             {
                 var safePercent = Math.Clamp(percent, 0, 100);
-                var overallPercent = 94 + Math.Min(5, safePercent * 5 / 100);
+                var overallPercent = safePercent >= 100
+                    ? 99
+                    : 16 + Math.Min(78, safePercent * 78 / 100);
                 progress?.Report(new LiveGameLoadProgress(
                     overallPercent,
-                    "Indexing the active career",
-                    $"Indexed and saved {safePercent}% of {work.Records.Count:N0} live records"));
+                    safePercent >= 99 ? "Finalising the active career" : "Reading and indexing the active career",
+                    $"Read, validated and indexed approximately {safePercent}% of {work.ExpectedRecordCount:N0} career entries"));
             });
+
             await _snapshotStore.SaveSnapshotsAsync(
-                work.Records,
+                validatedRecords,
                 cancellationToken,
                 saveProgress,
-                replaceProvider: true).ConfigureAwait(false);
+                replaceProvider: true,
+                beforeCommit: async token =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    readSummary = work.Session.Reader.LastReadSummary
+                        ?? throw new InvalidDataException("The live reader ended without producing a read summary.");
 
-            // The game could load another save while SQLite was being populated. Do not leave those rows searchable.
-            var generationAfterImport = await Task.Run(
-                () => candidate.Reader.ReadSaveGeneration(),
-                cancellationToken).ConfigureAwait(false);
-            var emptyAfterImport = await Task.Run(
-                () => candidate.Reader.IsPlayerArrayEmpty(),
-                cancellationToken).ConfigureAwait(false);
-            if (generationAfterImport != candidate.SaveGeneration || emptyAfterImport)
-            {
-                throw new InvalidOperationException("Football Manager changed or unloaded the career while FM Atlas was importing it. Nothing from that partial session has been kept. Load the career fully, then press Load Game again.");
-            }
+                    validation = validationAccumulator.Complete(readSummary);
+                    WriteDiagnostic($"Streaming validation passed: {validation.Summary}; " +
+                        $"memoryReads={work.Session.Memory.ReadOperations}; bytesRead={work.Session.Memory.BytesRead}; " +
+                        $"warnings={validation.Warnings.Count}.");
+                    foreach (var sample in readSummary.FailureSamples)
+                        WriteDiagnostic($"Skipped entity sample: {sample}");
+
+                    if (work.Session.Process.HasExited)
+                        throw new InvalidOperationException("Football Manager closed while FM Atlas was streaming the career.");
+
+                    var generationAfterRead = work.Session.Reader.ReadSaveGeneration();
+                    var emptyAfterRead = work.Session.Reader.IsPlayerArrayEmpty();
+                    if (generationAfterRead != work.Session.SaveGeneration || emptyAfterRead)
+                    {
+                        throw new InvalidOperationException("Football Manager changed or unloaded the career while FM Atlas was reading it. The uncommitted import has been discarded. Load the career fully, then press Load Game again.");
+                    }
+
+                    if (_disconnectRequested)
+                        throw new OperationCanceledException("FM Atlas was asked to disconnect while loading.");
+
+                    progress?.Report(new LiveGameLoadProgress(
+                        99,
+                        "Verifying the active career",
+                        $"Validated {validation.Players:N0} players, {validation.Staff:N0} staff and {validation.Clubs:N0} clubs before committing the index."));
+                    await Task.CompletedTask.ConfigureAwait(false);
+                },
+                expectedRecordCount: work.ExpectedRecordCount).ConfigureAwait(false);
+
+            if (validation is null || readSummary is null)
+                throw new InvalidDataException("The streaming career import completed without final validation.");
 
             if (_disconnectRequested)
-            {
                 throw new OperationCanceledException("FM Atlas was asked to disconnect while loading.");
-            }
 
             _session = candidate;
             candidate = null;
             progress?.Report(new LiveGameLoadProgress(100, "Live data ready",
-                $"Indexed {work.Players:N0} players, {work.Staff:N0} staff and {work.Clubs:N0} clubs."));
+                $"Indexed {validation.Players:N0} players, {validation.Staff:N0} staff and {validation.Clubs:N0} clubs."));
 
             return new LiveGameConnectionResult(
                 work.Session.ProcessId,
                 work.Session.BuildName,
                 work.Session.ProviderKey,
                 work.Session.SaveGeneration,
-                work.Players,
-                work.Staff,
-                work.Clubs,
+                validation.Players,
+                validation.Staff,
+                validation.Clubs,
                 LiveWritesEnabled: false,
-                Message: "Live FM27 data was read and passed pre-import identity, ability, position and club-link checks. The fields remain marked Mapped, not AtlasReadVerified, until values are compared with your in-game career. No live writes are enabled.");
+                Message: "Live FM27 data was streamed into the local index and passed pre-commit identity, ability, position and club-link checks. The fields remain marked Mapped, not AtlasReadVerified, until values are compared with your in-game career. No live writes are enabled.");
         }
         catch (Exception loadException)
         {
@@ -287,39 +320,18 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             memory = null; // Ownership moves to LiveSession, which remains open for save-generation monitoring.
             gameProcess = null!;
 
-            try
-            {
-                var records = reader.ReadAllRecords(progress, cancellationToken);
-                progress?.Report(new LiveGameLoadProgress(92, "Validating the live layout",
-                    "Checking entity identities, CA values, position ratings and player-to-club links before importing."));
-                var readSummary = reader.LastReadSummary
-                    ?? throw new InvalidDataException("The live reader did not produce an entity-read summary.");
-                WriteDiagnostic($"Entity read summary: {readSummary.Summary}");
-                foreach (var sample in readSummary.FailureSamples)
-                    WriteDiagnostic($"Skipped entity sample: {sample}");
-                var validation = FM27LiveScanValidator.Validate(records, readSummary);
-                WriteDiagnostic($"Layout validation passed: {validation.Summary}; warnings={validation.Warnings.Count}.");
-                cancellationToken.ThrowIfCancellationRequested();
-                if (session.Process.HasExited)
-                    throw new InvalidOperationException("Football Manager closed while FM Atlas was reading the career.");
+            var records = reader.EnumerateRecords(
+                progress: null,
+                cancellationToken: cancellationToken);
 
-                var finalGeneration = reader.ReadSaveGeneration();
-                if (finalGeneration != session.SaveGeneration || reader.IsPlayerArrayEmpty())
-                    throw new InvalidOperationException("The loaded career changed while FM Atlas was reading it. The imported data has been discarded.");
-
-                var playerCount = records.Count(record => record.Identity.Kind == FMAtlas.Domain.Entities.EntityKind.Player);
-                var staffCount = records.Count(record => record.Identity.Kind == FMAtlas.Domain.Entities.EntityKind.Staff);
-                var clubCount = records.Count(record => record.Identity.Kind == FMAtlas.Domain.Entities.EntityKind.Club);
-                if (playerCount == 0 || staffCount == 0 || clubCount == 0)
-                    throw new InvalidDataException($"The scan was incomplete (players {playerCount:N0}, staff {staffCount:N0}, clubs {clubCount:N0}). FM Atlas has discarded the scan rather than indexing partial results.");
-
-                return new ScanWork(session, records, playerCount, staffCount, clubCount, validation);
-            }
-            catch (Exception exception)
-            {
-                WriteDiagnostic($"Scan rejected before import: {exception.GetType().Name}: {exception.Message}");
-                DisconnectSession(session);
-                throw;
+            // Enumerate only once, downstream, into the transactional SQLite writer.
+            // This prevents a second 92k-record object list from being retained in memory.
+            return new ScanWork(
+                session,
+                records,
+                initial.Players,
+                initial.Staff,
+                initial.Clubs);
             }
         }
         catch
@@ -327,6 +339,19 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             memory?.Dispose();
             gameProcess?.Dispose();
             throw;
+        }
+    }
+
+    private static IEnumerable<FMAtlas.Domain.Entities.IEntityRecord> ValidateAsRead(
+        IEnumerable<FMAtlas.Domain.Entities.IEntityRecord> records,
+        FM27LiveScanValidator.StreamingAccumulator accumulator,
+        CancellationToken cancellationToken)
+    {
+        foreach (var record in records)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            accumulator.Add(record);
+            yield return record;
         }
     }
 
