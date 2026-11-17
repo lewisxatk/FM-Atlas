@@ -41,13 +41,6 @@ public sealed record FM27LiveReadSummary(
         get
         {
             var warnings = new List<string>();
-        if (readSummary is not null)
-        {
-            ValidateReadCoverage("players", readSummary.PlayerPointers, readSummary.PlayersRead, 0.90);
-            ValidateReadCoverage("staff", readSummary.StaffPointers, readSummary.StaffRead, 0.90);
-            ValidateReadCoverage("clubs", readSummary.ClubPointers, readSummary.ClubsRead, 0.90);
-            warnings.AddRange(readSummary.CoverageWarnings);
-        }
             AddWarning("players", PlayerPointers, PlayersRead, PlayersSkipped);
             AddWarning("staff", StaffPointers, StaffRead, StaffSkipped);
             AddWarning("clubs", ClubPointers, ClubsRead, ClubsSkipped);
@@ -74,6 +67,13 @@ public static class FM27LiveScanValidator
         var staff = records.OfType<StaffRecord>().ToArray();
         var clubs = records.OfType<ClubRecord>().ToArray();
         var warnings = new List<string>();
+        if (readSummary is not null)
+        {
+            ValidateReadCoverage("players", readSummary.PlayerPointers, readSummary.PlayersRead, 0.90);
+            ValidateReadCoverage("staff", readSummary.StaffPointers, readSummary.StaffRead, 0.90);
+            ValidateReadCoverage("clubs", readSummary.ClubPointers, readSummary.ClubsRead, 0.90);
+            warnings.AddRange(readSummary.CoverageWarnings);
+        }
 
         if (players.Length == 0 || staff.Length == 0 || clubs.Length == 0)
             throw new InvalidDataException(

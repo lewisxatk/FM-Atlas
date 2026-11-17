@@ -10,7 +10,8 @@ public interface IEntityRecordBatchSnapshotStore
 {
     Task SaveSnapshotsAsync(
         IReadOnlyCollection<IEntityRecord> records,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        IProgress<int>? progress = null);
 
     Task DeleteProviderAsync(
         string providerKey,

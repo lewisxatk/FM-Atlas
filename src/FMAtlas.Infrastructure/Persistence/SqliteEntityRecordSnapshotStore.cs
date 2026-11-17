@@ -168,7 +168,8 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
 
     public async Task SaveSnapshotsAsync(
         IReadOnlyCollection<IEntityRecord> records,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<int>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(records);
         if (records.Count == 0)
@@ -195,6 +196,8 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                 record.GetType().FullName ?? record.GetType().Name,
                 JsonSerializer.Serialize(record, record.GetType(), JsonOptions),
                 DateTimeOffset.UtcNow.ToString("O")));
+            if (prepared.Count % 250 == 0 || prepared.Count == records.Count)
+                progress?.Report(Math.Clamp((int)(prepared.Count * 20L / records.Count), 0, 20));
         }
 
         await using var connection = new SqliteConnection(_connectionString);
@@ -282,6 +285,7 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
         fieldCommand.Parameters.Add("$observedAtUtc", SqliteType.Text);
         fieldCommand.Prepare();
 
+        var persisted = 0;
         foreach (var (projection, recordType, payload, savedAt) in prepared)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -333,9 +337,14 @@ public sealed class SqliteEntityRecordSnapshotStore : IEntityRecordSnapshotStore
                     (object?)field.Provenance.ObservedAtUtc?.ToString("O") ?? DBNull.Value;
                 await fieldCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
+
+            persisted++;
+            if (persisted % 100 == 0 || persisted == prepared.Count)
+                progress?.Report(20 + Math.Clamp((int)(persisted * 80L / prepared.Count), 0, 80));
         }
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        progress?.Report(100);
     }
 
     public async Task DeleteProviderAsync(

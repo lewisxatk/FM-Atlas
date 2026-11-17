@@ -115,7 +115,16 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
                 $"Saving {work.Records.Count:N0} player, staff and club records in one local database transaction."));
 
             await _snapshotStore.DeleteProviderAsync(work.Session.ProviderKey, cancellationToken).ConfigureAwait(false);
-            await _snapshotStore.SaveSnapshotsAsync(work.Records, cancellationToken).ConfigureAwait(false);
+            var saveProgress = new Progress<int>(percent =>
+            {
+                var safePercent = Math.Clamp(percent, 0, 100);
+                var overallPercent = 96 + Math.Min(3, safePercent * 3 / 100);
+                progress?.Report(new LiveGameLoadProgress(
+                    overallPercent,
+                    "Building the search index",
+                    $"Preparing and writing {work.Records.Count:N0} live records to SQLite · {safePercent}%"));
+            });
+            await _snapshotStore.SaveSnapshotsAsync(work.Records, cancellationToken, saveProgress).ConfigureAwait(false);
 
             // The game could load another save while SQLite was being populated. Do not leave those rows searchable.
             var generationAfterImport = await Task.Run(
