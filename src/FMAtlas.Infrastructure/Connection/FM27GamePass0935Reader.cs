@@ -586,6 +586,10 @@ internal sealed class FM27GamePass0935Reader
             fullName ?? $"UID {uid}";
 
         var dateOfBirth = MakeFmDate(U16(0x188, offset), U16(0x18A, offset));
+        // The dedicated human-manager class can also hold an account placeholder
+        // that has no person record. Do not index that placeholder as a staff member.
+        if (offset != 0 && dateOfBirth is null)
+            return null;
         int? age = dateOfBirth is DateOnly birth ? CalculateAge(birth, inGameDate) : null;
         var genderFlags = B(0x119, offset);
         var nationality = ReadNationName(U64(0x168, offset));
