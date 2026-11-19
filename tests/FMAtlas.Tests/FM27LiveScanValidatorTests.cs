@@ -13,8 +13,8 @@ public sealed class FM27LiveScanValidatorTests
     private static readonly FieldProvenance Evidence = new(
         DataSourceKind.LiveGameMemory,
         FieldEvidenceStatus.Mapped,
-        SourceVersion: "0.9.2435.0",
-        TargetBuildFingerprint: "PE:6AE8CF77:17969000");
+        SourceVersion: "0.9.2524.0",
+        TargetBuildFingerprint: "PE:6AF5C8C6:179AD000");
 
     [Fact]
     public void StreamingValidatorConsumesTheSnapshotOnceWithoutMaterialisingRecordArrays()

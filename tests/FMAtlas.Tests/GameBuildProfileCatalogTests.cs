@@ -21,6 +21,22 @@ public sealed class GameBuildProfileCatalogTests
     }
 
     [Fact]
+    public void MatchesTheDocumentedGamePass2710Build2524Fingerprint()
+    {
+        var fingerprint = new GameModuleFingerprint(
+            0x8664, 0x6AF5C8C6, 0x179AD000, 123456, "0.9.2524.0");
+
+        var match = GameBuildProfileCatalog.MatchReference(fingerprint);
+
+        Assert.NotNull(match);
+        Assert.Equal("fm27-gamepass-0.9.2524.0", match!.Id);
+        Assert.Equal(GameBuildEvidenceStatus.ExternalReferenceOnly, match.EvidenceStatus);
+        Assert.True(match.CanAttemptReadOnlyScan);
+        Assert.False(match.CanReadLiveData);
+        Assert.False(match.CanWriteLiveData);
+    }
+
+    [Fact]
     public void UnknownFingerprintDoesNotMatchAReferenceProfile()
     {
         var fingerprint = new GameModuleFingerprint(
@@ -40,7 +56,9 @@ public sealed class GameBuildProfileCatalogTests
             Assert.False(profile.CanWriteLiveData);
         });
         Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>
-            profile.PackageVersion == "0.9.2435.0" && profile.CanAttemptReadOnlyScan);
+            profile.PackageVersion == "0.9.2524.0" && profile.CanAttemptReadOnlyScan);
+        Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>
+            profile.PackageVersion == "0.9.2435.0" && !profile.CanAttemptReadOnlyScan);
         Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>
             profile.PackageVersion == "0.9.2409.0" && !profile.CanAttemptReadOnlyScan);
     }

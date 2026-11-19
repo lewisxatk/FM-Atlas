@@ -13,20 +13,21 @@ using FMAtlas.Domain.Staff;
 namespace FMAtlas.Infrastructure.Connection;
 
 /// <summary>
-/// Read-only reader for the specifically fingerprinted FM27 Game Pass 0.9.2435.0 package.
-/// Offsets are kept separate from the rest of the reader and are never reused for another fingerprint.
+/// Read-only reader for FM27 27.1.0 Game Pass package 0.9.2524.0.
+/// The PE fingerprint and all module-relative roots are pinned to this exact package;
+/// a different build is rejected before any entity data is read.
 /// </summary>
-internal sealed class FM27GamePass0935Reader
+internal sealed class FM27GamePassReader
 {
-    private const string BuildVersion = "0.9.2435.0";
+    private const string BuildVersion = "0.9.2524.0";
     public const string BuildVersionForProvider = BuildVersion;
-    private const uint PeTimestamp = 0x6AE8CF77;
-    private const uint SizeOfImage = 0x17969000;
-    private const ulong PlayersArrayRva = 0x53B7DE0;
-    private const ulong StaffArrayRva = 0x53B7E28;
-    private const ulong ClubsArrayRva = 0x53B7F98;
-    private const ulong GameUiRva = 0x53B4160;
-    private const ulong CurrentDateRva = 0x53597C8;
+    private const uint PeTimestamp = 0x6AF5C8C6;
+    private const uint SizeOfImage = 0x179AD000;
+    private const ulong PlayersArrayRva = 0x53FAE88;
+    private const ulong StaffArrayRva = 0x53FAED0;
+    private const ulong ClubsArrayRva = 0x53FB040;
+    private const ulong GameUiRva = 0x53FBA40;
+    private const ulong CurrentDateRva = 0x539DD10;
     private const ulong GameLoadsOffset = 0x100;
     private const int MaximumEntitiesPerKind = 250_000;
     private const int MaximumFmStringBytes = 1024;
@@ -115,7 +116,7 @@ internal sealed class FM27GamePass0935Reader
 
     public FM27LiveReadSummary? LastReadSummary { get; private set; }
 
-    public FM27GamePass0935Reader(
+    public FM27GamePassReader(
         WindowsProcessMemoryAccessor memory,
         ulong moduleBase,
         string providerKey)
@@ -185,7 +186,7 @@ internal sealed class FM27GamePass0935Reader
             SourceVersion: BuildVersion,
             TargetBuildFingerprint: _fingerprint,
             ObservedAtUtc: DateTimeOffset.UtcNow,
-            Description: "Read from the externally mapped FM27 Game Pass 0.9.2435.0 layout. FM Atlas has not yet independently verified edit/write behaviour.");
+            Description: "Read from the externally mapped FM27 Game Pass 27.1.0 package 0.9.2524.0. FM Atlas has not yet independently verified field values against this user's career; live writes remain disabled.");
 
         var playerRead = 0;
         var staffRead = 0;

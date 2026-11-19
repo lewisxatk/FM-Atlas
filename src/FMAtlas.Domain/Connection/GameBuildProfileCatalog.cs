@@ -23,7 +23,7 @@ public sealed record GameBuildProfile(
     string EvidenceSource)
 {
     /// <summary>True only when FM Atlas currently contains a scanner for this exact package build.</summary>
-    public bool HasReadOnlyScanner => Id == "fm27-gamepass-0.9.2435.0";
+    public bool HasReadOnlyScanner => Id == "fm27-gamepass-0.9.2524.0";
 
     /// <summary>
     /// Whether the existing exact-build scanner may attempt a read-only probe. This is
@@ -46,6 +46,15 @@ public static class GameBuildProfileCatalog
 {
     public static IReadOnlyList<GameBuildProfile> Profiles { get; } =
     [
+        new(
+            "fm27-gamepass-0.9.2524.0",
+            "Football Manager 27 Game Pass 27.1.0 (0.9.2524.0)",
+            "Xbox / Microsoft Store",
+            "0.9.2524.0",
+            0x6AF5C8C6,
+            0x179AD000,
+            GameBuildEvidenceStatus.ExternalReferenceOnly,
+            "FMLibreEditor 0.9.2524.0 profile (12 checks passed) and Football Manager 27 Editor 27.1.0+2505117 Game Pass offsets"),
         new(
             "fm27-gamepass-0.9.2435.0",
             "Football Manager 27 Game Pass 0.9.2435.0",

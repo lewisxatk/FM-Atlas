@@ -16,8 +16,8 @@ public sealed class LiveGameBatchImportTests
     private static readonly FieldProvenance LiveEvidence = new(
         DataSourceKind.LiveGameMemory,
         FieldEvidenceStatus.Mapped,
-        SourceVersion: "FM27 Game Pass 0.9.2435.0",
-        TargetBuildFingerprint: "PE:6AE8CF77:17969000",
+        SourceVersion: "FM27 Game Pass 27.1.0 (0.9.2524.0)",
+        TargetBuildFingerprint: "PE:6AF5C8C6:179AD000",
         ObservedAtUtc: DateTimeOffset.UtcNow);
 
     [Fact]
