@@ -1,0 +1,601 @@
+<Window x:Class="FMAtlas.Desktop.Views.AdvancedSearchWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FM Atlas — Advanced Search"
+        Width="1080"
+        Height="820"
+        MinWidth="940"
+        MinHeight="700"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Atlas.Canvas}"
+        Foreground="{StaticResource Atlas.Text}"
+        FontFamily="Segoe UI"
+        ResizeMode="CanResizeWithGrip">
+    <Window.Resources>
+        <Style x:Key="FilterLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="#E0E3E8"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="FilterValue" TargetType="TextBox">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="MinWidth" Value="66"/>
+            <Setter Property="Background" Value="#171717"/>
+            <Setter Property="Foreground" Value="#F4F5F7"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="IsEnabled" Value="False"/>
+        </Style>
+        <Style x:Key="DarkFilterComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#171717"/>
+            <Setter Property="Foreground" Value="#F4F5F7"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemSurface" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="ItemSurface" Property="Background" Value="#332219"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemSurface" Property="Background" Value="#4A2A1D"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#777777"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="DarkEnumOptionTemplate">
+            <TextBlock Text="{Binding}" Foreground="#F4F5F7" Padding="5,2"/>
+        </DataTemplate>
+        <Style x:Key="DarkSearchComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#171717"/>
+            <Setter Property="Foreground" Value="#F4F5F7"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="7,3"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource DarkFilterComboBoxItem}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="ComboSurface"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4"/>
+                            <ContentPresenter x:Name="SelectionPresenter"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              Margin="8,0,28,0"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"/>
+                            <ToggleButton x:Name="DropDownToggle"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press"
+                                          Background="Transparent"
+                                          BorderThickness="0">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Grid Background="Transparent">
+                                            <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                                  Width="8" Height="4"
+                                                  Fill="#B8C0C9"
+                                                  HorizontalAlignment="Right"
+                                                  VerticalAlignment="Center"
+                                                  Margin="0,0,9,0"/>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup"
+                                   Placement="Bottom"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   PopupAnimation="Slide">
+                                <Border Background="#171717"
+                                        BorderBrush="#69727D"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        MinWidth="175"
+                                        SnapsToDevicePixels="True">
+                                    <ScrollViewer MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                                  CanContentScroll="True"
+                                                  Background="#171717">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ComboSurface" Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="ComboSurface" Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ComboSurface" Property="Opacity" Value="0.45"/>
+                                <Setter TargetName="SelectionPresenter" Property="Opacity" Value="0.65"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PositionRoleButton" TargetType="ToggleButton">
+            <Setter Property="Background" Value="#515A64"/>
+            <Setter Property="Foreground" Value="#F4F5F7"/>
+            <Setter Property="BorderBrush" Value="#929BA5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="1"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="RoleSurface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RoleSurface" Property="Opacity" Value="0.82"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="RoleSurface" Property="Opacity" Value="0.68"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="RoleSurface" Property="Background" Value="#D8783C"/>
+                                <Setter TargetName="RoleSurface" Property="BorderBrush" Value="#F1A064"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="RoleSurface" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="FilterPanel" TargetType="Border">
+            <Setter Property="Background" Value="#101010"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10"/>
+        </Style>
+        <Style x:Key="FilterCategoryButton" TargetType="Button" BasedOn="{StaticResource Atlas.NavButton}">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Padding" Value="9,8"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+        </Style>
+        <DataTemplate x:Key="AdvancedSearchFieldTemplate">
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="112"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" ToolTip="{Binding HelpText}">
+                    <TextBlock Text="{Binding DisplayName}" Style="{StaticResource FilterLabel}"/>
+                </StackPanel>
+                <StackPanel x:Name="RangeControls" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="MIN" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum. Leave blank to set no lower limit."/>
+                    <TextBlock Text="MAX" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="9,0,4,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="55" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum. Leave blank to set no upper limit."/>
+                </StackPanel>
+                <ComboBox x:Name="BooleanControl" Grid.Column="1" Width="175" Height="25"
+                          SelectedIndex="{Binding BooleanSelection, UpdateSourceTrigger=PropertyChanged}"
+                          Background="#171717" Foreground="{StaticResource Atlas.Muted}"
+                          BorderBrush="{StaticResource Atlas.Border}" FontSize="9"
+                          ToolTip="{Binding HelpText}"
+                          IsEnabled="{Binding IsEnabled}" Visibility="Collapsed"
+                          ItemContainerStyle="{StaticResource DarkFilterComboBoxItem}"
+                          MaxDropDownHeight="220" Style="{StaticResource DarkSearchComboBox}">
+                    <ComboBoxItem Content="Any"/>
+                    <ComboBoxItem Content="{Binding BooleanTrueLabel}"/>
+                    <ComboBoxItem Content="{Binding BooleanFalseLabel}"/>
+                    <ComboBoxItem Content="{Binding BooleanUnknownLabel}"/>
+                </ComboBox>
+                <StackPanel x:Name="DateControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
+                    <TextBox Style="{StaticResource FilterValue}" Width="82" IsEnabled="{Binding IsEnabled}" Text="{Binding DateMinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Start date, YYYY-MM-DD"/>
+                    <TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="5,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="82" IsEnabled="{Binding IsEnabled}" Text="{Binding DateMaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="End date, YYYY-MM-DD"/>
+                </StackPanel>
+                <TextBox x:Name="TextControl" Grid.Column="1" Style="{StaticResource FilterValue}" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed"/>
+                <ComboBox x:Name="EnumControl" Grid.Column="1" Width="210" Height="25"
+                          ItemsSource="{Binding EnumOptions}"
+                          SelectedItem="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}"
+                          Background="#171717" Foreground="#F4F5F7"
+                          BorderBrush="{StaticResource Atlas.Border}" FontSize="10"
+                          IsEnabled="{Binding IsEnabled}" Visibility="Collapsed"
+                          ItemContainerStyle="{StaticResource DarkFilterComboBoxItem}"
+                          ItemTemplate="{StaticResource DarkEnumOptionTemplate}"
+                          MaxDropDownHeight="220"
+                          ToolTip="{Binding HelpText}"
+                          Style="{StaticResource DarkSearchComboBox}"/>
+                <StackPanel x:Name="PositionControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
+                    <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" ToolTip="Position code, for example DR or ST"/>
+                    <TextBlock Text="MIN" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" Margin="6,0,3,0" VerticalAlignment="Center"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding MinimumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Minimum familiarity. Leave blank for no lower limit."/>
+                    <TextBlock Text="MAX" FontFamily="Consolas" FontSize="7" Foreground="{StaticResource Atlas.Subtle}" Margin="6,0,3,0" VerticalAlignment="Center"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="48" IsEnabled="{Binding IsEnabled}" Text="{Binding MaximumText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Maximum familiarity. Leave blank for no upper limit."/>
+                </StackPanel>
+                <StackPanel x:Name="TraitControls" Grid.Column="1" Orientation="Horizontal" Visibility="Collapsed">
+                    <CheckBox Content="Has trait" IsChecked="{Binding IncludeTrait}" IsEnabled="{Binding IsEnabled}" Foreground="{StaticResource Atlas.Muted}" FontSize="9" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                    <TextBox Style="{StaticResource FilterValue}" Width="145" IsEnabled="{Binding IsEnabled}" Text="{Binding TextValue, UpdateSourceTrigger=PropertyChanged}" ToolTip="Preferred move / trait"/>
+                </StackPanel>
+
+            </Grid>
+            <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Boolean">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="BooleanControl" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Date">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="DateControls" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Text">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="TextControl" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Enum">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="EnumControl" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Position">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="PositionControls" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ControlKind}" Value="Trait">
+                        <Setter TargetName="RangeControls" Property="Visibility" Value="Collapsed"/>
+                        <Setter TargetName="TraitControls" Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+        </DataTemplate>
+        <DataTemplate x:Key="AdvancedSearchSectionTemplate">
+            <Border Style="{StaticResource FilterPanel}" Width="420" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,0,9,9">
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding EmptyMessage}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                    <ItemsControl ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource AdvancedSearchFieldTemplate}"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,13">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="ADVANCED SEARCH" FontFamily="Georgia" FontSize="23" Foreground="{StaticResource Atlas.Text}"/>
+                <TextBlock Text="FM Atlas search workspace · FMRTE-inspired · REF-002" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
+            </StackPanel>
+            <Border Grid.Column="1" Background="{StaticResource Atlas.AccentSoft}" BorderBrush="#59301E" BorderThickness="1" CornerRadius="5" Padding="9,5" VerticalAlignment="Center">
+                <TextBlock Text="LOCAL INDEX · SUPPORTED FIELDS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="PlayerEntityButton" Content="Player" Tag="Player" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,5,0"/>
+                <Button x:Name="CoachEntityButton" Content="Coach" Tag="Coach" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,5,0"/>
+                <Button x:Name="ClubEntityButton" Content="Club" Tag="Club" Click="EntityButton_Click" Style="{StaticResource Atlas.ProfileTabButton}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="MATCH" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                <ComboBox x:Name="LogicComboBox" Width="112" Height="28" SelectedIndex="0" SelectionChanged="LogicComboBox_SelectionChanged" Background="#171717" Foreground="{StaticResource Atlas.Text}" BorderBrush="{StaticResource Atlas.Border}" FontSize="9" Style="{StaticResource DarkSearchComboBox}">
+                    <ComboBoxItem Content="All conditions"/>
+                    <ComboBoxItem Content="Any condition"/>
+                </ComboBox>
+                <TextBlock Text="PLAYER POSITIONS" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="10,0,7,0"/>
+                <ComboBox x:Name="PositionLogicComboBox" Width="130" Height="28" SelectedIndex="0" SelectionChanged="PositionLogicComboBox_SelectionChanged" Background="#171717" Foreground="{StaticResource Atlas.Text}" BorderBrush="{StaticResource Atlas.Border}" FontSize="9" Style="{StaticResource DarkSearchComboBox}">
+                    <ComboBoxItem Content="All chosen"/>
+                    <ComboBoxItem Content="Any chosen"/>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="156"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="FILTER OPTIONS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="8,0,0,9"/>
+                <Button x:Name="GeneralCategoryButton" Content="General" Tag="General" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}" Background="#211711" BorderBrush="#4A2A1D" Foreground="{StaticResource Atlas.Text}"/>
+                <Button x:Name="ContractCategoryButton" Content="Contract" Tag="Contract" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="TechnicalGoalkeepingCategoryButton" Content="Technical" Tag="TechnicalGoalkeeping" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="GoalkeepingCategoryButton" Content="Goalkeeping" Tag="Goalkeeping" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="MentalAttributesCategoryButton" Content="Mental Attributes" Tag="MentalAttributes" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="PhysicalHiddenCategoryButton" Content="Physical / Hidden" Tag="PhysicalHidden" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="PreferredMovesCategoryButton" Content="Preferred Moves" Tag="PreferredMoves" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="RelationsCategoryButton" Content="Relations" Tag="Relations" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Button x:Name="IndexedFieldsCategoryButton" Content="Indexed Data" Tag="IndexedFields" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
+                <Border Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="5" Padding="8" Margin="0,14,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Only supported fields are searchable. Search uses the active local index, including the loaded FM27 career snapshot and imported records. Fields without a verified query implementation remain marked In Progress." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                        <TextBlock Text="MIN and MAX are independent. Leave either box blank to search using only the other boundary. For a minimum requirement such as FMRTE's At Least option, enter MIN 12 and leave MAX blank." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                        <TextBlock Text="Newgen status is evidence-based: generated, original database, or unknown. Young age or high PA alone is not proof." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <StackPanel Margin="0,0,0,9">
+                    <TextBlock Text="FIND A FIELD" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,0,0,4"/>
+                    <TextBox Style="{StaticResource FilterValue}" Height="30" FontSize="11" IsEnabled="True"
+                             Text="{Binding FieldSearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Search every category for an attribute, statistic, position, contract field or other criterion. The selected entity stays in scope."/>
+                </StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid>
+                    <Grid x:Name="GeneralPanel">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
+                            <StackPanel>
+                                <TextBlock Text="PERSONAL DETAILS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Name" Style="{StaticResource FilterLabel}"/>
+                                    <TextBox Grid.Column="1" Style="{StaticResource FilterValue}"/>
+                                    <TextBlock Grid.Row="1" Text="Age" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="2" Text="Nationality" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="3" Text="2nd nation" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="4" Text="Int. caps" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="5" Text="Int. goals" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="6" Text="Height (cm)" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="7" Text="Weight (kg)" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Margin="0,5,0,0">
+                                        <TextBox Style="{StaticResource FilterValue}" Width="58"/><TextBlock Text="to" Foreground="{StaticResource Atlas.Muted}" Margin="6,0"/><TextBox Style="{StaticResource FilterValue}" Width="58"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
+                            <StackPanel>
+                                <TextBlock Text="REPUTATION" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock Text="Home" Style="{StaticResource FilterLabel}"/>
+                                    <TextBlock Grid.Row="1" Text="Current" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="2" Text="World" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBox Style="{StaticResource FilterValue}"/>
+                                        <TextBox Grid.Row="1" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                        <TextBox Grid.Row="2" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource FilterPanel}">
+                            <StackPanel>
+                                <TextBlock Text="ABILITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock Text="CA" Style="{StaticResource FilterLabel}"/>
+                                    <TextBlock Grid.Row="1" Text="PA" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="2" Text="Difference" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <TextBlock Grid.Row="3" Text="RCA" Style="{StaticResource FilterLabel}" Margin="0,5,0,0"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBox Style="{StaticResource FilterValue}"/>
+                                        <TextBox Grid.Row="1" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                        <TextBox Grid.Row="2" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                        <TextBox Grid.Row="3" Style="{StaticResource FilterValue}" Margin="0,5,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
+                            <StackPanel>
+                                <TextBlock Text="PLAYER POSITIONS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <Border Background="#121713" BorderBrush="#303A31" BorderThickness="1" CornerRadius="4" Height="206">
+                                    <Grid Margin="12">
+                                        <Rectangle Stroke="#536454" StrokeThickness="1" Margin="0"/>
+                                        <Line X1="0" Y1="103" X2="300" Y2="103" Stroke="#536454" StrokeThickness="1"/>
+                                        <Ellipse Width="46" Height="46" Stroke="#536454" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,52,0,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,52,0,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,52,12,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12,0,0,52"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,52"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,12,52"/>
+                                        <Ellipse Width="5" Height="5" Fill="{StaticResource Atlas.Accent}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,12"/>
+                                    </Grid>
+                                </Border>
+                                <TextBlock Text="Choose from the individual 0–20 position-rating filters above. Each chosen position can be matched using the separate All chosen / Any chosen control." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
+                            <StackPanel>
+                                <TextBlock Text="TEAM / DIVISION" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Division" Style="{StaticResource FilterLabel}"/>
+                                <TextBox Style="{StaticResource FilterValue}" Margin="0,4,0,8"/>
+                                <TextBlock Text="Team / Club" Style="{StaticResource FilterLabel}"/>
+                                <TextBox Style="{StaticResource FilterValue}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource FilterPanel}">
+                            <StackPanel>
+                                <TextBlock Text="TRAINING STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                <TextBlock Text="At club" Style="{StaticResource FilterLabel}"/>
+                                <TextBox Style="{StaticResource FilterValue}" Margin="0,4,0,8"/>
+                                <TextBlock Text="At nation" Style="{StaticResource FilterLabel}"/>
+                                <TextBox Style="{StaticResource FilterValue}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    </Grid>
+                    <ItemsControl x:Name="DynamicCategoryPanels"
+                                  Visibility="Collapsed"
+                                  ItemsSource="{Binding Sections}"
+                                  ItemTemplate="{StaticResource AdvancedSearchSectionTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </Grid>
+                </ScrollViewer>
+                <Border x:Name="PositionPitchPanel" Grid.Column="2" Visibility="Collapsed"
+                        Style="{StaticResource FilterPanel}" Width="248" Padding="9" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <StackPanel>
+                        <TextBlock Text="POSITIONS" FontSize="8" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,5"/>
+                        <Border Background="#142019" BorderBrush="#385541" BorderThickness="1" CornerRadius="5" Padding="8">
+                            <Viewbox Height="140" MaxWidth="230" Stretch="Uniform" HorizontalAlignment="Center">
+                            <Canvas x:Name="PositionButtonsCanvas" Width="320" Height="190" HorizontalAlignment="Center">
+                                <Rectangle Width="320" Height="184" Stroke="#52745A" StrokeThickness="1"/>
+                                <Line X1="0" Y1="92" X2="320" Y2="92" Stroke="#52745A" StrokeThickness="1"/>
+                                <Ellipse Width="48" Height="48" Stroke="#52745A" StrokeThickness="1" Canvas.Left="136" Canvas.Top="68"/>
+                                <Rectangle Width="92" Height="31" Stroke="#52745A" StrokeThickness="1" Canvas.Left="114" Canvas.Top="0"/>
+                                <Rectangle Width="92" Height="31" Stroke="#52745A" StrokeThickness="1" Canvas.Left="114" Canvas.Top="153"/>
+                                <ToggleButton Content="ST" Tag="position_st" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="7" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="AML" Tag="position_aml" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="54" Canvas.Top="34" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="AMC" Tag="position_amc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="34" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="AMR" Tag="position_amr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="224" Canvas.Top="34" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="ML" Tag="position_ml" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="54" Canvas.Top="64" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="MC" Tag="position_mc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="64" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="MR" Tag="position_mr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="224" Canvas.Top="64" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="WBL" Tag="position_wbl" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="0" Canvas.Top="96" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="DM" Tag="position_dm" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="96" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="WBR" Tag="position_wbr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="268" Canvas.Top="96" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="DL" Tag="position_dl" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="54" Canvas.Top="123" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="DC" Tag="position_dc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="123" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="DR" Tag="position_dr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="224" Canvas.Top="123" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="SW" Tag="position_sw" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="145" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                                <ToggleButton Content="GK" Tag="position_gk" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="164" Background="#68717A" Foreground="#F4F5F7" BorderBrush="#89929B" FontSize="16" FontWeight="SemiBold"/>
+                            </Canvas>
+                            </Viewbox>
+                        </Border>
+                        <TextBlock Text="POSITION FAMILIARITY (1–20)" FontSize="8" Foreground="#D9DDE3" Margin="0,5,0,2"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,4,0">
+                                <TextBlock Text="MIN" FontSize="8" Foreground="#D9DDE3"/>
+                                <TextBox Style="{StaticResource FilterValue}" Width="96" IsEnabled="True" Text="{Binding DataContext.PositionMinimumText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                <TextBlock Text="MAX" FontSize="8" Foreground="#D9DDE3"/>
+                                <TextBox Style="{StaticResource FilterValue}" Width="96" IsEnabled="True" Text="{Binding DataContext.PositionMaximumText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Select one or more roles. Set minimum / maximum familiarity, then choose All or Any above." FontSize="8" Foreground="#D9DDE3" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Border>
+                </Grid>
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="3" Style="{StaticResource FilterPanel}" Margin="0,8,0,0" Padding="8">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <TextBlock Text="{Binding StatusText}" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="2,0,2,6"/>
+                <ListBox x:Name="ResultsListBox" Grid.Row="1" ItemsSource="{Binding Results}"
+                         MouseDoubleClick="ResultsListBox_MouseDoubleClick"
+                         Background="Transparent" BorderThickness="0" MaxHeight="160"
+                         ToolTip="Double-click a player result to open its local profile snapshot.">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="2,2">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource Atlas.Text}" FontSize="10"/>
+                                <TextBlock Grid.Column="1" Text="{Binding EntityType}" Foreground="{StaticResource Atlas.Accent}" FontSize="8" Margin="12,0"/>
+                                <TextBlock Grid.Column="2" Text="{Binding SourceId}" Foreground="{StaticResource Atlas.Subtle}" FontFamily="Consolas" FontSize="8"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+        <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
+            <TextBlock Text="ACTIVE LOCAL INDEX · LIVE FM27 SNAPSHOT WHEN CONNECTED · DOUBLE-CLICK TO OPEN PROFILE" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBox x:Name="PresetNameTextBox" Style="{StaticResource FilterValue}" Width="108" Height="29"
+                         IsEnabled="True" Text="My search" ToolTip="Name this set of search criteria" Margin="0,0,6,0"/>
+                <Button Content="Load preset" Click="LoadPreset_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,6,0"/>
+                <Button Content="Save preset" Click="SavePreset_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,8,0"/>
+                <Button Content="Clear" Click="ClearFilters_Click" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,6,0"/>
+                <Button Content="Cancel" Click="Cancel_Click" IsCancel="True" Style="{StaticResource Atlas.ButtonBase}" Margin="0,0,6,0"/>
+                <Button Content="OK / Search" Click="Search_Click" IsDefault="True" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="78"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

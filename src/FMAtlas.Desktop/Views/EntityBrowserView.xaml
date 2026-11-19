@@ -1,0 +1,50 @@
+<UserControl x:Class="FMAtlas.Desktop.Views.EntityBrowserView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Atlas.Canvas}"
+             Foreground="{StaticResource Atlas.Text}"
+             FontFamily="Segoe UI">
+    <Grid Margin="26,24,26,26">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Margin="0,0,0,18">
+            <TextBlock Text="FM ATLAS / DIRECTORY" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+            <TextBlock Text="{Binding Title}" FontFamily="Georgia" FontSize="31" Foreground="{StaticResource Atlas.Text}" Margin="0,5,0,3"/>
+            <TextBlock Text="Browse records from the currently loaded career or imported dataset." FontSize="11" Foreground="{StaticResource Atlas.Muted}"/>
+        </StackPanel>
+        <Grid Grid.Row="1" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Atlas.TextBox}" Height="38" VerticalContentAlignment="Center" ToolTip="Search by player, staff or club name."/>
+            <Button Grid.Column="1" Content="Search" Command="{Binding SearchCommand}" Style="{StaticResource Atlas.PrimaryButton}" MinWidth="84" Margin="9,0,0,0"/>
+            <Button Grid.Column="2" Content="Browse All" Command="{Binding SearchCommand}" Style="{StaticResource Atlas.ButtonBase}" MinWidth="88" Margin="7,0,0,0"/>
+        </Grid>
+        <Border Grid.Row="2" Style="{StaticResource Atlas.Card}" Padding="15">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Text="{Binding StatusText}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,0,0,12"/>
+                <ListBox x:Name="ResultsListBox" ItemsSource="{Binding Results}" Background="Transparent" BorderThickness="0" MouseDoubleClick="ResultsListBox_MouseDoubleClick">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="10,9"/>
+                            <Setter Property="Margin" Value="0,0,0,4"/>
+                            <Setter Property="Background" Value="{StaticResource Atlas.SurfaceRaised}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="12" Foreground="{StaticResource Atlas.Text}"/>
+                                    <TextBlock Text="{Binding Identity.SourceId}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding Identity.ProviderKey}" FontSize="8" Foreground="{StaticResource Atlas.Muted}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,374 @@
+<UserControl x:Class="FMAtlas.Desktop.Views.PlayerProfileView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Atlas.Canvas}"
+             Foreground="{StaticResource Atlas.Text}"
+             FontFamily="Segoe UI"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True">
+    <UserControl.Resources>
+        <Style x:Key="PlayerPositionTileButton" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{Binding Fill}"/>
+            <Setter Property="Foreground" Value="{Binding TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{Binding BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="{Binding BorderThickness}"/>
+            <Setter Property="Padding" Value="1"/>
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="TileSurface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TileSurface" Property="Opacity" Value="0.82"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TileSurface" Property="Opacity" Value="0.68"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="TileSurface" Property="Opacity" Value="0.42"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Open-player tabs are distinct from the selected player's own sections. -->
+        <Border Grid.Row="0" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,9">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Left" Text="PLAYER WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <TextBlock Text="{Binding PlayerTitle}" FontSize="11" Foreground="{StaticResource Atlas.Muted}" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Compact FMRTE-style section tabs, placed at the top as requested. -->
+        <Border Grid.Row="1" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="0,10,0,10">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Sections}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding Name}"
+                                    Command="{Binding DataContext.SelectSectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding Name}"
+                                    IsEnabled="{Binding DataContext.HasPlayer, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    Margin="0,0,5,0">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource Atlas.AccentSoft}"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,14,0,0" Visibility="{Binding IsInformationSection, Converter={StaticResource Atlas.BooleanToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="226"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="258"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left identity rail: real graphics lookup will populate the portrait. -->
+            <StackPanel Grid.Column="0">
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15">
+                    <StackPanel>
+                        <Border Height="194" Background="#151515" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="7">
+                            <Grid>
+                                <Image Source="{Binding PortraitUri}" Stretch="UniformToFill"/>
+                                <TextBlock Text="PLAYER PHOTO" Foreground="{StaticResource Atlas.Subtle}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding HasNoPortrait, Converter={StaticResource Atlas.BooleanToVisibility}}"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock Text="{Binding PlayerTitle}" FontFamily="Georgia" FontSize="21" Foreground="{StaticResource Atlas.Text}" Margin="0,14,0,4"/>
+                        <TextBlock Text="{Binding PlayerSubtitle}" TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource Atlas.Muted}"/>
+                        <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,13,0,10"/>
+                        <TextBlock Text="PLAYER INFORMATION" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,9"/>
+                        <TextBlock Text="{Binding AgeInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding DateOfBirthInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding NationalityInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding SecondNationalityInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding CityOfBirthInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding ClubInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding LeagueInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding PositionInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding PreferredFootInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding HeightWeightInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding UniqueIdInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <Border Height="1" Background="{StaticResource Atlas.Border}" Margin="0,9,0,9"/>
+                        <TextBlock Text="CONTRACT SUMMARY" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding WageInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding ExpiryInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding TransferValueInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                        <TextBlock Text="{Binding AskingPriceInfoText}" Style="{StaticResource Atlas.ProfileInfoText}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Read-only attribute profile. Values and evidence come from the stored typed snapshot. -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <Grid Margin="0,0,0,11">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="PLAYER ATTRIBUTES" FontSize="10" Foreground="{StaticResource Atlas.Accent}"/>
+                            <TextBlock Text="Football Manager profile order · source-documented, visual verification pending" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="TECHNICAL" Command="{Binding SelectAttributeModeCommand}" CommandParameter="Technical" Margin="0,0,6,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsTechnicalAttributeMode}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Atlas.AccentSoft}"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="GOALKEEPER" Command="{Binding SelectAttributeModeCommand}" CommandParameter="Goalkeeping">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Atlas.ProfileTabButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsGoalkeepingAttributeMode}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Atlas.AccentSoft}"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Atlas.Accent}"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource Atlas.Text}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                            <TextBlock Text="CA" FontSize="9" Foreground="{StaticResource Atlas.Muted}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding CurrentAbilityText}" ToolTip="{Binding CurrentAbilityEvidenceText}" FontFamily="Consolas" FontSize="18" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                            <TextBlock Text="PA" FontSize="9" Foreground="{StaticResource Atlas.Muted}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding PotentialAbilityText}" ToolTip="{Binding PotentialAbilityEvidenceText}" FontFamily="Consolas" FontSize="18" Foreground="{StaticResource Atlas.Text}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding AttributeGroups}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource Atlas.ProfilePanel}" Width="330" Margin="0,0,10,10" Padding="13">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
+                                        <ItemsControl ItemsSource="{Binding Attributes}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2" ToolTip="{Binding EvidenceText}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="44"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding DisplayName}" FontSize="11" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
+                                                        <Border Grid.Column="1" Background="#1B1B1B" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="4" Padding="5,2">
+                                                            <TextBlock Text="{Binding ValueText}" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource Atlas.Muted}" TextAlignment="Center"/>
+                                                        </Border>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="13" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="PREFERRED MOVES / TRAITS" FontSize="10" Foreground="{StaticResource Atlas.Accent}"/>
+                            <TextBlock Text="{Binding PreferredMovesText}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Right-side information panels. No fabricated metrics or sample analytics. -->
+            <StackPanel Grid.Column="4">
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="ABILITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="CURRENT" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                <TextBlock Text="{Binding CurrentAbilityText}" FontFamily="Georgia" FontSize="30" Foreground="{StaticResource Atlas.Text}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="POTENTIAL" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                <TextBlock Text="{Binding PotentialAbilityText}" FontFamily="Georgia" FontSize="30" Foreground="{StaticResource Atlas.Text}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="{Binding NewgenStatusText}" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Accent}" Margin="0,10,0,3"/>
+                        <TextBlock Text="{Binding NewgenEvidenceText}" FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="SEASON STATISTICS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <ItemsControl ItemsSource="{Binding SeasonStatistics}" Margin="0,10,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2" ToolTip="{Binding EvidenceText}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="10" Foreground="{StaticResource Atlas.Muted}"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource Atlas.Text}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="{Binding SeasonStatisticsEmptyText}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="12" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="POSITIONS &amp; FAMILIARITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <Border Background="#142019" BorderBrush="#385541" BorderThickness="1" CornerRadius="5" Padding="5" Margin="0,9,0,0">
+                            <Grid Width="216" Height="206">
+                                <Rectangle Stroke="#52745A" StrokeThickness="1"/>
+                                <Line X1="0" Y1="103" X2="216" Y2="103" Stroke="#52745A" StrokeThickness="1"/>
+                                <Ellipse Width="38" Height="38" Stroke="#52745A" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Rectangle Width="72" Height="24" Stroke="#52745A" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                <Rectangle Width="72" Height="24" Stroke="#52745A" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+                                <ItemsControl ItemsSource="{Binding PositionPitchTiles}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><Canvas Width="216" Height="206"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding Left}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Top}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ToggleButton Width="54" Height="26"
+                                                          Style="{StaticResource PlayerPositionTileButton}"
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          Command="{Binding DataContext.SelectPositionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                          CommandParameter="{Binding}"
+                                                          ToolTip="{Binding ToolTip}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Position}" FontSize="9" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding RatingText}" FontFamily="Consolas" FontSize="9" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </ToggleButton>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                        <TextBlock Text="{Binding SelectedPositionDetail}" FontSize="9" Foreground="{StaticResource Atlas.Text}" TextWrapping="Wrap" Margin="0,8,0,7"/>
+                        <TextBlock Text="18–20 Natural  ·  15–17 Accomplished  ·  12–14 Competent" FontSize="8" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
+                        <TextBlock Text="9–11 Unconvincing  ·  5–8 Awkward  ·  1–4 Makeshift" FontSize="8" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                        <TextBlock Text="Colour represents FM's 1–20 position familiarity, not a scout role rating." FontSize="8" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="DATA STATUS" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
+                        <TextBlock Text="{Binding DataState}" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource Atlas.Muted}" Margin="0,10,0,0"/>
+                        <TextBlock Text="{Binding DataEvidenceSummary}" FontSize="10" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+        <Border Grid.Row="2"
+                Margin="0,14,0,0"
+                Background="{StaticResource Atlas.Surface}"
+                BorderBrush="{StaticResource Atlas.Border}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="20">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedSection}" Value="Information">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                    <TextBlock Text="{Binding SelectedSection}" FontFamily="Georgia" FontSize="25" Foreground="{StaticResource Atlas.Text}"/>
+                    <TextBlock Text="{Binding SectionDescription}" FontSize="11" Foreground="{StaticResource Atlas.Muted}" Margin="0,5,0,0"/>
+                </StackPanel>
+                <Grid>
+                    <ItemsControl ItemsSource="{Binding SelectedSectionRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Atlas.Border}" BorderThickness="0,0,0,1" Padding="5,11">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="250"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="220"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="11" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="11" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding EvidenceText}" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding SectionEmptyText}"
+                               Visibility="{Binding HasSectionEmptyText, Converter={StaticResource Atlas.BooleanToVisibility}}"
+                               FontSize="12"
+                               Foreground="{StaticResource Atlas.Muted}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Top"
+                               Margin="4,8,4,0"/>
+                </Grid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

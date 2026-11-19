@@ -1,0 +1,133 @@
+name: FM Atlas Windows Build
+
+on:
+  push:
+    branches:
+      - rebuild/**
+  pull_request:
+    branches:
+      - main
+      - rebuild/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fm-atlas-windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Prepare diagnostics
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/test-results | Out-Null
+          dotnet --info | Out-File artifacts/dotnet-info.txt
+          Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsArchitecture | Format-List | Out-File artifacts/runner-info.txt
+
+      - name: Restore solution
+        run: dotnet restore FMAtlas.sln
+
+      - name: Build solution
+        run: dotnet build FMAtlas.sln --configuration Release --no-restore
+
+      - name: Run automated tests
+        run: dotnet test FMAtlas.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=FMAtlas.Tests.trx" --results-directory artifacts/test-results
+
+      - name: Publish self-contained Windows x64 app
+        run: dotnet publish src/FMAtlas.Desktop/FMAtlas.Desktop.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts/publish
+
+      - name: Verify and package desktop app
+        shell: pwsh
+        run: |
+          if (-not (Test-Path artifacts/publish/FMAtlas.exe)) { throw "FMAtlas.exe was not produced." }
+          Compress-Archive -Path artifacts/publish/* -DestinationPath artifacts/FMAtlas-win-x64.zip -Force
+          Get-FileHash artifacts/FMAtlas-win-x64.zip -Algorithm SHA256 | Format-List | Out-File artifacts/package-sha256.txt
+
+      - name: Smoke test WPF application startup
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD "artifacts/publish/FMAtlas.exe"
+          $log = Join-Path $PWD "artifacts/wpf-startup-smoke.txt"
+          $process = $null
+          $startedAt = Get-Date
+          try {
+            $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+            Start-Sleep -Seconds 8
+            $process.Refresh()
+            if ($process.HasExited) {
+              Start-Sleep -Seconds 2
+              $events = @()
+              try {
+                $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $startedAt.AddSeconds(-2) } -MaxEvents 100 -ErrorAction Stop |
+                  Where-Object { $_.ProviderName -in @(".NET Runtime", "Application Error", "Windows Error Reporting") -or $_.Message -match "FMAtlas" } |
+                  Sort-Object TimeCreated
+              }
+              catch {
+                "Could not query the Windows Application event log: $($_.Exception.Message)" | Add-Content -Path $log
+              }
+
+              foreach ($event in $events) {
+                @(
+                  "Event time: $($event.TimeCreated)"
+                  "Provider: $($event.ProviderName)"
+                  "Event ID: $($event.Id)"
+                  $event.Message
+                  "----"
+                ) | Add-Content -Path $log
+              }
+              throw "FMAtlas.exe exited during startup smoke test with exit code $($process.ExitCode)."
+            }
+
+            "PASS: FMAtlas.exe remained running for 8 seconds on the Windows runner (PID $($process.Id))." | Set-Content -Path $log
+          }
+          catch {
+            "FAIL: $($_.Exception.Message)" | Add-Content -Path $log
+            throw
+          }
+          finally {
+            if ($null -ne $process) {
+              $process.Refresh()
+              if (-not $process.HasExited) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              }
+            }
+          }
+
+      - name: Upload build, test and Windows diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fm-atlas-diagnostics-${{ github.run_number }}
+          path: |
+            artifacts/dotnet-info.txt
+            artifacts/runner-info.txt
+            artifacts/test-results/**
+            artifacts/package-sha256.txt
+            artifacts/wpf-startup-smoke.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Windows x64 test package
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fm-atlas-win-x64-${{ github.run_number }}
+          path: artifacts/FMAtlas-win-x64.zip
+          if-no-files-found: error
+          retention-days: 14

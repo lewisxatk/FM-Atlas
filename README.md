@@ -1,45 +1,83 @@
-# FM Atlas
+# FM Atlas — Fresh Rebuild
 
-FM Atlas is a Windows desktop application for Football Manager scouting, player analysis, editing, analytics, database inspection and modding research.
+A Windows desktop application for Football Manager scouting, live-save intelligence and (in a later, separately verified stage) editing.
 
-> **Repository status (2026-11-13):** The private repository contains the project-control documentation, archive inventories and R7.2.0 recovery checkpoint notes. The complete application source trees from R7.0.2, R7.1.0 and R7.2.0 have **not yet been imported**. No Windows build or in-game acceptance test has been verified from this repository.
+**Current branch:** `rebuild/fresh-foundation-001`  
+**Architecture:** .NET 8 WPF, modular Domain / Application / Infrastructure / Desktop / Tests.  
+**Design authority:** `docs/REFERENCE_LIBRARY.md` and `docs/DESIGN_SPECIFICATION.md`.
 
-## Current source candidate
+## Current implementation
 
-**R7.2.0 is the newest supplied candidate** (106 files; SHA-256 recorded in `recovery/RECOVERY-INVENTORY.md`). R7.1.0 (95 files) and R7.0.2 (83 files) are historical comparison baselines. Keep all three intact. Do not continue feature work until the R7.2.0 source is imported and its baseline build is tested.
+- Dashboard plus Players, Staff, Clubs, Save Manager and Settings navigation.
+- Global Quick Search and a modal, typed Advanced Search dialog.
+- Player, Staff and Club directories with closable in-app profile tabs.
+- Player attribute catalogue, visible/hidden/personality/foot ratings and CA/PA fields.
+- Club Squads and Staff lists joined from imported numeric club IDs.
+- CSV player import into local, provider-scoped SQLite storage.
+- An exact-fingerprint FM27 Game Pass 0.9.2435.0 read-only live scanner, with explicit user confirmation before attaching to the FM process.
+- Memory reads check that the requested range is committed and readable using `VirtualQueryEx` before `ReadProcessMemory`; unreadable/guarded ranges stop the scan.
+- A pre-import layout validator checks Player/Staff/Club identities, unique UIDs, names, CA coverage, position ratings, natural-position ratings and player-to-club UID joins.
+- A local diagnostic log records process/module fingerprint, scan stage, read counts, validation outcomes and errors without recording player names, UIDs or raw career data.
 
-## Current priority
+The app is a functional workspace foundation, not yet a complete FM editor. Some profile sections remain empty until their source data is imported. Search only returns records and fields present in the local index and supported by the typed query provider.
 
-1. Import all three source checkpoints on a dedicated recovery branch without changing `main`.
-2. Inspect the imported solution, project files, version metadata and file provenance.
-3. Build the R7.2.0 WPF app on Windows with .NET 8 and capture the full log.
-4. Fix compile/startup defects before feature development.
-5. Run the R7.2.0 data/search/graphics acceptance checks.
-6. Test narrow live Apply/Undo only on a disposable offline career after exact process-profile and field-baseline checks.
-7. Resume the remaining roadmap in `docs/ROADMAP.md`.
+## Live connection — first-user validation
 
-## Start here
+**Load Game is enabled for the guarded, read-only scanner.** The user must first save the career in FM27, wait for it to finish loading, then accept the explicit connection warning in FM Atlas.
 
-- [Master handover](docs/MASTER_HANDOVER.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Next steps](docs/NEXT_STEPS.md)
-- [Recovery inventory](recovery/RECOVERY-INVENTORY.md)
-- [R7.2.0 checkpoint notes](recovery/R7.2.0-CHECKPOINT.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Changelog](docs/CHANGELOG.md)
-- [Known issues](docs/KNOWN_ISSUES.md)
-- [Research register](research/RESEARCH_REGISTER.md)
+The scanner:
+1. Locates the running FM process and `game_plugin.dll`.
+2. Checks the exact Game Pass 0.9.2435.0 x64 PE timestamp and image-size reference before opening a memory handle.
+3. Requests `PROCESS_VM_READ | PROCESS_QUERY_INFORMATION` only.
+4. Checks each memory range with `VirtualQueryEx` before reading it.
+5. Captures and rechecks the game's save-generation counter.
+6. Reads Player, Staff and Club lists and validates the assembled snapshot before storing it in the local Atlas database.
+7. Discards a failed/partial snapshot rather than indexing partial results.
 
-## Evidence and safety rules
+The Game Pass 0.9.2435.0 reference profile and field layout are drawn from external reverse-engineering documentation. A fingerprint match and automated sanity checks are not a substitute for comparing the imported values against the user's actual FM27 career. Until that comparison is complete, the values remain `Mapped`, not `ReadVerified`.
 
-- Never overwrite or delete an existing project/archive until it has been inventoried and backed up.
-- Keep original release archives immutable; use versioned folders and dedicated branches.
-- Distinguish **source present**, **compiled**, **launched**, **tested with imported save**, and **verified in-game**.
-- Treat R7.2.0 live writing as implemented in source but unverified until exact build matching, identity checks, byte preflight, Apply/read-back, career-switch blocking and Undo pass on a disposable offline save.
-- Hidden attributes and unsupported structural edits remain blocked.
-- Do not invent game structures, offsets, formulas, hidden attributes or data mappings. Record evidence and uncertainty.
-- Keep secrets, personal data, career saves and licensed game assets out of the repository unless explicitly necessary and safe.
+The connector writes diagnostics to `%LOCALAPPDATA%\FM Atlas\Logs\live-connection.log`. The log records scan stages, module fingerprint, read counts and validation/error messages; it does not write player names, UIDs or raw career data.
 
-## Working baseline
+Use a manually saved disposable/offline career or a copy for first-pass validation. If FM closes, hangs or produces mismatched values, stop the test and preserve both the diagnostic log and the last known-good manual save. The earlier FM closure is unconfirmed and may have been coincidental; no root cause has been established.
 
-The current GitHub main branch is a documentation/recovery-control baseline, not yet the application source baseline. The R7.2.0 import branch is the next milestone.
+## Live editing and saving boundary
+
+- The live connector is **read-only**. It does not request `PROCESS_VM_WRITE` or `PROCESS_VM_OPERATION`; it has no memory-write or process-termination API.
+- **Save Live Changes** remains disabled. No field has `WriteVerified` status.
+- **Save Atlas** initializes/verifies the local SQLite database. It does not save or modify the Football Manager career.
+- Do not treat a successful snapshot or matching fingerprint as proof that all fields are accurate.
+- Live editing must wait until each field has a build-specific mapping, identity/save-generation checks, a pre-write value check, read-back verification and tested rollback on a disposable career.
+
+## Windows build verification
+
+Latest completed verification before the warning-cleanup follow-up:
+- Windows Actions run [#933](https://github.com/lewisxatk/FM-Atlas/actions/runs/43909923853), commit `50948ad51fa217e860dc3d482167bf08418877ae`.
+- **111 automated tests passed; 0 failed.**
+- Self-contained Windows x64 publishing and ZIP packaging passed.
+- WPF process-start smoke test passed: `FMAtlas.exe` remained running for eight seconds on the hosted Windows runner.
+- That run reported two build warnings. The nullable club-link warning and compile-time constant gate warning have been corrected, and signed random-potential PA handling has two additional regression tests. A fresh Windows run is required before distributing the warning-clean follow-up package.
+
+The hosted WPF smoke test does not run Football Manager. It cannot validate the user's actual live career or prove every external memory offset on their machine.
+
+## Build from source
+
+Requires the .NET 8 SDK. On Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Build-Test-Package.ps1
+```
+
+GitHub Actions builds on `windows-latest`, runs the full test suite, publishes a self-contained x64 desktop package and performs a basic WPF process-start smoke check. Workflow artifacts are retained for 14 days.
+
+## References and project notes
+
+- `docs/FRESH_REBUILD_MASTER_PLAN.md` — product scope and milestones.
+- `docs/FRESH_REBUILD_CHECKLIST.md` — task tracker.
+- `docs/CURRENT_CHECKPOINT.md` — resumable project state.
+- `docs/SESSION_CONTINUITY.md` — interruption recovery rules.
+- `docs/LIVE_LOAD_SAFETY_PAUSE_2026-11-16.md` — original incident and mitigations.
+- `research/LIVE_GAME_CONNECTION_001.md` — build profile and field map research.
+- `research/FMRTE_FEATURE_AUDIT_001.md` — player/staff/club profile and search coverage.
+- `research/FIELD_COVERAGE_LEDGER.md` — field status and evidence.
+
+Historical R7.2.0 source remains in `recovery/r7.2.0-source-import` as research/reference material; it is not the fresh application's code foundation.
