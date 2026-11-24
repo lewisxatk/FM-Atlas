@@ -37,6 +37,24 @@ public sealed class GameBuildProfileCatalogTests
     }
 
     [Fact]
+    public void MatchesUserSuppliedGamePass2711FingerprintWithoutEnablingTheScanner()
+    {
+        var fingerprint = new GameModuleFingerprint(
+            0x8664, 0x6AFF583B, 0x17624000, 391758808, "27.1.1");
+
+        var match = GameBuildProfileCatalog.MatchReference(fingerprint);
+
+        Assert.NotNull(match);
+        Assert.Equal("fm27-gamepass-0.9.2562.0", match!.Id);
+        Assert.Equal("0.9.2562.0", match.PackageVersion);
+        Assert.Equal(GameBuildEvidenceStatus.ExternalReferenceOnly, match.EvidenceStatus);
+        Assert.False(match.HasReadOnlyScanner);
+        Assert.False(match.CanAttemptReadOnlyScan);
+        Assert.False(match.CanReadLiveData);
+        Assert.False(match.CanWriteLiveData);
+    }
+
+    [Fact]
     public void UnknownFingerprintDoesNotMatchAReferenceProfile()
     {
         var fingerprint = new GameModuleFingerprint(

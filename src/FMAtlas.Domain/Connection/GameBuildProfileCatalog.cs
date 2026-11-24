@@ -56,6 +56,15 @@ public static class GameBuildProfileCatalog
             GameBuildEvidenceStatus.ExternalReferenceOnly,
             "FMLibreEditor 0.9.2524.0 profile (12 checks passed) and Football Manager 27 Editor 27.1.0+2505117 Game Pass offsets"),
         new(
+            "fm27-gamepass-0.9.2562.0",
+            "Football Manager 27 Game Pass 27.1.1 (0.9.2562.0)",
+            "Xbox / Microsoft Store",
+            "0.9.2562.0",
+            0x6AFF583B,
+            0x17624000,
+            GameBuildEvidenceStatus.ExternalReferenceOnly,
+            "User-supplied game_plugin.dll fingerprint; 27.1.1 ProductVersion 27.1.1+2511875. Fingerprint only: no FM Atlas memory layout or read verification."),
+        new(
             "fm27-gamepass-0.9.2435.0",
             "Football Manager 27 Game Pass 0.9.2435.0",
             "Xbox / Microsoft Store",
