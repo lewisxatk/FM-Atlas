@@ -52,13 +52,13 @@ Use a manually saved disposable/offline career or a copy for first-pass validati
 
 ## Windows build verification
 
-Latest verified baseline before the 27.1.1 integration:
-- Windows Actions run [#1055](https://github.com/lewisxatk/FM-Atlas/actions/runs/44575813957), commit `197c89e6cde92599c81c214f7297daab60581975`.
-- **125 automated tests passed; 0 failed.**
-- Release build completed with **0 warnings and 0 errors**.
+Latest verified 27.1.1 detection/UI integration:
+- Windows Actions run [#1057](https://github.com/lewisxatk/FM-Atlas/actions/runs/45494771496), commit `94684bcc8b5a93685b90ffd1381d5c9e58984ce7`.
+- **126 automated tests passed; 0 failed.**
+- Release build completed with **0 errors**. The initial build reported two nullable-value warnings (CS8629) in the legacy 27.1.0 reader; a follow-up commit now guards both cached nullable offsets explicitly and is being rebuilt.
 - Self-contained Windows x64 publishing and ZIP packaging passed (about 73.3 MB).
 - WPF process-start smoke test passed: `FMAtlas.exe` remained running for eight seconds on the hosted Windows runner.
-- This baseline still targets the previous 27.1.0 Game Pass scanner; the new 27.1.1 integration is being built and tested separately.
+- This verifies compilation, automated tests, packaging and basic startup. It does not validate a live FM27 27.1.1 career.
 
 The hosted WPF smoke test does not run Football Manager. It cannot validate the user's actual live career or prove every external memory offset on their machine.
 

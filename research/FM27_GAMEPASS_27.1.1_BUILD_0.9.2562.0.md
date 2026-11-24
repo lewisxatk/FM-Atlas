@@ -27,7 +27,7 @@ The package version is taken from the user's loaded path:
 ## 2. Independent public research
 
 - Sports Interactive's FM27 27.1.1 announcement is dated 24 November 2026. SteamDB's depot comparison records `game_plugin.dll` as modified in the update. This confirms a game-module change, but does not disclose the new memory layout.
-- FMLibreEditor v0.5.4 was released 22 November 2026. Its published build list documents Game Pass package `0.9.2524.0`, not `0.9.2562.0`. It predates the 24 November update.
+- FMLibreEditor v0.5.4 was released 22 November 2026. Its current repository tree at commit `7ba3d229c6ce178c748e7f5560cdf9aa28a1f70e` (24 November 17:35 UTC) still contains Game Pass profiles only through `0.9.2524.0`; no `0.9.2562.0` profile was present when checked.
 - FMRTE's published Windows compatibility list still lists Game Pass 27.1.0 build `2505117`; no 27.1.1 Game Pass profile is listed in the checked page.
 - The open-source `fm-editor` repository documents a recorded Game Pass `0.9.2524.0` profile. Its unrecorded-build discovery work is useful research, but a discovered address is not automatically a verified field map.
 - A separate public tool mentions save-file support for `27.1.1+2511875`. That is save-format evidence only; it is not evidence that live `game_plugin.dll` offsets are compatible.
@@ -77,3 +77,22 @@ Only after those checks should a separate 27.1.1 reader be enabled. Live writes 
 ## 6. Safety conclusion
 
 The 27.1.1 binary identity is verified from the user's file. The live memory layout is not. This profile is therefore a detection and safe-rejection profile only.
+
+
+## 7. Additional live-build discovery research
+
+The public repository [Jackhamerp24/Football-Manager-27-Editor](https://github.com/Jackhamerp24/Football-Manager-27-Editor) provides a useful independent discovery workflow:
+
+- Release v1.5.3 includes `Fm27Editor.Tools.exe` for Windows x64.
+- Its `newbuild` command is designed for a running FM27 process with a loaded save. The Windows discovery path reads the module image, finds the in-module FM build string, indexes RTTI, resolves vtables and static roots, checks structural offsets, and emits a profile with `readOnly: true`.
+- The README describes discovery as taking roughly 30 seconds. `verify-build` is a separate release gate; it must not be confused with discovery.
+- The v1.5.3 published support table still lists Game Pass `27.1.0+2505117`, not 27.1.1. The release predates the 24 November 27.1.1 patch. Therefore the tool's discovery workflow is a promising way to generate candidate mappings, not evidence that the new build is already verified.
+- The project is GPL-3.0. FM Atlas has not copied its source code; this is a research reference only.
+
+Official release and source references:
+- https://github.com/Jackhamerp24/Football-Manager-27-Editor/releases/tag/v1.5.3
+- https://github.com/Jackhamerp24/Football-Manager-27-Editor/blob/main/CHANGELOG.md
+- https://github.com/Jackhamerp24/Football-Manager-27-Editor/blob/main/src/Fm27Editor.Core/Offsets/NewBuildDiscoverer.cs
+- https://github.com/Jackhamerp24/Football-Manager-27-Editor/blob/main/LICENSE
+
+If this workflow is used to assist the FM Atlas mapping, run **only** the read-only `newbuild` discovery command on a disposable/offline career. Do not run `verify-build --writes`, do not enable a release gate, and do not import any generated offsets into the FM Atlas scanner until the candidate profile has been independently checked against the game UI and a second known-good source.
