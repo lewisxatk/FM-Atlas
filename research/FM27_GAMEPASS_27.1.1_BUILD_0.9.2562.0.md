@@ -83,16 +83,23 @@ The 27.1.1 binary identity is verified from the user's file. The live memory lay
 
 The public repository [Jackhamerp24/Football-Manager-27-Editor](https://github.com/Jackhamerp24/Football-Manager-27-Editor) provides a useful independent discovery workflow:
 
-- Release v1.5.3 includes `Fm27Editor.Tools.exe` for Windows x64.
+- Release v1.5.5, published 24 November 2026 at 13:08 UTC, includes `Fm27Editor.Tools.exe` for Windows x64. The release includes the completed Windows/Game Pass `newbuild` discovery path.
 - Its `newbuild` command is designed for a running FM27 process with a loaded save. The Windows discovery path reads the module image, finds the in-module FM build string, indexes RTTI, resolves vtables and static roots, checks structural offsets, and emits a profile with `readOnly: true`.
 - The README describes discovery as taking roughly 30 seconds. `verify-build` is a separate release gate; it must not be confused with discovery.
-- The v1.5.3 published support table still lists Game Pass `27.1.0+2505117`, not 27.1.1. The release predates the 24 November 27.1.1 patch. Therefore the tool's discovery workflow is a promising way to generate candidate mappings, not evidence that the new build is already verified.
+- The v1.5.5 published support table still lists Game Pass `27.1.0+2505117`, not 27.1.1. The release predates the 24 November 27.1.1 patch. Therefore the tool's discovery workflow is a promising way to generate candidate mappings, not evidence that the new build is already verified.
 - The project is GPL-3.0. FM Atlas has not copied its source code; this is a research reference only.
 
 Official release and source references:
-- https://github.com/Jackhamerp24/Football-Manager-27-Editor/releases/tag/v1.5.3
+- https://github.com/Jackhamerp24/Football-Manager-27-Editor/releases/tag/v1.5.5
+- https://github.com/Jackhamerp24/Football-Manager-27-Editor/releases/download/v1.5.5/Fm27Editor.Tools.exe
 - https://github.com/Jackhamerp24/Football-Manager-27-Editor/blob/main/CHANGELOG.md
 - https://github.com/Jackhamerp24/Football-Manager-27-Editor/blob/main/src/Fm27Editor.Core/Offsets/NewBuildDiscoverer.cs
 - https://github.com/Jackhamerp24/Football-Manager-27-Editor/blob/main/LICENSE
 
-If this workflow is used to assist the FM Atlas mapping, run **only** the read-only `newbuild` discovery command on a disposable/offline career. Do not run `verify-build --writes`, do not enable a release gate, and do not import any generated offsets into the FM Atlas scanner until the candidate profile has been independently checked against the game UI and a second known-good source.
+If this workflow is used to assist the FM Atlas mapping, download only the command-line tool from the v1.5.5 release and run **only** the read-only discovery command on a disposable/offline career:
+
+```powershell
+& "$env:USERPROFILE\Desktop\Fm27Editor.Tools.exe" newbuild --out "$env:USERPROFILE\Desktop\fm27-27.1.1-gamepass-profile.json"
+```
+
+The game must be running with the disposable save fully loaded. The command should emit a candidate profile and discovery report. Upload both the JSON profile and the console output for review. Do not run `verify-build --writes`, do not enable a release gate, and do not import any generated offsets into the FM Atlas scanner until the candidate profile has been independently checked against the game UI and a second known-good source.

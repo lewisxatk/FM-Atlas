@@ -349,9 +349,7 @@ internal sealed class FM27GamePassReader
                 return null;
             _playerPersonShifts[objectClass] = shift;
         }
-        if (shift is not { } resolvedShift)
-            return null;
-        var offset = resolvedShift;
+        var offset = shift.Value;
 
         byte B(ulong field, ulong personShift = 0) => data[checked((int)(field + personShift))];
         ushort U16(ulong field, ulong personShift = 0) => BitConverter.ToUInt16(data, checked((int)(field + personShift)));
@@ -577,9 +575,7 @@ internal sealed class FM27GamePassReader
                 return null;
             _staffPersonShifts[objectClass] = shift;
         }
-        if (shift is not { } resolvedShift)
-            return null;
-        var offset = resolvedShift;
+        var offset = shift.Value;
 
         byte B(ulong field, ulong personShift = 0) => data[checked((int)(field + personShift))];
         ushort U16(ulong field, ulong personShift = 0) => BitConverter.ToUInt16(data, checked((int)(field + personShift)));

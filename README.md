@@ -53,10 +53,10 @@ Use a manually saved disposable/offline career or a copy for first-pass validati
 ## Windows build verification
 
 Latest verified 27.1.1 detection/UI integration:
-- Windows Actions run [#1057](https://github.com/lewisxatk/FM-Atlas/actions/runs/45494771496), commit `94684bcc8b5a93685b90ffd1381d5c9e58984ce7`.
+- Windows Actions run [#1058](https://github.com/lewisxatk/FM-Atlas/actions/runs/45495306777), commit `8c4b1f6261edb0f71f50c292e9ff2be572cb2d18`.
 - **126 automated tests passed; 0 failed.**
-- Release build completed with **0 errors**. The initial build reported two nullable-value warnings (CS8629) in the legacy 27.1.0 reader; a follow-up commit now guards both cached nullable offsets explicitly and is being rebuilt.
-- Self-contained Windows x64 publishing and ZIP packaging passed (about 73.3 MB).
+- Release build completed with **0 warnings and 0 errors**.
+- Self-contained Windows x64 publishing and ZIP packaging passed (73,314,087 bytes).
 - WPF process-start smoke test passed: `FMAtlas.exe` remained running for eight seconds on the hosted Windows runner.
 - This verifies compilation, automated tests, packaging and basic startup. It does not validate a live FM27 27.1.1 career.
 

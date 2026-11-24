@@ -2,7 +2,7 @@
 
 **Revision:** 001  
 **Date:** 2026-11-16  
-**Status:** Approved design authority. The application shell, Advanced Search, and Player/Staff/Club workspaces are partially implemented; visual screenshot acceptance, full data coverage and live-game acceptance remain outstanding. See `docs/UI_REVIEW_001.md` and `docs/UI_IMPLEMENTATION_AUDIT_2026-11-24.md`.
+**Status:** Design direction recorded from user instructions and references REF-001 to REF-003. Not yet implemented.
 
 ## 1. Product direction
 
@@ -241,13 +241,13 @@ A screen is not complete because it looks similar. It must also display real inf
 
 ## 11. Current implementation status
 
-This document remains the controlling design/product specification. It records the required end state, not a blanket claim that every requirement is complete. Current implementation and outstanding acceptance gates are tracked in `docs/UI_REVIEW_001.md` and `docs/UI_IMPLEMENTATION_AUDIT_2026-11-24.md`. The main shell, search workspace and entity profiles now exist in the fresh WPF application, but visual comparison, live data completeness and live editing are not accepted as complete.
+Everything in this document is a **design/product requirement**, not a statement that the feature has been implemented. The reference set is approved as the current direction; development remains gated until the existing source/recovery baseline and technical architecture have been audited.
 
 
 ## 12. Full-screen player profile — REF-004
 
 **Controlling reference:** `IMG_8153.png` (REF-004), a Profiler Football club-intelligence/player profile screen showing Lamine Yamal.  
-**Status:** Approved and partially implemented. The full-screen workspace, identity rail, central attribute area, right-side information panels and top section tabs exist; complete live data coverage and editing remain outstanding. See the current UI implementation audit.
+**Status:** Approved player-profile layout and interaction direction; not implemented.
 
 ### Overall presentation
 

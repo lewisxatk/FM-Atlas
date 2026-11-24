@@ -1,6 +1,6 @@
 # FM Atlas UI implementation audit — 24 November 2026
 
-**Code baseline:** `rebuild/fresh-foundation-001` at `197c89e6cde92599c81c214f7297daab60581975`  
+**Code baseline:** `rebuild/fm27-27.1.1-compatibility` at `8c4b1f6261edb0f71f50c292e9ff2be572cb2d18`  
 **Design direction:** black/graphite surfaces, warm off-white text, restrained orange accent; editorial / readable / monospaced typography. The approved references are recorded in `docs/DESIGN_SPECIFICATION.md`.
 
 ## Implemented in the WPF source
@@ -44,3 +44,13 @@
 - [ ] Confirm all desired Advanced Search fields against the live index.
 - [ ] Confirm actual FM27 27.1.1 live player/staff/club reads on a disposable career.
 - [ ] Verify field-level write/read-back/undo before any editing is enabled.
+
+
+## Latest Windows validation
+
+- Actions run [#1058](https://github.com/lewisxatk/FM-Atlas/actions/runs/45495306777) completed successfully.
+- 126/126 automated tests passed.
+- Release build: 0 warnings, 0 errors.
+- Self-contained Windows x64 ZIP produced (73,314,087 bytes).
+- WPF startup smoke test passed for eight seconds.
+- This is not a live FM27 27.1.1 career test; that remains blocked pending verified memory roots and field mappings.
