@@ -1,6 +1,6 @@
 # FM Atlas UI implementation audit — 25 November 2026
 
-**Code branch:** `rebuild/fm27-0.9.2562-readonly-profile`  
+**Code branch:** `rebuild/fresh-foundation-001` (27.1.1 reader integration merged via [PR #12](https://github.com/lewisxatk/FM-Atlas/pull/12))  
 **Design authority:** `docs/DESIGN_SPECIFICATION.md` and `docs/REFERENCE_LIBRARY.md`  
 **Status:** partial source implementation; not visually accepted as the user's supplied redesign.
 
