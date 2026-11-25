@@ -43,6 +43,27 @@ public sealed class FM27LiveScanValidatorTests
     }
 
     [Fact]
+    public void AcceptsBuildScopedProviderKeyForFm2711GamePassPackage()
+    {
+        const string providerKey = "live-fm27-gamepass-0.9.2562.0";
+        var accumulator = new FM27LiveScanValidator.StreamingAccumulator(providerKey);
+
+        accumulator.Add(Player("1001", 150, providerKey: providerKey));
+        accumulator.Add(Player("1002", 110, providerKey: providerKey));
+        accumulator.Add(Player("1003", 80, providerKey: providerKey));
+        accumulator.Add(Player("1004", 90, providerKey: providerKey));
+        accumulator.Add(Staff("2001", 140, providerKey));
+        accumulator.Add(Staff("2002", 90, providerKey));
+        accumulator.Add(Club("3001", providerKey));
+
+        var result = accumulator.Complete();
+
+        Assert.Equal(4, result.Players);
+        Assert.Equal(2, result.Staff);
+        Assert.Equal(1, result.Clubs);
+    }
+
+    [Fact]
     public void AcceptsAConsistentPlayerStaffAndClubSnapshot()
     {
         var records = new FMAtlas.Domain.Entities.IEntityRecord[]
@@ -209,8 +230,9 @@ public sealed class FM27LiveScanValidatorTests
         string uid,
         int? currentAbility,
         bool naturalPositionTwenty = true,
-        int? potentialAbility = 180) =>
-        new(new EntityIdentity(EntityKind.Player, uid, WindowsFm27LiveGameConnector.LiveProviderKey))
+        int? potentialAbility = 180,
+        string? providerKey = null) =>
+        new(new EntityIdentity(EntityKind.Player, uid, providerKey ?? WindowsFm27LiveGameConnector.LiveProviderKey))
         {
             FullName = new SourcedValue<string>($"Player {uid}", Evidence),
             GameUid = new SourcedValue<string>(uid, Evidence),
@@ -229,16 +251,16 @@ public sealed class FM27LiveScanValidatorTests
             }
         };
 
-    private static StaffRecord Staff(string uid, int? currentAbility) =>
-        new(new EntityIdentity(EntityKind.Staff, uid, WindowsFm27LiveGameConnector.LiveProviderKey))
+    private static StaffRecord Staff(string uid, int? currentAbility, string? providerKey = null) =>
+        new(new EntityIdentity(EntityKind.Staff, uid, providerKey ?? WindowsFm27LiveGameConnector.LiveProviderKey))
         {
             FullName = new SourcedValue<string>($"Staff {uid}", Evidence),
             GameUid = new SourcedValue<string>(uid, Evidence),
             CurrentAbility = currentAbility is int ca ? new SourcedValue<int>(ca, Evidence) : null
         };
 
-    private static ClubRecord Club(string uid) =>
-        new(new EntityIdentity(EntityKind.Club, uid, WindowsFm27LiveGameConnector.LiveProviderKey))
+    private static ClubRecord Club(string uid, string? providerKey = null) =>
+        new(new EntityIdentity(EntityKind.Club, uid, providerKey ?? WindowsFm27LiveGameConnector.LiveProviderKey))
         {
             Name = new SourcedValue<string>($"Club {uid}", Evidence)
         };
