@@ -95,7 +95,7 @@ public static class FM27LiveScanValidator
             switch (record)
             {
                 case PlayerRecord player:
-                    ValidateIdentity(player.Identity, EntityKind.Player, _playerIds);
+                    ValidateIdentity(player.Identity, EntityKind.Player, _playerIds, _expectedProviderKey);
                     if (string.IsNullOrWhiteSpace(player.FullName?.Value))
                         throw new InvalidDataException("At least one player record has no usable name. The live layout has not passed validation.");
 
@@ -119,7 +119,7 @@ public static class FM27LiveScanValidator
                     break;
 
                 case StaffRecord staff:
-                    ValidateIdentity(staff.Identity, EntityKind.Staff, _staffIds);
+                    ValidateIdentity(staff.Identity, EntityKind.Staff, _staffIds, _expectedProviderKey);
                     if (string.IsNullOrWhiteSpace(staff.FullName?.Value))
                         throw new InvalidDataException("At least one staff record has no usable name. The live layout has not passed validation.");
 
@@ -130,7 +130,7 @@ public static class FM27LiveScanValidator
                     break;
 
                 case ClubRecord club:
-                    ValidateIdentity(club.Identity, EntityKind.Club, _clubIds);
+                    ValidateIdentity(club.Identity, EntityKind.Club, _clubIds, _expectedProviderKey);
                     if (string.IsNullOrWhiteSpace(club.Name?.Value))
                         throw new InvalidDataException("At least one club record has no usable name. The live layout has not passed validation.");
                     _clubs++;
@@ -203,14 +203,15 @@ public static class FM27LiveScanValidator
         return accumulator.Complete(readSummary);
     }
 
-    private void ValidateIdentity(
+    private static void ValidateIdentity(
         EntityIdentity identity,
         EntityKind expectedKind,
-        HashSet<string> seen)
+        HashSet<string> seen,
+        string expectedProviderKey)
     {
         if (identity.Kind != expectedKind ||
             !identity.IsUsable ||
-            !string.Equals(identity.ProviderKey, _expectedProviderKey, StringComparison.Ordinal))
+            !string.Equals(identity.ProviderKey, expectedProviderKey, StringComparison.Ordinal))
         {
             throw new InvalidDataException(
                 $"The {expectedKind} records contained an invalid or unexpected source identity. Nothing has been imported.");
