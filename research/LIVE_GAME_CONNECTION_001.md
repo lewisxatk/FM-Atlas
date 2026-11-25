@@ -182,3 +182,26 @@ The Club profile uses the existing Advanced Search index to query exact equality
 A regression test inserts Player and Staff records for two different club IDs, then verifies that the Club 77 lookup returns only the Player and Staff records for 77, not the records for 88.
 
 These join fields remain `LiveGameMemory / Mapped`. The SQLite/test verifies batch projection and the exact query behaviour with representative values; only a live comparison against the active FM27 Game Pass career can elevate them to `ReadVerified`.
+
+
+## 10. 25 November 2026 update — user's FM27 27.1.1 Game Pass package
+
+The original sections above are a historical record of the 0.9.2435.0 investigation. The active user target is now:
+
+| Field | Value |
+|---|---|
+| Storefront | Microsoft Store / Xbox Game Pass |
+| Package | `0.9.2562.0` |
+| Product version | `27.1.1+2511875` |
+| PE machine | `0x8664` |
+| PE timestamp | `0x6AFF583B` |
+| SizeOfImage | `0x17624000` |
+| SHA-256 | `814f0190ea241710e0780bbff6589cc8137e6837c48cc25f868b1b676008242a` |
+
+The exact profile was added via PR #12. The profile's static roots are the 27.1.1 values recorded in `FM27_GAMEPASS_27.1.1_BUILD_0.9.2562.0.md`. The 27.1.1 reader shares the 0.9.2524.0 object layout with documented exceptions. The corporate-facilities field now uses the build-specific `0x8AD` offset; the old `0x8A9` value is retained only as the default for older reference profiles.
+
+Build 1062, previously given to the user for testing, predates the 27.1.1 profile integration and therefore could not establish 27.1.1 live compatibility. Build 1100 includes the profile and the field-offset correction and passed 126/126 automated tests, Release build, self-contained Windows x64 packaging and WPF startup smoke test. These are software/build checks only; no successful live read from the user's career has yet been witnessed.
+
+The user should test Build 1100 with FM27 fully loaded to a career. If the live load fails, capture `%LOCALAPPDATA%\\FM Atlas\\Logs\\live-connection.log` and the generated diagnostics artifact. The exact failure stage, process fingerprint, record counts and read errors are required to identify the next blocker.
+
+**Safety:** the process reader remains read-only. `CanReadLiveData` and all write capability gates remain fail-closed until a complete user-save comparison is recorded. Do not use a profile match alone to enable live editing.
