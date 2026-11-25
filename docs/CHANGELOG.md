@@ -43,3 +43,27 @@ All entries are checkpoint notes. Earlier work is reconstructed from the previou
 - Added Tactical Intelligence Studio research gate for FM27 Tactical Effectiveness and Tactical Understanding, with no promise to reproduce hidden FM formulas.
 - Confirmed no BepInEx/injector dependency in the current roadmap; standalone app focus retained.
 - Added backup/import safety steps to Next Steps.
+
+## 2026-11-16 — Advanced Search expansion and newgen evidence
+
+- Expanded the FMRTE-inspired Player / Coach / Club search catalogue with typed fields, independent MIN/MAX boundaries, position All/Any logic, and Boolean Yes/No/Unknown states.
+- Added a cross-category field finder, contextual newgen/original/unknown labels, and local JSON Save/Load presets.
+- Expanded typed player, staff and club record projections for identity, attributes, staff role preferences, club facilities, attendance and financial fields.
+- Added PA-minus-CA derived search and regression tests for one-sided ranges, newgen states, position logic, staff role preferences, club fields, preset roundtrip and every READY query mapping.
+- Added research/ADVANCED_SEARCH_COVERAGE_002.md and Checkpoint 015.
+- Corrected an invalid WPF Border child structure found during final XAML source audit.
+- Build status remains unverified: the latest Windows Actions run failed before runner allocation (runner_id=0, no steps and no job logs). No current Windows artifact was produced. This is not a diagnosed compilation error and must not be reported as a successful build.
+- Live FM27 import, live newgen classification, Relations traversal, Recommended CA and live-save writing remain outstanding; live-save actions stay disabled.
+- Implemented the Relations query path over the existing `entity_relationships` table, including incoming/outgoing links and search by relationship kind or related entity name; added a provenance-backed SQLite relationship store and tests. The FM27 importer still needs to populate relationship rows.
+- Added a normalized relationship store and bidirectional Relations search (relationship kind or related entity name); the search path is implemented, while FM27 relationship discovery/import remains pending.
+
+
+## 2026-11-16 — Indexed-field search and read-only player profile handoff
+
+- Added an Indexed Data category backed by read-only field discovery from the local SQLite `field_values` table. The query model carries the discovered typed field catalogue through validation and execution.
+- Added regression coverage for discovered season-stat fields and for independently grouped position All/Any matching; club/division aliases are mapped to canonical projection keys.
+- Advanced Search remains source-implemented but not Windows-build-verified; current GitHub Actions jobs terminate before exposing steps/logs.
+- Double-clicking a player search result now opens the matching read-only typed PlayerRecord snapshot in its own window; duplicate windows for the same identity are focused instead of duplicated.
+- Player profile now binds snapshot-backed identity, CA/PA with evidence tooltips, attributes, season statistics, position ratings, preferred moves and nullable newgen classification.
+- App startup now uses the dependency-injected OnStartup path only, initialises the local Atlas schema before search providers are used, and reports initialisation errors. The conflicting StartupUri was removed.
+- Coach/Club profile navigation, section-specific profile views, portrait loading, live career import, authoritative live newgen population and all live editing remain In Progress.

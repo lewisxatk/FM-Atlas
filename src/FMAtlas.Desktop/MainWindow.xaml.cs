@@ -1,0 +1,650 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Threading;
+using Microsoft.Win32;
+using FMAtlas.Application.Abstractions;
+using FMAtlas.Domain.Entities;
+using FMAtlas.Domain.Players;
+using FMAtlas.Domain.Staff;
+using FMAtlas.Domain.Clubs;
+using FMAtlas.Domain.Search;
+using FMAtlas.Desktop.ViewModels;
+using FMAtlas.Desktop.Views;
+
+namespace FMAtlas.Desktop;
+
+public partial class MainWindow : Window
+{
+    private readonly IAdvancedSearchProvider _advancedSearchProvider;
+    private readonly IEntityRecordSnapshotStore _snapshotStore;
+    private readonly IPlayerExportImporter _playerExportImporter;
+    private readonly IEntitySearchProvider _entitySearchProvider;
+    private readonly IGraphicsLocator _graphicsLocator;
+    private readonly Task? _graphicsIndexTask;
+    private readonly MainWindowViewModel _mainWindowViewModel;
+    private readonly Dictionary<string, TabItem> _openWorkspaceTabs = new(StringComparer.Ordinal);
+    private AdvancedSearchWindow? _advancedSearchWindow;
+    private readonly DispatcherTimer _liveSessionMonitorTimer;
+
+    public MainWindow(
+        MainWindowViewModel viewModel,
+        IAdvancedSearchProvider advancedSearchProvider,
+        IEntityRecordSnapshotStore snapshotStore,
+        IPlayerExportImporter playerExportImporter,
+        IEntitySearchProvider entitySearchProvider,
+        IGraphicsLocator graphicsLocator,
+        Task? graphicsIndexTask = null)
+    {
+        InitializeComponent();
+        DataContext = viewModel;
+        _mainWindowViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+        _mainWindowViewModel.LiveDataInvalidated += (_, _) =>
+        {
+            var staleKeys = _openWorkspaceTabs.Keys
+                .Where(key => key.StartsWith("directory|", StringComparison.Ordinal) ||
+                              key.Contains("|live-fm27-gamepass-", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            foreach (var key in staleKeys)
+                CloseWorkspaceTab(key);
+        };
+        _mainWindowViewModel.LiveDataLoaded += (_, _) =>
+        {
+            var staleDirectories = _openWorkspaceTabs.Keys
+                .Where(key => key.StartsWith("directory|", StringComparison.Ordinal))
+                .ToArray();
+            foreach (var key in staleDirectories)
+                CloseWorkspaceTab(key);
+        };
+
+        _mainWindowViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(MainWindowViewModel.IsLiveLoadOverlayVisible))
+                return;
+
+            var isLoading = _mainWindowViewModel.IsLiveLoadOverlayVisible;
+
+            // Advanced Search is a separate modal window. The in-window overlay
+            // also blocks workspace tabs while a live snapshot is being replaced.
+            foreach (Window ownedWindow in OwnedWindows)
+                ownedWindow.IsEnabled = !isLoading;
+            WorkspaceTabControl.IsEnabled = !isLoading;
+
+            if (isLoading)
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    Keyboard.ClearFocus();
+                    LiveLoadOverlay.Focus();
+                }, DispatcherPriority.Input);
+            }
+        };
+        _advancedSearchProvider = advancedSearchProvider ?? throw new ArgumentNullException(nameof(advancedSearchProvider));
+        _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
+        _playerExportImporter = playerExportImporter ?? throw new ArgumentNullException(nameof(playerExportImporter));
+        _entitySearchProvider = entitySearchProvider ?? throw new ArgumentNullException(nameof(entitySearchProvider));
+        _graphicsLocator = graphicsLocator ?? throw new ArgumentNullException(nameof(graphicsLocator));
+        _graphicsIndexTask = graphicsIndexTask;
+
+        _liveSessionMonitorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _liveSessionMonitorTimer.Tick += async (_, _) =>
+            await _mainWindowViewModel.CheckLiveSessionAsync();
+        _liveSessionMonitorTimer.Start();
+
+        Closed += (_, _) =>
+        {
+            _liveSessionMonitorTimer.Stop();
+            _mainWindowViewModel.DisconnectLiveSession();
+        };
+    }
+
+    private void LoadGameButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_mainWindowViewModel.LoadGameCommand.CanExecute(null))
+            return;
+
+        var choice = MessageBox.Show(
+            this,
+            "FM Atlas will inspect the running FM27 Game Pass process using a read-only memory scan.\n\n" +
+            "Before it reads anything, it checks the exact game_plugin.dll fingerprint. Every requested memory range is checked for committed, readable memory, and the resulting player/staff/club data must pass layout sanity checks before it is imported.\n\n" +
+            "FM Atlas requests read/query permissions only. It does not request process-termination or memory-write permissions, and Save Live Changes remains disabled.\n\n" +
+            "This scanner is still undergoing first-user validation. A read-only design is not a guarantee against an unrelated game crash or an unexpected game-side issue. Save your career in FM27 first, wait until the career is fully loaded, and do not switch saves while the scan runs.\n\n" +
+            "Start the read-only connection test?",
+            "FM Atlas — Read-only live connection",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (choice == MessageBoxResult.Yes)
+            _mainWindowViewModel.LoadGameCommand.Execute(null);
+    }
+
+    private async void ImportPlayerExportButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Import a Football Manager player export",
+            Filter = "FM View Exporter CSV (*.csv)|*.csv|CSV files (*.csv)|*.csv",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            Cursor = Cursors.Wait;
+            var result = await _playerExportImporter.ImportAsync(dialog.FileName);
+            _mainWindowViewModel.NotifyPlayerExportImported(result.ImportedPlayers, result.ProviderKey);
+
+            var message = $"""
+                Imported players: {result.ImportedPlayers:N0}
+                Rows read: {result.RowsRead:N0}
+                Rows skipped: {result.SkippedRows:N0}
+                Duplicate IDs: {result.DuplicateIds:N0}
+                Additional columns indexed: {result.DynamicFieldsIndexed:N0}
+
+                The imported records are stored locally and can now be found in Quick Search and Advanced Search.
+                They are marked as Game Export / Mapped, not live-memory verified. No Football Manager process or career file was changed.
+                """;
+
+            if (result.Warnings.Count > 0)
+            {
+                message += Environment.NewLine + Environment.NewLine +
+                    "Import notes:" + Environment.NewLine +
+                    string.Join(Environment.NewLine, result.Warnings.Take(6));
+                if (result.Warnings.Count > 6)
+                    message += Environment.NewLine + $"…and {result.Warnings.Count - 6} more note(s).";
+            }
+
+            MessageBox.Show(this, message, "FM Atlas — Import complete",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this,
+                $"The player export could not be imported: {exception.Message}",
+                "FM Atlas — Import failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            Cursor = Cursors.Arrow;
+        }
+    }
+
+    private void AdvancedSearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        // REF-002 specifies Advanced Search as a centred modal dialog over the
+        // current workspace. Its own search state remains local until the user runs it.
+        if (_advancedSearchWindow is { } openWindow)
+        {
+            if (openWindow.WindowState == WindowState.Minimized)
+                openWindow.WindowState = WindowState.Normal;
+
+            openWindow.Activate();
+            return;
+        }
+
+        var searchWindow = new AdvancedSearchWindow(_advancedSearchProvider, () => _mainWindowViewModel.IncludeWomenPlayers)
+        {
+            Owner = this
+        };
+
+        _advancedSearchWindow = searchWindow;
+        searchWindow.ResultOpenRequested += OpenSearchResult;
+        searchWindow.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_advancedSearchWindow, searchWindow))
+                _advancedSearchWindow = null;
+        };
+
+        searchWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        searchWindow.ShowDialog();
+    }
+
+    private void WorkspaceTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, WorkspaceTabControl) ||
+            WorkspaceTabControl.SelectedItem is not TabItem selected)
+            return;
+
+        var title = selected.Header switch
+        {
+            string text => text,
+            DockPanel panel => panel.Children.OfType<TextBlock>().FirstOrDefault()?.Text,
+            _ => null
+        };
+        CurrentWorkspaceBreadcrumb.Text = string.IsNullOrWhiteSpace(title)
+            ? "WORKSPACE"
+            : title.ToUpperInvariant();
+
+        if (selected.Tag is string workspaceKey)
+        {
+            if (workspaceKey.StartsWith("directory|", StringComparison.Ordinal))
+            {
+                var kindText = workspaceKey["directory|".Length..];
+                var nav = kindText switch
+                {
+                    nameof(EntityKind.Player) => "Players",
+                    nameof(EntityKind.Staff) => "Staff",
+                    nameof(EntityKind.Club) => "Clubs",
+                    _ => "Dashboard"
+                };
+                SetActiveNavigation(nav);
+            }
+            else if (workspaceKey.StartsWith("workspace|", StringComparison.Ordinal))
+            {
+                var workspace = workspaceKey["workspace|".Length..];
+                if (workspace is "Settings" or "Save Manager")
+                    SetActiveNavigation(workspace);
+            }
+            else if (workspaceKey.StartsWith("Player|", StringComparison.Ordinal))
+            {
+                SetActiveNavigation("Players");
+            }
+            else if (workspaceKey.StartsWith("Staff|", StringComparison.Ordinal))
+            {
+                SetActiveNavigation("Staff");
+            }
+            else if (workspaceKey.StartsWith("Club|", StringComparison.Ordinal))
+            {
+                SetActiveNavigation("Clubs");
+            }
+        }
+        else if (string.Equals(title, "Dashboard", StringComparison.OrdinalIgnoreCase))
+        {
+            SetActiveNavigation("Dashboard");
+        }
+    }
+
+    private void SetActiveNavigation(string destination)
+    {
+        var accent = (System.Windows.Media.Brush)FindResource("Atlas.Accent");
+        var accentSoft = (System.Windows.Media.Brush)FindResource("Atlas.AccentSoft");
+
+        foreach (var button in WorkspaceNavigationPanel.Children.OfType<Button>())
+            Apply(button);
+        Apply(SettingsNavigationButton);
+
+        void Apply(Button button)
+        {
+            var selected = string.Equals(button.Tag as string, destination, StringComparison.OrdinalIgnoreCase);
+            if (selected)
+            {
+                button.Background = accentSoft;
+                button.BorderBrush = accent;
+            }
+            else
+            {
+                button.ClearValue(BackgroundProperty);
+                button.ClearValue(BorderBrushProperty);
+            }
+        }
+    }
+
+    private void NavigationButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string destination })
+            return;
+
+        SetActiveNavigation(destination);
+
+        if (destination == "Dashboard")
+        {
+            WorkspaceTabControl.SelectedIndex = 0;
+            return;
+        }
+
+        if (destination is "Players" or "Staff" or "Clubs")
+        {
+            var kind = destination switch
+            {
+                "Players" => EntityKind.Player,
+                "Staff" => EntityKind.Staff,
+                _ => EntityKind.Club
+            };
+            var key = $"directory|{kind}";
+            if (_openWorkspaceTabs.TryGetValue(key, out var existingDirectory))
+            {
+                WorkspaceTabControl.SelectedItem = existingDirectory;
+                return;
+            }
+
+            var browser = new EntityBrowserView
+            {
+                DataContext = new EntityBrowserViewModel(
+                    _entitySearchProvider,
+                    kind,
+                    () => _mainWindowViewModel.IncludeWomenPlayers)
+            };
+            browser.ResultOpenRequested += (_, result) => OpenSearchResult(result);
+            AddWorkspaceTab(destination, key, browser);
+            return;
+        }
+
+        if (destination == "My Career")
+        {
+            _ = OpenMyCareerAsync();
+            return;
+        }
+
+        if (destination == "Save Manager")
+        {
+            OpenInformationTab("Save Manager",
+                "The live career is currently loaded as a read-only snapshot. Local Atlas storage is separate from the Football Manager career file. Backup, reload and save-file management actions will be enabled only after their data paths are implemented and verified.");
+            return;
+        }
+
+        if (destination == "Settings")
+        {
+            OpenInformationTab("Settings",
+                "The global Include women preference is saved locally. Additional application, data-source and appearance settings are still being implemented.");
+        }
+    }
+
+    private async Task OpenMyCareerAsync()
+    {
+        if (!_mainWindowViewModel.LiveSessionActive)
+        {
+            OpenInformationTab("My Career", "Load an FM27 career first. FM Atlas will then look for the dedicated human-manager record and follow its current-club link. A nation name is shown only when the club record provides one.");
+            return;
+        }
+
+        try
+        {
+            if (_advancedSearchProvider is not IIndexedAdvancedSearchFieldProvider indexedProvider)
+            {
+                OpenInformationTab("My Career", "The current index cannot inspect the human-manager marker.");
+                return;
+            }
+
+            var fields = await indexedProvider.GetIndexedFieldsAsync(SearchEntityKind.Coach);
+            if (!fields.Any(field => string.Equals(field.Key, "is_human_manager", StringComparison.OrdinalIgnoreCase)))
+            {
+                OpenInformationTab("My Career", "The supported live snapshot does not contain the dedicated human-manager marker. FM Atlas will not guess from staff job titles.");
+                return;
+            }
+
+            var query = new AdvancedSearchQuery(
+                SearchEntityKind.Coach,
+                SearchFilterLogic.All,
+                [new SearchFilterCondition("is_human_manager", SearchFilterOperator.IsTrue)],
+                IndexedFields: fields);
+            var matches = await _advancedSearchProvider.ExecuteAsync(query, limit: 5);
+
+            if (matches.Count != 1)
+            {
+                OpenInformationTab("My Career", matches.Count == 0
+                    ? "No dedicated human-manager record was found in this career snapshot."
+                    : $"There are {matches.Count} possible human-manager records. FM Atlas has not selected one automatically.");
+                return;
+            }
+
+            var managerResult = matches[0];
+            var manager = await _snapshotStore.GetSnapshotAsync<StaffRecord>(managerResult.Identity);
+            if (manager is null)
+            {
+                OpenInformationTab("My Career", "The manager search result exists, but the typed staff record is unavailable.");
+                return;
+            }
+
+            OpenSearchResult(managerResult);
+
+            ClubRecord? club = null;
+            var clubOpened = false;
+            if (manager.SearchIntegerFields.TryGetValue("club_uid", out var clubUid) && clubUid.Value > 0)
+            {
+                var clubIdentity = new EntityIdentity(
+                    EntityKind.Club,
+                    clubUid.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    managerResult.Identity.ProviderKey);
+                club = await _snapshotStore.GetSnapshotAsync<ClubRecord>(clubIdentity);
+                if (club is not null)
+                {
+                    OpenSearchResult(new EntitySearchResult(
+                        clubIdentity,
+                        club.Name?.Value ?? manager.ClubName?.Value ?? "Current Club"));
+                    clubOpened = true;
+                }
+            }
+
+            // Some staff contracts expose the club name even when the mapped UID
+            // is absent. Resolve only a unique exact-name match; never guess from
+            // a partial or ambiguous Quick Search result.
+            var managerClubName = manager.ClubName?.Value?.Trim();
+            if (club is null && !string.IsNullOrWhiteSpace(managerClubName))
+            {
+                var candidates = await _entitySearchProvider.QuickSearchAsync(
+                    managerClubName, [EntityKind.Club], limit: 10, includeWomenPlayers: true);
+                var exactMatches = candidates.Where(candidate =>
+                    string.Equals(candidate.DisplayName.Trim(), managerClubName, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (exactMatches.Length == 1)
+                {
+                    club = await _snapshotStore.GetSnapshotAsync<ClubRecord>(exactMatches[0].Identity);
+                    if (club is not null)
+                    {
+                        OpenSearchResult(exactMatches[0]);
+                        clubOpened = true;
+                    }
+                }
+            }
+
+            var managerName = manager.FullName?.Value ?? managerResult.DisplayName;
+            var clubName = club?.Name?.Value ?? managerClubName ?? "Not available";
+            var clubNation = club?.NationName?.Value ?? "Not available";
+            var managerNationality = manager.Nationality?.Value ?? "Not available";
+            var clubProfileStatus = clubOpened ? "Club profile opened." : "Club profile could not be linked with certainty.";
+            OpenInformationTab("My Career",
+                $"Human manager: {managerName}\nCurrent club: {clubName}\nClub nation: {clubNation}\nManager nationality: {managerNationality}\n\n{clubProfileStatus} A full Nation profile is not yet included in the live importer; the club nation is shown as source-backed text from the club record.");
+        }
+        catch (Exception exception)
+        {
+            OpenInformationTab("My Career", $"Could not build the career summary: {exception.Message}");
+        }
+    }
+
+    private void OpenInformationTab(string title, string message)
+    {
+        var key = $"workspace|{title}";
+        if (_openWorkspaceTabs.TryGetValue(key, out var existing))
+        {
+            WorkspaceTabControl.SelectedItem = existing;
+            return;
+        }
+
+        var panel = new Border
+        {
+            Background = (System.Windows.Media.Brush)FindResource("Atlas.Surface"),
+            BorderBrush = (System.Windows.Media.Brush)FindResource("Atlas.Border"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(9),
+            Padding = new Thickness(24),
+            Margin = new Thickness(26)
+        };
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock { Text = title.ToUpperInvariant(), FontFamily = new System.Windows.Media.FontFamily("Consolas"), FontSize = 9, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Accent") });
+        stack.Children.Add(new TextBlock { Text = title, FontFamily = new System.Windows.Media.FontFamily("Georgia"), FontSize = 28, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Text"), Margin = new Thickness(0, 7, 0, 12) });
+        stack.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Muted"), MaxWidth = 760 });
+        panel.Child = stack;
+        AddWorkspaceTab(title, key, panel);
+    }
+
+    private void AddWorkspaceTab(string title, string key, object content)
+    {
+        if (_openWorkspaceTabs.TryGetValue(key, out var existing))
+        {
+            WorkspaceTabControl.SelectedItem = existing;
+            return;
+        }
+
+        var tab = new TabItem
+        {
+            Tag = key,
+            Content = content,
+            Header = CreateWorkspaceTabHeader(title, key)
+        };
+        _openWorkspaceTabs[key] = tab;
+        WorkspaceTabControl.Items.Add(tab);
+        WorkspaceTabControl.SelectedItem = tab;
+    }
+
+    private object CreateWorkspaceTabHeader(string title, string key)
+    {
+        var header = new DockPanel { LastChildFill = false };
+        header.Children.Add(new TextBlock
+        {
+            Text = title,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 8, 0),
+            FontSize = 10
+        });
+        var close = new Button
+        {
+            Content = "×",
+            ToolTip = "Close workspace tab",
+            Padding = new Thickness(5, 0, 5, 1),
+            MinWidth = 20,
+            MinHeight = 18,
+            FontSize = 13,
+            Background = System.Windows.Media.Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Muted"),
+            Cursor = Cursors.Hand
+        };
+        close.Click += (_, _) => CloseWorkspaceTab(key);
+        DockPanel.SetDock(close, Dock.Right);
+        header.Children.Add(close);
+        return header;
+    }
+
+    private void CloseWorkspaceTab(string key)
+    {
+        if (!_openWorkspaceTabs.Remove(key, out var tab))
+            return;
+        WorkspaceTabControl.Items.Remove(tab);
+    }
+
+    private void QuickSearchPopup_Closed(object? sender, EventArgs e)
+    {
+        // Popup.IsOpen is intentionally OneWay because the view-model property is
+        // read-only to the view. Keep the view-model state in sync when the user
+        // dismisses the popup by clicking elsewhere.
+        if (_mainWindowViewModel.IsQuickSearchOpen)
+            _mainWindowViewModel.CloseQuickSearch();
+    }
+
+    private void QuickSearchResults_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (QuickSearchResultsListBox.SelectedItem is QuickSearchResultViewModel result)
+            OpenSearchResult(new EntitySearchResult(result.Identity, result.DisplayName));
+    }
+
+    private async void OpenSearchResult(EntitySearchResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var key = $"{result.Identity.Kind}|{result.Identity.ProviderKey}|{result.Identity.SourceId}";
+        if (_openWorkspaceTabs.TryGetValue(key, out var openTab))
+        {
+            WorkspaceTabControl.SelectedItem = openTab;
+            _mainWindowViewModel.NotifyProfileOpened(result);
+            return;
+        }
+
+        try
+        {
+            object? profile = result.Identity.Kind switch
+            {
+                EntityKind.Player => await LoadPlayerProfileAsync(result.Identity),
+                EntityKind.Staff => await LoadStaffProfileAsync(result.Identity),
+                EntityKind.Club => await LoadClubProfileAsync(result.Identity),
+                _ => null
+            };
+
+            if (profile is null)
+            {
+                MessageBox.Show(
+                    this,
+                    $"The {result.Identity.Kind} profile snapshot is not available in the local record store. Reload the active career or import the source data again.",
+                    "FM Atlas — Profile unavailable",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var title = result.DisplayName;
+            AddWorkspaceTab(title, key, profile);
+            _mainWindowViewModel.NotifyProfileOpened(result);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"The profile could not be opened: {exception.Message}",
+                "FM Atlas",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void RecentProfile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: RecentProfileViewModel recent })
+            OpenSearchResult(recent.Result);
+    }
+
+    private async Task<PlayerProfileView?> LoadPlayerProfileAsync(EntityIdentity identity)
+    {
+        var player = await _snapshotStore.GetSnapshotAsync<PlayerRecord>(identity);
+        if (player is null)
+            return null;
+
+        await EnsureGraphicsIndexReadyAsync();
+        var portraitUid = player.GameUid?.Value ?? identity.SourceId;
+        var portraitPath = _graphicsLocator.FindPortrait(portraitUid)?.ImagePath;
+        return new PlayerProfileView { DataContext = new PlayerProfileViewModel(player, portraitPath) };
+    }
+
+    private async Task<StaffProfileView?> LoadStaffProfileAsync(EntityIdentity identity)
+    {
+        var staff = await _snapshotStore.GetSnapshotAsync<StaffRecord>(identity);
+        return staff is null ? null : new StaffProfileView { DataContext = new StaffProfileViewModel(staff) };
+    }
+
+    private async Task<ClubProfileView?> LoadClubProfileAsync(EntityIdentity identity)
+    {
+        var club = await _snapshotStore.GetSnapshotAsync<ClubRecord>(identity);
+        if (club is null)
+            return null;
+
+        await EnsureGraphicsIndexReadyAsync();
+        var logoPath = uint.TryParse(identity.SourceId, out var clubId)
+            ? _graphicsLocator.FindClubLogo(clubId)?.ImagePath
+            : null;
+        var view = new ClubProfileView
+        {
+            DataContext = new ClubProfileViewModel(club, logoPath, _advancedSearchProvider, _snapshotStore)
+        };
+        view.SquadPlayerOpenRequested += (_, result) => OpenSearchResult(result);
+        view.ClubStaffOpenRequested += (_, result) => OpenSearchResult(result);
+        return view;
+    }
+
+    private async Task EnsureGraphicsIndexReadyAsync()
+    {
+        if (_graphicsIndexTask is null)
+            return;
+
+        try
+        {
+            await _graphicsIndexTask;
+        }
+        catch (Exception exception)
+        {
+            // A graphics-pack problem must never prevent opening a player or club profile.
+            System.Diagnostics.Debug.WriteLine($"FM Atlas graphics index unavailable: {exception.Message}");
+        }
+    }
+}
