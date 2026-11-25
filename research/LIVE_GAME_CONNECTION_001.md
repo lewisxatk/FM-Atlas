@@ -236,3 +236,17 @@ Build 1114 included the profile and finance offset correction but predated this 
 The FM Editor 27.1.1 Game Pass profile independently matches the uploaded DLL's PE timestamp and image size and records build string RVA `0x48765B3`. The actual uploaded DLL was inspected at that RVA and contains `27.1.1+2511875\0`.
 
 The same profile exposes the Nation list root `0x53EAF00`, vector offset `0x240`, and Nation vtable RVA `0x4A601A8`. Its base Windows layout maps Nation ID/name/short name and linked men's/women's national-team objects. FMLibreEditor independently records separate men's/women's national-team array roots `0x53F8F50` / `0x53F8F68`. These Nation roots are not consumed by the current Atlas reader yet; see `research/NATION_PROFILE_REVERSE_ENGINEERING_001.md`.
+
+
+### Latest candidate build — 25 November 2026
+
+Build 1145 includes the package-scoped provider validator fix, renames the old constant to `LegacyLiveProviderKey` in the connector/startup diagnostics/tests, and includes the final HUD/compact-navigation/My Career panel pass.
+
+- Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/45620917682
+- Commit: `476659c814d45af87355d0ae1f443d6a2ec52e13`
+- Tests: 127/127 passed.
+- Build: zero warnings and zero errors.
+- Packaging, ZIP integrity and WPF startup smoke: passed.
+- Candidate artifact: `fm-atlas-win-x64-1145`.
+
+This is the candidate to use for the next user-side live test. The first real 27.1.1 career read is still unverified.
