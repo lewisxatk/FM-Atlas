@@ -107,3 +107,19 @@ The same port branch now also includes:
 - Artifact: `fm-atlas-win-x64-1114`.
 
 Still outstanding: real FM27 27.1.1 career read; screenshot comparison at 100% and 125% DPI; visual acceptance against the supplied reference images; final dashboard polish; and a full Nation profile/data source. The My Career route currently displays manager nationality and current-club nation strings, but there is not yet a full `NationRecord`/Nation workspace.
+
+
+## Third pass — package-scoped live validation correction
+
+A second 27.1.1 blocker was found by tracing the full import path: the connector created a provider key from the detected package version, but the streaming validator still expected the legacy 0.9.2524.0 key. This meant 0.9.2562.0 records could be rejected after a successful memory read. The connector now passes the session's matched provider key into a validator that requires an explicit expected identity. A regression test covers 0.9.2562.0.
+
+Windows run #1129:
+- Commit: `d3125cafacc68f09a8e152c960d6851bb22b8091`
+- Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/45619837764
+- 127/127 automated tests passed.
+- Release build: 0 warnings, 0 errors.
+- Self-contained x64 packaging and ZIP integrity: passed.
+- WPF startup smoke: passed.
+- Artifact: `fm-atlas-win-x64-1129`.
+
+This is still not proof of a successful live career read. The next required acceptance is the user's 27.1.1 career test and the live-connection log if it fails.
