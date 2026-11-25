@@ -20,17 +20,33 @@ public sealed record GameBuildProfile(
     uint PeTimestamp,
     uint SizeOfImage,
     GameBuildEvidenceStatus EvidenceStatus,
-    string EvidenceSource)
+    string EvidenceSource,
+    ulong PlayersArrayRva = 0,
+    ulong StaffArrayRva = 0,
+    ulong ClubsArrayRva = 0,
+    ulong GameUiRva = 0,
+    ulong CurrentDateRva = 0,
+    ulong GameLoadsOffset = 0x100)
 {
-    /// <summary>True only when FM Atlas currently contains a scanner for this exact package build.</summary>
-    public bool HasReadOnlyScanner => Id == "fm27-gamepass-0.9.2524.0";
+    /// <summary>True only when FM Atlas has a build-specific, read-only entity scanner for this package.</summary>
+    public bool HasReadOnlyScanner => Id is "fm27-gamepass-0.9.2524.0" or "fm27-gamepass-0.9.2562.0";
+
+    /// <summary>Every module-relative root required by the read-only scanner must exist in the exact profile.</summary>
+    public bool HasRequiredReadOnlyLayout =>
+        HasReadOnlyScanner &&
+        PlayersArrayRva != 0 &&
+        StaffArrayRva != 0 &&
+        ClubsArrayRva != 0 &&
+        GameUiRva != 0 &&
+        CurrentDateRva != 0 &&
+        GameLoadsOffset != 0;
 
     /// <summary>
-    /// Whether the existing exact-build scanner may attempt a read-only probe. This is
-    /// not the same as AtlasReadVerified and never authorizes a process-memory write.
+    /// Whether an externally mapped build may undergo a guarded read-only probe.
+    /// This is not AtlasReadVerified and never authorizes a process-memory write.
     /// </summary>
     public bool CanAttemptReadOnlyScan =>
-        HasReadOnlyScanner &&
+        HasRequiredReadOnlyLayout &&
         (EvidenceStatus is GameBuildEvidenceStatus.ExternalReferenceOnly
             or GameBuildEvidenceStatus.AtlasReadVerified
             or GameBuildEvidenceStatus.AtlasWriteVerified);
@@ -54,7 +70,8 @@ public static class GameBuildProfileCatalog
             0x6AF5C8C6,
             0x179AD000,
             GameBuildEvidenceStatus.ExternalReferenceOnly,
-            "FMLibreEditor 0.9.2524.0 profile (12 checks passed) and Football Manager 27 Editor 27.1.0+2505117 Game Pass offsets"),
+            "FMLibreEditor Game Pass 0.9.2524.0 profile and Football Manager 27 Editor 27.1.0+2505117 offsets",
+            0x53FAE88, 0x53FAED0, 0x53FB040, 0x53FBA40, 0x539DD10, 0x100),
         new(
             "fm27-gamepass-0.9.2562.0",
             "Football Manager 27 Game Pass 27.1.1 (0.9.2562.0)",
@@ -63,7 +80,8 @@ public static class GameBuildProfileCatalog
             0x6AFF583B,
             0x17624000,
             GameBuildEvidenceStatus.ExternalReferenceOnly,
-            "User-supplied game_plugin.dll fingerprint; 27.1.1 ProductVersion 27.1.1+2511875. Fingerprint only: no FM Atlas memory layout or read verification."),
+            "User-supplied DLL fingerprint plus FMLibreEditor Game Pass 0.9.2562.0 profile. Its profile probe passed 12 checks on a separate loaded save. External mapping only; FM Atlas has not independently validated this user's career.",
+            0x53F8EA8, 0x53F8EF0, 0x53F9060, 0x53F9A60, 0x539BD10, 0x100),
         new(
             "fm27-gamepass-0.9.2435.0",
             "Football Manager 27 Game Pass 0.9.2435.0",

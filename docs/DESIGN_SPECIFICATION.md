@@ -2,7 +2,7 @@
 
 **Revision:** 001  
 **Date:** 2026-11-16  
-**Status:** Design direction recorded from user instructions and references REF-001 to REF-003. Not yet implemented.
+**Status:** Partially represented in the current WPF source; not fully implemented or visually accepted. The shell, colour tokens, top search/actions, player profile panels and Advanced Search structure exist, but the full supplied UI update has not passed side-by-side Windows screenshot review.
 
 ## 1. Product direction
 

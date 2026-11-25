@@ -2,45 +2,57 @@
 
 A Windows desktop application for Football Manager scouting, live-save intelligence and (in a later, separately verified stage) editing.
 
-**Current branch:** `rebuild/fresh-foundation-001`  
+**Current development branch:** `rebuild/fm27-0.9.2562-readonly-profile`  
 **Architecture:** .NET 8 WPF, modular Domain / Application / Infrastructure / Desktop / Tests.  
 **Design authority:** `docs/REFERENCE_LIBRARY.md` and `docs/DESIGN_SPECIFICATION.md`.
 
 ## Current implementation
 
-- Dashboard plus Players, Staff, Clubs, Save Manager and Settings navigation.
+- Dashboard plus Players, Staff, Clubs, My Career, Save Manager and Settings navigation.
 - Global Quick Search and a modal, typed Advanced Search dialog.
 - Player, Staff and Club directories with closable in-app profile tabs.
 - Player attribute catalogue, visible/hidden/personality/foot ratings and CA/PA fields.
 - Club Squads and Staff lists joined from imported numeric club IDs.
 - CSV player import into local, provider-scoped SQLite storage.
-- An exact-fingerprint FM27 Game Pass 0.9.2524.0 read-only live scanner, with explicit user confirmation before attaching to the FM process.
+- Build-specific, read-only FM27 Game Pass live scanner profiles for packages 0.9.2524.0 (27.1.0) and 0.9.2562.0 (27.1.1).
 - Memory reads check that the requested range is committed and readable using `VirtualQueryEx` before `ReadProcessMemory`; unreadable/guarded ranges stop the scan.
 - A pre-import layout validator checks Player/Staff/Club identities, unique UIDs, names, CA coverage, position ratings, natural-position ratings and player-to-club UID joins.
 - A local diagnostic log records process/module fingerprint, scan stage, read counts, validation outcomes and errors without recording player names, UIDs or raw career data.
 
 The app is a functional workspace foundation, not yet a complete FM editor. Some profile sections remain empty until their source data is imported. Search only returns records and fields present in the local index and supported by the typed query provider.
 
-## Live connection — first-user validation
+## Live connection — FM27 27.1.1 first-user validation
 
-**Load Game is enabled for the guarded, read-only scanner.** The user must first save the career in FM27, wait for it to finish loading, then accept the explicit connection warning in FM Atlas.
+**The 27.1.1 Game Pass profile now has a guarded, read-only scanner path.** This is the change added on `rebuild/fm27-0.9.2562-readonly-profile`. It removes the previous hard-coded 0.9.2524-only rejection, but it does not mark the new fields as Atlas-verified.
 
-**FM27 27.1.1 detection:** FM Atlas now recognises the user's Game Pass package 0.9.2562.0 by its supplied DLL fingerprint (PE timestamp `0x6AFF583B`, image size `0x17624000`). This is identification only. The 27.1.1 profile deliberately has no scanner enabled until its module roots and entity layouts are mapped and validated. Load Game must reject this build safely for now; do not bypass the guard or reuse 27.1.0 addresses.
+Exact 27.1.1 module identity from the user's uploaded DLL:
 
-The scanner:
-1. Locates the running FM process and `game_plugin.dll`.
-2. Checks the exact Game Pass 0.9.2524.0 x64 PE timestamp and image-size reference before opening a memory handle.
-3. Requests `PROCESS_VM_READ | PROCESS_QUERY_INFORMATION` only.
-4. Checks each memory range with `VirtualQueryEx` before reading it.
-5. Captures and rechecks the game's save-generation counter.
-6. Reads Player, Staff and Club lists and validates the assembled snapshot before storing it in the local Atlas database.
-7. Discards a failed/partial snapshot rather than indexing partial results.
+| Property | Value |
+|---|---:|
+| Package | `0.9.2562.0` |
+| ProductVersion | `27.1.1+2511875` |
+| PE timestamp | `0x6AFF583B` |
+| SizeOfImage | `0x17624000` |
+| Architecture | x64 |
 
-The Game Pass 0.9.2524.0 reference profile and field layout are drawn from external reverse-engineering documentation. A fingerprint match and automated sanity checks are not a substitute for comparing the imported values against the user's actual FM27 career. Until that comparison is complete, the values remain `Mapped`, not `ReadVerified`.
+Build-specific module-relative roots used for the guarded read-only probe (from the published FMLibreEditor profile for Game Pass 0.9.2562.0):
+
+| Structure | RVA |
+|---|---:|
+| Players array | `0x53F8EA8` |
+| Staff array | `0x53F8EF0` |
+| Clubs array | `0x53F9060` |
+| GAME_UI static | `0x53F9A60` |
+| In-game date | `0x539BD10` |
+| GAME_UI saves-loaded field | `0x100` |
+
+The external profile describes the entity-object layout as unchanged from 0.9.2524.0. FM Atlas therefore reuses its existing read-only entity parser but supplies these build-specific roots from the matched profile. It does not use the 27.1.0 root addresses on 27.1.1.
+
+**Evidence boundary:** the current 27.1.1 profile remains `ExternalReferenceOnly`. FMLibreEditor lists Game Pass 0.9.2562.0 among versions checked by its project; its profile notes 12 checks passed on a separate loaded save. This is useful external evidence, not proof that FM Atlas has validated every field in the user's career. The connector continues to label imported fields `Mapped`, not `ReadVerified`. The scanner is read-only and does not request process-memory write permissions.
+
+The first live test should use a manually saved disposable/offline career. Check that player, staff and club data appears and compare sample identities, club links, CA/PA, visible attributes and in-game date against FM27. Stop if counts or identities look wrong and send the diagnostic log.
 
 The connector writes diagnostics to `%LOCALAPPDATA%\FM Atlas\Logs\live-connection.log`. The log records scan stages, module fingerprint, read counts and validation/error messages; it does not write player names, UIDs or raw career data.
-
-Use a manually saved disposable/offline career or a copy for first-pass validation. If FM closes, hangs or produces mismatched values, stop the test and preserve both the diagnostic log and the last known-good manual save. The earlier FM closure is unconfirmed and may have been coincidental; no root cause has been established.
 
 ## Live editing and saving boundary
 
@@ -52,15 +64,19 @@ Use a manually saved disposable/offline career or a copy for first-pass validati
 
 ## Windows build verification
 
-Latest verified 27.1.1 detection/UI integration:
-- Windows Actions run [#1058](https://github.com/lewisxatk/FM-Atlas/actions/runs/45495306777), commit `8c4b1f6261edb0f71f50c292e9ff2be572cb2d18`.
+Build 1068 (27.1.1 read-only profile integration):
+- Windows Actions run [#45614077051](https://github.com/lewisxatk/FM-Atlas/actions/runs/45614077051).
 - **126 automated tests passed; 0 failed.**
-- Release build completed with **0 warnings and 0 errors**.
-- Self-contained Windows x64 publishing and ZIP packaging passed (73,314,087 bytes).
+- Restore, Release build, test execution and self-contained Windows x64 packaging all completed successfully.
 - WPF process-start smoke test passed: `FMAtlas.exe` remained running for eight seconds on the hosted Windows runner.
-- This verifies compilation, automated tests, packaging and basic startup. It does not validate a live FM27 27.1.1 career.
+- ZIP SHA-256: `9E8ADCE304B93A922E6306B4E7FDA06EA858569C8A2E3EE88450F393E23045AA`.
+- This verifies compilation, the automated test suite, packaging and basic startup. It does not validate the user's actual live FM27 27.1.1 career.
 
-The hosted WPF smoke test does not run Football Manager. It cannot validate the user's actual live career or prove every external memory offset on their machine.
+## UI status — not yet accepted as complete
+
+The WPF source contains parts of the approved black / warm off-white / orange visual system, a compact left navigation, a global top search/action header, player-profile panels and a typed Advanced Search dialog. The approved design is **not** accepted as fully implemented: there has been no side-by-side Windows screenshot comparison against all supplied reference screens, several navigation destinations are still placeholders/deferred, and the user reported that the last package did not show the supplied redesign.
+
+See `docs/UI_IMPLEMENTATION_AUDIT_2026-11-25.md` for the verified source audit and the remaining visual acceptance work. Do not describe a successful build or eight-second startup as proof that the redesigned UI has been delivered.
 
 ## Build from source
 
@@ -80,8 +96,9 @@ GitHub Actions builds on `windows-latest`, runs the full test suite, publishes a
 - `docs/SESSION_CONTINUITY.md` — interruption recovery rules.
 - `docs/LIVE_LOAD_SAFETY_PAUSE_2026-11-16.md` — original incident and mitigations.
 - `research/LIVE_GAME_CONNECTION_001.md` — build profile and field map research.
-- `research/FM27_GAMEPASS_27.1.1_BUILD_0.9.2562.0.md` — fingerprint from the user's supplied 27.1.1 DLL and the evidence boundary for this package.
+- `research/FM27_GAMEPASS_27.1.1_BUILD_0.9.2562.0.md` — user's binary fingerprint and external build profile mapping.
 - `research/FMRTE_FEATURE_AUDIT_001.md` — player/staff/club profile and search coverage.
 - `research/FIELD_COVERAGE_LEDGER.md` — field status and evidence.
+- `docs/UI_IMPLEMENTATION_AUDIT_2026-11-25.md` — current visual implementation and acceptance gaps.
 
 Historical R7.2.0 source remains in `recovery/r7.2.0-source-import` as research/reference material; it is not the fresh application's code foundation.

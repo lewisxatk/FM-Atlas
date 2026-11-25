@@ -37,7 +37,7 @@ public sealed class GameBuildProfileCatalogTests
     }
 
     [Fact]
-    public void MatchesUserSuppliedGamePass2711FingerprintWithoutEnablingTheScanner()
+    public void MatchesUserSuppliedGamePass2711FingerprintAndEnablesOnlyGuardedReadOnlyProbe()
     {
         var fingerprint = new GameModuleFingerprint(
             0x8664, 0x6AFF583B, 0x17624000, 391758808, "27.1.1");
@@ -48,10 +48,17 @@ public sealed class GameBuildProfileCatalogTests
         Assert.Equal("fm27-gamepass-0.9.2562.0", match!.Id);
         Assert.Equal("0.9.2562.0", match.PackageVersion);
         Assert.Equal(GameBuildEvidenceStatus.ExternalReferenceOnly, match.EvidenceStatus);
-        Assert.False(match.HasReadOnlyScanner);
-        Assert.False(match.CanAttemptReadOnlyScan);
+        Assert.True(match.HasReadOnlyScanner);
+        Assert.True(match.HasRequiredReadOnlyLayout);
+        Assert.True(match.CanAttemptReadOnlyScan);
         Assert.False(match.CanReadLiveData);
         Assert.False(match.CanWriteLiveData);
+        Assert.Equal(0x53F8EA8UL, match.PlayersArrayRva);
+        Assert.Equal(0x53F8EF0UL, match.StaffArrayRva);
+        Assert.Equal(0x53F9060UL, match.ClubsArrayRva);
+        Assert.Equal(0x53F9A60UL, match.GameUiRva);
+        Assert.Equal(0x539BD10UL, match.CurrentDateRva);
+        Assert.Equal(0x100UL, match.GameLoadsOffset);
     }
 
     [Fact]
@@ -75,6 +82,8 @@ public sealed class GameBuildProfileCatalogTests
         });
         Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>
             profile.PackageVersion == "0.9.2524.0" && profile.CanAttemptReadOnlyScan);
+        Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>
+            profile.PackageVersion == "0.9.2562.0" && profile.CanAttemptReadOnlyScan);
         Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>
             profile.PackageVersion == "0.9.2435.0" && !profile.CanAttemptReadOnlyScan);
         Assert.Contains(GameBuildProfileCatalog.Profiles, profile =>

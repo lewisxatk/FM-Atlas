@@ -14,6 +14,11 @@ namespace FMAtlas.Infrastructure.Connection;
 public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
 {
     public const string LiveProviderKey = "live-fm27-gamepass-0.9.2524.0";
+    private static readonly string[] KnownLiveProviderKeys =
+    [
+        "live-fm27-gamepass-0.9.2524.0",
+        "live-fm27-gamepass-0.9.2562.0"
+    ];
     private sealed record LiveSession(
         Process Process,
         WindowsProcessMemoryAccessor Memory,
@@ -93,7 +98,8 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             // A live provider is a disposable snapshot, never a fallback cache.
             // Clear it before scanning so a failed/cancelled reload cannot leave the
             // previous career visible as if it were still the active save.
-            await _snapshotStore.DeleteProviderAsync(LiveProviderKey, CancellationToken.None).ConfigureAwait(false);
+            foreach (var providerKey in KnownLiveProviderKeys)
+                await _snapshotStore.DeleteProviderAsync(providerKey, CancellationToken.None).ConfigureAwait(false);
             if (previousSession is not null &&
                 !string.Equals(previousSession.ProviderKey, LiveProviderKey, StringComparison.Ordinal))
             {
@@ -289,26 +295,23 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             WriteDiagnostic($"game_plugin.dll fingerprint: machine=0x{fingerprint.Machine:X4}; timestamp=0x{fingerprint.PeTimestamp:X8}; " +
                 $"imageSize=0x{fingerprint.SizeOfImage:X8}; fileVersion={fingerprint.FileVersion ?? "unavailable"}.");
 
-            if (!FM27GamePassReader.Matches(fingerprint))
-            {
-                var known = GameBuildProfileCatalog.MatchReference(fingerprint);
-                var description = known is null ? "This package is not in the current reference catalogue." : $"Detected {known.DisplayName}, but this scanner is pinned to FM27 Game Pass 0.9.2524.0.";
-                throw new InvalidOperationException($"{description} PE timestamp 0x{fingerprint.PeTimestamp:X8}, image size 0x{fingerprint.SizeOfImage:X8}. Update FM Atlas's build profile before reading this package.");
-            }
-
             var profile = GameBuildProfileCatalog.MatchReference(fingerprint);
-            if (profile is null || !profile.CanAttemptReadOnlyScan || profile.CanWriteLiveData)
-                throw new InvalidOperationException("The Game Pass fingerprint matched, but its evidence status does not permit a read-only scan. FM Atlas has stopped rather than guessing.");
+            if (fingerprint.Machine != 0x8664)
+                throw new InvalidOperationException($"FM Atlas found a {fingerprint.Architecture} game_plugin.dll. This reader requires the exact x64 Game Pass package profile.");
+            if (profile is null)
+                throw new InvalidOperationException($"This FM27 Game Pass package is not in the reference catalogue. PE timestamp 0x{fingerprint.PeTimestamp:X8}, image size 0x{fingerprint.SizeOfImage:X8}. No process memory was read.");
+            if (!FM27GamePassReader.Matches(fingerprint, profile) || !profile.CanAttemptReadOnlyScan || profile.CanWriteLiveData)
+                throw new InvalidOperationException($"FM Atlas recognises {profile.DisplayName}, but has no complete guarded read-only mapping for this exact package. No process memory was read.");
 
-            progress?.Report(new LiveGameLoadProgress(10, "Checking FM27 build", "Exact Game Pass package 0.9.2524.0 matched. Opening a read-only process handle."));
+            progress?.Report(new LiveGameLoadProgress(10, "Checking FM27 build", $"Exact Game Pass package {profile.PackageVersion} matched against its external layout. Opening a read-only process handle; FM Atlas field verification is still pending."));
 
             memory = new WindowsProcessMemoryAccessor(gameProcess.Id);
-            var initialGeneration = FM27GamePassReader.ReadSaveGeneration(memory, moduleBase);
+            var initialGeneration = FM27GamePassReader.ReadSaveGeneration(memory, moduleBase, profile.GameUiRva, profile.GameLoadsOffset);
             if (initialGeneration <= 0)
                 throw new InvalidDataException("FM27's save-generation counter is not valid. Make sure a career has finished loading.");
 
-            var providerKey = LiveProviderKey;
-            var reader = new FM27GamePassReader(memory, moduleBase, providerKey);
+            var providerKey = $"live-fm27-gamepass-{profile.PackageVersion}";
+            var reader = new FM27GamePassReader(memory, moduleBase, providerKey, profile);
             var initial = reader.InspectLoadedSave();
             WriteDiagnostic($"Initial save probe: generation={initial.SaveGeneration}; players={initial.Players}; staff={initial.Staff}; clubs={initial.Clubs}; inGameDate={initial.InGameDate:yyyy-MM-dd}.");
             if (initial.SaveGeneration != initialGeneration)
