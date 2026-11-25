@@ -127,7 +127,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             using var atlasProcess = Process.GetCurrentProcess();
             var workingSetBeforeImport = atlasProcess.WorkingSet64;
 
-            var validationAccumulator = new FM27LiveScanValidator.StreamingAccumulator();
+            var validationAccumulator = new FM27LiveScanValidator.StreamingAccumulator(work.Session.ProviderKey);
             var validatedRecords = ValidateAsRead(work.Records, validationAccumulator, cancellationToken);
             FM27LiveScanValidationResult? validation = null;
             FM27LiveReadSummary? readSummary = null;
