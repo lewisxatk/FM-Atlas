@@ -439,7 +439,7 @@ public partial class MainWindow : Window
     {
         if (!_mainWindowViewModel.LiveSessionActive)
         {
-            OpenInformationTab("My Career", "Load an FM27 career first. FM Atlas will then look for the dedicated human-manager record and follow its current-club link. A nation name is shown only when the club record provides one.");
+            OpenInformationTab("My Career", "Load an FM27 career first. FM Atlas will look for the dedicated human-manager record and follow its current-club link. When the source fields are available, it can show the manager's nationality and the club's nation; a full Nation profile is not yet included.");
             return;
         }
 
@@ -551,13 +551,13 @@ public partial class MainWindow : Window
             Background = (System.Windows.Media.Brush)FindResource("Atlas.Surface"),
             BorderBrush = (System.Windows.Media.Brush)FindResource("Atlas.Border"),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(9),
-            Padding = new Thickness(24),
-            Margin = new Thickness(26)
+            CornerRadius = new CornerRadius(2),
+            Padding = new Thickness(18),
+            Margin = new Thickness(18)
         };
         var stack = new StackPanel();
         stack.Children.Add(new TextBlock { Text = title.ToUpperInvariant(), FontFamily = new System.Windows.Media.FontFamily("Consolas"), FontSize = 9, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Accent") });
-        stack.Children.Add(new TextBlock { Text = title, FontFamily = new System.Windows.Media.FontFamily("Georgia"), FontSize = 28, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Text"), Margin = new Thickness(0, 7, 0, 12) });
+        stack.Children.Add(new TextBlock { Text = title, FontFamily = new System.Windows.Media.FontFamily("Bahnschrift"), FontSize = 24, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Text"), Margin = new Thickness(0, 7, 0, 12) });
         stack.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Muted"), MaxWidth = 760 });
         panel.Child = stack;
         AddWorkspaceTab(title, key, panel);
