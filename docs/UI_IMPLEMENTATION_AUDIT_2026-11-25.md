@@ -49,3 +49,26 @@ PR #8 itself lists remaining work: full Staff/Club Advanced Search parity, Staff
 ## Release rule
 
 A successful compile, unit-test run or eight-second WPF startup smoke test does not prove that the visual redesign has been implemented. Do not mark the design complete until the visual comparison and real interaction checklist above pass.
+
+
+## Supplied HUD restyle archive received and ported (25 November 2026)
+
+The user uploaded `FM-Atlas-restyled.zip` (archive source timestamps: 17 November 2026). The archive contains the actual WPF implementation, including:
+- the HUD resource palette, tiled grid/crosshair backdrop, corner-bracket paths and button templates;
+- compact text-input styling, dark slim scrollbars and monospaced HUD labels;
+- a portrait 15-position football pitch, GK/DEF/MID/ATT/CLEAR group selectors and a live selected-position summary;
+- a pulsing live-connection indicator.
+
+The archive's Player, Club and Staff profile views and their view models match the active modular branch, so those existing data-bound profile screens are retained rather than replaced with stale copies.
+
+Port work on `rebuild/fm27-27.1.1-ui-hud-port`:
+- [x] Add the supplied HUD palette, grid backdrop, bracket controls, text-box template and slim scrollbar resources.
+- [x] Apply the grid backdrop and animated live-status indicator to the main shell.
+- [x] Port the portrait pitch and grouped position selectors into Advanced Search.
+- [x] Add code-behind synchronisation for selected roles and the selection summary.
+- [ ] Windows Release build and XAML load verification.
+- [ ] Manual screenshots at 100% and 125% display scaling.
+- [ ] Side-by-side comparison against the supplied archive and user reference images.
+- [ ] Test all visible buttons, navigation, search, position groups and saved presets.
+
+The port is **not visually accepted or release-ready** until the remaining checks pass. The original archive was authored on 17 November and predates the current 27.1.1 reader integration; its older live-reader files must not replace the current build-specific scanner.
