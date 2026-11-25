@@ -23,7 +23,8 @@ The primary target is the user's exact Microsoft Store / Game Pass module:
 | barak14/fm-editor | Documented Game Pass package 0.9.2524.0 | Independent predecessor layout reference for 27.1.0 | Cross-check legacy profile only; not a 27.1.1 profile |
 | FM-Player-Analyzer | FM27 save-file / FM View Exporter import, read-only | Best XI optimisation, positional weak spots, youth/signing analysis and registration tools | Future offline analysis ideas; save parsing is separate from live memory reader |
 | FM Scouting Tool 27 (FMST27) | Public FM Scout page describes v3.0.3 | Read-only live scouting from memory; player stats, CA/PA, contracts, club data, shortlist/search workflows | Feature benchmark only; redistribution is restricted to the publisher's own download page |
-| TalentSeer | No current public 27.1.1 compatibility evidence verified in this audit | User has referenced a TalentSeer 27.1.2 archive in the project, but its raw bytes/source were not available in the current workspace | Do not infer its 27.1.1 support or copy any binary; inspect a direct upload if it is needed |
+| FM Dossier | Public listing v1.16.0 says FM27 works, with documented feature limits | Tactical suitability, squad/registration analysis, Moneyball/stat analysis, transfer/loan interest. It explicitly keeps unavailable values as Unknown rather than inventing a figure | Use its source/uncertainty labelling and feature-gap discipline as a benchmark; respect its own data-source limitations |
+| Talent Seer | Current public listing is 27.1.4 (22 Nov 2026), but states FM27 for PC tested on Steam; it does not explicitly confirm Game Pass in the listing | Role ratings for 79 tactical roles, CA/PA, hidden/personality data, interest estimates, potential projections, comparison, staff search, search presets and edit history/undo. User's referenced 27.1.2 archive is older than 27.1.4 | Use as a feature benchmark only. Do not assume Game Pass support or copy its proprietary implementation. Prefer a 27.1.4 research build over the older archive if a comparison is required |
 
 ## Exact 27.1.1 Game Pass layout evidence
 
@@ -107,4 +108,7 @@ The following are product behaviours worth implementing or benchmarking in FM At
 - Jackhamerp FM27 Editor releases: https://github.com/Jackhamerp24/Football-Manager-27-Editor/releases
 - barak14 FM Editor layout: https://github.com/barak14/fm-editor/blob/main/docs/fm27/memory-layout.md
 - FM-Player-Analyzer: https://github.com/ElectroHugin/FM-Player-Analyzer (GPL-3.0)
+- Talent Seer public 27.1.4 release and feature notes: https://sortitoutsi.net/content/78140/talent-seer-is-here-a-free-scouting-and-editing-tool-for-football-manager-27
+- Talent Seer 27.1.2 author devlog: https://emreyavuz84.itch.io/talent-seer/devlog/1759768/talent-seer-2712-who-would-talk-to-your-club
+- FM Dossier public FM27 compatibility discussion: https://sortitoutsi.net/content/77041/fm-dossier
 - FMST27 public feature and redistribution page: https://www.fmscout.com/a-fmst-27.html
