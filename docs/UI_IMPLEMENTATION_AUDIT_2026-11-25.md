@@ -123,3 +123,17 @@ Windows run #1129:
 - Artifact: `fm-atlas-win-x64-1129`.
 
 This is still not proof of a successful live career read. The next required acceptance is the user's 27.1.1 career test and the live-connection log if it fails.
+
+
+## Final test package after cleanup — run 1145
+
+The legacy provider constant was renamed to `LegacyLiveProviderKey` throughout the connector, startup diagnostics and tests, preventing future code from treating 0.9.2524.0 as the current package. The My Career fallback information panel was also brought into the square HUD visual system and its nation wording clarified.
+
+- Commit: `476659c814d45af87355d0ae1f443d6a2ec52e13`
+- Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/45620917682
+- 127/127 tests passed.
+- Release build: 0 warnings, 0 errors.
+- Self-contained Windows x64 packaging and ZIP integrity: passed.
+- WPF startup smoke test: passed.
+- Artifact: `fm-atlas-win-x64-1145`.
+- The package is still not a substitute for testing against the user's live career.
