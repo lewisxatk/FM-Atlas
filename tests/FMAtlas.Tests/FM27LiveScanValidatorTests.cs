@@ -34,7 +34,7 @@ public sealed class FM27LiveScanValidatorTests
             yield return Club("3001");
         }
 
-        var result = FM27LiveScanValidator.Validate(SinglePass());
+        var result = FM27LiveScanValidator.Validate(SinglePass(), WindowsFm27LiveGameConnector.LiveProviderKey);
 
         Assert.Equal(1, enumerationCount);
         Assert.Equal(4, result.Players);
@@ -77,7 +77,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var result = FM27LiveScanValidator.Validate(records);
+        var result = FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LiveProviderKey);
 
         Assert.Equal(4, result.Players);
         Assert.Equal(2, result.Staff);
@@ -196,7 +196,7 @@ public sealed class FM27LiveScanValidatorTests
             ClubPointers: 10, ClubsRead: 10, ClubsSkipped: 0,
             FailureSamples: ["Player 0x1234: unreadable page"]);
 
-        var result = FM27LiveScanValidator.Validate(records, readSummary);
+        var result = FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LiveProviderKey, readSummary);
 
         Assert.Contains(result.Warnings, warning => warning.Contains("3 entries were skipped"));
         Assert.Single(readSummary.FailureSamples);
