@@ -66,7 +66,7 @@ public static class FM27LiveScanValidator
     {
         private readonly string _expectedProviderKey;
 
-        public StreamingAccumulator(string expectedProviderKey = WindowsFm27LiveGameConnector.LiveProviderKey)
+        public StreamingAccumulator(string expectedProviderKey)
         {
             if (string.IsNullOrWhiteSpace(expectedProviderKey))
                 throw new ArgumentException("A matched live provider key is required.", nameof(expectedProviderKey));
@@ -193,10 +193,11 @@ public static class FM27LiveScanValidator
 
     public static FM27LiveScanValidationResult Validate(
         IEnumerable<IEntityRecord> records,
+        string expectedProviderKey,
         FM27LiveReadSummary? readSummary = null)
     {
         ArgumentNullException.ThrowIfNull(records);
-        var accumulator = new StreamingAccumulator();
+        var accumulator = new StreamingAccumulator(expectedProviderKey);
         foreach (var record in records)
             accumulator.Add(record);
         return accumulator.Complete(readSummary);
