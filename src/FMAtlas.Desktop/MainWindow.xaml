@@ -39,7 +39,7 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="34" Height="34" CornerRadius="8" Background="#21140F" BorderBrush="#4B281B" BorderThickness="1">
+                    <Border Width="34" Height="34" CornerRadius="2" Background="#21140F" BorderBrush="#4B281B" BorderThickness="1">
                         <TextBlock Text="FM" Foreground="{StaticResource Atlas.Accent}" FontFamily="Georgia" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
@@ -171,7 +171,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0" Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="7" Padding="11,0" Height="37" Margin="0,0,9,0">
+                    <Border Grid.Column="0" Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="2" Padding="11,0" Height="37" Margin="0,0,9,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -199,7 +199,7 @@
                                         Background="#101010"
                                         BorderBrush="{StaticResource Atlas.Border}"
                                         BorderThickness="1"
-                                        CornerRadius="7"
+                                        CornerRadius="2"
                                         Padding="12">
                                     <StackPanel>
                                         <TextBlock Text="{Binding QuickSearchMessage}"
@@ -320,7 +320,7 @@
                         <TextBlock Text="FM Atlas" FontFamily="Georgia" FontSize="31" Foreground="{StaticResource Atlas.Text}"/>
                         <TextBlock Text="Manage the active career, player records, staff and clubs." FontSize="12" Foreground="{StaticResource Atlas.Muted}" Margin="1,5,0,0"/>
                     </StackPanel>
-                    <Border Grid.Column="1" Background="#17110E" BorderBrush="#3D261B" BorderThickness="1" CornerRadius="6" Padding="10,7" VerticalAlignment="Center">
+                    <Border Grid.Column="1" Background="#17110E" BorderBrush="#3D261B" BorderThickness="1" CornerRadius="2" Padding="10,7" VerticalAlignment="Center">
                         <TextBlock Text="CAREER WORKSPACE" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
                     </Border>
                 </Grid>
@@ -470,7 +470,7 @@
                 </Border.Effect>
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Border Width="28" Height="28" CornerRadius="7" Background="#21140F" BorderBrush="#4B281B" BorderThickness="1">
+                        <Border Width="28" Height="28" CornerRadius="2" Background="#21140F" BorderBrush="#4B281B" BorderThickness="1">
                             <TextBlock Text="FM" Foreground="{StaticResource Atlas.Accent}" FontFamily="Georgia" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Margin="9,0,0,0" VerticalAlignment="Center">
