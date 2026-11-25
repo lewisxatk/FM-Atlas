@@ -197,6 +197,8 @@ The original sections above are a historical record of the 0.9.2435.0 investigat
 | PE timestamp | `0x6AFF583B` |
 | SizeOfImage | `0x17624000` |
 | SHA-256 | `814f0190ea241710e0780bbff6589cc8137e6837c48cc25f868b1b676008242a` |
+| Build string RVA | `0x48765B3` |
+| Build string | `27.1.1+2511875` |
 
 The exact profile was added via PR #12. The profile's static roots are the 27.1.1 values recorded in `FM27_GAMEPASS_27.1.1_BUILD_0.9.2562.0.md`. The 27.1.1 reader shares the 0.9.2524.0 object layout with documented exceptions. The corporate-facilities field now uses the build-specific `0x8AD` offset; the old `0x8A9` value is retained only as the default for older reference profiles.
 
@@ -227,3 +229,10 @@ Correction on the current branch:
 - Regression test `AcceptsBuildScopedProviderKeyForFm2711GamePassPackage` verifies the `0.9.2562.0` identity.
 
 Build 1114 included the profile and finance offset correction but predated this provider-key fix. Build 1129 includes both fixes and passed 127/127 automated tests, zero warnings/errors, self-contained x64 packaging and WPF startup smoke. Build 1129 is the first candidate to test for the complete 27.1.1 connection path. The user's actual career has not yet been successfully read; the result remains pending user-side testing.
+
+
+### Independent build-string and Nation cross-check
+
+The FM Editor 27.1.1 Game Pass profile independently matches the uploaded DLL's PE timestamp and image size and records build string RVA `0x48765B3`. The actual uploaded DLL was inspected at that RVA and contains `27.1.1+2511875\0`.
+
+The same profile exposes the Nation list root `0x53EAF00`, vector offset `0x240`, and Nation vtable RVA `0x4A601A8`. Its base Windows layout maps Nation ID/name/short name and linked men's/women's national-team objects. FMLibreEditor independently records separate men's/women's national-team array roots `0x53F8F50` / `0x53F8F68`. These Nation roots are not consumed by the current Atlas reader yet; see `research/NATION_PROFILE_REVERSE_ENGINEERING_001.md`.
