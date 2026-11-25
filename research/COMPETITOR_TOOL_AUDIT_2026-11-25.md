@@ -126,3 +126,8 @@ Windows validation for commit `df670351809a47bc34a266ed3ae0287a3e615c6a`: run #1
 ### 25 November 13:00 — import pipeline root-cause correction
 
 A follow-up source trace found that the live connector generated package-scoped provider keys, but the streaming validator was pinned to the old 0.9.2524.0 key. This would reject valid 0.9.2562.0 records even after memory reading. The validator now requires an explicit expected provider key, and the connector passes the matched session key. A 27.1.1 regression test was added. Windows run #1129 passed 127/127 tests, zero warnings/errors, packaging and WPF startup smoke. Actual user-career validation remains outstanding.
+
+
+### Current candidate package — run 1145
+
+The current branch head `476659c814d45af87355d0ae1f443d6a2ec52e13` passed Windows run #1145: 127/127 tests, zero warnings/errors, self-contained x64 package integrity and WPF startup smoke. It includes the 27.1.1 package-scoped provider-key validation fix and the supplied HUD restyle plus compact navigation. The user must still verify a live 27.1.1 career; automated startup is not proof of memory-read compatibility.
