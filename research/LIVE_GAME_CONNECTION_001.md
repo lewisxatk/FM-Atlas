@@ -205,3 +205,12 @@ Build 1062, previously given to the user for testing, predates the 27.1.1 profil
 The user should test Build 1100 with FM27 fully loaded to a career. If the live load fails, capture `%LOCALAPPDATA%\\FM Atlas\\Logs\\live-connection.log` and the generated diagnostics artifact. The exact failure stage, process fingerprint, record counts and read errors are required to identify the next blocker.
 
 **Safety:** the process reader remains read-only. `CanReadLiveData` and all write capability gates remain fail-closed until a complete user-save comparison is recorded. Do not use a profile match alone to enable live editing.
+
+
+### 25 November follow-up — current integration branch
+
+The current UI/reader integration branch is `rebuild/fm27-27.1.1-ui-hud-port`, draft PR #14. Windows run #1114 passed 126/126 tests, zero warnings/errors, self-contained x64 package verification and WPF startup smoke. The package is `fm-atlas-win-x64-1114`. The previous Build 1062 was older than the 27.1.1 profile and should not be used as the compatibility verdict.
+
+The current source also includes the HUD restyle 002, compact navigation and search shortcuts. A full Nation profile remains absent; My Career currently displays manager nationality and club nation strings from the staff/club snapshots.
+
+Do not mark live compatibility complete until the user loads their 27.1.1 career and FM Atlas successfully reads a non-zero player/staff/club population with sensible sample fields. Capture the live-connection log and diagnostics on any failure.
