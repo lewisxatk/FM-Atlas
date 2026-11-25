@@ -52,7 +52,7 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="265"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <Border Grid.Column="0" Style="{StaticResource Atlas.ProfilePanel}" Padding="16">
                 <StackPanel>
-                    <Border Height="116" Background="#151515" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="6">
+                    <Border Height="116" Background="#151515" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="2">
                         <Grid>
                             <Image Source="{Binding ClubLogoUri}" Stretch="Uniform"/>
                             <TextBlock Text="CLUB CREST / BADGE" Foreground="{StaticResource Atlas.Subtle}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"
