@@ -274,5 +274,15 @@
             <Setter Property="Template" Value="{StaticResource Atlas.VerticalScrollBar}"/>
             <Style.Triggers><Trigger Property="Orientation" Value="Horizontal"><Setter Property="Width" Value="Auto"/><Setter Property="Height" Value="10"/><Setter Property="Template" Value="{StaticResource Atlas.HorizontalScrollBar}"/></Trigger></Style.Triggers>
         </Style>
+            <Style x:Key="Atlas.LiveStatusDot" TargetType="Ellipse">
+            <Setter Property="Fill" Value="#8B6B4D"/>
+            <Setter Property="Opacity" Value="0.65"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding LiveSessionActive}" Value="True">
+                    <Setter Property="Fill" Value="{StaticResource Atlas.Live}"/>
+                    <Setter Property="Opacity" Value="1"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Application.Resources>
 </Application>
