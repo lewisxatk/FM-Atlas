@@ -11,10 +11,11 @@
         Foreground="{StaticResource Atlas.Text}"
         FontFamily="Segoe UI"
         UseLayoutRounding="True"
-        SnapsToDevicePixels="True">
+        SnapsToDevicePixels="True"
+        PreviewKeyDown="MainWindow_PreviewKeyDown">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="218"/>
+            <ColumnDefinition x:Name="NavigationColumn" Width="218"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
@@ -23,7 +24,8 @@
         </Grid.RowDefinitions>
 
         <!-- Compact navigation rail. Search deliberately does not appear here. -->
-        <Border Grid.Column="0"
+        <Border x:Name="NavigationSidebar"
+                Grid.Column="0"
                 Grid.RowSpan="2"
                 Background="{StaticResource Atlas.Sidebar}"
                 BorderBrush="{StaticResource Atlas.Border}"
@@ -38,18 +40,21 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="34" Height="34" CornerRadius="2" Background="#21140F" BorderBrush="#4B281B" BorderThickness="1">
+                <StackPanel x:Name="NavigationBrandRow" Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="NavigationCollapseButton" Width="22" Height="28" Padding="0" Margin="0,0,5,0" Style="{StaticResource Atlas.ProfileTabButton}" Click="NavigationCollapseButton_Click" ToolTip="Collapse navigation">
+                        <TextBlock x:Name="NavigationCollapseGlyph" Text="‹" FontSize="18" Foreground="{StaticResource Atlas.Muted}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
+                    <Border x:Name="NavigationLogoMark" Width="34" Height="34" CornerRadius="2" Background="#21140F" BorderBrush="#4B281B" BorderThickness="1">
                         <TextBlock Text="FM" Foreground="{StaticResource Atlas.Accent}" FontFamily="Georgia" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                    <StackPanel x:Name="NavigationLogoText" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="FM ATLAS" FontSize="15" FontWeight="Bold" Foreground="{StaticResource Atlas.Text}"/>
                         <TextBlock Text="FOOTBALL MANAGER EDITOR" FontSize="8" Foreground="{StaticResource Atlas.Muted}" Margin="0,3,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
                 <StackPanel x:Name="WorkspaceNavigationPanel" Grid.Row="2">
-                    <TextBlock Text="WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" Margin="9,0,0,10"/>
+                    <TextBlock x:Name="WorkspaceSectionLabel" Text="WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" Margin="9,0,0,10"/>
                     <Button Style="{StaticResource Atlas.NavButton}" Background="#1B1511" BorderBrush="#352219" Margin="0,0,0,4" Tag="Dashboard" Click="NavigationButton_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Accent}" FontSize="14" Width="25"/>
@@ -88,7 +93,7 @@
                         </StackPanel>
                     </Button>
 
-                    <TextBlock Text="TOOLS" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" Margin="9,22,0,10"/>
+                    <TextBlock x:Name="ToolsSectionLabel" Text="TOOLS" FontSize="9" Foreground="{StaticResource Atlas.Subtle}" Margin="9,22,0,10"/>
                     <Button Style="{StaticResource Atlas.NavButton}" IsEnabled="False" ToolTip="In Progress — deferred until the basic editor works.">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource Atlas.Muted}" FontSize="14" Width="25"/>
@@ -111,7 +116,7 @@
                             <TextBlock Text="Settings" FontSize="12"/>
                         </StackPanel>
                     </Button>
-                    <TextBlock Text="FM ATLAS DESKTOP" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="10,13,0,0"/>
+                    <TextBlock x:Name="FooterBrandText" Text="FM ATLAS DESKTOP" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" Margin="10,13,0,0"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -137,7 +142,7 @@
                 <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
                     <TextBlock Text="WORKSPACE" FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
                     <TextBlock Text="  /  " FontSize="9" Foreground="{StaticResource Atlas.Subtle}"/>
-                    <TextBlock x:Name="CurrentWorkspaceBreadcrumb" Text="DASHBOARD" FontSize="9" Foreground="{StaticResource Atlas.Text}"/>
+                    <TextBlock x:Name="CurrentWorkspaceBreadcrumb" Text="DASHBOARD" FontFamily="Bahnschrift" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Ellipse Width="6" Height="6" Fill="{StaticResource Atlas.Live}" Margin="0,0,7,0">
@@ -289,7 +294,7 @@
                                         Background="{TemplateBinding Background}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="6,6,0,0"
+                                        CornerRadius="2,2,0,0"
                                         Padding="{TemplateBinding Padding}">
                                     <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
                                 </Border>
