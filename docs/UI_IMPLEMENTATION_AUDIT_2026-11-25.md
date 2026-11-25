@@ -85,3 +85,25 @@ This is the **HUD restyle 002 port**, not the full Watched Instrument shell/reco
 - WPF startup smoke test: passed.
 - Artifact: `fm-atlas-win-x64-1100`.
 - This is not a real FM27 live-career test and not a side-by-side visual acceptance pass.
+
+
+## Second UI pass — compact navigation and keyboard workflow
+
+The same port branch now also includes:
+- A collapsible navigation rail: 218px expanded / 68px compact, with labels hidden and icon tooltips retained in compact mode.
+- Keyboard shortcuts: Ctrl+K focuses global quick search; Ctrl+Shift+F opens Advanced Search; Escape closes quick-search results.
+- The active workspace title is more prominent; main and profile surfaces use the supplied square-corner treatment.
+- The live-status indicator is bound to `LiveSessionActive`, so its colour reflects actual connection state rather than showing green while disconnected.
+- The existing closable workspace tabs and full-width Player/Staff/Club profile views are retained. The Player profile already exposes its section tabs in the current modular branch; no duplicate profile implementation was added.
+
+### Windows validation — run 1114
+
+- Commit: `ee25306891830f6382278c46c5f1f9e00c330d6a`
+- Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/45618746412
+- Release build: passed, 0 warnings, 0 errors.
+- Automated tests: 126/126 passed.
+- Self-contained Windows x64 package and integrity verification: passed.
+- WPF startup smoke test: passed.
+- Artifact: `fm-atlas-win-x64-1114`.
+
+Still outstanding: real FM27 27.1.1 career read; screenshot comparison at 100% and 125% DPI; visual acceptance against the supplied reference images; final dashboard polish; and a full Nation profile/data source. The My Career route currently displays manager nationality and current-club nation strings, but there is not yet a full `NationRecord`/Nation workspace.
