@@ -7,7 +7,7 @@
         MinWidth="1180"
         MinHeight="740"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Atlas.Canvas}"
+        Background="{StaticResource Atlas.GridBackdrop}"
         Foreground="{StaticResource Atlas.Text}"
         FontFamily="Segoe UI"
         UseLayoutRounding="True"
@@ -140,7 +140,17 @@
                     <TextBlock x:Name="CurrentWorkspaceBreadcrumb" Text="DASHBOARD" FontSize="9" Foreground="{StaticResource Atlas.Text}"/>
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Ellipse Width="6" Height="6" Fill="#8B6B4D" Margin="0,0,7,0"/>
+                    <Ellipse Width="6" Height="6" Fill="{StaticResource Atlas.Live}" Margin="0,0,7,0">
+                        <Ellipse.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.35" To="1" Duration="0:0:1.4"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Ellipse.Triggers>
+                    </Ellipse>
                     <TextBlock Text="{Binding ConnectionStatus}" FontSize="10" Foreground="{StaticResource Atlas.Muted}"/>
                     <CheckBox Content="Include women"
                               IsChecked="{Binding IncludeWomenPlayers, Mode=TwoWay}"
