@@ -19,16 +19,14 @@ namespace FMAtlas.Infrastructure.Connection;
 /// </summary>
 internal sealed class FM27GamePassReader
 {
-    private const string BuildVersion = "0.9.2524.0";
-    public const string BuildVersionForProvider = BuildVersion;
-    private const uint PeTimestamp = 0x6AF5C8C6;
-    private const uint SizeOfImage = 0x179AD000;
-    private const ulong PlayersArrayRva = 0x53FAE88;
-    private const ulong StaffArrayRva = 0x53FAED0;
-    private const ulong ClubsArrayRva = 0x53FB040;
-    private const ulong GameUiRva = 0x53FBA40;
-    private const ulong CurrentDateRva = 0x539DD10;
-    private const ulong GameLoadsOffset = 0x100;
+    private readonly GameBuildProfile _profile;
+    private string BuildVersion => _profile.PackageVersion;
+    private ulong PlayersArrayRva => _profile.PlayersArrayRva;
+    private ulong StaffArrayRva => _profile.StaffArrayRva;
+    private ulong ClubsArrayRva => _profile.ClubsArrayRva;
+    private ulong GameUiRva => _profile.GameUiRva;
+    private ulong CurrentDateRva => _profile.CurrentDateRva;
+    private ulong GameLoadsOffset => _profile.GameLoadsOffset;
     private const int MaximumEntitiesPerKind = 250_000;
     private const int MaximumFmStringBytes = 1024;
 
@@ -119,20 +117,27 @@ internal sealed class FM27GamePassReader
     public FM27GamePassReader(
         WindowsProcessMemoryAccessor memory,
         ulong moduleBase,
-        string providerKey)
+        string providerKey,
+        GameBuildProfile profile)
     {
-        _memory = memory;
+        _memory = memory ?? throw new ArgumentNullException(nameof(memory));
         _moduleBase = moduleBase;
-        _fingerprint = $"PE:{PeTimestamp:X8}:{SizeOfImage:X8}";
-        _providerKey = providerKey;
+        _providerKey = providerKey ?? throw new ArgumentNullException(nameof(providerKey));
+        _profile = profile ?? throw new ArgumentNullException(nameof(profile));
+
+        if (!_profile.CanAttemptReadOnlyScan || _profile.CanWriteLiveData)
+            throw new InvalidOperationException("The selected FM27 profile does not authorise a guarded read-only scan.");
+
+        _fingerprint = $"PE:{_profile.PeTimestamp:X8}:{_profile.SizeOfImage:X8}";
     }
 
-    public static bool Matches(GameModuleFingerprint fingerprint) =>
+    public static bool Matches(GameModuleFingerprint fingerprint, GameBuildProfile profile) =>
         fingerprint.Machine == 0x8664 &&
-        fingerprint.PeTimestamp == PeTimestamp &&
-        fingerprint.SizeOfImage == SizeOfImage;
+        profile.HasRequiredReadOnlyLayout &&
+        fingerprint.PeTimestamp == profile.PeTimestamp &&
+        fingerprint.SizeOfImage == profile.SizeOfImage;
 
-    public string BuildDisplayName => $"FM27 Game Pass {BuildVersion}";
+    public string BuildDisplayName => _profile.DisplayName;
 
     public (int Players, int Staff, int Clubs, long SaveGeneration, DateOnly InGameDate) InspectLoadedSave()
     {
@@ -148,14 +153,21 @@ internal sealed class FM27GamePassReader
         return (players.Length, staff.Length, clubs.Length, checked((long)generation), date);
     }
 
-    public long ReadSaveGeneration() => ReadSaveGeneration(_memory, _moduleBase);
+    public long ReadSaveGeneration() => ReadSaveGeneration(_memory, _moduleBase, GameUiRva, GameLoadsOffset);
 
-    public static long ReadSaveGeneration(WindowsProcessMemoryAccessor memory, ulong moduleBase)
+    public static long ReadSaveGeneration(
+        WindowsProcessMemoryAccessor memory,
+        ulong moduleBase,
+        ulong gameUiRva,
+        ulong gameLoadsOffset)
     {
-        var gameUiStatic = checked(moduleBase + GameUiRva);
+        if (gameUiRva == 0 || gameLoadsOffset == 0)
+            throw new InvalidDataException("The selected FM27 build profile is missing its GAME_UI save-generation mapping.");
+
+        var gameUiStatic = checked(moduleBase + gameUiRva);
         var gameUiObject = memory.ReadUInt64(gameUiStatic);
         WindowsProcessMemoryAccessor.ValidateUserPointer(gameUiObject, "GAME_UI object");
-        return checked((long)memory.ReadUInt64(gameUiObject + GameLoadsOffset));
+        return checked((long)memory.ReadUInt64(gameUiObject + gameLoadsOffset));
     }
 
     public bool IsPlayerArrayEmpty()
@@ -186,7 +198,7 @@ internal sealed class FM27GamePassReader
             SourceVersion: BuildVersion,
             TargetBuildFingerprint: _fingerprint,
             ObservedAtUtc: DateTimeOffset.UtcNow,
-            Description: "Read from the externally mapped FM27 Game Pass 27.1.0 package 0.9.2524.0. FM Atlas has not yet independently verified field values against this user's career; live writes remain disabled.");
+            Description: $"Read from the externally mapped {_profile.DisplayName} build profile. FM Atlas has not yet independently verified field values against this user's career; live writes remain disabled.");
 
         var playerRead = 0;
         var staffRead = 0;
@@ -883,6 +895,8 @@ internal sealed class FM27GamePassReader
 
     private DateOnly ReadInGameDate()
     {
+        if (CurrentDateRva == 0)
+            throw new InvalidDataException("The selected FM27 build profile is missing its in-game date mapping.");
         var dayField = _memory.ReadUInt16(checked(_moduleBase + CurrentDateRva));
         var day = (ushort)(dayField & 0x1FF);
         var year = _memory.ReadUInt16(checked(_moduleBase + CurrentDateRva + 2));
