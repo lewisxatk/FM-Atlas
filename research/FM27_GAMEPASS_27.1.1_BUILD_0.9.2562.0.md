@@ -94,3 +94,26 @@ The connector still requests only `PROCESS_VM_READ | PROCESS_QUERY_INFORMATION`.
 - barak14 FM Editor memory layout (0.9.2524.0 reference): https://github.com/barak14/fm-editor/blob/main/docs/fm27/memory-layout.md
 - Jackhamerp24 FM27 Editor releases: https://github.com/Jackhamerp24/Football-Manager-27-Editor/releases
 - Official FM27 update news: https://www.footballmanager.com/news
+
+
+## 4. 24 November layout delta — independently checked against FMLibreEditor
+
+The current upstream FMLibreEditor profile is:
+- `profiles/fm27/gamepass-0.9.2562.0.toml`
+- `profiles/fm27/gamepass-0.9.2524.0.toml`
+- `profiles/fm27/layout.toml`
+
+The 0.9.2562.0 profile states that its object layout is the 0.9.2524.0 layout, while its module statics moved by 0x1FE0. It also explicitly overrides two object-layout locations:
+
+- Club finance corporate facilities: `0x8AD` (rather than the older `0x8A9`).
+- Team tactics list/current index: `0x1018` / `0x1030` (rather than `0x1010` / `0x1028`).
+
+The 0.9.2524.0 profile documents the same two overrides. The older 0.9.2435.0 profile retains the original corporate-facilities offset.
+
+**FM Atlas correction on this branch:** `GameBuildProfile` now carries `CorporateFacilitiesOffset`; 0.9.2524.0 and 0.9.2562.0 use `0x8AD`, while the default for the older profile remains `0x8A9`. The reader consumes the matched profile value rather than a single hard-coded offset. Regression assertions cover both newer packages and the older reference.
+
+FM Atlas does not currently decode team tactics, so the tactics offset delta is recorded as a future field-mapping requirement, not implemented as a guessed feature.
+
+The upstream 0.9.2562.0 profile reports 12 checks passed on its own test save. This is useful independent corroboration, not an FM Atlas live-read verification. Atlas values remain externally mapped until compared field-by-field with the user's own career.
+
+Source: https://github.com/tozmoz/FMLibreEditor/blob/main/profiles/fm27/gamepass-0.9.2562.0.toml
