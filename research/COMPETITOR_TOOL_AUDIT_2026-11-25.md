@@ -88,11 +88,11 @@ The following are product behaviours worth implementing or benchmarking in FM At
 
 ## Current FM Atlas implementation status
 
-- The 27.1.1 Game Pass 0.9.2562.0 build-specific read-only profile was added to the fresh-foundation development branch via PR #12.
-- The branch's Windows build passed 126/126 automated tests, Release build, self-contained packaging and an 8-second WPF startup smoke check.
+- The 27.1.1 Game Pass 0.9.2562.0 build-specific read-only profile was added to the fresh-foundation development branch via PR #12. The supplied HUD restyle 002 has now been ported on `rebuild/fm27-27.1.1-ui-hud-port`; the 27.1.1 club-finance corporate-facilities offset is now profile-specific (`0x8AD` for 0.9.2524.0 and 0.9.2562.0, older `0x8A9` retained as the default).
+- The HUD/reader integration branch Windows run #1100 passed 126/126 automated tests, Release build with zero warnings/errors, self-contained packaging and WPF startup smoke check.
 - No live 27.1.1 career has yet been read by FM Atlas in the user's environment. Field values remain Mapped / ExternalReferenceOnly until checked against a disposable career.
 - Save Live Changes remains disabled.
-- The requested Watched Instrument UI is not yet ported into the fresh modular WPF application. The older UI implementation remains on WIP PR #8 against the R7.2.0/V8 architecture. Track the port in [issue #13](https://github.com/lewisxatk/FM-Atlas/issues/13).
+- The supplied HUD restyle 002 is partially ported into the fresh modular WPF application. The full Watched Instrument shell, workspace tabs and full-width player/staff/club record model are still not fully ported; the older implementation remains on WIP PR #8 against the R7.2.0/V8 architecture. Track the broader migration in [issue #13](https://github.com/lewisxatk/FM-Atlas/issues/13).
 
 ## Sources
 
@@ -112,3 +112,12 @@ The following are product behaviours worth implementing or benchmarking in FM At
 - Talent Seer 27.1.2 author devlog: https://emreyavuz84.itch.io/talent-seer/devlog/1759768/talent-seer-2712-who-would-talk-to-your-club
 - FM Dossier public FM27 compatibility discussion: https://sortitoutsi.net/content/77041/fm-dossier
 - FMST27 public feature and redistribution page: https://www.fmscout.com/a-fmst-27.html
+
+
+### 25 November continuation — HUD port and field-layout correction
+
+The user's direct `FM-Atlas-restyled.zip` attachment was inspected. Its 17 November source snapshot is not safe to replace wholesale because it predates the current 27.1.1 Game Pass reader. The HUD resources, main-window backdrop/status indicator, square panels and Advanced Search pitch/group selector were ported selectively to the current modular branch.
+
+The FMLibreEditor 0.9.2562.0 profile and shared layout also document the club-finance corporate-facilities field at `0x8AD`. FM Atlas previously used `0x8A9` unconditionally. The profile now carries this per-build offset and the reader uses the matched value. Team-tactics offsets `0x1018` / `0x1030` are recorded for future tactics support but are not read by the current Atlas reader.
+
+Windows validation for commit `df670351809a47bc34a266ed3ae0287a3e615c6a`: run #1100 passed 126/126 tests, zero warnings/errors, self-contained Windows x64 package and WPF startup smoke test. A user's live 27.1.1 career has not yet been read successfully by this build; the first real-game verification is still outstanding.
