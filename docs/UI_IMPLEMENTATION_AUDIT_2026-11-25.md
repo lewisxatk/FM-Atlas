@@ -14,6 +14,14 @@
 - A dedicated Advanced Search window with Player / Coach / Club selectors, category/filter groups, typed controls and position filters. The 2026-11-16 FMRTE screenshot `IMG_8151.jpeg` is available in the Library; the source uses a related category / filter / pitch arrangement but has not been pixel-compared on Windows.
 - Position-map idle/selected states are styled in muted grey and orange.
 
+## Important branch reconciliation finding
+
+The fuller Watched Instrument UI work was not lost; it is isolated on [`rebuild/watched-earth-fmrte-ui`](https://github.com/lewisxatk/FM-Atlas/tree/rebuild/watched-earth-fmrte-ui) under [draft PR #8](https://github.com/lewisxatk/FM-Atlas/pull/8). That branch contains a dynamic WPF shell and full-width player workspace work with the Watched.earth × FMRTE direction. PR #8 is still open and explicitly marks several UI tasks as unfinished. Its base is the older `rebuild/v8-full-product-rebuild` / R7.2.0 architecture, not the fresh modular WPF application used by the current release branch.
+
+The current fresh-foundation branch uses a separate `MainWindow.xaml`, `App.xaml`, views and typed view models. Therefore PR #8 cannot safely be merged wholesale: the UI should be ported deliberately into the current application layer while preserving the current database, search, profiles and guarded live reader. The old branch is a design/behaviour reference, not a drop-in update.
+
+PR #8 itself lists remaining work: full Staff/Club Advanced Search parity, Staff/Club full-width closable record tabs, shared workspace-tab hosting with persistent state and keyboard navigation, and completion of visual tokens, accessible controls and DPI review. These are now explicit migration tasks for this branch.
+
 ## What is not complete / not accepted
 
 - The exact main-dashboard and visual-identity reference screenshots REF-001 / REF-003 and the player-profile reference REF-004 are described in the reference documentation, but their binary files were not all available for direct inspection in this audit. The original user-supplied restyle archive is listed in the Library as `FM-Atlas-restyled.zip`, but the Files service did not grant raw-byte materialisation for it in this environment.
