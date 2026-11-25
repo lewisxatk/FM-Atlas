@@ -101,7 +101,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var result = FM27LiveScanValidator.Validate(records);
+        var result = FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LiveProviderKey);
 
         Assert.Equal(4, result.Players);
     }
@@ -120,7 +120,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LiveProviderKey));
 
         Assert.Contains("player value", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -136,7 +136,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LiveProviderKey));
 
         Assert.Contains("duplicate", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -154,7 +154,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LiveProviderKey));
 
         Assert.Contains("natural-position", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -172,7 +172,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LiveProviderKey));
 
         Assert.Contains("Current Ability", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -221,7 +221,7 @@ public sealed class FM27LiveScanValidatorTests
             ClubPointers: 10, ClubsRead: 10, ClubsSkipped: 0,
             FailureSamples: []);
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, readSummary));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LiveProviderKey, readSummary));
 
         Assert.Contains("80 of 100 players", error.Message, StringComparison.OrdinalIgnoreCase);
     }
