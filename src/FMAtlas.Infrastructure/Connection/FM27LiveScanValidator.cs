@@ -58,14 +58,22 @@ public sealed record FM27LiveReadSummary(
 
 public static class FM27LiveScanValidator
 {
-    private const string ExpectedProvider = WindowsFm27LiveGameConnector.LiveProviderKey;
-
     /// <summary>
     /// Collects only counts and compact identity sets while records stream through the importer.
     /// It never materialises a second copy of the player/staff/club object graph.
     /// </summary>
     public sealed class StreamingAccumulator
     {
+        private readonly string _expectedProviderKey;
+
+        public StreamingAccumulator(string expectedProviderKey = WindowsFm27LiveGameConnector.LiveProviderKey)
+        {
+            if (string.IsNullOrWhiteSpace(expectedProviderKey))
+                throw new ArgumentException("A matched live provider key is required.", nameof(expectedProviderKey));
+
+            _expectedProviderKey = expectedProviderKey;
+        }
+
         private readonly HashSet<string> _playerIds = new(StringComparer.Ordinal);
         private readonly HashSet<string> _staffIds = new(StringComparer.Ordinal);
         private readonly HashSet<string> _clubIds = new(StringComparer.Ordinal);
@@ -194,14 +202,14 @@ public static class FM27LiveScanValidator
         return accumulator.Complete(readSummary);
     }
 
-    private static void ValidateIdentity(
+    private void ValidateIdentity(
         EntityIdentity identity,
         EntityKind expectedKind,
         HashSet<string> seen)
     {
         if (identity.Kind != expectedKind ||
             !identity.IsUsable ||
-            !string.Equals(identity.ProviderKey, ExpectedProvider, StringComparison.Ordinal))
+            !string.Equals(identity.ProviderKey, _expectedProviderKey, StringComparison.Ordinal))
         {
             throw new InvalidDataException(
                 $"The {expectedKind} records contained an invalid or unexpected source identity. Nothing has been imported.");
