@@ -64,17 +64,17 @@ The connector writes diagnostics to `%LOCALAPPDATA%\FM Atlas\Logs\live-connectio
 
 ## Windows build verification
 
-Build 1068 (27.1.1 read-only profile integration):
-- Windows Actions run [#45614077051](https://github.com/lewisxatk/FM-Atlas/actions/runs/45614077051).
+Post-merge build 1074 (27.1.1 read-only profile integration):
+- Windows Actions run [#45615313087](https://github.com/lewisxatk/FM-Atlas/actions/runs/45615313087).
 - **126 automated tests passed; 0 failed.**
 - Restore, Release build, test execution and self-contained Windows x64 packaging all completed successfully.
 - WPF process-start smoke test passed: `FMAtlas.exe` remained running for eight seconds on the hosted Windows runner.
-- ZIP SHA-256: `9E8ADCE304B93A922E6306B4E7FDA06EA858569C8A2E3EE88450F393E23045AA`.
+- ZIP SHA-256: `694CC030FEB6DA4689A2AA5FE6D539728ABE323257BEF6137BBF6DFBD0DB2F95`.
 - This verifies compilation, the automated test suite, packaging and basic startup. It does not validate the user's actual live FM27 27.1.1 career.
 
 ## UI status — not yet accepted as complete
 
-The WPF source contains parts of the approved black / warm off-white / orange visual system, a compact left navigation, a global top search/action header, player-profile panels and a typed Advanced Search dialog. The approved design is **not** accepted as fully implemented: there has been no side-by-side Windows screenshot comparison against all supplied reference screens, several navigation destinations are still placeholders/deferred, and the user reported that the last package did not show the supplied redesign.
+The WPF source contains parts of the approved black / warm off-white / orange visual system, a compact left navigation, a global top search/action header, player-profile panels and a typed Advanced Search dialog. The separate [Watched Instrument UI branch](https://github.com/lewisxatk/FM-Atlas/tree/rebuild/watched-earth-fmrte-ui) and [draft PR #8](https://github.com/lewisxatk/FM-Atlas/pull/8) contain further UI rebuild work, but they are based on the older R7.2.0/V8 application architecture and remain a work-in-progress; they are not integrated into this fresh modular WPF branch. The approved design is **not** accepted as fully implemented: there has been no side-by-side Windows screenshot comparison against all supplied reference screens, several navigation destinations are still placeholders/deferred, and the user reported that the last package did not show the supplied redesign.
 
 See `docs/UI_IMPLEMENTATION_AUDIT_2026-11-25.md` for the verified source audit and the remaining visual acceptance work. Do not describe a successful build or eight-second startup as proof that the redesigned UI has been delivered.
 
