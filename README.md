@@ -97,6 +97,7 @@ GitHub Actions builds on `windows-latest`, runs the full test suite, publishes a
 - `docs/LIVE_LOAD_SAFETY_PAUSE_2026-11-16.md` — original incident and mitigations.
 - `research/LIVE_GAME_CONNECTION_001.md` — build profile and field map research.
 - `research/FM27_GAMEPASS_27.1.1_BUILD_0.9.2562.0.md` — user's binary fingerprint and external build profile mapping.
+- `research/COMPETITOR_TOOL_AUDIT_2026-11-25.md` — current FMRTE, Genie Scout, FMLibreEditor, FMSuperScout and other FM27 tool research.
 - `research/FMRTE_FEATURE_AUDIT_001.md` — player/staff/club profile and search coverage.
 - `research/FIELD_COVERAGE_LEDGER.md` — field status and evidence.
 - `docs/UI_IMPLEMENTATION_AUDIT_2026-11-25.md` — current visual implementation and acceptance gaps.
