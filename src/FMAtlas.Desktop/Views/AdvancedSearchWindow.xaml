@@ -7,7 +7,7 @@
         MinWidth="940"
         MinHeight="700"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Atlas.Canvas}"
+        Background="{StaticResource Atlas.GridBackdrop}"
         Foreground="{StaticResource Atlas.Text}"
         FontFamily="Segoe UI"
         ResizeMode="CanResizeWithGrip">
@@ -142,37 +142,49 @@
             </Setter>
         </Style>
         <Style x:Key="PositionRoleButton" TargetType="ToggleButton">
-            <Setter Property="Background" Value="#515A64"/>
-            <Setter Property="Foreground" Value="#F4F5F7"/>
-            <Setter Property="BorderBrush" Value="#929BA5"/>
+            <Setter Property="Background" Value="#121A15"/>
+            <Setter Property="Foreground" Value="#D5E2DA"/>
+            <Setter Property="BorderBrush" Value="#4B6252"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="1"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="RoleSurface"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        <Grid SnapsToDevicePixels="True">
+                            <Border x:Name="RoleSurface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <Path x:Name="CornerTL" Style="{StaticResource Atlas.Bracket}" Data="M1,9 L1,1 L9,1" Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-3,-3,0,0" Opacity="0"/>
+                            <Path x:Name="CornerTR" Style="{StaticResource Atlas.Bracket}" Data="M1,1 L9,1 L9,9" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-3,0" Opacity="0"/>
+                            <Path x:Name="CornerBL" Style="{StaticResource Atlas.Bracket}" Data="M1,1 L1,9 L9,9" Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-3,0,0,-3" Opacity="0"/>
+                            <Path x:Name="CornerBR" Style="{StaticResource Atlas.Bracket}" Data="M9,1 L9,9 L1,9" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3" Opacity="0"/>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="RoleSurface" Property="Opacity" Value="0.82"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="RoleSurface" Property="Opacity" Value="0.68"/>
+                                <Setter TargetName="RoleSurface" Property="BorderBrush" Value="#E8EEEA"/>
+                                <Setter TargetName="RoleSurface" Property="Background" Value="#1D2C23"/>
+                                <Setter TargetName="CornerTL" Property="Opacity" Value="0.85"/>
+                                <Setter TargetName="CornerTR" Property="Opacity" Value="0.85"/>
+                                <Setter TargetName="CornerBL" Property="Opacity" Value="0.85"/>
+                                <Setter TargetName="CornerBR" Property="Opacity" Value="0.85"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="RoleSurface" Property="Background" Value="#D8783C"/>
-                                <Setter TargetName="RoleSurface" Property="BorderBrush" Value="#F1A064"/>
+                                <Setter TargetName="RoleSurface" Property="Background" Value="{StaticResource Atlas.Accent}"/>
+                                <Setter TargetName="RoleSurface" Property="BorderBrush" Value="#FFC2A3"/>
+                                <Setter TargetName="CornerTL" Property="Opacity" Value="1"/>
+                                <Setter TargetName="CornerTR" Property="Opacity" Value="1"/>
+                                <Setter TargetName="CornerBL" Property="Opacity" Value="1"/>
+                                <Setter TargetName="CornerBR" Property="Opacity" Value="1"/>
+                                <Setter Property="Foreground" Value="#1A0D06"/>
+                                <Setter TargetName="RoleSurface" Property="Effect">
+                                    <Setter.Value><DropShadowEffect Color="#FF6A2A" BlurRadius="14" ShadowDepth="0" Opacity="0.7"/></Setter.Value>
+                                </Setter>
                             </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="RoleSurface" Property="Opacity" Value="0.4"/>
-                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="RoleSurface" Property="Opacity" Value="0.8"/></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -182,7 +194,7 @@
             <Setter Property="Background" Value="#101010"/>
             <Setter Property="BorderBrush" Value="{StaticResource Atlas.Border}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="2"/>
             <Setter Property="Padding" Value="10"/>
         </Style>
         <Style x:Key="FilterCategoryButton" TargetType="Button" BasedOn="{StaticResource Atlas.NavButton}">
@@ -516,48 +528,71 @@
                 </Grid>
                 </ScrollViewer>
                 <Border x:Name="PositionPitchPanel" Grid.Column="2" Visibility="Collapsed"
-                        Style="{StaticResource FilterPanel}" Width="224" Padding="8" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        Style="{StaticResource FilterPanel}" Width="316" Padding="9" HorizontalAlignment="Right" VerticalAlignment="Top">
                     <StackPanel>
-                        <TextBlock Text="POSITIONS" FontSize="8" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,5"/>
-                        <Border Background="#142019" BorderBrush="#385541" BorderThickness="1" CornerRadius="5" Padding="8">
-                            <Viewbox Height="126" MaxWidth="206" Stretch="Uniform" HorizontalAlignment="Center">
-                            <Canvas x:Name="PositionButtonsCanvas" Width="320" Height="190" HorizontalAlignment="Center">
-                                <Rectangle Width="320" Height="184" Stroke="#52745A" StrokeThickness="1"/>
-                                <Line X1="0" Y1="92" X2="320" Y2="92" Stroke="#52745A" StrokeThickness="1"/>
-                                <Ellipse Width="48" Height="48" Stroke="#52745A" StrokeThickness="1" Canvas.Left="136" Canvas.Top="68"/>
-                                <Rectangle Width="92" Height="31" Stroke="#52745A" StrokeThickness="1" Canvas.Left="114" Canvas.Top="0"/>
-                                <Rectangle Width="92" Height="31" Stroke="#52745A" StrokeThickness="1" Canvas.Left="114" Canvas.Top="153"/>
-                                <ToggleButton Content="ST" Tag="position_st" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="7" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="AML" Tag="position_aml" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="54" Canvas.Top="34" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="AMC" Tag="position_amc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="34" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="AMR" Tag="position_amr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="224" Canvas.Top="34" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="ML" Tag="position_ml" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="54" Canvas.Top="64" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="MC" Tag="position_mc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="64" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="MR" Tag="position_mr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="224" Canvas.Top="64" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="WBL" Tag="position_wbl" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="0" Canvas.Top="96" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="DM" Tag="position_dm" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="96" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="WBR" Tag="position_wbr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="268" Canvas.Top="96" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="DL" Tag="position_dl" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="54" Canvas.Top="123" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="DC" Tag="position_dc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="123" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="DR" Tag="position_dr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="224" Canvas.Top="123" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="SW" Tag="position_sw" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="145" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                                <ToggleButton Content="GK" Tag="position_gk" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="52" Height="28" Canvas.Left="139" Canvas.Top="164" Background="#505861" Foreground="#F4F5F7" BorderBrush="#7B838D" FontSize="16" FontWeight="SemiBold"/>
-                            </Canvas>
-                            </Viewbox>
-                        </Border>
-                        <TextBlock Text="POSITION FAMILIARITY (1–20)" FontSize="8" Foreground="#D9DDE3" Margin="0,5,0,2"/>
+                        <Grid Margin="0,0,0,7">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="POSITIONS" FontFamily="Consolas" FontSize="9" Foreground="{StaticResource Atlas.Accent}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="CLICK TO SELECT" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Subtle}" VerticalAlignment="Center"/>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="GK" Tag="GK" Click="PositionGroup_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,4,0" ToolTip="Select / clear the goalkeeper"/>
+                            <Button Content="DEF" Tag="DEF" Click="PositionGroup_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,4,0" ToolTip="Select / clear every defender and wing-back"/>
+                            <Button Content="MID" Tag="MID" Click="PositionGroup_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,4,0" ToolTip="Select / clear every midfield role"/>
+                            <Button Content="ATT" Tag="ATT" Click="PositionGroup_Click" Style="{StaticResource Atlas.ProfileTabButton}" Margin="0,0,4,0" ToolTip="Select / clear every attacking role"/>
+                            <Button Content="CLEAR" Tag="CLEAR" Click="PositionGroup_Click" Style="{StaticResource Atlas.ProfileTabButton}" ToolTip="Clear every selected position"/>
+                        </StackPanel>
+                        <Grid>
+                            <Border Background="#0A110D" BorderBrush="#26362C" BorderThickness="1" Padding="6">
+                                <Viewbox Stretch="Uniform" MaxHeight="350" HorizontalAlignment="Center">
+                                    <Canvas x:Name="PositionButtonsCanvas" Width="280" Height="360">
+                                        <Rectangle Width="280" Height="45" Fill="#0E1812" Canvas.Left="0" Canvas.Top="45"/>
+                                        <Rectangle Width="280" Height="45" Fill="#0E1812" Canvas.Left="0" Canvas.Top="135"/>
+                                        <Rectangle Width="280" Height="45" Fill="#0E1812" Canvas.Left="0" Canvas.Top="225"/>
+                                        <Rectangle Width="280" Height="45" Fill="#0E1812" Canvas.Left="0" Canvas.Top="315"/>
+                                        <Rectangle Width="280" Height="360" Stroke="#5C7A68" StrokeThickness="1"/>
+                                        <Line X1="0" Y1="180" X2="280" Y2="180" Stroke="#5C7A68" StrokeThickness="1"/>
+                                        <Ellipse Width="60" Height="60" Stroke="#5C7A68" StrokeThickness="1" Canvas.Left="110" Canvas.Top="150"/>
+                                        <Ellipse Width="4" Height="4" Fill="#5C7A68" Canvas.Left="138" Canvas.Top="178"/>
+                                        <Rectangle Width="150" Height="52" Stroke="#5C7A68" StrokeThickness="1" Canvas.Left="65" Canvas.Top="0"/>
+                                        <Rectangle Width="70" Height="18" Stroke="#5C7A68" StrokeThickness="1" Canvas.Left="105" Canvas.Top="0"/>
+                                        <Path Data="M 112,52 A 30,30 0 0 0 168,52" Stroke="#5C7A68" StrokeThickness="1"/>
+                                        <Rectangle Width="150" Height="52" Stroke="#5C7A68" StrokeThickness="1" Canvas.Left="65" Canvas.Top="308"/>
+                                        <Rectangle Width="70" Height="18" Stroke="#5C7A68" StrokeThickness="1" Canvas.Left="105" Canvas.Top="342"/>
+                                        <Path Data="M 112,308 A 30,30 0 0 1 168,308" Stroke="#5C7A68" StrokeThickness="1"/>
+                                        <ToggleButton Content="ST" Tag="position_st" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="117" Canvas.Top="21" ToolTip="Striker"/>
+                                        <ToggleButton Content="AML" Tag="position_aml" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="27" Canvas.Top="75" ToolTip="Attacking Midfielder (Left)"/>
+                                        <ToggleButton Content="AMC" Tag="position_amc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="117" Canvas.Top="75" ToolTip="Attacking Midfielder (Centre)"/>
+                                        <ToggleButton Content="AMR" Tag="position_amr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="207" Canvas.Top="75" ToolTip="Attacking Midfielder (Right)"/>
+                                        <ToggleButton Content="ML" Tag="position_ml" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="27" Canvas.Top="129" ToolTip="Midfielder (Left)"/>
+                                        <ToggleButton Content="MC" Tag="position_mc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="117" Canvas.Top="129" ToolTip="Midfielder (Centre)"/>
+                                        <ToggleButton Content="MR" Tag="position_mr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="207" Canvas.Top="129" ToolTip="Midfielder (Right)"/>
+                                        <ToggleButton Content="WBL" Tag="position_wbl" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="2" Canvas.Top="183" ToolTip="Wing-Back (Left)"/>
+                                        <ToggleButton Content="DM" Tag="position_dm" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="117" Canvas.Top="183" ToolTip="Defensive Midfielder"/>
+                                        <ToggleButton Content="WBR" Tag="position_wbr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="232" Canvas.Top="183" ToolTip="Wing-Back (Right)"/>
+                                        <ToggleButton Content="DL" Tag="position_dl" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="27" Canvas.Top="237" ToolTip="Defender (Left)"/>
+                                        <ToggleButton Content="DC" Tag="position_dc" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="117" Canvas.Top="237" ToolTip="Defender (Centre)"/>
+                                        <ToggleButton Content="DR" Tag="position_dr" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="207" Canvas.Top="237" ToolTip="Defender (Right)"/>
+                                        <ToggleButton Content="SW" Tag="position_sw" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="117" Canvas.Top="281" ToolTip="Sweeper"/>
+                                        <ToggleButton Content="GK" Tag="position_gk" Click="PositionButton_Click" IsThreeState="False" Style="{StaticResource PositionRoleButton}" Width="46" Height="26" Canvas.Left="117" Canvas.Top="323" ToolTip="Goalkeeper"/>
+                                    </Canvas>
+                                </Viewbox>
+                            </Border>
+                        </Grid>
+                        <TextBlock x:Name="PositionSummaryText" Text="NO POSITIONS SELECTED" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource Atlas.Accent}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        <TextBlock Text="POSITION FAMILIARITY (1–20)" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Muted}" Margin="0,8,0,3"/>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <StackPanel Margin="0,0,4,0">
-                                <TextBlock Text="MIN" FontSize="8" Foreground="#D9DDE3"/>
-                                <TextBox Style="{StaticResource FilterValue}" Width="96" IsEnabled="True" Text="{Binding DataContext.PositionMinimumText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="MIN" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                <TextBox Style="{StaticResource FilterValue}" IsEnabled="True" Text="{Binding DataContext.PositionMinimumText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                <TextBlock Text="MAX" FontSize="8" Foreground="#D9DDE3"/>
-                                <TextBox Style="{StaticResource FilterValue}" Width="96" IsEnabled="True" Text="{Binding DataContext.PositionMaximumText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="MAX" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Muted}"/>
+                                <TextBox Style="{StaticResource FilterValue}" IsEnabled="True" Text="{Binding DataContext.PositionMaximumText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                         </Grid>
-                        <TextBlock Text="Select one or more roles. Set minimum / maximum familiarity, then choose All or Any above." FontSize="8" Foreground="#D9DDE3" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <TextBlock Text="Pick one or more roles on the pitch, set the familiarity range, then choose All or Any chosen above." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                     </StackPanel>
                 </Border>
                 </Grid>
