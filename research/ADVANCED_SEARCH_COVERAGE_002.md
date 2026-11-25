@@ -105,3 +105,12 @@ A regression test now iterates the catalogue and runs the query builder for each
 ## 7. Safety and data-integrity rules
 
 No memory offsets, write addresses, formulas, drop-down values or newgen rules are invented in this catalogue. A documented field is separate from a mapped field; a mapped field is separate from a read-verified field; and a read-verified field is separate from write verification. Live writes stay disabled until the build profile, field offsets, data representation and save integrity are verified for the user's exact FM build.
+
+
+## 9. Current branch validation and UI updates (25 November 2026)
+
+The active port branch `rebuild/fm27-27.1.1-ui-hud-port` retains the full-width Player/Staff/Club workspace handoffs and closable tabs. The supplied HUD restyle adds a portrait position pitch with 15 roles, GK/DEF/MID/ATT/CLEAR quick selectors and a selected-position summary. The main shell now has a compact navigation rail and Ctrl+K / Ctrl+Shift+F search shortcuts.
+
+The 27.1.1 Game Pass reader profile is registered for package 0.9.2562.0. The corporate-facilities field uses the profile-specific 0x8AD offset for 0.9.2524.0 and 0.9.2562.0. The older 0.9.2435.0 reference remains at 0x8A9.
+
+Windows run #1114 passed 126/126 tests, Release build with zero warnings/errors, self-contained x64 packaging and WPF startup smoke test. This does not prove the user's live career has been read successfully. The remaining data acceptance gate is to compare player/staff/club counts and selected fields against the user's loaded 27.1.1 career and a trusted reference tool.
