@@ -75,7 +75,7 @@
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="4"/>
+                                    CornerRadius="2"/>
                             <ContentPresenter x:Name="SelectionPresenter"
                                               IsHitTestVisible="False"
                                               Content="{TemplateBinding SelectionBoxItem}"
@@ -114,7 +114,7 @@
                                 <Border Background="#171717"
                                         BorderBrush="#69727D"
                                         BorderThickness="1"
-                                        CornerRadius="4"
+                                        CornerRadius="2"
                                         MinWidth="175"
                                         SnapsToDevicePixels="True">
                                     <ScrollViewer MaxHeight="{TemplateBinding MaxDropDownHeight}"
@@ -316,7 +316,7 @@
                 <TextBlock Text="ADVANCED SEARCH" FontFamily="Georgia" FontSize="23" Foreground="{StaticResource Atlas.Text}"/>
                 <TextBlock Text="FM Atlas search workspace · FMRTE-inspired · REF-002" FontSize="10" Foreground="{StaticResource Atlas.Muted}" Margin="0,4,0,0"/>
             </StackPanel>
-            <Border Grid.Column="1" Background="{StaticResource Atlas.AccentSoft}" BorderBrush="#59301E" BorderThickness="1" CornerRadius="5" Padding="9,5" VerticalAlignment="Center">
+            <Border Grid.Column="1" Background="{StaticResource Atlas.AccentSoft}" BorderBrush="#59301E" BorderThickness="1" CornerRadius="2" Padding="9,5" VerticalAlignment="Center">
                 <TextBlock Text="LOCAL INDEX · SUPPORTED FIELDS" FontFamily="Consolas" FontSize="8" Foreground="{StaticResource Atlas.Accent}"/>
             </Border>
         </Grid>
@@ -360,7 +360,7 @@
                 <Button x:Name="PreferredMovesCategoryButton" Content="Preferred Moves" Tag="PreferredMoves" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Button x:Name="RelationsCategoryButton" Content="Relations" Tag="Relations" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
                 <Button x:Name="IndexedFieldsCategoryButton" Content="Indexed Data" Tag="IndexedFields" Click="CategoryButton_Click" Style="{StaticResource FilterCategoryButton}"/>
-                <Border Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="5" Padding="8" Margin="0,14,0,0">
+                <Border Background="#111111" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="2" Padding="8" Margin="0,14,0,0">
                     <StackPanel>
                         <TextBlock Text="Only supported fields are searchable. Search uses the active local index, including the loaded FM27 career snapshot and imported records. Fields without a verified query implementation remain marked In Progress." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap"/>
                         <TextBlock Text="MIN and MAX are independent. Leave either box blank to search using only the other boundary. For a minimum requirement such as FMRTE's At Least option, enter MIN 12 and leave MAX blank." FontSize="9" Foreground="{StaticResource Atlas.Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
@@ -474,7 +474,7 @@
                         <Border Style="{StaticResource FilterPanel}" Margin="0,0,0,9">
                             <StackPanel>
                                 <TextBlock Text="PLAYER POSITIONS" FontSize="9" Foreground="{StaticResource Atlas.Accent}" Margin="0,0,0,8"/>
-                                <Border Background="#121713" BorderBrush="#303A31" BorderThickness="1" CornerRadius="4" Height="206">
+                                <Border Background="#121713" BorderBrush="#303A31" BorderThickness="1" CornerRadius="2" Height="206">
                                     <Grid Margin="12">
                                         <Rectangle Stroke="#536454" StrokeThickness="1" Margin="0"/>
                                         <Line X1="0" Y1="103" X2="300" Y2="103" Stroke="#536454" StrokeThickness="1"/>
