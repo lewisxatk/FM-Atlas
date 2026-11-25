@@ -66,9 +66,22 @@ Port work on `rebuild/fm27-27.1.1-ui-hud-port`:
 - [x] Apply the grid backdrop and animated live-status indicator to the main shell.
 - [x] Port the portrait pitch and grouped position selectors into Advanced Search.
 - [x] Add code-behind synchronisation for selected roles and the selection summary.
-- [ ] Windows Release build and XAML load verification.
+- [x] Windows Release build and XAML load verification — run #1100 succeeded; 126/126 tests, zero build warnings/errors, self-contained x64 package and WPF startup smoke test passed.
 - [ ] Manual screenshots at 100% and 125% display scaling.
 - [ ] Side-by-side comparison against the supplied archive and user reference images.
 - [ ] Test all visible buttons, navigation, search, position groups and saved presets.
 
-The port is **not visually accepted or release-ready** until the remaining checks pass. The original archive was authored on 17 November and predates the current 27.1.1 reader integration; its older live-reader files must not replace the current build-specific scanner.
+This is the **HUD restyle 002 port**, not the full Watched Instrument shell/record-tab migration tracked by issue #13. The build is technically verified, but the port is **not visually accepted or release-ready** until the remaining checks pass. The original archive was authored on 17 November and predates the current 27.1.1 reader integration; its older live-reader files must not replace the current build-specific scanner.
+
+
+### Windows validation evidence — run 1100
+
+- Branch: `rebuild/fm27-27.1.1-ui-hud-port`
+- Commit: `df670351809a47bc34a266ed3ae0287a3e615c6a`
+- GitHub Actions: https://github.com/lewisxatk/FM-Atlas/actions/runs/45617453400
+- Release build: passed, 0 warnings, 0 errors.
+- Automated tests: 126/126 passed.
+- Self-contained Windows x64 publish and package verification: passed.
+- WPF startup smoke test: passed.
+- Artifact: `fm-atlas-win-x64-1100`.
+- This is not a real FM27 live-career test and not a side-by-side visual acceptance pass.
