@@ -145,7 +145,7 @@
                     <TextBlock x:Name="CurrentWorkspaceBreadcrumb" Text="DASHBOARD" FontFamily="Bahnschrift" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Ellipse Width="6" Height="6" Fill="{StaticResource Atlas.Live}" Margin="0,0,7,0">
+                    <Ellipse Width="6" Height="6" Style="{StaticResource Atlas.LiveStatusDot}" Margin="0,0,7,0">
                         <Ellipse.Triggers>
                             <EventTrigger RoutedEvent="Loaded">
                                 <BeginStoryboard>
