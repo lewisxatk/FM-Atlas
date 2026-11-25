@@ -214,3 +214,16 @@ The current UI/reader integration branch is `rebuild/fm27-27.1.1-ui-hud-port`, d
 The current source also includes the HUD restyle 002, compact navigation and search shortcuts. A full Nation profile remains absent; My Career currently displays manager nationality and club nation strings from the staff/club snapshots.
 
 Do not mark live compatibility complete until the user loads their 27.1.1 career and FM Atlas successfully reads a non-zero player/staff/club population with sensible sample fields. Capture the live-connection log and diagnostics on any failure.
+
+
+### 25 November root-cause correction — provider identity mismatch
+
+A source review found a second 27.1.1 blocker after the build-profile registration: `WindowsFm27LiveGameConnector` generated provider identities from the matched package version (for example `live-fm27-gamepass-0.9.2562.0`), but `FM27LiveScanValidator` still compared every record against the legacy constant for `0.9.2524.0`. Therefore the 27.1.1 records could be read correctly and then rejected before import because their provider key was different.
+
+Correction on the current branch:
+- `StreamingAccumulator` now requires an explicit expected provider key.
+- The connector passes `work.Session.ProviderKey` from the matched build profile into the validator.
+- The static validation helper also requires an explicit provider key; there is no silent legacy default.
+- Regression test `AcceptsBuildScopedProviderKeyForFm2711GamePassPackage` verifies the `0.9.2562.0` identity.
+
+Build 1114 included the profile and finance offset correction but predated this provider-key fix. Build 1129 includes both fixes and passed 127/127 automated tests, zero warnings/errors, self-contained x64 packaging and WPF startup smoke. Build 1129 is the first candidate to test for the complete 27.1.1 connection path. The user's actual career has not yet been successfully read; the result remains pending user-side testing.
