@@ -26,7 +26,8 @@ public sealed record GameBuildProfile(
     ulong ClubsArrayRva = 0,
     ulong GameUiRva = 0,
     ulong CurrentDateRva = 0,
-    ulong GameLoadsOffset = 0x100)
+    ulong GameLoadsOffset = 0x100,
+    ulong CorporateFacilitiesOffset = 0x8A9)
 {
     /// <summary>True only when FM Atlas has a build-specific, read-only entity scanner for this package.</summary>
     public bool HasReadOnlyScanner => Id is "fm27-gamepass-0.9.2524.0" or "fm27-gamepass-0.9.2562.0";
@@ -71,7 +72,7 @@ public static class GameBuildProfileCatalog
             0x179AD000,
             GameBuildEvidenceStatus.ExternalReferenceOnly,
             "FMLibreEditor Game Pass 0.9.2524.0 profile and Football Manager 27 Editor 27.1.0+2505117 offsets",
-            0x53FAE88, 0x53FAED0, 0x53FB040, 0x53FBA40, 0x539DD10, 0x100),
+            0x53FAE88, 0x53FAED0, 0x53FB040, 0x53FBA40, 0x539DD10, 0x100, 0x8AD),
         new(
             "fm27-gamepass-0.9.2562.0",
             "Football Manager 27 Game Pass 27.1.1 (0.9.2562.0)",
@@ -81,7 +82,7 @@ public static class GameBuildProfileCatalog
             0x17624000,
             GameBuildEvidenceStatus.ExternalReferenceOnly,
             "User-supplied DLL fingerprint plus FMLibreEditor Game Pass 0.9.2562.0 profile. Its profile probe passed 12 checks on a separate loaded save. External mapping only; FM Atlas has not independently validated this user's career.",
-            0x53F8EA8, 0x53F8EF0, 0x53F9060, 0x53F9A60, 0x539BD10, 0x100),
+            0x53F8EA8, 0x53F8EF0, 0x53F9060, 0x53F9A60, 0x539BD10, 0x100, 0x8AD),
         new(
             "fm27-gamepass-0.9.2435.0",
             "Football Manager 27 Game Pass 0.9.2435.0",

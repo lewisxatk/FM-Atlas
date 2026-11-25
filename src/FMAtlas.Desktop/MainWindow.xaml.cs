@@ -26,6 +26,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, TabItem> _openWorkspaceTabs = new(StringComparer.Ordinal);
     private AdvancedSearchWindow? _advancedSearchWindow;
     private readonly DispatcherTimer _liveSessionMonitorTimer;
+    private bool _navigationCollapsed;
+    private readonly Dictionary<Button, object?> _navigationOriginalTooltips = new();
 
     public MainWindow(
         MainWindowViewModel viewModel,
@@ -259,6 +261,95 @@ public partial class MainWindow : Window
         }
     }
 
+    private void NavigationCollapseButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetNavigationCollapsed(!_navigationCollapsed);
+    }
+
+    private void SetNavigationCollapsed(bool collapsed)
+    {
+        _navigationCollapsed = collapsed;
+        NavigationColumn.Width = new GridLength(collapsed ? 68 : 218);
+        NavigationSidebar.Padding = collapsed
+            ? new Thickness(8, 16, 8, 12)
+            : new Thickness(15, 20, 15, 16);
+        NavigationBrandRow.HorizontalAlignment = collapsed ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        NavigationLogoMark.Width = collapsed ? 24 : 34;
+        NavigationLogoMark.Height = collapsed ? 24 : 34;
+        NavigationCollapseButton.Width = collapsed ? 20 : 22;
+        NavigationCollapseButton.Height = collapsed ? 24 : 28;
+        NavigationCollapseButton.Margin = collapsed ? new Thickness(0, 0, 4, 0) : new Thickness(0, 0, 5, 0);
+        NavigationCollapseGlyph.Text = collapsed ? "›" : "‹";
+        NavigationCollapseButton.ToolTip = collapsed ? "Expand navigation" : "Collapse navigation";
+        NavigationLogoText.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        WorkspaceSectionLabel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        ToolsSectionLabel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        FooterBrandText.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+
+        foreach (var button in WorkspaceNavigationPanel.Children.OfType<Button>().Append(SettingsNavigationButton))
+        {
+            if (!_navigationOriginalTooltips.ContainsKey(button))
+                _navigationOriginalTooltips[button] = button.ToolTip;
+
+            if (button.Content is StackPanel content)
+            {
+                var labels = content.Children.OfType<TextBlock>().ToArray();
+                var label = labels.LastOrDefault();
+                if (label is not null)
+                {
+                    if (collapsed)
+                    {
+                        button.ToolTip = _navigationOriginalTooltips[button] ?? label.Text;
+                        label.Visibility = Visibility.Collapsed;
+                    }
+                    else
+                    {
+                        button.ToolTip = _navigationOriginalTooltips[button];
+                        label.Visibility = Visibility.Visible;
+                    }
+                }
+
+                var icon = labels.FirstOrDefault();
+                if (icon is not null)
+                {
+                    icon.Width = collapsed ? 22 : 25;
+                    icon.Margin = collapsed ? new Thickness(0) : new Thickness(0, 0, 8, 0);
+                }
+            }
+
+            button.HorizontalContentAlignment = collapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+            button.Padding = collapsed ? new Thickness(0, 9, 0, 9) : new Thickness(12, 9, 12, 9);
+        }
+
+        foreach (var sectionLabel in WorkspaceNavigationPanel.Children.OfType<TextBlock>())
+            sectionLabel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.K && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            QuickSearchTextBox.Focus();
+            QuickSearchTextBox.SelectAll();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.F && Keyboard.Modifiers.HasFlag(ModifierKeys.Control) &&
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            AdvancedSearchButton_Click(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape && _mainWindowViewModel.IsQuickSearchOpen)
+        {
+            _mainWindowViewModel.CloseQuickSearch();
+            e.Handled = true;
+        }
+    }
+
     private void SetActiveNavigation(string destination)
     {
         var accent = (System.Windows.Media.Brush)FindResource("Atlas.Accent");
@@ -348,7 +439,7 @@ public partial class MainWindow : Window
     {
         if (!_mainWindowViewModel.LiveSessionActive)
         {
-            OpenInformationTab("My Career", "Load an FM27 career first. FM Atlas will then look for the dedicated human-manager record and follow its current-club link. A nation name is shown only when the club record provides one.");
+            OpenInformationTab("My Career", "Load an FM27 career first. FM Atlas will look for the dedicated human-manager record and follow its current-club link. When the source fields are available, it can show the manager's nationality and the club's nation; a full Nation profile is not yet included.");
             return;
         }
 
@@ -460,13 +551,13 @@ public partial class MainWindow : Window
             Background = (System.Windows.Media.Brush)FindResource("Atlas.Surface"),
             BorderBrush = (System.Windows.Media.Brush)FindResource("Atlas.Border"),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(9),
-            Padding = new Thickness(24),
-            Margin = new Thickness(26)
+            CornerRadius = new CornerRadius(2),
+            Padding = new Thickness(18),
+            Margin = new Thickness(18)
         };
         var stack = new StackPanel();
         stack.Children.Add(new TextBlock { Text = title.ToUpperInvariant(), FontFamily = new System.Windows.Media.FontFamily("Consolas"), FontSize = 9, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Accent") });
-        stack.Children.Add(new TextBlock { Text = title, FontFamily = new System.Windows.Media.FontFamily("Georgia"), FontSize = 28, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Text"), Margin = new Thickness(0, 7, 0, 12) });
+        stack.Children.Add(new TextBlock { Text = title, FontFamily = new System.Windows.Media.FontFamily("Bahnschrift"), FontSize = 24, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Text"), Margin = new Thickness(0, 7, 0, 12) });
         stack.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = (System.Windows.Media.Brush)FindResource("Atlas.Muted"), MaxWidth = 760 });
         panel.Child = stack;
         AddWorkspaceTab(title, key, panel);

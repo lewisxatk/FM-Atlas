@@ -49,3 +49,91 @@ PR #8 itself lists remaining work: full Staff/Club Advanced Search parity, Staff
 ## Release rule
 
 A successful compile, unit-test run or eight-second WPF startup smoke test does not prove that the visual redesign has been implemented. Do not mark the design complete until the visual comparison and real interaction checklist above pass.
+
+
+## Supplied HUD restyle archive received and ported (25 November 2026)
+
+The user uploaded `FM-Atlas-restyled.zip` (archive source timestamps: 17 November 2026). The archive contains the actual WPF implementation, including:
+- the HUD resource palette, tiled grid/crosshair backdrop, corner-bracket paths and button templates;
+- compact text-input styling, dark slim scrollbars and monospaced HUD labels;
+- a portrait 15-position football pitch, GK/DEF/MID/ATT/CLEAR group selectors and a live selected-position summary;
+- a pulsing live-connection indicator.
+
+The archive's Player, Club and Staff profile views and their view models match the active modular branch, so those existing data-bound profile screens are retained rather than replaced with stale copies.
+
+Port work on `rebuild/fm27-27.1.1-ui-hud-port`:
+- [x] Add the supplied HUD palette, grid backdrop, bracket controls, text-box template and slim scrollbar resources.
+- [x] Apply the grid backdrop and animated live-status indicator to the main shell.
+- [x] Port the portrait pitch and grouped position selectors into Advanced Search.
+- [x] Add code-behind synchronisation for selected roles and the selection summary.
+- [x] Windows Release build and XAML load verification — run #1100 succeeded; 126/126 tests, zero build warnings/errors, self-contained x64 package and WPF startup smoke test passed.
+- [ ] Manual screenshots at 100% and 125% display scaling.
+- [ ] Side-by-side comparison against the supplied archive and user reference images.
+- [ ] Test all visible buttons, navigation, search, position groups and saved presets.
+
+This is the **HUD restyle 002 port**, not the full Watched Instrument shell/record-tab migration tracked by issue #13. The build is technically verified, but the port is **not visually accepted or release-ready** until the remaining checks pass. The original archive was authored on 17 November and predates the current 27.1.1 reader integration; its older live-reader files must not replace the current build-specific scanner.
+
+
+### Windows validation evidence — run 1100
+
+- Branch: `rebuild/fm27-27.1.1-ui-hud-port`
+- Commit: `df670351809a47bc34a266ed3ae0287a3e615c6a`
+- GitHub Actions: https://github.com/lewisxatk/FM-Atlas/actions/runs/45617453400
+- Release build: passed, 0 warnings, 0 errors.
+- Automated tests: 126/126 passed.
+- Self-contained Windows x64 publish and package verification: passed.
+- WPF startup smoke test: passed.
+- Artifact: `fm-atlas-win-x64-1100`.
+- This is not a real FM27 live-career test and not a side-by-side visual acceptance pass.
+
+
+## Second UI pass — compact navigation and keyboard workflow
+
+The same port branch now also includes:
+- A collapsible navigation rail: 218px expanded / 68px compact, with labels hidden and icon tooltips retained in compact mode.
+- Keyboard shortcuts: Ctrl+K focuses global quick search; Ctrl+Shift+F opens Advanced Search; Escape closes quick-search results.
+- The active workspace title is more prominent; main and profile surfaces use the supplied square-corner treatment.
+- The live-status indicator is bound to `LiveSessionActive`, so its colour reflects actual connection state rather than showing green while disconnected.
+- The existing closable workspace tabs and full-width Player/Staff/Club profile views are retained. The Player profile already exposes its section tabs in the current modular branch; no duplicate profile implementation was added.
+
+### Windows validation — run 1114
+
+- Commit: `ee25306891830f6382278c46c5f1f9e00c330d6a`
+- Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/45618746412
+- Release build: passed, 0 warnings, 0 errors.
+- Automated tests: 126/126 passed.
+- Self-contained Windows x64 package and integrity verification: passed.
+- WPF startup smoke test: passed.
+- Artifact: `fm-atlas-win-x64-1114`.
+
+Still outstanding: real FM27 27.1.1 career read; screenshot comparison at 100% and 125% DPI; visual acceptance against the supplied reference images; final dashboard polish; and a full Nation profile/data source. The My Career route currently displays manager nationality and current-club nation strings, but there is not yet a full `NationRecord`/Nation workspace.
+
+
+## Third pass — package-scoped live validation correction
+
+A second 27.1.1 blocker was found by tracing the full import path: the connector created a provider key from the detected package version, but the streaming validator still expected the legacy 0.9.2524.0 key. This meant 0.9.2562.0 records could be rejected after a successful memory read. The connector now passes the session's matched provider key into a validator that requires an explicit expected identity. A regression test covers 0.9.2562.0.
+
+Windows run #1129:
+- Commit: `d3125cafacc68f09a8e152c960d6851bb22b8091`
+- Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/45619837764
+- 127/127 automated tests passed.
+- Release build: 0 warnings, 0 errors.
+- Self-contained x64 packaging and ZIP integrity: passed.
+- WPF startup smoke: passed.
+- Artifact: `fm-atlas-win-x64-1129`.
+
+This is still not proof of a successful live career read. The next required acceptance is the user's 27.1.1 career test and the live-connection log if it fails.
+
+
+## Final test package after cleanup — run 1145
+
+The legacy provider constant was renamed to `LegacyLiveProviderKey` throughout the connector, startup diagnostics and tests, preventing future code from treating 0.9.2524.0 as the current package. The My Career fallback information panel was also brought into the square HUD visual system and its nation wording clarified.
+
+- Commit: `476659c814d45af87355d0ae1f443d6a2ec52e13`
+- Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/45620917682
+- 127/127 tests passed.
+- Release build: 0 warnings, 0 errors.
+- Self-contained Windows x64 packaging and ZIP integrity: passed.
+- WPF startup smoke test: passed.
+- Artifact: `fm-atlas-win-x64-1145`.
+- The package is still not a substitute for testing against the user's live career.

@@ -58,14 +58,22 @@ public sealed record FM27LiveReadSummary(
 
 public static class FM27LiveScanValidator
 {
-    private const string ExpectedProvider = WindowsFm27LiveGameConnector.LiveProviderKey;
-
     /// <summary>
     /// Collects only counts and compact identity sets while records stream through the importer.
     /// It never materialises a second copy of the player/staff/club object graph.
     /// </summary>
     public sealed class StreamingAccumulator
     {
+        private readonly string _expectedProviderKey;
+
+        public StreamingAccumulator(string expectedProviderKey)
+        {
+            if (string.IsNullOrWhiteSpace(expectedProviderKey))
+                throw new ArgumentException("A matched live provider key is required.", nameof(expectedProviderKey));
+
+            _expectedProviderKey = expectedProviderKey;
+        }
+
         private readonly HashSet<string> _playerIds = new(StringComparer.Ordinal);
         private readonly HashSet<string> _staffIds = new(StringComparer.Ordinal);
         private readonly HashSet<string> _clubIds = new(StringComparer.Ordinal);
@@ -87,7 +95,7 @@ public static class FM27LiveScanValidator
             switch (record)
             {
                 case PlayerRecord player:
-                    ValidateIdentity(player.Identity, EntityKind.Player, _playerIds);
+                    ValidateIdentity(player.Identity, EntityKind.Player, _playerIds, _expectedProviderKey);
                     if (string.IsNullOrWhiteSpace(player.FullName?.Value))
                         throw new InvalidDataException("At least one player record has no usable name. The live layout has not passed validation.");
 
@@ -111,7 +119,7 @@ public static class FM27LiveScanValidator
                     break;
 
                 case StaffRecord staff:
-                    ValidateIdentity(staff.Identity, EntityKind.Staff, _staffIds);
+                    ValidateIdentity(staff.Identity, EntityKind.Staff, _staffIds, _expectedProviderKey);
                     if (string.IsNullOrWhiteSpace(staff.FullName?.Value))
                         throw new InvalidDataException("At least one staff record has no usable name. The live layout has not passed validation.");
 
@@ -122,7 +130,7 @@ public static class FM27LiveScanValidator
                     break;
 
                 case ClubRecord club:
-                    ValidateIdentity(club.Identity, EntityKind.Club, _clubIds);
+                    ValidateIdentity(club.Identity, EntityKind.Club, _clubIds, _expectedProviderKey);
                     if (string.IsNullOrWhiteSpace(club.Name?.Value))
                         throw new InvalidDataException("At least one club record has no usable name. The live layout has not passed validation.");
                     _clubs++;
@@ -185,10 +193,11 @@ public static class FM27LiveScanValidator
 
     public static FM27LiveScanValidationResult Validate(
         IEnumerable<IEntityRecord> records,
+        string expectedProviderKey,
         FM27LiveReadSummary? readSummary = null)
     {
         ArgumentNullException.ThrowIfNull(records);
-        var accumulator = new StreamingAccumulator();
+        var accumulator = new StreamingAccumulator(expectedProviderKey);
         foreach (var record in records)
             accumulator.Add(record);
         return accumulator.Complete(readSummary);
@@ -197,11 +206,12 @@ public static class FM27LiveScanValidator
     private static void ValidateIdentity(
         EntityIdentity identity,
         EntityKind expectedKind,
-        HashSet<string> seen)
+        HashSet<string> seen,
+        string expectedProviderKey)
     {
         if (identity.Kind != expectedKind ||
             !identity.IsUsable ||
-            !string.Equals(identity.ProviderKey, ExpectedProvider, StringComparison.Ordinal))
+            !string.Equals(identity.ProviderKey, expectedProviderKey, StringComparison.Ordinal))
         {
             throw new InvalidDataException(
                 $"The {expectedKind} records contained an invalid or unexpected source identity. Nothing has been imported.");

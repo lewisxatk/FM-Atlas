@@ -34,9 +34,30 @@ public sealed class FM27LiveScanValidatorTests
             yield return Club("3001");
         }
 
-        var result = FM27LiveScanValidator.Validate(SinglePass());
+        var result = FM27LiveScanValidator.Validate(SinglePass(), WindowsFm27LiveGameConnector.LegacyLiveProviderKey);
 
         Assert.Equal(1, enumerationCount);
+        Assert.Equal(4, result.Players);
+        Assert.Equal(2, result.Staff);
+        Assert.Equal(1, result.Clubs);
+    }
+
+    [Fact]
+    public void AcceptsBuildScopedProviderKeyForFm2711GamePassPackage()
+    {
+        const string providerKey = "live-fm27-gamepass-0.9.2562.0";
+        var accumulator = new FM27LiveScanValidator.StreamingAccumulator(providerKey);
+
+        accumulator.Add(Player("1001", 150, providerKey: providerKey));
+        accumulator.Add(Player("1002", 110, providerKey: providerKey));
+        accumulator.Add(Player("1003", 80, providerKey: providerKey));
+        accumulator.Add(Player("1004", 90, providerKey: providerKey));
+        accumulator.Add(Staff("2001", 140, providerKey));
+        accumulator.Add(Staff("2002", 90, providerKey));
+        accumulator.Add(Club("3001", providerKey));
+
+        var result = accumulator.Complete();
+
         Assert.Equal(4, result.Players);
         Assert.Equal(2, result.Staff);
         Assert.Equal(1, result.Clubs);
@@ -56,7 +77,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var result = FM27LiveScanValidator.Validate(records);
+        var result = FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LegacyLiveProviderKey);
 
         Assert.Equal(4, result.Players);
         Assert.Equal(2, result.Staff);
@@ -80,7 +101,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var result = FM27LiveScanValidator.Validate(records);
+        var result = FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LegacyLiveProviderKey);
 
         Assert.Equal(4, result.Players);
     }
@@ -99,7 +120,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LegacyLiveProviderKey));
 
         Assert.Contains("player value", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -115,7 +136,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LegacyLiveProviderKey));
 
         Assert.Contains("duplicate", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -133,7 +154,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LegacyLiveProviderKey));
 
         Assert.Contains("natural-position", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -151,7 +172,7 @@ public sealed class FM27LiveScanValidatorTests
             Club("3001")
         };
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LegacyLiveProviderKey));
 
         Assert.Contains("Current Ability", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -175,7 +196,7 @@ public sealed class FM27LiveScanValidatorTests
             ClubPointers: 10, ClubsRead: 10, ClubsSkipped: 0,
             FailureSamples: ["Player 0x1234: unreadable page"]);
 
-        var result = FM27LiveScanValidator.Validate(records, readSummary);
+        var result = FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LegacyLiveProviderKey, readSummary);
 
         Assert.Contains(result.Warnings, warning => warning.Contains("3 entries were skipped"));
         Assert.Single(readSummary.FailureSamples);
@@ -200,7 +221,7 @@ public sealed class FM27LiveScanValidatorTests
             ClubPointers: 10, ClubsRead: 10, ClubsSkipped: 0,
             FailureSamples: []);
 
-        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, readSummary));
+        var error = Assert.Throws<InvalidDataException>(() => FM27LiveScanValidator.Validate(records, WindowsFm27LiveGameConnector.LegacyLiveProviderKey, readSummary));
 
         Assert.Contains("80 of 100 players", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -209,8 +230,9 @@ public sealed class FM27LiveScanValidatorTests
         string uid,
         int? currentAbility,
         bool naturalPositionTwenty = true,
-        int? potentialAbility = 180) =>
-        new(new EntityIdentity(EntityKind.Player, uid, WindowsFm27LiveGameConnector.LiveProviderKey))
+        int? potentialAbility = 180,
+        string? providerKey = null) =>
+        new(new EntityIdentity(EntityKind.Player, uid, providerKey ?? WindowsFm27LiveGameConnector.LegacyLiveProviderKey))
         {
             FullName = new SourcedValue<string>($"Player {uid}", Evidence),
             GameUid = new SourcedValue<string>(uid, Evidence),
@@ -229,16 +251,16 @@ public sealed class FM27LiveScanValidatorTests
             }
         };
 
-    private static StaffRecord Staff(string uid, int? currentAbility) =>
-        new(new EntityIdentity(EntityKind.Staff, uid, WindowsFm27LiveGameConnector.LiveProviderKey))
+    private static StaffRecord Staff(string uid, int? currentAbility, string? providerKey = null) =>
+        new(new EntityIdentity(EntityKind.Staff, uid, providerKey ?? WindowsFm27LiveGameConnector.LegacyLiveProviderKey))
         {
             FullName = new SourcedValue<string>($"Staff {uid}", Evidence),
             GameUid = new SourcedValue<string>(uid, Evidence),
             CurrentAbility = currentAbility is int ca ? new SourcedValue<int>(ca, Evidence) : null
         };
 
-    private static ClubRecord Club(string uid) =>
-        new(new EntityIdentity(EntityKind.Club, uid, WindowsFm27LiveGameConnector.LiveProviderKey))
+    private static ClubRecord Club(string uid, string? providerKey = null) =>
+        new(new EntityIdentity(EntityKind.Club, uid, providerKey ?? WindowsFm27LiveGameConnector.LegacyLiveProviderKey))
         {
             Name = new SourcedValue<string>($"Club {uid}", Evidence)
         };

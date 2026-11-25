@@ -182,3 +182,71 @@ The Club profile uses the existing Advanced Search index to query exact equality
 A regression test inserts Player and Staff records for two different club IDs, then verifies that the Club 77 lookup returns only the Player and Staff records for 77, not the records for 88.
 
 These join fields remain `LiveGameMemory / Mapped`. The SQLite/test verifies batch projection and the exact query behaviour with representative values; only a live comparison against the active FM27 Game Pass career can elevate them to `ReadVerified`.
+
+
+## 10. 25 November 2026 update — user's FM27 27.1.1 Game Pass package
+
+The original sections above are a historical record of the 0.9.2435.0 investigation. The active user target is now:
+
+| Field | Value |
+|---|---|
+| Storefront | Microsoft Store / Xbox Game Pass |
+| Package | `0.9.2562.0` |
+| Product version | `27.1.1+2511875` |
+| PE machine | `0x8664` |
+| PE timestamp | `0x6AFF583B` |
+| SizeOfImage | `0x17624000` |
+| SHA-256 | `814f0190ea241710e0780bbff6589cc8137e6837c48cc25f868b1b676008242a` |
+| Build string RVA | `0x48765B3` |
+| Build string | `27.1.1+2511875` |
+
+The exact profile was added via PR #12. The profile's static roots are the 27.1.1 values recorded in `FM27_GAMEPASS_27.1.1_BUILD_0.9.2562.0.md`. The 27.1.1 reader shares the 0.9.2524.0 object layout with documented exceptions. The corporate-facilities field now uses the build-specific `0x8AD` offset; the old `0x8A9` value is retained only as the default for older reference profiles.
+
+Build 1062, previously given to the user for testing, predates the 27.1.1 profile integration and therefore could not establish 27.1.1 live compatibility. Build 1100 includes the profile and the field-offset correction and passed 126/126 automated tests, Release build, self-contained Windows x64 packaging and WPF startup smoke test. These are software/build checks only; no successful live read from the user's career has yet been witnessed.
+
+The user should test Build 1100 with FM27 fully loaded to a career. If the live load fails, capture `%LOCALAPPDATA%\\FM Atlas\\Logs\\live-connection.log` and the generated diagnostics artifact. The exact failure stage, process fingerprint, record counts and read errors are required to identify the next blocker.
+
+**Safety:** the process reader remains read-only. `CanReadLiveData` and all write capability gates remain fail-closed until a complete user-save comparison is recorded. Do not use a profile match alone to enable live editing.
+
+
+### 25 November follow-up — current integration branch
+
+The current UI/reader integration branch is `rebuild/fm27-27.1.1-ui-hud-port`, draft PR #14. Windows run #1114 passed 126/126 tests, zero warnings/errors, self-contained x64 package verification and WPF startup smoke. The package is `fm-atlas-win-x64-1114`. The previous Build 1062 was older than the 27.1.1 profile and should not be used as the compatibility verdict.
+
+The current source also includes the HUD restyle 002, compact navigation and search shortcuts. A full Nation profile remains absent; My Career currently displays manager nationality and club nation strings from the staff/club snapshots.
+
+Do not mark live compatibility complete until the user loads their 27.1.1 career and FM Atlas successfully reads a non-zero player/staff/club population with sensible sample fields. Capture the live-connection log and diagnostics on any failure.
+
+
+### 25 November root-cause correction — provider identity mismatch
+
+A source review found a second 27.1.1 blocker after the build-profile registration: `WindowsFm27LiveGameConnector` generated provider identities from the matched package version (for example `live-fm27-gamepass-0.9.2562.0`), but `FM27LiveScanValidator` still compared every record against the legacy constant for `0.9.2524.0`. Therefore the 27.1.1 records could be read correctly and then rejected before import because their provider key was different.
+
+Correction on the current branch:
+- `StreamingAccumulator` now requires an explicit expected provider key.
+- The connector passes `work.Session.ProviderKey` from the matched build profile into the validator.
+- The static validation helper also requires an explicit provider key; there is no silent legacy default.
+- Regression test `AcceptsBuildScopedProviderKeyForFm2711GamePassPackage` verifies the `0.9.2562.0` identity.
+
+Build 1114 included the profile and finance offset correction but predated this provider-key fix. Build 1129 includes both fixes and passed 127/127 automated tests, zero warnings/errors, self-contained x64 packaging and WPF startup smoke. Build 1129 is the first candidate to test for the complete 27.1.1 connection path. The user's actual career has not yet been successfully read; the result remains pending user-side testing.
+
+
+### Independent build-string and Nation cross-check
+
+The FM Editor 27.1.1 Game Pass profile independently matches the uploaded DLL's PE timestamp and image size and records build string RVA `0x48765B3`. The actual uploaded DLL was inspected at that RVA and contains `27.1.1+2511875\0`.
+
+The same profile exposes the Nation list root `0x53EAF00`, vector offset `0x240`, and Nation vtable RVA `0x4A601A8`. Its base Windows layout maps Nation ID/name/short name and linked men's/women's national-team objects. FMLibreEditor independently records separate men's/women's national-team array roots `0x53F8F50` / `0x53F8F68`. These Nation roots are not consumed by the current Atlas reader yet; see `research/NATION_PROFILE_REVERSE_ENGINEERING_001.md`.
+
+
+### Latest candidate build — 25 November 2026
+
+Build 1145 includes the package-scoped provider validator fix, renames the old constant to `LegacyLiveProviderKey` in the connector/startup diagnostics/tests, and includes the final HUD/compact-navigation/My Career panel pass.
+
+- Run: https://github.com/lewisxatk/FM-Atlas/actions/runs/45620917682
+- Commit: `476659c814d45af87355d0ae1f443d6a2ec52e13`
+- Tests: 127/127 passed.
+- Build: zero warnings and zero errors.
+- Packaging, ZIP integrity and WPF startup smoke: passed.
+- Candidate artifact: `fm-atlas-win-x64-1145`.
+
+This is the candidate to use for the next user-side live test. The first real 27.1.1 career read is still unverified.

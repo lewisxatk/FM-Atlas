@@ -13,7 +13,7 @@ using FMAtlas.Domain.Staff;
 namespace FMAtlas.Infrastructure.Connection;
 
 /// <summary>
-/// Read-only reader for FM27 27.1.0 Game Pass package 0.9.2524.0.
+/// Read-only reader for the exact FM27 Game Pass builds registered in GameBuildProfileCatalog.
 /// The PE fingerprint and all module-relative roots are pinned to this exact package;
 /// a different build is rejected before any entity data is read.
 /// </summary>
@@ -846,7 +846,7 @@ internal sealed class FM27GamePassReader
             CopyFinanceToSearch(finances, "wage_budget", "club_wage_budget", indexedDecimals);
             CopyFinanceToSearch(finances, "ticket_price", "club_ticket_price", indexedDecimals);
 
-            var corporate = TryReadByte(finance + 0x8A9);
+            var corporate = TryReadByte(finance + _profile.CorporateFacilitiesOffset);
             if (corporate is byte rating and >= 1 and <= 20)
                 indexedIntegers["club_corporate_facilities"] = new SourcedValue<int>(rating, evidence);
         }

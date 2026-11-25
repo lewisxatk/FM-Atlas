@@ -45,7 +45,7 @@ public partial class App : System.Windows.Application
         try
         {
             ((FMAtlas.Application.Abstractions.IEntityRecordBatchSnapshotStore)snapshotStore)
-                .DeleteProviderAsync(WindowsFm27LiveGameConnector.LiveProviderKey)
+                .DeleteProviderAsync(WindowsFm27LiveGameConnector.LegacyLiveProviderKey)
                 .GetAwaiter().GetResult();
         }
         catch (Exception exception)

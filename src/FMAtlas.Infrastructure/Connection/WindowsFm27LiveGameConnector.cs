@@ -13,8 +13,8 @@ namespace FMAtlas.Infrastructure.Connection;
 /// </summary>
 public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
 {
-    public const string LiveProviderKey = "live-fm27-gamepass-0.9.2524.0";
-    private static readonly string[] KnownLiveProviderKeys =
+    public const string LegacyLiveProviderKey = "live-fm27-gamepass-0.9.2524.0";
+    private static readonly string[] KnownLegacyLiveProviderKeys =
     [
         "live-fm27-gamepass-0.9.2524.0",
         "live-fm27-gamepass-0.9.2562.0"
@@ -98,10 +98,10 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             // A live provider is a disposable snapshot, never a fallback cache.
             // Clear it before scanning so a failed/cancelled reload cannot leave the
             // previous career visible as if it were still the active save.
-            foreach (var providerKey in KnownLiveProviderKeys)
+            foreach (var providerKey in KnownLegacyLiveProviderKeys)
                 await _snapshotStore.DeleteProviderAsync(providerKey, CancellationToken.None).ConfigureAwait(false);
             if (previousSession is not null &&
-                !string.Equals(previousSession.ProviderKey, LiveProviderKey, StringComparison.Ordinal))
+                !string.Equals(previousSession.ProviderKey, LegacyLiveProviderKey, StringComparison.Ordinal))
             {
                 await _snapshotStore.DeleteProviderAsync(previousSession.ProviderKey, CancellationToken.None).ConfigureAwait(false);
             }
@@ -127,7 +127,7 @@ public sealed class WindowsFm27LiveGameConnector : ILiveGameConnector
             using var atlasProcess = Process.GetCurrentProcess();
             var workingSetBeforeImport = atlasProcess.WorkingSet64;
 
-            var validationAccumulator = new FM27LiveScanValidator.StreamingAccumulator();
+            var validationAccumulator = new FM27LiveScanValidator.StreamingAccumulator(work.Session.ProviderKey);
             var validatedRecords = ValidateAsRead(work.Records, validationAccumulator, cancellationToken);
             FM27LiveScanValidationResult? validation = null;
             FM27LiveReadSummary? readSummary = null;

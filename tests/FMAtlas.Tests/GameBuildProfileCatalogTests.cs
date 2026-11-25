@@ -15,6 +15,7 @@ public sealed class GameBuildProfileCatalogTests
 
         Assert.NotNull(match);
         Assert.Equal("fm27-gamepass-0.9.2435.0", match!.Id);
+        Assert.Equal(0x8A9UL, match.CorporateFacilitiesOffset);
         Assert.Equal(GameBuildEvidenceStatus.ExternalReferenceOnly, match.EvidenceStatus);
         Assert.False(match.CanReadLiveData);
         Assert.False(match.CanWriteLiveData);
@@ -30,6 +31,7 @@ public sealed class GameBuildProfileCatalogTests
 
         Assert.NotNull(match);
         Assert.Equal("fm27-gamepass-0.9.2524.0", match!.Id);
+        Assert.Equal(0x8ADUL, match.CorporateFacilitiesOffset);
         Assert.Equal(GameBuildEvidenceStatus.ExternalReferenceOnly, match.EvidenceStatus);
         Assert.True(match.CanAttemptReadOnlyScan);
         Assert.False(match.CanReadLiveData);
@@ -47,6 +49,7 @@ public sealed class GameBuildProfileCatalogTests
         Assert.NotNull(match);
         Assert.Equal("fm27-gamepass-0.9.2562.0", match!.Id);
         Assert.Equal("0.9.2562.0", match.PackageVersion);
+        Assert.Equal(0x8ADUL, match.CorporateFacilitiesOffset);
         Assert.Equal(GameBuildEvidenceStatus.ExternalReferenceOnly, match.EvidenceStatus);
         Assert.True(match.HasReadOnlyScanner);
         Assert.True(match.HasRequiredReadOnlyLayout);

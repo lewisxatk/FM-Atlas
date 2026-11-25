@@ -247,18 +247,60 @@ public partial class AdvancedSearchWindow : Window
         if (PositionButtonsCanvas is null)
             return;
 
+        // The ToggleButton template owns the selected/hover visuals; this method
+        // only synchronises state and the human-readable selection summary.
+        var selectedCodes = new List<string>();
         foreach (var button in PositionButtonsCanvas.Children.OfType<ToggleButton>())
         {
-            var selected = _viewModel.IsPositionSelected(button.Tag?.ToString() ?? string.Empty);
+            var key = button.Tag?.ToString() ?? string.Empty;
+            var selected = _viewModel.IsPositionSelected(key);
             button.IsChecked = selected;
-            button.Background = selected
-                ? new SolidColorBrush(Color.FromRgb(0xD8, 0x78, 0x3C))
-                : new SolidColorBrush(Color.FromRgb(0x50, 0x58, 0x61));
-            button.BorderBrush = selected
-                ? new SolidColorBrush(Color.FromRgb(0xF1, 0xA0, 0x64))
-                : new SolidColorBrush(Color.FromRgb(0x7B, 0x83, 0x8D));
-            button.Foreground = Brushes.WhiteSmoke;
+            if (selected)
+                selectedCodes.Add(button.Content?.ToString() ?? key);
         }
+
+        if (PositionSummaryText is not null)
+        {
+            PositionSummaryText.Text = selectedCodes.Count == 0
+                ? "NO POSITIONS SELECTED"
+                : $"{selectedCodes.Count} SELECTED · {string.Join(" · ", selectedCodes)}";
+        }
+    }
+
+    private static readonly Dictionary<string, string[]> PositionGroups = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["GK"] = new[] { "gk" },
+        ["DEF"] = new[] { "sw", "dl", "dc", "dr", "wbl", "wbr" },
+        ["MID"] = new[] { "dm", "ml", "mc", "mr" },
+        ["ATT"] = new[] { "aml", "amc", "amr", "st" },
+    };
+
+    private void PositionGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button)
+            return;
+
+        var tag = button.Tag?.ToString() ?? string.Empty;
+        if (string.Equals(tag, "CLEAR", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var key in _viewModel.SelectedPositions.ToArray())
+                _viewModel.TogglePosition(key);
+            RefreshPositionSelector();
+            return;
+        }
+
+        if (!PositionGroups.TryGetValue(tag, out var codes))
+            return;
+
+        var keys = codes.Select(code => "position_" + code).ToArray();
+        var allSelected = keys.All(_viewModel.IsPositionSelected);
+        foreach (var key in keys)
+        {
+            if (_viewModel.IsPositionSelected(key) == allSelected)
+                _viewModel.TogglePosition(key);
+        }
+
+        RefreshPositionSelector();
     }
 
     private void SetSelected(Button button, bool selected)

@@ -22,7 +22,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4"
+                                CornerRadius="2"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -105,7 +105,7 @@
             <StackPanel Grid.Column="0">
                 <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="15">
                     <StackPanel>
-                        <Border Height="194" Background="#151515" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="7">
+                        <Border Height="194" Background="#151515" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="2">
                             <Grid>
                                 <Image Source="{Binding PortraitUri}" Stretch="UniformToFill"/>
                                 <TextBlock Text="PLAYER PHOTO" Foreground="{StaticResource Atlas.Subtle}" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -208,7 +208,7 @@
                                                             <ColumnDefinition Width="44"/>
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Text="{Binding DisplayName}" FontSize="11" Foreground="{StaticResource Atlas.Text}" VerticalAlignment="Center"/>
-                                                        <Border Grid.Column="1" Background="#1B1B1B" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="4" Padding="5,2">
+                                                        <Border Grid.Column="1" Background="#1B1B1B" BorderBrush="{StaticResource Atlas.Border}" BorderThickness="1" CornerRadius="2" Padding="5,2">
                                                             <TextBlock Text="{Binding ValueText}" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource Atlas.Muted}" TextAlignment="Center"/>
                                                         </Border>
                                                     </Grid>
@@ -269,7 +269,7 @@
                 <Border Style="{StaticResource Atlas.ProfilePanel}" Padding="12" Margin="0,0,0,10">
                     <StackPanel>
                         <TextBlock Text="POSITIONS &amp; FAMILIARITY" FontSize="9" Foreground="{StaticResource Atlas.Accent}"/>
-                        <Border Background="#142019" BorderBrush="#385541" BorderThickness="1" CornerRadius="5" Padding="5" Margin="0,9,0,0">
+                        <Border Background="#142019" BorderBrush="#385541" BorderThickness="1" CornerRadius="2" Padding="5" Margin="0,9,0,0">
                             <Grid Width="216" Height="206">
                                 <Rectangle Stroke="#52745A" StrokeThickness="1"/>
                                 <Line X1="0" Y1="103" X2="216" Y2="103" Stroke="#52745A" StrokeThickness="1"/>
@@ -324,7 +324,7 @@
                 Background="{StaticResource Atlas.Surface}"
                 BorderBrush="{StaticResource Atlas.Border}"
                 BorderThickness="1"
-                CornerRadius="8"
+                CornerRadius="2"
                 Padding="20">
             <Border.Style>
                 <Style TargetType="Border">
