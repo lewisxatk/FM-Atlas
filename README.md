@@ -2,7 +2,7 @@
 
 A Windows desktop application for Football Manager scouting, live-save intelligence and (in a later, separately verified stage) editing.
 
-**Current development branch:** `rebuild/fm27-0.9.2562-readonly-profile`  
+**Current development branch:** `rebuild/fresh-foundation-001`  
 **Architecture:** .NET 8 WPF, modular Domain / Application / Infrastructure / Desktop / Tests.  
 **Design authority:** `docs/REFERENCE_LIBRARY.md` and `docs/DESIGN_SPECIFICATION.md`.
 
